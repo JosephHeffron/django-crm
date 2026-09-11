@@ -33,10 +33,14 @@ urlpatterns = [
         views.ContactDeactivateView.as_view(),
         name="contact_deactivate",
     ),
+    path("leads/", views.LeadListView.as_view(), name="lead_list"),
+    path("leads/add/", views.LeadCreateView.as_view(), name="lead_create"),
+    path("leads/<int:pk>/", views.LeadDetailView.as_view(), name="lead_detail"),
+    path("leads/<int:pk>/edit/", views.LeadUpdateView.as_view(), name="lead_update"),
     path(
-        "leads/",
-        ComingSoonView.as_view(section_label="Leads"),
-        name="lead_list",
+        "leads/<int:pk>/convert/",
+        views.LeadConvertView.as_view(),
+        name="lead_convert",
     ),
     path(
         "deals/",

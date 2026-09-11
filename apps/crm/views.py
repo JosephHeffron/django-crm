@@ -1,11 +1,20 @@
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db.models import Q
-from django.shortcuts import redirect
+from django.shortcuts import get_object_or_404, redirect, render
+from django.utils import timezone
+from django.views import View
 from django.views.generic import CreateView, DetailView, ListView, UpdateView
 
-from .forms import CompanyForm, ContactForm
-from .models import Company, Contact
+from .forms import CompanyForm, ContactForm, LeadConversionForm, LeadForm
+from .models import Company, Contact, Deal, Lead
+
+
+def _split_lead_name(name):
+    parts = name.strip().split(None, 1)
+    if len(parts) == 2:
+        return parts[0], parts[1]
+    return name.strip(), ""
 
 
 class CompanyListView(LoginRequiredMixin, ListView):
@@ -183,3 +192,149 @@ class ContactDeactivateView(LoginRequiredMixin, DetailView):
         contact.save(update_fields=["is_active"])
         messages.success(request, f"Deactivated contact “{contact}”.")
         return redirect(contact.get_absolute_url())
+
+
+class LeadListView(LoginRequiredMixin, ListView):
+    model = Lead
+    template_name = "crm/lead_list.html"
+    context_object_name = "leads"
+    paginate_by = 25
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        query = self.request.GET.get("q", "").strip()
+        if query:
+            queryset = queryset.filter(
+                Q(name__icontains=query)
+                | Q(company_name__icontains=query)
+                | Q(email__icontains=query)
+            )
+
+        status = self.request.GET.get("status")
+        if status in Lead.Status.values:
+            queryset = queryset.filter(status=status)
+
+        return queryset
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["query"] = self.request.GET.get("q", "")
+        context["status"] = self.request.GET.get("status", "")
+        context["status_choices"] = Lead.Status.choices
+        return context
+
+
+class LeadDetailView(LoginRequiredMixin, DetailView):
+    model = Lead
+    template_name = "crm/lead_detail.html"
+    context_object_name = "lead"
+
+
+class LeadCreateView(LoginRequiredMixin, CreateView):
+    model = Lead
+    form_class = LeadForm
+    template_name = "crm/lead_form.html"
+
+    def form_valid(self, form):
+        form.instance.created_by = self.request.user
+        response = super().form_valid(form)
+        messages.success(self.request, f"Created lead “{self.object.name}”.")
+        return response
+
+
+class LeadUpdateView(LoginRequiredMixin, UpdateView):
+    model = Lead
+    form_class = LeadForm
+    template_name = "crm/lead_form.html"
+
+    def form_valid(self, form):
+        response = super().form_valid(form)
+        messages.success(self.request, f"Updated lead “{self.object.name}”.")
+        return response
+
+
+class LeadConvertView(LoginRequiredMixin, View):
+    """GET shows a conversion form pre-filled from the Lead; POST
+    creates/links a Company, always creates a Contact, optionally opens
+    a Deal, then marks the Lead converted — the workflow documented in
+    docs/DATABASE_DESIGN.md's Lifecycle behavior section. The Lead row
+    is kept, not deleted, as the historical record of where the
+    Company/Contact/Deal came from.
+    """
+
+    template_name = "crm/lead_convert.html"
+
+    def get(self, request, pk):
+        lead = get_object_or_404(Lead, pk=pk)
+        if lead.status == Lead.Status.CONVERTED:
+            messages.info(request, f"“{lead.name}” has already been converted.")
+            return redirect(lead.get_absolute_url())
+
+        first_name, last_name = _split_lead_name(lead.name)
+        form = LeadConversionForm(
+            initial={
+                "new_company_name": lead.company_name,
+                "contact_first_name": first_name,
+                "contact_last_name": last_name,
+                "contact_email": lead.email,
+                "contact_phone": lead.phone,
+                "deal_title": f"{lead.name} deal",
+            }
+        )
+        return render(request, self.template_name, {"lead": lead, "form": form})
+
+    def post(self, request, pk):
+        lead = get_object_or_404(Lead, pk=pk)
+        if lead.status == Lead.Status.CONVERTED:
+            messages.info(request, f"“{lead.name}” has already been converted.")
+            return redirect(lead.get_absolute_url())
+
+        form = LeadConversionForm(request.POST)
+        if not form.is_valid():
+            return render(request, self.template_name, {"lead": lead, "form": form})
+
+        data = form.cleaned_data
+        if data["existing_company"]:
+            company = data["existing_company"]
+        elif data["new_company_name"]:
+            company = Company.objects.create(name=data["new_company_name"], created_by=request.user)
+        else:
+            company = None
+
+        contact = Contact.objects.create(
+            first_name=data["contact_first_name"],
+            last_name=data["contact_last_name"],
+            email=data["contact_email"],
+            phone=data["contact_phone"],
+            company=company,
+            created_by=request.user,
+        )
+
+        deal = None
+        if data["create_deal"]:
+            deal = Deal.objects.create(
+                title=data["deal_title"],
+                company=company,
+                contact=contact,
+                value=data["deal_value"],
+                created_by=request.user,
+            )
+
+        lead.status = Lead.Status.CONVERTED
+        lead.converted_at = timezone.now()
+        lead.converted_company = company
+        lead.converted_contact = contact
+        lead.converted_deal = deal
+        lead.save(
+            update_fields=[
+                "status",
+                "converted_at",
+                "converted_company",
+                "converted_contact",
+                "converted_deal",
+                "updated_at",
+            ]
+        )
+
+        messages.success(request, f"Converted “{lead.name}”.")
+        return redirect(lead.get_absolute_url())

@@ -153,6 +153,9 @@ class Lead(models.Model):
     def __str__(self):
         return self.name
 
+    def get_absolute_url(self):
+        return reverse("crm:lead_detail", kwargs={"pk": self.pk})
+
 
 class Deal(models.Model):
     class Stage(models.TextChoices):
