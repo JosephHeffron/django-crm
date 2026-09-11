@@ -2,13 +2,23 @@ from django.urls import path
 
 from apps.core.views import ComingSoonView
 
+from . import views
+
 app_name = "crm"
 
 urlpatterns = [
+    path("companies/", views.CompanyListView.as_view(), name="company_list"),
+    path("companies/add/", views.CompanyCreateView.as_view(), name="company_create"),
+    path("companies/<int:pk>/", views.CompanyDetailView.as_view(), name="company_detail"),
     path(
-        "companies/",
-        ComingSoonView.as_view(section_label="Companies"),
-        name="company_list",
+        "companies/<int:pk>/edit/",
+        views.CompanyUpdateView.as_view(),
+        name="company_update",
+    ),
+    path(
+        "companies/<int:pk>/delete/",
+        views.CompanyDeleteView.as_view(),
+        name="company_delete",
     ),
     path(
         "contacts/",
