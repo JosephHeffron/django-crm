@@ -44,7 +44,13 @@
         {% endif %}
       </dd>
       <dt>Deal</dt>
-      <dd>{{ lead.converted_deal.title|default:"—" }}</dd>
+      <dd>
+        {% if lead.converted_deal %}
+          <a href="{{ lead.converted_deal.get_absolute_url }}">{{ lead.converted_deal.title }}</a>
+        {% else %}
+          —
+        {% endif %}
+      </dd>
     </dl>
     <p><a href="{% url 'crm:lead_update' lead.pk %}">Edit</a></p>
   {% else %}

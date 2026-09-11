@@ -42,11 +42,10 @@ urlpatterns = [
         views.LeadConvertView.as_view(),
         name="lead_convert",
     ),
-    path(
-        "deals/",
-        ComingSoonView.as_view(section_label="Deals"),
-        name="deal_list",
-    ),
+    path("deals/", views.DealListView.as_view(), name="deal_list"),
+    path("deals/add/", views.DealCreateView.as_view(), name="deal_create"),
+    path("deals/<int:pk>/", views.DealDetailView.as_view(), name="deal_detail"),
+    path("deals/<int:pk>/edit/", views.DealUpdateView.as_view(), name="deal_update"),
     path(
         "activities/",
         ComingSoonView.as_view(section_label="Activities"),

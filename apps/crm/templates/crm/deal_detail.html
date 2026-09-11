@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+
+{% block title %}{{ deal.title }}{% endblock %}
+
+{% block content %}
+  <p><a href="{% url 'crm:deal_list' %}">← Deals</a></p>
+  <h1>{{ deal.title }}</h1>
+  <p>{{ deal.get_stage_display }}{% if not deal.is_open %} (closed){% endif %}</p>
+
+  <dl>
+    <dt>Company</dt>
+    <dd>
+      {% if deal.company %}
+        <a href="{{ deal.company.get_absolute_url }}">{{ deal.company.name }}</a>
+      {% else %}
+        —
+      {% endif %}
+    </dd>
+    <dt>Contact</dt>
+    <dd>
+      {% if deal.contact %}
+        <a href="{{ deal.contact.get_absolute_url }}">{{ deal.contact }}</a>
+      {% else %}
+        —
+      {% endif %}
+    </dd>
+    <dt>Value</dt>
+    <dd>{{ deal.value|default:"—" }}</dd>
+    <dt>Probability</dt>
+    <dd>{% if deal.probability is not None %}{{ deal.probability }}%{% else %}—{% endif %}</dd>
+    <dt>Expected close date</dt>
+    <dd>{{ deal.expected_close_date|default:"—" }}</dd>
+    <dt>Closed at</dt>
+    <dd>{{ deal.closed_at|default:"—" }}</dd>
+    <dt>Owner</dt>
+    <dd>{{ deal.owner|default:"Unassigned" }}</dd>
+    <dt>Notes</dt>
+    <dd>{{ deal.notes|default:"—"|linebreaksbr }}</dd>
+  </dl>
+
+  <p><a href="{% url 'crm:deal_update' deal.pk %}">Edit</a></p>
+
+  <h2>Tasks</h2>
+  {% if tasks %}
+    <ul>
+      {% for task in tasks %}
+        <li>{{ task.title }} — {{ task.get_status_display }}</li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <p>No tasks yet.</p>
+  {% endif %}
+{% endblock %}
