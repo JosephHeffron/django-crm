@@ -5,9 +5,9 @@ Close Procedure). Do not describe anything as complete unless it was
 actually verified.
 
 > **Last updated 2026-09-11.** Repo is clean (`main` up to date, nothing
-> uncommitted). Phase 3 is fully complete. Next: resolve
-> `docs/DATABASE_REVIEW.md`'s deferred HIGH findings before starting
-> Phase 4 — see "Next" below.
+> uncommitted). Phase 3 is fully complete, and the deferred Phase 2
+> review findings are now resolved. Next: Phase 4 (Activities, Tasks,
+> audit history) — see "Next" below.
 
 ## Project version
 
@@ -19,8 +19,9 @@ Phase 2 (CRM database) and Phase 3 (CRM interface) are both complete.
 Phase 3 shipped in 5 units: authentication + base shell, full
 navigation/error pages/styling, Companies CRUD, Contacts CRUD, and
 Leads/Deals workflows (including the lead-to-Contact/Company/Deal
-conversion workflow). Next: resolve the deferred Phase 2 review
-findings, then Phase 4 (Activities, Tasks, audit history).
+conversion workflow). The two deferred HIGH findings and one MEDIUM
+finding from `docs/DATABASE_REVIEW.md` are now resolved (see below).
+Next: Phase 4 (Activities, Tasks, audit history).
 
 Phase 2's `docs/DATABASE_REVIEW.md` found 2 HIGH findings (Activity's
 `CASCADE` can silently destroy history still relevant to a surviving
@@ -141,6 +142,17 @@ Phase 3 — see Known Issues below.
 
 **Phase 3 (CRM interface) is now fully complete.**
 
+- Pre-Phase-4 — resolved `docs/DATABASE_REVIEW.md`'s two HIGH findings
+  and MEDIUM finding #7 (PR #27): `Activity`'s four relation FKs changed
+  `CASCADE` → `SET_NULL` (chose to preserve multi-tagging rather than
+  restrict Activity to exactly one relation), the now-incompatible
+  `activity_has_related_object` `CheckConstraint` removed,
+  `Activity.save()` now rejects updates to existing rows, and
+  `CLAUDE.md` documents that `on_delete` only holds through Django, not
+  raw SQL. Each finding's original failing reproduction was re-run and
+  confirmed fixed, not just re-read. 161 tests total. Full detail in
+  `logs/claude/phase-04-prep-resolve-review-findings.md`.
+
 ## Currently working on
 
 Nothing in progress. 6 Dependabot PRs (4 pip minor/patch bumps, 2 GitHub
@@ -149,35 +161,19 @@ anything. (A 7th, the pytest security fix, was merged.)
 
 ## Next
 
-1. Resolve `docs/DATABASE_REVIEW.md`'s two HIGH findings (Activity
-   CASCADE, on_delete enforcement) and the Activity-immutability MEDIUM
-   finding — deferred since the start of Phase 3, and this is the
-   natural point to return to them since Phase 4's Activity Timeline
-   work is exactly what they're about.
-2. Phase 4 — Activities, Tasks, audit history.
-3. Review/merge (or leave) the remaining open Dependabot PRs.
+1. Phase 4 — Activities, Tasks, audit history.
+2. Review/merge (or leave) the remaining open Dependabot PRs.
 
 ## Known issues
 
-Two HIGH-severity schema findings from `docs/DATABASE_REVIEW.md`,
-deliberately not yet fixed (review-only, per the explicit instruction —
-see "Next" above for the resolution decision):
+None currently known. (The three findings previously tracked here —
+Activity's `CASCADE` behavior, `on_delete` ORM-only enforcement, and
+Activity immutability — are resolved; see "Completed" above and
+`docs/DATABASE_REVIEW.md` for the full resolution detail.)
 
-1. `Activity`'s `CASCADE` on all four relation FKs can destroy history
-   still relevant to a surviving object, if an Activity is tagged to
-   more than one of Company/Contact/Lead/Deal at once and only one of
-   them is deleted.
-2. `on_delete` behavior (`PROTECT`/`SET_NULL`/`CASCADE`) is enforced
-   entirely by Django's ORM, not by PostgreSQL — any deletion that
-   bypasses the ORM (raw SQL, a future data-migration script) won't
-   honor it.
-
-Plus one MEDIUM finding worth flagging here specifically: `Activity`
-immutability (documented as an invariant) is enforced only by
-`ActivityAdmin.has_change_permission`, not at the model layer — any
-other write path can still edit or reassign an existing Activity.
-
-Full findings, severities, and recommendations: `docs/DATABASE_REVIEW.md`.
+Remaining MEDIUM/LOW findings from `docs/DATABASE_REVIEW.md` (#3-#6 and
+the LOW items) are still open but were assessed as non-blocking —
+see that document for details.
 
 ## Production
 

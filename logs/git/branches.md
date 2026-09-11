@@ -59,3 +59,9 @@ Format: `YYYY-MM-DD | created|merged|deleted | <branch> | requested by`
 2026-09-11 | created | feature/deals-crud | Claude, user approved
 2026-09-11 | merged (PR #25, squash) | feature/deals-crud | user approved
 2026-09-11 | deleted (remote, on merge; local, by Claude after sync) | feature/deals-crud | user approved
+2026-09-11 | created | chore/close-phase-3 | Claude, user approved
+2026-09-11 | merged (PR #26, squash) | chore/close-phase-3 | user approved
+2026-09-11 | deleted (remote, on merge; local, by Claude after sync) | chore/close-phase-3 | user approved
+2026-09-11 | created | fix/activity-cascade-and-immutability | Claude, user approved
+2026-09-11 | merged (PR #27, squash) | fix/activity-cascade-and-immutability | user approved
+2026-09-11 | deleted (remote, on merge; local, by Claude after sync) | fix/activity-cascade-and-immutability | user approved
