@@ -10,9 +10,10 @@ actually verified.
 
 ## Current phase
 
-AI development governance layer — complete. GitHub remote is live with CI,
-branch protection, Dependabot, and secret scanning all active and
-verified.
+Phase 2 (CRM database design) — design complete
+(`docs/DATABASE_DESIGN.md`), reviewed and merged. Model implementation
+(`apps/crm/models.py`, migrations, admin, tests) is the next step, not yet
+started.
 
 ## Completed
 
@@ -31,27 +32,38 @@ verified.
   `pip-audit`, `bandit` all pass. Full detail in
   `logs/claude/phase-00-ai-rules.md`.
 - GitHub remote: `github.com/JosephHeffron/django-crm` (public), `main`
-  pushed and verified (`ci`/`security` both passed on the push). Branch
-  protection on `main`: PR required, `ci`+`security` required status
-  checks (strict/up-to-date), no force-push, no deletion, conversation
-  resolution required, `enforce_admins: true`. Secret scanning + push
-  protection enabled by default (public repo); Dependabot security
-  updates enabled. Dependabot already opened 7 PRs (5 pip, 2 GitHub
-  Actions), all passing CI — none merged yet, awaiting review (one,
-  `pytest` 8.4.2→9.1.1, is a major bump that needs a closer look per the
-  "review before major upgrades" rule).
+  pushed and verified. Branch protection on `main`: PR required, `test`+
+  `dependency-audit` required status checks (the actual CI *job* names,
+  not the `ci`/`security` workflow file names — corrected after an
+  initial misconfiguration), strict/up-to-date, no force-push, no
+  deletion, conversation resolution required, `enforce_admins: true`.
+  Secret scanning + push protection enabled by default (public repo);
+  Dependabot security updates enabled. PR #4 (`pytest` 8.4.2→9.1.1, fixes
+  a real medium-severity advisory) merged; 6 more Dependabot PRs still
+  open for review.
+- Phase 2 database design (`docs/DATABASE_DESIGN.md`, PR #9): Company,
+  Contact, Lead, Deal, Task, Activity — fields, relationships,
+  constraints, indexing, lifecycle. An automated review caught two real
+  defects (a `SET_NULL`/`CheckConstraint` conflict on Deal, and a
+  self-contradictory `CASCADE` rationale) — both fixed before merge. Full
+  detail in `logs/claude/phase-02-database-design.md`.
 
 ## Currently working on
 
-Nothing in progress. Open Dependabot PRs are waiting on your review/merge
-decision — not blocking anything.
+Nothing in progress. 6 Dependabot PRs (5 pip minor/patch bumps, 2 GitHub
+Actions bumps) are still open, waiting on review/merge — not blocking
+anything. (A 7th, the pytest security fix, was merged.)
 
 ## Next
 
-1. Review/merge (or leave) the open Dependabot PRs.
-2. Phase 2 — Database design (`docs/DATABASE_DESIGN.md`) for Companies,
-   Contacts, Leads, Deals, Activities, Tasks, Notes, before any models are
-   implemented.
+1. Implement `apps/crm` models from `docs/DATABASE_DESIGN.md`: Company,
+   Contact, Lead, Deal, Task, Activity — migrations, admin registration,
+   model tests (creation, relationships, constraints, validation, edge
+   cases).
+2. `docs/DATABASE_REVIEW.md` — a senior-reviewer pass on the implemented
+   schema against the design doc, per the roadmap, before moving on to
+   the CRM interface (Phase 3).
+3. Review/merge (or leave) the remaining open Dependabot PRs.
 
 ## Known issues
 
