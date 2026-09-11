@@ -4,6 +4,10 @@ Update this file at the end of every session (see `CLAUDE.md`'s Session
 Close Procedure). Do not describe anything as complete unless it was
 actually verified.
 
+> **Session paused here on 2026-09-11.** Repo is clean (`main` up to
+> date, nothing uncommitted, no PRs open from this session). To resume,
+> start with `docs/DATABASE_REVIEW.md` — see "Next" below.
+
 ## Project version
 
 0.1.0 (unreleased — no tags yet)
