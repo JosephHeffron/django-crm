@@ -293,3 +293,21 @@ Tests: 161 passed (up from 158); test + dependency-audit passed on PR
 Migration: crm.0003_remove_activity_activity_has_related_object_and_more
 Reviewer: Human (+ sourcery-ai bot review, no findings)
 Status: READY
+
+2026-09-11
+Branch: main (merged from chore/close-review-findings-resolution, PR #28)
+Commit: b05bbc5
+Message: Close out the pre-Phase-4 review-findings resolution (#28)
+Tests: test + dependency-audit passed on PR (docs/logs only)
+Migration: none
+Reviewer: Human (+ sourcery-ai bot review, no findings)
+Status: READY
+
+2026-09-11
+Branch: main (merged from feature/activity-timeline, PR #29)
+Commit: 00d78cd
+Message: Add the Activity timeline (Phase 4 unit 1) (#29)
+Tests: 181 passed (up from 161); test + dependency-audit passed on PR
+Migration: none
+Reviewer: Human (+ sourcery-ai bot review, no findings)
+Status: READY

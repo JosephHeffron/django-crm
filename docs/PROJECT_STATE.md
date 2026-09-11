@@ -5,9 +5,8 @@ Close Procedure). Do not describe anything as complete unless it was
 actually verified.
 
 > **Last updated 2026-09-11.** Repo is clean (`main` up to date, nothing
-> uncommitted). Phase 3 is fully complete, and the deferred Phase 2
-> review findings are now resolved. Next: Phase 4 (Activities, Tasks,
-> audit history) — see "Next" below.
+> uncommitted). Phase 4 is in progress — unit 1 (Activity timeline)
+> done and merged. Next: Tasks (unit 2) — see "Next" below.
 
 ## Project version
 
@@ -20,8 +19,9 @@ Phase 3 shipped in 5 units: authentication + base shell, full
 navigation/error pages/styling, Companies CRUD, Contacts CRUD, and
 Leads/Deals workflows (including the lead-to-Contact/Company/Deal
 conversion workflow). The two deferred HIGH findings and one MEDIUM
-finding from `docs/DATABASE_REVIEW.md` are now resolved (see below).
-Next: Phase 4 (Activities, Tasks, audit history).
+finding from `docs/DATABASE_REVIEW.md` were resolved before starting
+Phase 4. Phase 4 (Activities, Tasks, audit history) is now in progress —
+unit 1 (Activity timeline) is done and merged.
 
 Phase 2's `docs/DATABASE_REVIEW.md` found 2 HIGH findings (Activity's
 `CASCADE` can silently destroy history still relevant to a surviving
@@ -152,6 +152,15 @@ Phase 3 — see Known Issues below.
   raw SQL. Each finding's original failing reproduction was re-run and
   confirmed fixed, not just re-read. 161 tests total. Full detail in
   `logs/claude/phase-04-prep-resolve-review-findings.md`.
+- Phase 4 unit 1 — Activity timeline (PR #29): real
+  `ActivityListView`/`ActivityCreateView` (type filter, pagination,
+  query-param prefill, priority-ordered redirect after save), a
+  reusable timeline partial included on all four detail pages
+  (Company/Contact/Lead/Deal), `ActivityForm` enforcing "at least one
+  relation" at the form layer. No update/detail view for Activity —
+  it's immutable and its "detail page" is the timeline on whichever
+  record it's attached to. 181 tests total, zero findings from review.
+  Full detail in `logs/claude/phase-04-activity-timeline.md`.
 
 ## Currently working on
 
@@ -161,8 +170,11 @@ anything. (A 7th, the pytest security fix, was merged.)
 
 ## Next
 
-1. Phase 4 — Activities, Tasks, audit history.
-2. Review/merge (or leave) the remaining open Dependabot PRs.
+1. Phase 4 unit 2 — Tasks (list/detail/create/edit/completion workflow,
+   "my tasks"/"overdue tasks" views), per Prompt 4.2.
+2. Phase 4 unit 3 — lightweight audit history for important CRM record
+   changes, per Prompt 4.3.
+3. Review/merge (or leave) the remaining open Dependabot PRs.
 
 ## Known issues
 
