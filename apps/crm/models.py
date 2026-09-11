@@ -308,28 +308,28 @@ class Activity(models.Model):
         Company,
         null=True,
         blank=True,
-        on_delete=models.CASCADE,
+        on_delete=models.SET_NULL,
         related_name="activities",
     )
     contact = models.ForeignKey(
         Contact,
         null=True,
         blank=True,
-        on_delete=models.CASCADE,
+        on_delete=models.SET_NULL,
         related_name="activities",
     )
     lead = models.ForeignKey(
         Lead,
         null=True,
         blank=True,
-        on_delete=models.CASCADE,
+        on_delete=models.SET_NULL,
         related_name="activities",
     )
     deal = models.ForeignKey(
         Deal,
         null=True,
         blank=True,
-        on_delete=models.CASCADE,
+        on_delete=models.SET_NULL,
         related_name="activities",
     )
     created_by = models.ForeignKey(
@@ -342,18 +342,20 @@ class Activity(models.Model):
     class Meta:
         verbose_name_plural = "activities"
         ordering = ["-created_at"]
-        constraints = [
-            models.CheckConstraint(
-                condition=(
-                    models.Q(company__isnull=False)
-                    | models.Q(contact__isnull=False)
-                    | models.Q(lead__isnull=False)
-                    | models.Q(deal__isnull=False)
-                ),
-                name="activity_has_related_object",
-            )
-        ]
         indexes = [models.Index(fields=["activity_type"])]
 
     def __str__(self):
         return self.subject
+
+    def save(self, *args, **kwargs):
+        # Activity is documented as immutable history
+        # (docs/DATABASE_DESIGN.md). Enforced here — not just in
+        # ActivityAdmin.has_change_permission — because a plain
+        # .save() on an existing instance previously bypassed that
+        # entirely (docs/DATABASE_REVIEW.md finding #7, confirmed
+        # empirically). Bulk .update()/.bulk_update() calls still
+        # bypass this, same as any Django model — documented as an
+        # accepted, narrower residual gap.
+        if self.pk is not None:
+            raise ValueError("Activity records are immutable and cannot be updated after creation.")
+        super().save(*args, **kwargs)

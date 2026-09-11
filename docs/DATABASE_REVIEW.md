@@ -65,6 +65,12 @@ this project explicitly calls out "ad-hoc SQL" as a real risk category
 line to `CLAUDE.md`'s Database Safety section stating this explicitly:
 `on_delete` guarantees only hold for deletions performed through Django.
 
+**Status: RESOLVED.** Added the recommended line to `CLAUDE.md`'s
+Database Safety section. This is inherent Django behavior, not
+something the schema itself can fix — the resolution is making sure
+anyone (human or AI) operating on this database knows it, not a code
+change.
+
 ### 2. Activity's four-way `CASCADE` can destroy history that's still relevant to a surviving object
 
 `Activity.company`/`contact`/`lead`/`deal` all use `CASCADE`, and the
@@ -106,6 +112,24 @@ or removing that constraint, or adding explicit cleanup behavior for
 Activities that would otherwise end up fully orphaned. Worth
 resolving explicitly before the Activity Timeline feature (Phase 4) starts
 relying on this data staying intact.
+
+**Status: RESOLVED — chose option (b).** Changed all four relation FKs
+to `SET_NULL` and removed the `activity_has_related_object`
+`CheckConstraint` (a migration doing both). Chose (b) over (a) because
+multi-tagging is real product value for a future Activity Timeline (the
+same call showing up on both a Company's and a Deal's timeline is a
+feature, not a bug) — restricting to exactly one relation would trade
+away that value to avoid a problem `SET_NULL` solves directly.
+"At least one relation required" moved from a DB constraint to an
+application/form-layer rule for Activity *creation* only (to be
+implemented by Activity's create view in Phase 4) — an Activity can
+still degrade to zero relations over time as things it references get
+deleted, which is the intended behavior, not a gap. Re-verified
+empirically: the exact scenario above (Activity tagged to both a
+Company and a Deal, Deal deleted) now leaves the Activity intact with
+`deal` set to `None` and `company` unchanged. See
+`docs/DATABASE_DESIGN.md`'s Activity section and
+`apps/crm/tests/test_activity.py` for the updated model and tests.
 
 ## MEDIUM
 
@@ -185,6 +209,21 @@ guard at all. `docs/DATABASE_DESIGN.md` already frames the broader
 enforcement gap as an accepted application-layer trade-off — this finding
 confirms that trade-off is real and currently as wide-open as before
 PR #11's admin fix, for every write path except the admin itself.
+
+**Status: RESOLVED.** `Activity.save()` now raises `ValueError` when
+called on an instance that already has a `pk` — closes the gap for
+every write path that goes through `.save()` (shell, future views,
+management commands, this included). Re-verified the exact reproduction
+above: `activity.subject = "Edited"; activity.save()` now raises
+instead of succeeding, and the DB value is unchanged after. Confirmed
+this doesn't interfere with the `SET_NULL` fix for finding #2 — Django's
+deletion `Collector` performs `SET_NULL` via a bulk `QuerySet.update()`
+call, not by calling each affected instance's `.save()`, so the two
+changes don't conflict. Residual, documented gap: `.update()`/
+`.bulk_update()` calls still bypass `save()` entirely, same as any
+Django model — not fixed, since blocking those would need overriding
+`QuerySet`/`Manager` behavior project-wide, disproportionate to the
+actual risk for a single-maintainer app with no bulk-write code today.
 
 ## LOW
 
@@ -268,3 +307,15 @@ not actually enforced beyond the admin) is worth resolving in the same
 pass, since it touches the same model and the same "is this Activity
 data trustworthy" question. The remaining MEDIUM/LOW findings are worth
 keeping in mind but don't block Phase 3 (CRM interface) from starting.
+
+**Update, end of Phase 3:** all three (#1, #2, #7) resolved as described
+in their own sections above, at the start of Phase 4 as recommended —
+`on_delete`'s ORM-only enforcement documented in `CLAUDE.md`, Activity's
+relation FKs changed from `CASCADE` to `SET_NULL` with the
+`activity_has_related_object` constraint removed, and `Activity.save()`
+now rejects updates to existing rows. Verified via
+`apps/crm/tests/test_activity.py` and empirical reproduction of each
+original finding's scenario, not just re-read and assumed fixed. The
+remaining MEDIUM/LOW findings (#3-#6, and the low-severity items) are
+still open and still don't block anything — no change to that
+assessment.

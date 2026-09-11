@@ -22,8 +22,10 @@ class TaskModelTests(TestCase):
         self.assertIsNone(task.deal)
 
     def test_task_with_neither_contact_nor_deal_is_allowed(self):
-        # Unlike Deal/Activity, Task has no "at least one relation" rule —
-        # a plain to-do with no CRM object attached is valid.
+        # Unlike Deal, Task has no "at least one relation" DB rule — a
+        # plain to-do with no CRM object attached is valid. (Activity
+        # doesn't have this rule either since docs/DATABASE_REVIEW.md
+        # finding #2 — see test_activity.py.)
         task = Task.objects.create(
             title="Follow up on inbox", assigned_to=self.assignee, created_by=self.creator
         )
