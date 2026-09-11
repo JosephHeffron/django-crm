@@ -32,7 +32,7 @@
   {% if contacts %}
     <ul>
       {% for contact in contacts %}
-        <li>{{ contact.first_name }} {{ contact.last_name }}</li>
+        <li><a href="{{ contact.get_absolute_url }}">{{ contact.first_name }} {{ contact.last_name }}</a></li>
       {% endfor %}
     </ul>
   {% else %}

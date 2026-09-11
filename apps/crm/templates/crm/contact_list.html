@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+
+{% block title %}Contacts{% endblock %}
+
+{% block content %}
+  <h1>Contacts</h1>
+
+  <p><a href="{% url 'crm:contact_create' %}">Add contact</a></p>
+
+  <form method="get" class="filter-form">
+    <input type="text" name="q" value="{{ query }}" placeholder="Search by name or email">
+    <select name="status">
+      <option value="" {% if not status %}selected{% endif %}>All</option>
+      <option value="active" {% if status == "active" %}selected{% endif %}>Active</option>
+      <option value="inactive" {% if status == "inactive" %}selected{% endif %}>Inactive</option>
+    </select>
+    <select name="company">
+      <option value="">All companies</option>
+      {% for company in companies %}
+        <option value="{{ company.pk }}" {% if company_id == company.pk|stringformat:"s" %}selected{% endif %}>{{ company.name }}</option>
+      {% endfor %}
+    </select>
+    <button type="submit">Filter</button>
+  </form>
+
+  {% if contacts %}
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Email</th>
+          <th>Company</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for contact in contacts %}
+          <tr>
+            <td><a href="{{ contact.get_absolute_url }}">{{ contact.first_name }} {{ contact.last_name }}</a></td>
+            <td>{{ contact.email|default:"—" }}</td>
+            <td>
+              {% if contact.company %}
+                <a href="{{ contact.company.get_absolute_url }}">{{ contact.company.name }}</a>
+              {% else %}
+                —
+              {% endif %}
+            </td>
+            <td>{% if contact.is_active %}Active{% else %}Inactive{% endif %}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+
+    {% if is_paginated %}
+      <nav class="pagination">
+        {% if page_obj.has_previous %}
+          <a href="?page={{ page_obj.previous_page_number }}{% if query %}&q={{ query }}{% endif %}{% if status %}&status={{ status }}{% endif %}{% if company_id %}&company={{ company_id }}{% endif %}">Previous</a>
+        {% endif %}
+        <span>Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+        {% if page_obj.has_next %}
+          <a href="?page={{ page_obj.next_page_number }}{% if query %}&q={{ query }}{% endif %}{% if status %}&status={{ status }}{% endif %}{% if company_id %}&company={{ company_id }}{% endif %}">Next</a>
+        {% endif %}
+      </nav>
+    {% endif %}
+  {% else %}
+    <p>No contacts found.</p>
+  {% endif %}
+{% endblock %}
