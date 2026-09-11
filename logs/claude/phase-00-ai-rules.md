@@ -122,14 +122,17 @@ yet to test; this phase is process/tooling only).
 ## Git
 
 Branch: `main`
-Commit: not yet created — awaiting explicit approval per the Git Policy
-this same phase introduced into `CLAUDE.md`.
+Commits (approved by the user, made in 4 logical groups):
+- `7849b9d` — AI governance rules (CLAUDE.md, docs/AI_RULES.md,
+  .claude/settings.json)
+- `10a6768` — CI/pre-commit/dev tooling foundation
+- `f3f8b18` — ADRs + durable project state (decisions, PROJECT_STATE,
+  CHANGELOG, session/phase logs)
+- `ac992da` — ruff formatting cleanup of existing Phase 0/1 code
 
 ## Next
 
-Commit this phase's changes in logical groups (see chat for the proposed
-commit messages), then set up the GitHub remote
-(`JosephHeffron/django-crm`, public): install `gh`, user runs `gh auth
-login` themselves, then Claude creates the repo, pushes `main`, and
-configures branch protection + secret scanning — all pending the user's
-go-ahead.
+Set up the GitHub remote (`JosephHeffron/django-crm`, public): install
+`gh`, user runs `gh auth login` themselves, then Claude creates the repo,
+pushes `main`, and configures branch protection + secret scanning — all
+pending the user's go-ahead at each step.
