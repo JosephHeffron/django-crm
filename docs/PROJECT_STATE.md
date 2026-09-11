@@ -107,10 +107,12 @@ anything. (A 7th, the pytest security fix, was merged.)
 2. Phase 3 unit 3 — Companies CRUD (list/detail/create/edit/delete,
    search, filtering, pagination).
 3. Phase 3 unit 4 — Contacts CRUD.
-4. Before Phase 4: resolve `docs/DATABASE_REVIEW.md`'s two HIGH findings
+4. Phase 3 unit 5 — Leads and Deals workflows (per `docs/ROADMAP.md`'s
+   Phase 3 scope).
+5. Before Phase 4: resolve `docs/DATABASE_REVIEW.md`'s two HIGH findings
    (Activity CASCADE, on_delete enforcement) and the Activity-immutability
    MEDIUM finding — deferred by explicit user choice, not forgotten.
-5. Review/merge (or leave) the remaining open Dependabot PRs.
+6. Review/merge (or leave) the remaining open Dependabot PRs.
 
 ## Known issues
 
