@@ -125,8 +125,8 @@ brief's Company→Deals and Contact→Deals relationships.
 | Field | Type | Required | Notes |
 |---|---|---|---|
 | `title` | CharField(255) | yes | e.g. "Acme Corp — annual renewal". |
-| `company` | FK → Company | no (nullable) | `on_delete=SET_NULL`. Indexed. |
-| `contact` | FK → Contact | no (nullable) | `on_delete=SET_NULL`. Indexed. |
+| `company` | FK → Company | no (nullable) | `on_delete=PROTECT`. Indexed. |
+| `contact` | FK → Contact | no (nullable) | `on_delete=PROTECT`. Indexed. |
 | `value` | DecimalField(12,2) | no | Single currency assumed (see Decisions to review). |
 | `stage` | CharField, choices | yes, default `prospecting` | `prospecting`, `qualification`, `proposal`, `negotiation`, `closed_won`, `closed_lost`. `closed_*` are terminal — "is this deal open" is derived from stage, not a separate field. |
 | `probability` | PositiveSmallIntegerField | no | 0-100; manually set, not auto-derived from stage (no evidence yet that auto-derivation is more useful than a human's own estimate). |
@@ -189,10 +189,11 @@ actual query patterns," "don't optimize speculative problems without
 measurements"), these wait until the Activity Timeline feature (Phase 4)
 shows the real access pattern.
 
-`CASCADE` here is a deliberate exception to the `PROTECT`/`SET_NULL`
-pattern used elsewhere: Company/Contact/Lead/Deal use `SET_NULL` for
-their own owner/creator so a user can be removed without losing business
-records, but an Activity is a note *about* one of those records — if the
+`CASCADE` here is a deliberate exception to the `PROTECT` pattern used for
+User foreign keys elsewhere: Company/Contact/Lead/Deal use `PROTECT` for
+their own `owner`/`created_by`, so a user cannot be removed while they
+still own records — they must be reassigned first. But an Activity is a
+note *about* one of those business records, not about a user — if the
 record itself is deleted, its activity log should go with it rather than
 become orphaned, contentless rows.
 
@@ -261,10 +262,31 @@ become orphaned, contentless rows.
   verified against PostgreSQL during implementation — confirm Django's
   constraint API expresses "at least one of N nullable FKs is set"
   correctly and that `makemigrations`/`migrate` produce the expected SQL.
-- `Contact.company` and `Deal.company`/`Deal.contact` use `SET_NULL` (contact/deal
-  survives company deletion) while `Activity`'s four relation FKs use
-  `CASCADE` (activity is deleted with its subject) — confirm this
-  asymmetry is the right call, not an oversight.
+- `Deal.company`/`Deal.contact` use `PROTECT`, not `SET_NULL`: an earlier
+  draft used `SET_NULL`, but since Deal also requires at least one of the
+  two to be set (the `CheckConstraint` above), `SET_NULL`-ing a Deal's
+  only relation would leave both null and make the delete fail with an
+  `IntegrityError` anyway — `PROTECT` makes that failure explicit and
+  intentional instead of an accidental side effect of the constraint.
+  `Contact.company` has no such constraint (it's a single nullable FK, not
+  an "at least one of" pair) so it keeps `SET_NULL`. Confirm this
+  reasoning holds once real usage patterns exist — it may turn out
+  founders want to delete a Company and have its Deals auto-close instead
+  of being blocked.
+- `Contact.company` uses `SET_NULL` while `Activity`'s four relation FKs
+  use `CASCADE` — confirm this asymmetry (contact outlives its company;
+  activity does not outlive its subject) is the right call, not an
+  oversight.
+- The lifecycle invariants described above (Lead conversion fields set
+  together, Deal/Task timestamps consistent with their status, Activity
+  immutability) are enforced only at the application/service layer (model
+  methods used for all mutations), not by database constraints or
+  triggers — consistent with not overengineering a single-maintainer app,
+  but it means a bulk `.update()`, an ad-hoc admin edit, or direct SQL
+  could violate them. Acceptable for now since there's a single developer
+  and no external write path; revisit (e.g. add `CheckConstraint`s tying
+  `status` to the presence of `converted_at`/`closed_at`/`completed_at`,
+  or restrict admin edit access) if that stops being true.
 - Whether `Task`/`Activity` should also relate directly to `Company`
   and/or `Lead` (they currently don't, matching the original brief's
   diagram) — revisit if the UI ends up needing a "tasks for this company"
