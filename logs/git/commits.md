@@ -227,3 +227,24 @@ Reviewer: Human (+ sourcery-ai bot review, 1 real finding fixed —
   hard-delete contradicted docs/DATABASE_DESIGN.md's documented
   never-hard-delete-from-UI invariant; reworked to deactivation)
 Status: READY
+
+2026-09-11
+Branch: main (merged from chore/close-phase-3-unit-3, PR #21)
+Commit: 7fa1fe1
+Message: Close out Phase 3 unit 3 (Companies CRUD) (#21)
+Tests: test + dependency-audit passed on PR (docs/logs only)
+Migration: none
+Reviewer: Human (+ sourcery-ai bot review, 1 finding fixed —
+  phase log's stale "delete" wording after the deactivate rework)
+Status: READY
+
+2026-09-11
+Branch: main (merged from feature/contacts-crud, PR #22)
+Commit: 48fcda1
+Message: Add Contacts CRUD (list/detail/create/edit/deactivate, search, filter, pagination) (#22)
+Tests: 107 passed (up from 78); test + dependency-audit passed on PR
+Migration: none
+Reviewer: Human (+ sourcery-ai bot review, 3 real findings fixed —
+  missing company-filter UI control, pagination dropping the company
+  filter, 500 on a non-numeric company param)
+Status: READY

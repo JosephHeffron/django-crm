@@ -44,3 +44,9 @@ Format: `YYYY-MM-DD | created|merged|deleted | <branch> | requested by`
 2026-09-11 | created | feature/companies-crud | Claude, user approved
 2026-09-11 | merged (PR #20, squash) | feature/companies-crud | user approved
 2026-09-11 | deleted (remote, on merge; local, by Claude after sync) | feature/companies-crud | user approved
+2026-09-11 | created | chore/close-phase-3-unit-3 | Claude, user approved
+2026-09-11 | merged (PR #21, squash) | chore/close-phase-3-unit-3 | user approved
+2026-09-11 | deleted (remote, on merge; local, by Claude after sync) | chore/close-phase-3-unit-3 | user approved
+2026-09-11 | created | feature/contacts-crud | Claude, user approved
+2026-09-11 | merged (PR #22, squash) | feature/contacts-crud | user approved
+2026-09-11 | deleted (remote, on merge; local, by Claude after sync) | feature/contacts-crud | user approved
