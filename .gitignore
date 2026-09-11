@@ -52,7 +52,12 @@ coverage.xml
 *.swo
 .DS_Store
 
-# Container / runtime
+# Claude Code — machine-local overrides, never shared
+.claude/settings.local.json
+
+# Container / application runtime logs (the tracked docs/decisions,
+# logs/claude, logs/git, logs/failures, logs/system trees use .md and are
+# intentionally NOT covered by this rule)
 *.log
 *.pid
 containers/**/*.local
