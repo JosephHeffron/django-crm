@@ -52,3 +52,28 @@ class LogoutTests(TestCase):
         self.client.login(username="alice", password="correct-horse-battery")
         response = self.client.get(reverse("users:logout"))
         self.assertEqual(response.status_code, 405)
+
+
+class PasswordChangeTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user("alice", password="correct-horse-battery")
+        self.client.login(username="alice", password="correct-horse-battery")
+
+    def test_successful_password_change_redirects_to_done_page(self):
+        # Regression test: PasswordChangeView's default success_url resolves
+        # an unnamespaced "password_change_done", which doesn't exist since
+        # this URLconf only registers it as "users:password_change_done" —
+        # caught by review, reproduces as NoReverseMatch without the
+        # explicit success_url set in urls.py.
+        response = self.client.post(
+            reverse("users:password_change"),
+            {
+                "old_password": "correct-horse-battery",
+                "new_password1": "new-correct-horse-battery",
+                "new_password2": "new-correct-horse-battery",
+            },
+        )
+        self.assertRedirects(response, reverse("users:password_change_done"))
+
+        self.client.logout()
+        self.assertTrue(self.client.login(username="alice", password="new-correct-horse-battery"))
