@@ -130,9 +130,38 @@ Commits (approved by the user, made in 4 logical groups):
   CHANGELOG, session/phase logs)
 - `ac992da` — ruff formatting cleanup of existing Phase 0/1 code
 
+## GitHub remote setup
+
+- Installed `gh` 2.97.0 via `sudo dnf install -y gh`.
+- User authenticated interactively (`gh auth login`, web browser flow,
+  device code); verified via `gh auth status` — logged in as
+  `JosephHeffron` with `gist`, `read:org`, `repo`, `workflow` scopes.
+- Confirmed explicit go-ahead before creating the repo or pushing.
+- `gh repo create JosephHeffron/django-crm --public --source=. --remote=origin`
+  → created `https://github.com/JosephHeffron/django-crm`.
+- `git push -u origin main` → pushed 8 commits.
+- Verified (not assumed): `gh run list` showed both `ci` and `security`
+  workflows completed successfully on the push to `main`.
+- `security_and_analysis` on the repo already had `secret_scanning` and
+  `secret_scanning_push_protection` enabled by default (public repo);
+  enabled `dependabot_security_updates` (was disabled) via `gh api -X
+  PATCH`.
+- Branch protection applied via `gh api -X PUT
+  repos/.../branches/main/protection`: required status checks
+  (`ci`, `security`, `strict: true`), PR required, conversation
+  resolution required, force-push disallowed, deletion disallowed,
+  `enforce_admins: true`. Verified by reading the protection back via
+  `gh api`, not just trusting the PUT response.
+- `.github/dependabot.yml` activated immediately — 7 PRs opened
+  automatically (5 pip, 2 GitHub Actions), all of which triggered `ci`
+  and `security`, both passing. None merged — left for human review per
+  the GitHub Policy ("Dependabot manages dependency PRs... reviewed and
+  merged like any other PR, never auto-merged"). Flagged PR #4 (`pytest`
+  8.4.2 → 9.1.1) specifically as a major-version bump needing a closer
+  look, per the "never upgrade a major dependency without reviewing
+  compatibility" rule.
+
 ## Next
 
-Set up the GitHub remote (`JosephHeffron/django-crm`, public): install
-`gh`, user runs `gh auth login` themselves, then Claude creates the repo,
-pushes `main`, and configures branch protection + secret scanning — all
-pending the user's go-ahead at each step.
+Review/merge the open Dependabot PRs (or leave them). Then Phase 2 —
+CRM database design.
