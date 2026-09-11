@@ -1,10 +1,11 @@
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
+from django.db.models import Q
 from django.shortcuts import redirect
 from django.views.generic import CreateView, DetailView, ListView, UpdateView
 
-from .forms import CompanyForm
-from .models import Company
+from .forms import CompanyForm, ContactForm
+from .models import Company, Contact
 
 
 class CompanyListView(LoginRequiredMixin, ListView):
@@ -90,3 +91,89 @@ class CompanyDeactivateView(LoginRequiredMixin, DetailView):
         company.save(update_fields=["is_active"])
         messages.success(request, f"Deactivated company “{company.name}”.")
         return redirect(company.get_absolute_url())
+
+
+class ContactListView(LoginRequiredMixin, ListView):
+    model = Contact
+    template_name = "crm/contact_list.html"
+    context_object_name = "contacts"
+    paginate_by = 25
+
+    def get_queryset(self):
+        queryset = super().get_queryset().select_related("company")
+        query = self.request.GET.get("q", "").strip()
+        if query:
+            queryset = queryset.filter(
+                Q(first_name__icontains=query)
+                | Q(last_name__icontains=query)
+                | Q(email__icontains=query)
+            )
+
+        status = self.request.GET.get("status")
+        if status == "active":
+            queryset = queryset.filter(is_active=True)
+        elif status == "inactive":
+            queryset = queryset.filter(is_active=False)
+
+        company_id = self.request.GET.get("company")
+        if company_id:
+            queryset = queryset.filter(company_id=company_id)
+
+        return queryset
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["query"] = self.request.GET.get("q", "")
+        context["status"] = self.request.GET.get("status", "")
+        context["company_id"] = self.request.GET.get("company", "")
+        return context
+
+
+class ContactDetailView(LoginRequiredMixin, DetailView):
+    model = Contact
+    template_name = "crm/contact_detail.html"
+    context_object_name = "contact"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["deals"] = self.object.deals.all()
+        context["tasks"] = self.object.tasks.all()
+        return context
+
+
+class ContactCreateView(LoginRequiredMixin, CreateView):
+    model = Contact
+    form_class = ContactForm
+    template_name = "crm/contact_form.html"
+
+    def form_valid(self, form):
+        form.instance.created_by = self.request.user
+        response = super().form_valid(form)
+        messages.success(self.request, f"Created contact “{self.object}”.")
+        return response
+
+
+class ContactUpdateView(LoginRequiredMixin, UpdateView):
+    model = Contact
+    form_class = ContactForm
+    template_name = "crm/contact_form.html"
+
+    def form_valid(self, form):
+        response = super().form_valid(form)
+        messages.success(self.request, f"Updated contact “{self.object}”.")
+        return response
+
+
+class ContactDeactivateView(LoginRequiredMixin, DetailView):
+    """Same pattern as CompanyDeactivateView — is_active=False, never a
+    hard delete. See that view's docstring for the reasoning."""
+
+    model = Contact
+    template_name = "crm/contact_confirm_deactivate.html"
+
+    def post(self, request, *args, **kwargs):
+        contact = self.get_object()
+        contact.is_active = False
+        contact.save(update_fields=["is_active"])
+        messages.success(request, f"Deactivated contact “{contact}”.")
+        return redirect(contact.get_absolute_url())

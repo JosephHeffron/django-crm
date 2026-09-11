@@ -20,10 +20,18 @@ urlpatterns = [
         views.CompanyDeactivateView.as_view(),
         name="company_deactivate",
     ),
+    path("contacts/", views.ContactListView.as_view(), name="contact_list"),
+    path("contacts/add/", views.ContactCreateView.as_view(), name="contact_create"),
+    path("contacts/<int:pk>/", views.ContactDetailView.as_view(), name="contact_detail"),
     path(
-        "contacts/",
-        ComingSoonView.as_view(section_label="Contacts"),
-        name="contact_list",
+        "contacts/<int:pk>/edit/",
+        views.ContactUpdateView.as_view(),
+        name="contact_update",
+    ),
+    path(
+        "contacts/<int:pk>/deactivate/",
+        views.ContactDeactivateView.as_view(),
+        name="contact_deactivate",
     ),
     path(
         "leads/",

@@ -77,6 +77,9 @@ class Contact(models.Model):
     def __str__(self):
         return f"{self.first_name} {self.last_name}"
 
+    def get_absolute_url(self):
+        return reverse("crm:contact_detail", kwargs={"pk": self.pk})
+
 
 class Lead(models.Model):
     class Source(models.TextChoices):
