@@ -52,3 +52,11 @@ class ActivityAdmin(admin.ModelAdmin):
     )
     list_filter = ("activity_type",)
     search_fields = ("subject", "description")
+
+    def has_change_permission(self, request, obj=None):
+        # Activities are immutable history (see docs/DATABASE_DESIGN.md) —
+        # the admin is currently the only place that could edit one, so
+        # disable it here rather than leaving the invariant purely
+        # documented. Deletion is still allowed (correcting a mistaken
+        # entry), editing in place is not.
+        return False

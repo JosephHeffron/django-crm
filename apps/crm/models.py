@@ -202,7 +202,12 @@ class Deal(models.Model):
             models.CheckConstraint(
                 condition=models.Q(company__isnull=False) | models.Q(contact__isnull=False),
                 name="deal_has_company_or_contact",
-            )
+            ),
+            models.CheckConstraint(
+                condition=models.Q(probability__isnull=True)
+                | (models.Q(probability__gte=0) & models.Q(probability__lte=100)),
+                name="deal_probability_between_0_and_100",
+            ),
         ]
         indexes = [
             models.Index(fields=["stage"]),

@@ -72,3 +72,31 @@ class DealModelTests(TestCase):
         Deal.objects.create(title="Ada deal", contact=self.contact, created_by=self.creator)
         with self.assertRaises(ProtectedError):
             self.contact.delete()
+
+    def test_probability_within_range_is_allowed(self):
+        deal = Deal.objects.create(
+            title="Acme deal", company=self.company, created_by=self.creator, probability=50
+        )
+        self.assertEqual(deal.probability, 50)
+
+    def test_probability_null_is_allowed(self):
+        deal = Deal.objects.create(title="Acme deal", company=self.company, created_by=self.creator)
+        self.assertIsNone(deal.probability)
+
+    def test_probability_above_100_is_rejected(self):
+        with self.assertRaises(IntegrityError), transaction.atomic():
+            Deal.objects.create(
+                title="Acme deal",
+                company=self.company,
+                created_by=self.creator,
+                probability=101,
+            )
+
+    def test_probability_negative_is_rejected(self):
+        with self.assertRaises(IntegrityError), transaction.atomic():
+            Deal.objects.create(
+                title="Acme deal",
+                company=self.company,
+                created_by=self.creator,
+                probability=-1,
+            )
