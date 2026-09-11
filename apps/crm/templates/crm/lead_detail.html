@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+
+{% block title %}{{ lead.name }}{% endblock %}
+
+{% block content %}
+  <p><a href="{% url 'crm:lead_list' %}">← Leads</a></p>
+  <h1>{{ lead.name }}</h1>
+  <p>{{ lead.get_status_display }}</p>
+
+  <dl>
+    <dt>Company</dt>
+    <dd>{{ lead.company_name|default:"—" }}</dd>
+    <dt>Email</dt>
+    <dd>{{ lead.email|default:"—" }}</dd>
+    <dt>Phone</dt>
+    <dd>{{ lead.phone|default:"—" }}</dd>
+    <dt>Source</dt>
+    <dd>{{ lead.get_source_display }}</dd>
+    <dt>Owner</dt>
+    <dd>{{ lead.owner|default:"Unassigned" }}</dd>
+    <dt>Notes</dt>
+    <dd>{{ lead.notes|default:"—"|linebreaksbr }}</dd>
+  </dl>
+
+  {% if lead.status == "converted" %}
+    <h2>Converted</h2>
+    <dl>
+      <dt>Converted at</dt>
+      <dd>{{ lead.converted_at }}</dd>
+      <dt>Company</dt>
+      <dd>
+        {% if lead.converted_company %}
+          <a href="{{ lead.converted_company.get_absolute_url }}">{{ lead.converted_company.name }}</a>
+        {% else %}
+          —
+        {% endif %}
+      </dd>
+      <dt>Contact</dt>
+      <dd>
+        {% if lead.converted_contact %}
+          <a href="{{ lead.converted_contact.get_absolute_url }}">{{ lead.converted_contact }}</a>
+        {% else %}
+          —
+        {% endif %}
+      </dd>
+      <dt>Deal</dt>
+      <dd>{{ lead.converted_deal.title|default:"—" }}</dd>
+    </dl>
+    <p><a href="{% url 'crm:lead_update' lead.pk %}">Edit</a></p>
+  {% else %}
+    <p>
+      <a href="{% url 'crm:lead_update' lead.pk %}">Edit</a>
+      &middot;
+      <a href="{% url 'crm:lead_convert' lead.pk %}">Convert</a>
+    </p>
+  {% endif %}
+{% endblock %}
