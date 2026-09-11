@@ -65,3 +65,9 @@ Format: `YYYY-MM-DD | created|merged|deleted | <branch> | requested by`
 2026-09-11 | created | fix/activity-cascade-and-immutability | Claude, user approved
 2026-09-11 | merged (PR #27, squash) | fix/activity-cascade-and-immutability | user approved
 2026-09-11 | deleted (remote, on merge; local, by Claude after sync) | fix/activity-cascade-and-immutability | user approved
+2026-09-11 | created | chore/close-review-findings-resolution | Claude, user approved
+2026-09-11 | merged (PR #28, squash) | chore/close-review-findings-resolution | user approved
+2026-09-11 | deleted (remote, on merge; local, by Claude after sync) | chore/close-review-findings-resolution | user approved
+2026-09-11 | created | feature/activity-timeline | Claude, user approved
+2026-09-11 | merged (PR #29, squash) | feature/activity-timeline | user approved
+2026-09-11 | deleted (remote, on merge; local, by Claude after sync) | feature/activity-timeline | user approved
