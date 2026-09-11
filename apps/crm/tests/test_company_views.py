@@ -168,7 +168,14 @@ class CompanyUpdateViewTests(TestCase):
         self.assertEqual(self.company.created_by, self.user)
 
 
-class CompanyDeleteViewTests(TestCase):
+class CompanyDeactivateViewTests(TestCase):
+    # docs/DATABASE_DESIGN.md: "companies are never hard-deleted from the
+    # UI" — is_active is the documented soft-removal mechanism. An
+    # earlier draft of this view actually called .delete(), which
+    # contradicted that and also crashed (500) on any company with deal
+    # history, since Deal.company is on_delete=PROTECT. Caught by
+    # automated review before merge.
+
     def setUp(self):
         self.user = User.objects.create_user("alice", password="correct-horse-battery")
         self.client.login(username="alice", password="correct-horse-battery")
@@ -176,38 +183,44 @@ class CompanyDeleteViewTests(TestCase):
 
     def test_anonymous_user_is_redirected(self):
         self.client.logout()
-        response = self.client.get(reverse("crm:company_delete", kwargs={"pk": self.company.pk}))
+        response = self.client.get(
+            reverse("crm:company_deactivate", kwargs={"pk": self.company.pk})
+        )
         self.assertEqual(response.status_code, 302)
 
     def test_get_shows_confirmation_page(self):
-        response = self.client.get(reverse("crm:company_delete", kwargs={"pk": self.company.pk}))
-        self.assertContains(response, "Delete Acme Corp")
+        response = self.client.get(
+            reverse("crm:company_deactivate", kwargs={"pk": self.company.pk})
+        )
+        self.assertContains(response, "Deactivate Acme Corp")
 
-    def test_post_deletes_the_company(self):
-        response = self.client.post(reverse("crm:company_delete", kwargs={"pk": self.company.pk}))
-        self.assertRedirects(response, reverse("crm:company_list"))
-        self.assertFalse(Company.objects.filter(pk=self.company.pk).exists())
+    def test_post_deactivates_without_deleting(self):
+        response = self.client.post(
+            reverse("crm:company_deactivate", kwargs={"pk": self.company.pk})
+        )
+        self.assertRedirects(response, self.company.get_absolute_url())
+        self.company.refresh_from_db()
+        self.assertFalse(self.company.is_active)
+        self.assertTrue(Company.objects.filter(pk=self.company.pk).exists())
 
-    def test_delete_view_handles_protected_company_gracefully(self):
-        # Regression test: Deal.company uses on_delete=PROTECT
-        # (docs/DATABASE_DESIGN.md finding #6), so deleting a company
-        # with any deal history raises ProtectedError. Discovered via
-        # manual smoke test: unhandled, this was a 500, not a friendly
-        # error — the view now catches it and redirects back with a
-        # message instead.
+    def test_deactivating_a_company_with_deals_does_not_error(self):
+        # Unlike a real delete, this never touches Deal.company's
+        # on_delete=PROTECT constraint — no exception, no special
+        # handling needed.
         from apps.crm.models import Deal
 
         Deal.objects.create(title="Acme deal", company=self.company, created_by=self.user)
 
-        response = self.client.post(reverse("crm:company_delete", kwargs={"pk": self.company.pk}))
-
-        # fetch_redirect_response=False: Django messages are one-time-read
-        # (cookie-based), and assertRedirects' own default follow-up fetch
-        # would otherwise consume the message before we get to check it.
-        self.assertRedirects(
-            response, self.company.get_absolute_url(), fetch_redirect_response=False
+        response = self.client.post(
+            reverse("crm:company_deactivate", kwargs={"pk": self.company.pk})
         )
-        self.assertTrue(Company.objects.filter(pk=self.company.pk).exists())
+        self.assertRedirects(response, self.company.get_absolute_url())
+        self.company.refresh_from_db()
+        self.assertFalse(self.company.is_active)
 
-        follow_response = self.client.get(response.url)
-        self.assertContains(follow_response, "still has deals on record")
+    def test_deactivate_link_hidden_once_already_inactive(self):
+        self.company.is_active = False
+        self.company.save(update_fields=["is_active"])
+        response = self.client.get(self.company.get_absolute_url())
+        deactivate_url = reverse("crm:company_deactivate", kwargs={"pk": self.company.pk})
+        self.assertNotContains(response, deactivate_url)

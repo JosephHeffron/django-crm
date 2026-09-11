@@ -22,8 +22,10 @@
 
   <p>
     <a href="{% url 'crm:company_update' company.pk %}">Edit</a>
-    &middot;
-    <a href="{% url 'crm:company_delete' company.pk %}">Delete</a>
+    {% if company.is_active %}
+      &middot;
+      <a href="{% url 'crm:company_deactivate' company.pk %}">Deactivate</a>
+    {% endif %}
   </p>
 
   <h2>Contacts</h2>

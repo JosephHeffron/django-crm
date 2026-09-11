@@ -16,9 +16,9 @@ urlpatterns = [
         name="company_update",
     ),
     path(
-        "companies/<int:pk>/delete/",
-        views.CompanyDeleteView.as_view(),
-        name="company_delete",
+        "companies/<int:pk>/deactivate/",
+        views.CompanyDeactivateView.as_view(),
+        name="company_deactivate",
     ),
     path(
         "contacts/",

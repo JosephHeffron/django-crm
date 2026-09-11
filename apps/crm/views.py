@@ -1,9 +1,7 @@
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
-from django.db.models import ProtectedError
 from django.shortcuts import redirect
-from django.urls import reverse_lazy
-from django.views.generic import CreateView, DeleteView, DetailView, ListView, UpdateView
+from django.views.generic import CreateView, DetailView, ListView, UpdateView
 
 from .forms import CompanyForm
 from .models import Company
@@ -71,25 +69,24 @@ class CompanyUpdateView(LoginRequiredMixin, UpdateView):
         return response
 
 
-class CompanyDeleteView(LoginRequiredMixin, DeleteView):
-    model = Company
-    template_name = "crm/company_confirm_delete.html"
-    success_url = reverse_lazy("crm:company_list")
+class CompanyDeactivateView(LoginRequiredMixin, DetailView):
+    """GET shows a confirmation page; POST deactivates (is_active=False).
 
-    def form_valid(self, form):
-        name = self.object.name
-        try:
-            response = super().form_valid(form)
-        except ProtectedError:
-            # Deal.company uses on_delete=PROTECT (docs/DATABASE_DESIGN.md
-            # finding #6) — a company with any deal history can't be hard-
-            # deleted. Show that as a normal validation-style message
-            # instead of an unhandled 500.
-            messages.error(
-                self.request,
-                f"Can't delete “{name}” — it still has deals on record. "
-                "Mark it inactive instead, or remove its deals first.",
-            )
-            return redirect(self.object.get_absolute_url())
-        messages.success(self.request, f"Deleted company “{name}”.")
-        return response
+    Not a DeleteView: docs/DATABASE_DESIGN.md documents `is_active` as
+    the soft-removal mechanism — "companies are never hard-deleted from
+    the UI" — so this never calls .delete(). (Hard deletion is still
+    possible for a superuser via the Django admin, just not exposed
+    here.) A side benefit: deactivation never touches Deal.company's
+    on_delete=PROTECT constraint, so there's no failure mode to handle
+    the way an actual delete would have.
+    """
+
+    model = Company
+    template_name = "crm/company_confirm_deactivate.html"
+
+    def post(self, request, *args, **kwargs):
+        company = self.get_object()
+        company.is_active = False
+        company.save(update_fields=["is_active"])
+        messages.success(request, f"Deactivated company “{company.name}”.")
+        return redirect(company.get_absolute_url())
