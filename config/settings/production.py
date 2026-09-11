@@ -1,13 +1,11 @@
 import os
 
-from .base import *  # noqa: F401,F403
+from .base import *
 
 DEBUG = False
 
 ALLOWED_HOSTS = [
-    host.strip()
-    for host in os.environ["DJANGO_ALLOWED_HOSTS"].split(",")
-    if host.strip()
+    host.strip() for host in os.environ["DJANGO_ALLOWED_HOSTS"].split(",") if host.strip()
 ]
 
 CSRF_TRUSTED_ORIGINS = [
