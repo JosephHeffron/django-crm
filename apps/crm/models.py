@@ -1,6 +1,7 @@
 from django.conf import settings
 from django.db import models
 from django.urls import reverse
+from django.utils import timezone
 
 
 class Company(models.Model):
@@ -290,8 +291,19 @@ class Task(models.Model):
             models.Index(fields=["assigned_to"]),
         ]
 
+    @property
+    def is_overdue(self):
+        return (
+            self.status == self.Status.PENDING
+            and self.due_date is not None
+            and self.due_date < timezone.localdate()
+        )
+
     def __str__(self):
         return self.title
+
+    def get_absolute_url(self):
+        return reverse("crm:task_detail", kwargs={"pk": self.pk})
 
 
 class Activity(models.Model):

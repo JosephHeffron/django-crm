@@ -1,6 +1,6 @@
 from django import forms
 
-from .models import Activity, Company, Contact, Deal, Lead
+from .models import Activity, Company, Contact, Deal, Lead, Task
 
 
 class CompanyForm(forms.ModelForm):
@@ -143,3 +143,18 @@ class ActivityForm(forms.ModelForm):
                 "An activity needs to be linked to a company, contact, lead, or deal."
             )
         return cleaned_data
+
+
+class TaskForm(forms.ModelForm):
+    class Meta:
+        model = Task
+        fields = [
+            "title",
+            "description",
+            "assigned_to",
+            "contact",
+            "deal",
+            "due_date",
+            "priority",
+            "status",
+        ]

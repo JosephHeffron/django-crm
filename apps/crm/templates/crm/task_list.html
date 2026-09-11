@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+
+{% block title %}Tasks{% endblock %}
+
+{% block content %}
+  <h1>Tasks</h1>
+
+  <p>
+    <a href="{% url 'crm:task_create' %}">Add task</a>
+    &middot;
+    <a href="{% url 'crm:task_list' %}">All</a>
+    &middot;
+    <a href="{% url 'crm:task_list' %}?mine=1">My tasks</a>
+    &middot;
+    <a href="{% url 'crm:task_list' %}?overdue=1">Overdue</a>
+  </p>
+
+  <form method="get" class="filter-form">
+    <select name="status">
+      <option value="" {% if not status %}selected{% endif %}>All statuses</option>
+      {% for value, label in status_choices %}
+        <option value="{{ value }}" {% if status == value %}selected{% endif %}>{{ label }}</option>
+      {% endfor %}
+    </select>
+    <select name="priority">
+      <option value="" {% if not priority %}selected{% endif %}>All priorities</option>
+      {% for value, label in priority_choices %}
+        <option value="{{ value }}" {% if priority == value %}selected{% endif %}>{{ label }}</option>
+      {% endfor %}
+    </select>
+    {% if mine %}<input type="hidden" name="mine" value="1">{% endif %}
+    {% if overdue %}<input type="hidden" name="overdue" value="1">{% endif %}
+    <button type="submit">Filter</button>
+  </form>
+
+  {% if tasks %}
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Title</th>
+          <th>Due</th>
+          <th>Priority</th>
+          <th>Status</th>
+          <th>Assigned to</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for task in tasks %}
+          <tr>
+            <td><a href="{{ task.get_absolute_url }}">{{ task.title }}</a></td>
+            <td>{{ task.due_date|default:"—" }}{% if task.is_overdue %} (overdue){% endif %}</td>
+            <td>{{ task.get_priority_display }}</td>
+            <td>{{ task.get_status_display }}</td>
+            <td>{{ task.assigned_to }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+
+    {% if is_paginated %}
+      <nav class="pagination">
+        {% if page_obj.has_previous %}
+          <a href="?page={{ page_obj.previous_page_number }}{% if status %}&status={{ status }}{% endif %}{% if priority %}&priority={{ priority }}{% endif %}{% if mine %}&mine=1{% endif %}{% if overdue %}&overdue=1{% endif %}">Previous</a>
+        {% endif %}
+        <span>Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+        {% if page_obj.has_next %}
+          <a href="?page={{ page_obj.next_page_number }}{% if status %}&status={{ status }}{% endif %}{% if priority %}&priority={{ priority }}{% endif %}{% if mine %}&mine=1{% endif %}{% if overdue %}&overdue=1{% endif %}">Next</a>
+        {% endif %}
+      </nav>
+    {% endif %}
+  {% else %}
+    <p>No tasks found.</p>
+  {% endif %}
+{% endblock %}

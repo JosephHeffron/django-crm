@@ -1,7 +1,5 @@
 from django.urls import path
 
-from apps.core.views import ComingSoonView
-
 from . import views
 
 app_name = "crm"
@@ -48,9 +46,13 @@ urlpatterns = [
     path("deals/<int:pk>/edit/", views.DealUpdateView.as_view(), name="deal_update"),
     path("activities/", views.ActivityListView.as_view(), name="activity_list"),
     path("activities/add/", views.ActivityCreateView.as_view(), name="activity_create"),
+    path("tasks/", views.TaskListView.as_view(), name="task_list"),
+    path("tasks/add/", views.TaskCreateView.as_view(), name="task_create"),
+    path("tasks/<int:pk>/", views.TaskDetailView.as_view(), name="task_detail"),
+    path("tasks/<int:pk>/edit/", views.TaskUpdateView.as_view(), name="task_update"),
     path(
-        "tasks/",
-        ComingSoonView.as_view(section_label="Tasks"),
-        name="task_list",
+        "tasks/<int:pk>/complete/",
+        views.TaskCompleteView.as_view(),
+        name="task_complete",
     ),
 ]
