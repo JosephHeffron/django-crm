@@ -206,3 +206,24 @@ Migration: none
 Reviewer: Human (+ sourcery-ai bot review, no findings — first clean
   review in this project's history)
 Status: READY
+
+2026-09-11
+Branch: main (merged from chore/close-phase-3-unit-2, PR #19)
+Commit: 57b779b
+Message: Close out Phase 3 unit 2 (navigation shell) (#19)
+Tests: test + dependency-audit passed on PR (docs/logs only)
+Migration: none
+Reviewer: Human (+ sourcery-ai bot review, 1 finding fixed —
+  test-count arithmetic error, 14 new claimed vs 4 actual)
+Status: READY
+
+2026-09-11
+Branch: main (merged from feature/companies-crud, PR #20)
+Commit: aa246cb
+Message: Add Companies CRUD (list/detail/create/edit/delete, search, filter, pagination) (#20)
+Tests: 78 passed (up from 52); test + dependency-audit passed on PR
+Migration: none
+Reviewer: Human (+ sourcery-ai bot review, 1 real finding fixed —
+  hard-delete contradicted docs/DATABASE_DESIGN.md's documented
+  never-hard-delete-from-UI invariant; reworked to deactivation)
+Status: READY
