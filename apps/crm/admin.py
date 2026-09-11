@@ -54,9 +54,10 @@ class ActivityAdmin(admin.ModelAdmin):
     search_fields = ("subject", "description")
 
     def has_change_permission(self, request, obj=None):
-        # Activities are immutable history (see docs/DATABASE_DESIGN.md) —
-        # the admin is currently the only place that could edit one, so
-        # disable it here rather than leaving the invariant purely
-        # documented. Deletion is still allowed (correcting a mistaken
-        # entry), editing in place is not.
+        # Activities are immutable history (see docs/DATABASE_DESIGN.md).
+        # Activity.save() itself now rejects updates too (see the model),
+        # but hiding the change form here is still worth doing — a
+        # friendlier UX than letting someone fill out an edit form and
+        # only then hit a raw error on submit. Deletion is still
+        # allowed (correcting a mistaken entry), editing in place is not.
         return False

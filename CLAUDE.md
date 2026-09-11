@@ -151,6 +151,18 @@ Always back up before a high-risk schema operation.
 Prefer Django migrations over manual database modifications. Do not
 manually edit migration history unless explicitly directed.
 
+**`on_delete` (`PROTECT`/`SET_NULL`/`CASCADE`) only holds through
+Django.** Confirmed via `pg_constraint`
+(`docs/DATABASE_REVIEW.md` finding #1): every foreign key in this
+schema is `NO ACTION` at the actual PostgreSQL level — Django
+implements `on_delete` in Python (the ORM's deletion `Collector`), not
+as native `ON DELETE` clauses. Raw SQL, a data-migration script using
+`cursor.execute()`, or any other path that bypasses the ORM will not
+cascade, set-null, or protect as documented — a raw delete that's
+supposed to cascade will instead fail with a foreign-key violation.
+Never assume `on_delete` behavior holds outside `Model.delete()`/
+`QuerySet.delete()`.
+
 ## GIT POLICY
 
 Claude may create commits only when explicitly instructed. Before creating
