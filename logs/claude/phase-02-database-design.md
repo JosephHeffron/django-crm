@@ -27,7 +27,8 @@ the design doc.
 
 ## Tests
 
-Docs-only phase; no application code exists to test. `manage.py
+Docs-only phase; no CRM model code or model tests exist yet, and this
+change didn't touch the existing bootstrap code. `manage.py
 check`/`test` unaffected (not re-run — no code changed).
 
 ## Decisions

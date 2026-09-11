@@ -50,7 +50,7 @@ started.
 
 ## Currently working on
 
-Nothing in progress. 6 Dependabot PRs (5 pip minor/patch bumps, 2 GitHub
+Nothing in progress. 6 Dependabot PRs (4 pip minor/patch bumps, 2 GitHub
 Actions bumps) are still open, waiting on review/merge — not blocking
 anything. (A 7th, the pytest security fix, was merged.)
 
