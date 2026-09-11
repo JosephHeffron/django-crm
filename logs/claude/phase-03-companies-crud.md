@@ -5,9 +5,13 @@ Ended: 2026-09-11
 
 ## Objective
 
-Third unit of Phase 3: Companies CRUD (list/detail/create/edit/delete,
-search, filtering, pagination), replacing the `crm:company_list`
-placeholder with real views, per the roadmap and Prompt 3.2.
+Third unit of Phase 3: Companies CRUD (list/detail/create/edit/
+deactivate, search, filtering, pagination), replacing the
+`crm:company_list` placeholder with real views, per the roadmap and
+Prompt 3.2. ("Delete" in Prompt 3.2's own wording — "delete where
+permitted" — turned out to mean deactivate once
+`docs/DATABASE_DESIGN.md`'s documented invariant was checked; see
+Errors.)
 
 ## Files created / changed
 
@@ -28,14 +32,24 @@ placeholder with real views, per the roadmap and Prompt 3.2.
 
 ## Commands
 
-$ (manage.py shell, setup_test_environment + Client) full CRUD cycle:
-  empty list → create → detail → search (match/no-match) → update →
-  delete → unauthenticated redirect
+$ (manage.py shell, setup_test_environment + Client) full CRUD cycle
+  against the first-draft CompanyDeleteView (later superseded — see
+  Errors): empty list → create → detail → search (match/no-match) →
+  update → delete → unauthenticated redirect
 Result: PASS, all steps — before any automated test existed.
 
-$ (same approach) POST to delete a company that has a Deal
+$ (same approach) POST to delete a company that has a Deal, still
+  against the first-draft CompanyDeleteView
 Result: FAILED first — unhandled 500, `ProtectedError` propagating
-uncaught (`Deal.company` is `on_delete=PROTECT`). See Errors.
+uncaught (`Deal.company` is `on_delete=PROTECT`). See Errors. (This
+whole delete-based flow was later replaced by deactivation.)
+
+$ (same approach, after the deactivate rework) POST to
+  CompanyDeactivateView for a company that has a Deal
+Result: PASS — 302 to the detail page, `is_active` set to `False`, the
+company row and its Deal both still exist. No exception at all this
+time, since deactivation never calls `.delete()` and so never touches
+the `PROTECT` constraint that caused the original 500.
 
 $ python manage.py test
 Result: PASS — 77 tests after the first commit (25 new), then 78 after
