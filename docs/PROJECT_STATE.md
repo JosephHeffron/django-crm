@@ -10,10 +10,10 @@ actually verified.
 
 ## Current phase
 
-Phase 2 (CRM database design) — design complete
-(`docs/DATABASE_DESIGN.md`), reviewed and merged. Model implementation
-(`apps/crm/models.py`, migrations, admin, tests) is the next step, not yet
-started.
+Phase 2 (CRM database) — design and model implementation both complete
+and merged. `docs/DATABASE_REVIEW.md` (a review pass on the implemented
+schema, per the roadmap) is the next step before moving to Phase 3 (CRM
+interface).
 
 ## Completed
 
@@ -47,6 +47,14 @@ started.
   defects (a `SET_NULL`/`CheckConstraint` conflict on Deal, and a
   self-contradictory `CASCADE` rationale) — both fixed before merge. Full
   detail in `logs/claude/phase-02-database-design.md`.
+- Phase 2 model implementation (`apps/crm/models.py`, PR #11): all six
+  models implemented from the design doc, migrated against real
+  PostgreSQL (both CheckConstraints confirmed live via `\d+`), 38 model
+  tests. An automated review caught two more real gaps — `Deal.probability`
+  had no upper-bound enforcement (added a CheckConstraint) and
+  `Activity` (documented as immutable) was still editable via the admin,
+  the only mutation path that currently exists (disabled admin change
+  permission for it). Full detail in `logs/claude/phase-02-crm-models.md`.
 
 ## Currently working on
 
@@ -56,13 +64,11 @@ anything. (A 7th, the pytest security fix, was merged.)
 
 ## Next
 
-1. Implement `apps/crm` models from `docs/DATABASE_DESIGN.md`: Company,
-   Contact, Lead, Deal, Task, Activity — migrations, admin registration,
-   model tests (creation, relationships, constraints, validation, edge
-   cases).
-2. `docs/DATABASE_REVIEW.md` — a senior-reviewer pass on the implemented
+1. `docs/DATABASE_REVIEW.md` — a senior-reviewer pass on the implemented
    schema against the design doc, per the roadmap, before moving on to
    the CRM interface (Phase 3).
+2. Phase 3 — CRM interface: application shell (nav, layout, base
+   templates), then Companies/Contacts CRUD.
 3. Review/merge (or leave) the remaining open Dependabot PRs.
 
 ## Known issues
