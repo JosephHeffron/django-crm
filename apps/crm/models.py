@@ -232,6 +232,9 @@ class Deal(models.Model):
     def __str__(self):
         return self.title
 
+    def get_absolute_url(self):
+        return reverse("crm:deal_detail", kwargs={"pk": self.pk})
+
 
 class Task(models.Model):
     class Priority(models.TextChoices):

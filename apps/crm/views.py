@@ -6,7 +6,7 @@ from django.utils import timezone
 from django.views import View
 from django.views.generic import CreateView, DetailView, ListView, UpdateView
 
-from .forms import CompanyForm, ContactForm, LeadConversionForm, LeadForm
+from .forms import CompanyForm, ContactForm, DealForm, LeadConversionForm, LeadForm
 from .models import Company, Contact, Deal, Lead
 
 
@@ -15,6 +15,20 @@ def _split_lead_name(name):
     if len(parts) == 2:
         return parts[0], parts[1]
     return name.strip(), ""
+
+
+def _sync_deal_closed_at(deal):
+    """Keep closed_at consistent with stage — set when a deal reaches a
+    closed stage, cleared if it's reopened. Documented in
+    docs/DATABASE_DESIGN.md's Lifecycle behavior as an application-layer
+    invariant (no DB constraint enforces it), so this is where it
+    actually gets enforced, on every create/update.
+    """
+    if deal.stage in Deal.CLOSED_STAGES:
+        if deal.closed_at is None:
+            deal.closed_at = timezone.now()
+    else:
+        deal.closed_at = None
 
 
 class CompanyListView(LoginRequiredMixin, ListView):
@@ -338,3 +352,70 @@ class LeadConvertView(LoginRequiredMixin, View):
 
         messages.success(request, f"Converted “{lead.name}”.")
         return redirect(lead.get_absolute_url())
+
+
+class DealListView(LoginRequiredMixin, ListView):
+    model = Deal
+    template_name = "crm/deal_list.html"
+    context_object_name = "deals"
+    paginate_by = 25
+
+    def get_queryset(self):
+        queryset = super().get_queryset().select_related("company", "contact")
+        query = self.request.GET.get("q", "").strip()
+        if query:
+            queryset = queryset.filter(title__icontains=query)
+
+        stage = self.request.GET.get("stage")
+        if stage in Deal.Stage.values:
+            queryset = queryset.filter(stage=stage)
+
+        open_only = self.request.GET.get("open") == "1"
+        if open_only:
+            queryset = queryset.exclude(stage__in=Deal.CLOSED_STAGES)
+
+        return queryset
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["query"] = self.request.GET.get("q", "")
+        context["stage"] = self.request.GET.get("stage", "")
+        context["open_only"] = self.request.GET.get("open") == "1"
+        context["stage_choices"] = Deal.Stage.choices
+        return context
+
+
+class DealDetailView(LoginRequiredMixin, DetailView):
+    model = Deal
+    template_name = "crm/deal_detail.html"
+    context_object_name = "deal"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["tasks"] = self.object.tasks.all()
+        return context
+
+
+class DealCreateView(LoginRequiredMixin, CreateView):
+    model = Deal
+    form_class = DealForm
+    template_name = "crm/deal_form.html"
+
+    def form_valid(self, form):
+        form.instance.created_by = self.request.user
+        _sync_deal_closed_at(form.instance)
+        response = super().form_valid(form)
+        messages.success(self.request, f"Created deal “{self.object.title}”.")
+        return response
+
+
+class DealUpdateView(LoginRequiredMixin, UpdateView):
+    model = Deal
+    form_class = DealForm
+    template_name = "crm/deal_form.html"
+
+    def form_valid(self, form):
+        _sync_deal_closed_at(form.instance)
+        response = super().form_valid(form)
+        messages.success(self.request, f"Updated deal “{self.object.title}”.")
+        return response

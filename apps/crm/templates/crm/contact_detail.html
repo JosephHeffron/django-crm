@@ -40,7 +40,7 @@
   {% if deals %}
     <ul>
       {% for deal in deals %}
-        <li>{{ deal.title }} — {{ deal.get_stage_display }}</li>
+        <li><a href="{{ deal.get_absolute_url }}">{{ deal.title }}</a> — {{ deal.get_stage_display }}</li>
       {% endfor %}
     </ul>
   {% else %}
