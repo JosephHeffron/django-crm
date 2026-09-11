@@ -31,7 +31,7 @@ before Companies/Contacts CRUD starts.
   `RequestContext`, so it can't safely depend on context processors).
 - `static/css/base.css` — expanded for the wider nav layout, plus a
   small `.error-page` style block.
-- `apps/core/tests/test_navigation.py`, `test_error_pages.py` — 14 new
+- `apps/core/tests/test_navigation.py`, `test_error_pages.py` — 4 new
   tests.
 
 ## Commands
@@ -50,7 +50,7 @@ confirming the "must not depend on `user`/`{% static %}`" constraint is
 actually satisfied, not just asserted in a comment.
 
 $ python manage.py test
-Result: PASS — 52 tests (14 new), up from 38 at the start of Phase 3.
+Result: PASS — 52 tests (4 new), up from 48 after unit 1.
 
 $ ruff check . / ruff format --check . / pip-audit / bandit
 Result: all PASS, no fixes needed this unit.

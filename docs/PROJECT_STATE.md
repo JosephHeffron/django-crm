@@ -98,7 +98,7 @@ Phase 3 — see Known Issues below.
   login-required URL, custom `404.html`/`500.html` (500 deliberately
   standalone per Django's own guidance), expanded `base.css`. All 8 nav
   URLs, the 404 page, and the 500 template verified directly before
-  writing 14 tests (52 total). First unit in this project with no
+  writing 4 new tests (52 total). First unit in this project with no
   automated-review findings. Full detail in
   `logs/claude/phase-03-navigation-shell.md`. This completes the
   "application shell" scope (Prompt 3.1).
