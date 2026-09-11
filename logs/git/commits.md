@@ -134,3 +134,34 @@ Migration: crm.0001_initial, crm.0002_deal_deal_probability_between_0_and_100
 Reviewer: Human (+ sourcery-ai bot review, 2 real gaps fixed —
   Deal.probability range not enforced, Activity editable via admin)
 Status: READY
+
+2026-09-11
+Branch: main (merged from chore/close-phase-2-models, PR #12)
+Commit: 7c026be
+Message: Close out Phase 2 model implementation (#12)
+Tests: test + dependency-audit passed on PR (docs/logs only)
+Migration: none
+Reviewer: Human (+ sourcery-ai bot review, 1 finding fixed —
+  stale ROADMAP.md/DATABASE_DESIGN.md status after model implementation)
+Status: READY
+
+2026-09-11
+Branch: main (merged from chore/mark-session-paused, PR #13)
+Commit: 70455de
+Message: Mark session paused for easy resume (#13)
+Tests: test + dependency-audit passed on PR (docs only)
+Migration: none
+Reviewer: Human (+ sourcery-ai bot review, 1 finding fixed —
+  pause marker referenced a not-yet-created file)
+Status: READY
+
+2026-09-11
+Branch: main (merged from feature/database-review, PR #14)
+Commit: 4d6f920
+Message: Review the implemented CRM schema against the design doc (#14)
+Tests: 38 passed (unaffected); test + dependency-audit passed on PR
+Migration: none
+Reviewer: Human (+ sourcery-ai bot review, 2 findings fixed —
+  an unsound SET_NULL recommendation, an overly reassuring
+  "nothing contradicts the design" claim)
+Status: READY

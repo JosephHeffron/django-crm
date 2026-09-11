@@ -9,11 +9,14 @@ begins. See `CLAUDE.md` for the workflow this repository follows.
 - [x] **Phase 1 — Bootstrap Django.** `config/`/`apps/` project structure,
       environment-based settings split, PostgreSQL wired up, dependency
       management, project boots and passes `manage.py check`.
-- [ ] **Phase 2 — Database design.** Design Companies/Contacts/Leads/Deals/
+- [x] **Phase 2 — Database design.** Design Companies/Contacts/Leads/Deals/
       Activities/Tasks/Notes relationships in `docs/DATABASE_DESIGN.md` before
       writing models (done); implement models + migrations + admin
       registration (done); schema review in `docs/DATABASE_REVIEW.md`
-      (not yet done — remaining item before this phase is checked off).
+      (done — found 2 HIGH + 5 MEDIUM findings on Activity's CASCADE
+      behavior and on_delete enforcement; tracked in
+      `docs/PROJECT_STATE.md`'s Known Issues, to be resolved before
+      Phase 4, not blocking this phase or Phase 3).
 - [ ] **Phase 3 — CRM interface.** Application shell (nav, layout, base
       templates, messages, error pages), then Companies and Contacts CRUD,
       then Leads and Deals workflows.
