@@ -117,7 +117,12 @@ class ContactListView(LoginRequiredMixin, ListView):
 
         company_id = self.request.GET.get("company")
         if company_id:
-            queryset = queryset.filter(company_id=company_id)
+            try:
+                company_id = int(company_id)
+            except ValueError:
+                pass
+            else:
+                queryset = queryset.filter(company_id=company_id)
 
         return queryset
 
@@ -126,6 +131,7 @@ class ContactListView(LoginRequiredMixin, ListView):
         context["query"] = self.request.GET.get("q", "")
         context["status"] = self.request.GET.get("status", "")
         context["company_id"] = self.request.GET.get("company", "")
+        context["companies"] = Company.objects.order_by("name")
         return context
 
 

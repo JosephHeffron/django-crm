@@ -76,6 +76,24 @@ class ContactListViewTests(TestCase):
         self.assertContains(response, "Lovelace")
         self.assertNotContains(response, "Hopper")
 
+    def test_company_filter_control_is_present_in_the_form(self):
+        # Regression test: the queryset supported ?company= from the
+        # start, but the filter form itself had no way to set it —
+        # caught by review.
+        company = Company.objects.create(name="Acme Corp", created_by=self.user)
+        response = self.client.get(reverse("crm:contact_list"))
+        self.assertContains(response, f'<option value="{company.pk}"')
+        self.assertContains(response, "Acme Corp")
+
+    def test_invalid_company_param_is_ignored_not_a_500(self):
+        # Regression test: a non-numeric ?company= value reached
+        # filter(company_id=...) directly and raised ValueError,
+        # surfacing as an unhandled 500. Caught by review.
+        Contact.objects.create(first_name="Ada", last_name="Lovelace", created_by=self.user)
+        response = self.client.get(reverse("crm:contact_list"), {"company": "abc"})
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Lovelace")
+
     def test_pagination(self):
         for i in range(30):
             Contact.objects.create(
@@ -85,6 +103,30 @@ class ContactListViewTests(TestCase):
         response = self.client.get(reverse("crm:contact_list"))
         self.assertTrue(response.context["is_paginated"])
         self.assertEqual(len(response.context["contacts"]), 25)
+
+    def test_pagination_preserves_company_filter(self):
+        # Regression test: pagination links carried q/status but not
+        # company, so navigating pages dropped the company filter.
+        # Caught by review.
+        company = Company.objects.create(name="Acme Corp", created_by=self.user)
+        other_company = Company.objects.create(name="Globex Inc", created_by=self.user)
+        for i in range(30):
+            Contact.objects.create(
+                first_name=f"Person{i:02d}",
+                last_name="Acme",
+                company=company,
+                created_by=self.user,
+            )
+        Contact.objects.create(
+            first_name="Other", last_name="Globex", company=other_company, created_by=self.user
+        )
+
+        response = self.client.get(reverse("crm:contact_list"), {"company": company.pk})
+        self.assertContains(response, f"company={company.pk}")
+
+        page_2 = self.client.get(reverse("crm:contact_list"), {"company": company.pk, "page": 2})
+        self.assertEqual(len(page_2.context["contacts"]), 5)
+        self.assertTrue(all(c.company_id == company.pk for c in page_2.context["contacts"]))
 
 
 class ContactDetailViewTests(TestCase):
