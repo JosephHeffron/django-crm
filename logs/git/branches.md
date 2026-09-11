@@ -32,3 +32,9 @@ Format: `YYYY-MM-DD | created|merged|deleted | <branch> | requested by`
 2026-09-11 | created | feature/authentication | Claude, user approved
 2026-09-11 | merged (PR #16, squash) | feature/authentication | user approved
 2026-09-11 | deleted (remote, on merge; local, by Claude after sync) | feature/authentication | user approved
+2026-09-11 | created | chore/close-phase-3-unit-1 | Claude, user approved
+2026-09-11 | merged (PR #17, squash) | chore/close-phase-3-unit-1 | user approved
+2026-09-11 | deleted (remote, on merge; local, by Claude after sync) | chore/close-phase-3-unit-1 | user approved
+2026-09-11 | created | feature/navigation-shell | Claude, user approved
+2026-09-11 | merged (PR #18, squash) | feature/navigation-shell | user approved
+2026-09-11 | deleted (remote, on merge; local, by Claude after sync) | feature/navigation-shell | user approved

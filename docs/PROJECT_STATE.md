@@ -16,9 +16,9 @@ actually verified.
 ## Current phase
 
 Phase 2 (CRM database) is complete. Phase 3 (CRM interface) is in
-progress — unit 1 (authentication + minimal base template shell) is done
-and merged. Next units: full navigation/styling/error pages, then
-Companies CRUD, then Contacts CRUD.
+progress — units 1 (authentication + base shell) and 2 (full navigation,
+error pages, styling) are both done and merged, completing the
+"application shell" scope. Next: Companies CRUD.
 
 Phase 2's `docs/DATABASE_REVIEW.md` found 2 HIGH findings (Activity's
 `CASCADE` can silently destroy history still relevant to a surviving
@@ -92,6 +92,16 @@ Phase 3 — see Known Issues below.
   `success_url` didn't account for app namespacing) — reproduced,
   fixed, and covered with a regression test (48 tests total). Full
   detail in `logs/claude/phase-03-authentication.md`.
+- Phase 3 unit 2 — full navigation, error pages, styling (PR #18):
+  full shell nav (Dashboard + all 6 CRM sections + Search), a shared
+  `ComingSoonView` giving every not-yet-built section a real working
+  login-required URL, custom `404.html`/`500.html` (500 deliberately
+  standalone per Django's own guidance), expanded `base.css`. All 8 nav
+  URLs, the 404 page, and the 500 template verified directly before
+  writing 4 new tests (52 total). First unit in this project with no
+  automated-review findings. Full detail in
+  `logs/claude/phase-03-navigation-shell.md`. This completes the
+  "application shell" scope (Prompt 3.1).
 
 ## Currently working on
 
@@ -101,18 +111,16 @@ anything. (A 7th, the pytest security fix, was merged.)
 
 ## Next
 
-1. Phase 3 unit 2 — full navigation (Companies/Contacts/Leads/Deals/
-   Activities/Tasks/Search links in the shell), styling refinement,
-   custom 404/500 error pages.
-2. Phase 3 unit 3 — Companies CRUD (list/detail/create/edit/delete,
-   search, filtering, pagination).
-3. Phase 3 unit 4 — Contacts CRUD.
-4. Phase 3 unit 5 — Leads and Deals workflows (per `docs/ROADMAP.md`'s
+1. Phase 3 unit 3 — Companies CRUD (list/detail/create/edit/delete,
+   search, filtering, pagination), replacing the `crm:company_list`
+   placeholder.
+2. Phase 3 unit 4 — Contacts CRUD.
+3. Phase 3 unit 5 — Leads and Deals workflows (per `docs/ROADMAP.md`'s
    Phase 3 scope).
-5. Before Phase 4: resolve `docs/DATABASE_REVIEW.md`'s two HIGH findings
+4. Before Phase 4: resolve `docs/DATABASE_REVIEW.md`'s two HIGH findings
    (Activity CASCADE, on_delete enforcement) and the Activity-immutability
    MEDIUM finding — deferred by explicit user choice, not forgotten.
-6. Review/merge (or leave) the remaining open Dependabot PRs.
+5. Review/merge (or leave) the remaining open Dependabot PRs.
 
 ## Known issues
 

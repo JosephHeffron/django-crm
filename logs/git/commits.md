@@ -186,3 +186,23 @@ Migration: none
 Reviewer: Human (+ sourcery-ai bot review, 1 real bug fixed —
   NoReverseMatch on successful password change)
 Status: READY
+
+2026-09-11
+Branch: main (merged from chore/close-phase-3-unit-1, PR #17)
+Commit: 76d7283
+Message: Close out Phase 3 unit 1 (authentication) (#17)
+Tests: test + dependency-audit passed on PR (docs/logs only)
+Migration: none
+Reviewer: Human (+ sourcery-ai bot review, 1 finding fixed —
+  missing Leads/Deals unit in PROJECT_STATE's Phase 3 sequence)
+Status: READY
+
+2026-09-11
+Branch: main (merged from feature/navigation-shell, PR #18)
+Commit: edf4ef8
+Message: Add full navigation, error pages, and styling refinement (#18)
+Tests: 52 passed (14 new); test + dependency-audit passed on PR
+Migration: none
+Reviewer: Human (+ sourcery-ai bot review, no findings — first clean
+  review in this project's history)
+Status: READY
