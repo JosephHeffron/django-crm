@@ -96,10 +96,14 @@ have multiple subjects, which the schema currently allows.
 either (a) restrict an Activity to exactly one relation (a `CheckConstraint`
 requiring exactly one of the four FKs, not "at least one"), which would
 make the current `CASCADE` reasoning correct again, or (b) keep multi-tagging
-allowed and switch to `SET_NULL` for these four FKs instead of `CASCADE`,
-accepting that an Activity can end up with zero relations if all of its
-tagged objects are eventually deleted (which would need its own decision
-about whether a fully-orphaned Activity should then be cleaned up). Worth
+allowed and switch to `SET_NULL` for these four FKs instead of `CASCADE` —
+note this option is not a drop-in change: the existing
+`activity_has_related_object` constraint requires at least one relation
+be non-null, so `SET_NULL`-ing an Activity's last remaining relation
+would violate that constraint and block the deletion instead of
+producing an orphaned Activity. Making (b) work requires also relaxing
+or removing that constraint, or adding explicit cleanup behavior for
+Activities that would otherwise end up fully orphaned. Worth
 resolving explicitly before the Activity Timeline feature (Phase 4) starts
 relying on this data staying intact.
 
@@ -160,6 +164,28 @@ actual "remove from view" mechanism, not hard delete) — but
 it's the kind of thing worth being deliberate about before it's
 discovered as a support request ("why can't I delete this company?").
 
+### 7. Activity immutability is enforced only in the admin, not at the model layer
+
+`docs/DATABASE_DESIGN.md` documents Activity as immutable history, and
+PR #11 closed the one mutation path that existed at the time
+(`ActivityAdmin.has_change_permission` returning `False`). Confirmed
+empirically that this doesn't actually make Activity immutable —
+`activity.subject = "edited"; activity.save()` from a plain Django shell
+succeeds without error, silently rewriting supposedly-immutable history:
+
+```
+subject after edit: Edited after creation via plain .save()
+```
+
+The admin restriction only blocks the Django admin UI specifically; any
+other code path (a future custom view, a management command, `./manage.py
+shell`, a data-migration script) can still edit or reassign an existing
+Activity's type, subject, description, or related-object FKs with no
+guard at all. `docs/DATABASE_DESIGN.md` already frames the broader
+enforcement gap as an accepted application-layer trade-off — this finding
+confirms that trade-off is real and currently as wide-open as before
+PR #11's admin fix, for every write path except the admin itself.
+
 ## LOW
 
 - **No "primary contact" flag.** A Company with several Contacts has no
@@ -202,12 +228,17 @@ discovered as a support request ("why can't I delete this company?").
 
 The implementation matches the design document closely — every field,
 relationship, and `on_delete` choice in `apps/crm/models.py` traces back
-to a specific line in the design doc, with three additions made *during*
+to a specific line in the design doc, with additions made *during*
 implementation (documented in `logs/claude/phase-02-crm-models.md` and
 already reflected back into the design doc): the `deal_probability_between_0_and_100`
-constraint, and closing the Activity-admin edit path. Nothing in the
-implementation contradicts the design doc as it now stands (post those
-updates).
+constraint, and closing the Activity-admin edit path. No field or
+relationship contradicts the design doc as it now stands. That said,
+"matches the design doc" isn't the same as "every documented invariant
+actually holds" — finding #7 above confirms the design doc's own
+"application-layer enforcement" framing for Activity immutability is, in
+practice, no enforcement at all outside the admin. The design doc was
+honest about this being a trade-off; this review's contribution is
+confirming empirically how wide that gap still is.
 
 ## What's solid (not just problems)
 
@@ -232,5 +263,8 @@ Do not change the schema based on this review alone. Findings #1 and #2
 (HIGH) are worth a deliberate decision before Phase 4 (Activities/Tasks
 UI) starts building on top of Activity's current CASCADE behavior, since
 that's where multi-tagged activities would first become a real feature
-rather than a theoretical possibility. The MEDIUM/LOW findings are worth
+rather than a theoretical possibility. Finding #7 (Activity immutability
+not actually enforced beyond the admin) is worth resolving in the same
+pass, since it touches the same model and the same "is this Activity
+data trustworthy" question. The remaining MEDIUM/LOW findings are worth
 keeping in mind but don't block Phase 3 (CRM interface) from starting.
