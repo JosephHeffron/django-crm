@@ -1,9 +1,10 @@
 # Django CRM
 
 Self-hosted CRM built as a Django monolith with server-rendered templates
-and PostgreSQL. See `CLAUDE.md` for the development contract, and
+and PostgreSQL. See `CLAUDE.md` for the development contract (including AI
+operating rules — `docs/AI_RULES.md` has the detailed procedures), and
 `docs/ARCHITECTURE.md` / `docs/ROADMAP.md` for the system design and phased
-build-out plan.
+build-out plan. `docs/PROJECT_STATE.md` has the current status snapshot.
 
 ## Development setup
 
@@ -15,8 +16,15 @@ Requirements: Python 3.12 (via pyenv), PostgreSQL, git.
 pyenv local 3.12.6
 python -m venv .venv
 source .venv/bin/activate
-pip install -r requirements.txt
+pip install -r requirements.txt -r requirements-dev.txt
+pre-commit install
 ```
+
+`requirements-dev.txt` adds linting (`ruff`), testing (`pytest`/
+`pytest-django`), and security scanning (`bandit`, `pip-audit`) on top of
+the runtime dependencies. `pre-commit install` wires up the hooks in
+`.pre-commit-config.yaml` so lint/format/basic secret checks run before
+every commit. Or use `make setup` to do the venv + install in one step.
 
 ### 2. Create the development database
 
@@ -72,11 +80,23 @@ python manage.py runserver
 Visit `http://127.0.0.1:8000/` for the root page and `/admin/` for the
 Django admin.
 
-## Running tests
+## Common commands
 
 ```sh
-python manage.py test
+make test       # python manage.py test
+make lint       # ruff check + ruff format --check
+make security   # pip-audit + bandit
+make check      # manage.py check + makemigrations --check
+make migrate    # manage.py migrate
+make shell      # manage.py shell
 ```
+
+## Git workflow
+
+`main` is protected. Work happens on `feature/*`, `fix/*`, `chore/*`, or
+`security/*` branches; changes reach `main` via pull request with CI
+(`.github/workflows/ci.yml`, `security.yml`) passing. See `CLAUDE.md`'s
+Git/GitHub policy for the full rules.
 
 ## Project layout
 
