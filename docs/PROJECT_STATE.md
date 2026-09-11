@@ -6,7 +6,7 @@ actually verified.
 
 > **Session paused here on 2026-09-11.** Repo is clean (`main` up to
 > date, nothing uncommitted, no PRs open from this session). To resume,
-> start with `docs/DATABASE_REVIEW.md` — see "Next" below.
+> create `docs/DATABASE_REVIEW.md` as the next task — see "Next" below.
 
 ## Project version
 
