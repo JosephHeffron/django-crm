@@ -17,3 +17,12 @@ Format: `YYYY-MM-DD | created|merged|deleted | <branch> | requested by`
 2026-09-11 | created | feature/crm-models | Claude, user approved
 2026-09-11 | merged (PR #11, squash) | feature/crm-models | user approved
 2026-09-11 | deleted (remote, on merge; local, by Claude after sync) | feature/crm-models | user approved
+2026-09-11 | created | chore/close-phase-2-models | Claude, user approved
+2026-09-11 | merged (PR #12, squash) | chore/close-phase-2-models | user approved
+2026-09-11 | deleted (remote, on merge; local, by Claude after sync) | chore/close-phase-2-models | user approved
+2026-09-11 | created | chore/mark-session-paused | Claude, user approved
+2026-09-11 | merged (PR #13, squash) | chore/mark-session-paused | user approved
+2026-09-11 | deleted (remote, on merge; local, by Claude after sync) | chore/mark-session-paused | user approved
+2026-09-11 | created as docs/database-review, renamed to feature/database-review (didn't match branch-naming convention) | feature/database-review | Claude, user approved
+2026-09-11 | merged (PR #14, squash) | feature/database-review | user approved
+2026-09-11 | deleted (remote, on merge; local, by Claude after sync) | feature/database-review | user approved

@@ -6,7 +6,8 @@ actually verified.
 
 > **Session paused here on 2026-09-11.** Repo is clean (`main` up to
 > date, nothing uncommitted, no PRs open from this session). To resume,
-> create `docs/DATABASE_REVIEW.md` as the next task — see "Next" below.
+> see "Next" below — a decision is needed on how to handle the two HIGH
+> findings from `docs/DATABASE_REVIEW.md` before continuing.
 
 ## Project version
 
@@ -14,10 +15,14 @@ actually verified.
 
 ## Current phase
 
-Phase 2 (CRM database) — design and model implementation both complete
-and merged. `docs/DATABASE_REVIEW.md` (a review pass on the implemented
-schema, per the roadmap) is the next step before moving to Phase 3 (CRM
-interface).
+Phase 2 (CRM database) — design, model implementation, and schema review
+all complete and merged. `docs/DATABASE_REVIEW.md` found 2 HIGH findings
+(Activity's CASCADE can silently destroy history still relevant to a
+surviving object; `on_delete` guarantees only hold through the Django
+ORM, not raw SQL) plus a MEDIUM finding that Activity immutability isn't
+actually enforced beyond the admin. The review's own recommendation:
+these don't need to block Phase 3 (CRM interface), but should be
+resolved before Phase 4 (Activities/Tasks UI) builds on top of them.
 
 ## Completed
 
@@ -59,6 +64,21 @@ interface).
   `Activity` (documented as immutable) was still editable via the admin,
   the only mutation path that currently exists (disabled admin change
   permission for it). Full detail in `logs/claude/phase-02-crm-models.md`.
+- Phase 2 schema review (`docs/DATABASE_REVIEW.md`, PR #14): senior-
+  reviewer pass on the implemented schema. Two HIGH findings, both
+  verified empirically (not inferred): `on_delete` behavior is enforced
+  entirely by Django's ORM, not by PostgreSQL (every FK is `NO ACTION`
+  at the DB level — confirmed via `pg_constraint` and a raw SQL delete
+  that should have cascaded but instead failed); Activity's `CASCADE` on
+  all four relation FKs can destroy history still relevant to a
+  surviving object (confirmed by deleting a Deal and watching an
+  Activity also tagged to a still-existing Company vanish with it). Plus
+  4 MEDIUM findings (including that Activity immutability still isn't
+  enforced beyond the admin — confirmed a plain `.save()` bypasses it)
+  and several LOW findings. Automated review caught two issues in the
+  review itself (an unsound `SET_NULL` recommendation, an overly
+  reassuring "nothing contradicts the design" claim) — both fixed. Full
+  detail in `logs/claude/phase-02-database-review.md`.
 
 ## Currently working on
 
@@ -68,12 +88,18 @@ anything. (A 7th, the pytest security fix, was merged.)
 
 ## Next
 
-1. `docs/DATABASE_REVIEW.md` — a senior-reviewer pass on the implemented
-   schema against the design doc, per the roadmap, before moving on to
-   the CRM interface (Phase 3).
-2. Phase 3 — CRM interface: application shell (nav, layout, base
-   templates), then Companies/Contacts CRUD.
-3. Review/merge (or leave) the remaining open Dependabot PRs.
+**Decision needed**: whether to resolve `docs/DATABASE_REVIEW.md`'s two
+HIGH findings (+ the MEDIUM Activity-immutability one) now, or proceed
+straight to Phase 3 and resolve them before Phase 4 specifically (the
+review's own recommendation — Phase 3 doesn't touch Activity's CASCADE
+behavior or mutation surface, so nothing blocks it).
+
+1. Either: resolve the Activity findings (schema change — needs its own
+   design decision per `docs/DATABASE_REVIEW.md` finding #2's two
+   options, migration, and re-verification), or: start Phase 3 — CRM
+   interface: application shell (nav, layout, base templates), then
+   Companies/Contacts CRUD.
+2. Review/merge (or leave) the remaining open Dependabot PRs.
 
 ## Known issues
 
