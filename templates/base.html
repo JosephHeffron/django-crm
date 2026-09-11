@@ -11,12 +11,23 @@
     <a class="brand" href="{% url 'core:index' %}">CRM</a>
     {% if user.is_authenticated %}
       <nav class="main-nav">
+        <a href="{% url 'core:index' %}">Dashboard</a>
+        <a href="{% url 'crm:company_list' %}">Companies</a>
+        <a href="{% url 'crm:contact_list' %}">Contacts</a>
+        <a href="{% url 'crm:lead_list' %}">Leads</a>
+        <a href="{% url 'crm:deal_list' %}">Deals</a>
+        <a href="{% url 'crm:activity_list' %}">Activities</a>
+        <a href="{% url 'crm:task_list' %}">Tasks</a>
+        <a href="{% url 'core:search' %}">Search</a>
+      </nav>
+      <div class="user-controls">
         <span class="nav-user">{{ user.username }}</span>
+        <a href="{% url 'users:password_change' %}">Change password</a>
         <form method="post" action="{% url 'users:logout' %}" class="logout-form">
           {% csrf_token %}
           <button type="submit" class="link-button">Log out</button>
         </form>
-      </nav>
+      </div>
     {% endif %}
   </header>
 
