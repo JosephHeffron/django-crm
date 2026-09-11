@@ -114,3 +114,23 @@ Migration: none
 Reviewer: Human (+ sourcery-ai bot review, 5 findings addressed —
   2 real defects fixed, 3 clarified as accepted trade-offs)
 Status: READY
+
+2026-09-11
+Branch: main (merged from chore/close-phase-2-design, PR #10)
+Commit: cdc1dc6
+Message: Close out Phase 2 database design (#10)
+Tests: test + dependency-audit passed on PR (docs/logs only)
+Migration: none
+Reviewer: Human (+ sourcery-ai bot review, 2 nitpicks fixed —
+  an arithmetic error and an overstated claim)
+Status: READY
+
+2026-09-11
+Branch: main (merged from feature/crm-models, PR #11)
+Commit: a11444c
+Message: Implement CRM models from the database design (#11)
+Tests: 38 passed; test + dependency-audit passed on PR
+Migration: crm.0001_initial, crm.0002_deal_deal_probability_between_0_and_100
+Reviewer: Human (+ sourcery-ai bot review, 2 real gaps fixed —
+  Deal.probability range not enforced, Activity editable via admin)
+Status: READY

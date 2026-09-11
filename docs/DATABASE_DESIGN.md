@@ -1,9 +1,14 @@
 # Database design
 
-This document designs the CRM's initial data model before any code is
+This document designed the CRM's initial data model before any code was
 written (per `CLAUDE.md`'s "document why before changing architecture" and
-"do not overengineer" rules). No models exist yet — this is the plan
-`apps/crm/models.py` will implement in the next phase, after review.
+"do not overengineer" rules). `apps/crm/models.py` now implements this
+design (migrations applied, 38 model tests passing) — see
+`logs/claude/phase-02-crm-models.md` for what changed during
+implementation (two review-driven additions: a `CheckConstraint` on
+`Deal.probability`'s range, and `Activity` locked against admin edits).
+A schema review against this document (`docs/DATABASE_REVIEW.md`) is the
+next remaining step before Phase 2 is considered fully complete.
 
 All models use `settings.AUTH_USER_MODEL` (Django's built-in `User`) for
 ownership/assignment — see "Decisions to review" below for why no custom
@@ -252,43 +257,48 @@ become orphaned, contentless rows.
 - Composite/query-pattern-driven indexes deferred until the features that
   would actually exercise them exist (see Activity indexes above).
 
-## Decisions to review before implementation
+## Implementation notes and remaining open questions
 
-- `on_delete=PROTECT` for `owner`/`created_by`/`assigned_to` is a
-  meaningful behavioral choice (blocks user deletion until records are
-  reassigned) — confirm this is the intended trade-off versus
-  `SET_NULL`.
-- The two multi-column `CheckConstraint`s (Deal, Activity) need to be
-  verified against PostgreSQL during implementation — confirm Django's
-  constraint API expresses "at least one of N nullable FKs is set"
-  correctly and that `makemigrations`/`migrate` produce the expected SQL.
-- `Deal.company`/`Deal.contact` use `PROTECT`, not `SET_NULL`: an earlier
+This section was written before implementation as "decisions to review";
+now that `apps/crm/models.py` exists, each item is marked resolved or
+still open.
+
+- **Resolved.** `on_delete=PROTECT` for `owner`/`created_by`/`assigned_to`
+  was implemented as designed — a user account can't be deleted while
+  they still own records.
+- **Resolved.** The two multi-column `CheckConstraint`s (Deal, Activity)
+  were verified against real PostgreSQL (`\d+ crm_deal` /
+  `\d+ crm_activity` after `migrate`) — Django's constraint API expresses
+  "at least one of N nullable FKs is set" correctly, and a third
+  `CheckConstraint` (`deal_probability_between_0_and_100`) was added
+  during implementation after review caught that the design's "0-100"
+  note for `Deal.probability` wasn't actually enforced.
+- **Open, still a judgment call to revisit with real usage.**
+  `Deal.company`/`Deal.contact` use `PROTECT`, not `SET_NULL`: an earlier
   draft used `SET_NULL`, but since Deal also requires at least one of the
   two to be set (the `CheckConstraint` above), `SET_NULL`-ing a Deal's
   only relation would leave both null and make the delete fail with an
   `IntegrityError` anyway — `PROTECT` makes that failure explicit and
   intentional instead of an accidental side effect of the constraint.
   `Contact.company` has no such constraint (it's a single nullable FK, not
-  an "at least one of" pair) so it keeps `SET_NULL`. Confirm this
-  reasoning holds once real usage patterns exist — it may turn out
-  founders want to delete a Company and have its Deals auto-close instead
-  of being blocked.
-- `Contact.company` uses `SET_NULL` while `Activity`'s four relation FKs
-  use `CASCADE` — confirm this asymmetry (contact outlives its company;
-  activity does not outlive its subject) is the right call, not an
-  oversight.
-- The lifecycle invariants described above (Lead conversion fields set
-  together, Deal/Task timestamps consistent with their status, Activity
-  immutability) are enforced only at the application/service layer (model
-  methods used for all mutations), not by database constraints or
-  triggers — consistent with not overengineering a single-maintainer app,
-  but it means a bulk `.update()`, an ad-hoc admin edit, or direct SQL
-  could violate them. Acceptable for now since there's a single developer
-  and no external write path; revisit (e.g. add `CheckConstraint`s tying
-  `status` to the presence of `converted_at`/`closed_at`/`completed_at`,
-  or restrict admin edit access) if that stops being true.
-- Whether `Task`/`Activity` should also relate directly to `Company`
-  and/or `Lead` (they currently don't, matching the original brief's
-  diagram) — revisit if the UI ends up needing a "tasks for this company"
+  an "at least one of" pair) so it keeps `SET_NULL`. It may turn out
+  users want to delete a Company and have its Deals auto-close instead of
+  being blocked — revisit once that's a real request, not before.
+- **Resolved (as documented, matches implementation).** `Contact.company`
+  uses `SET_NULL` while `Activity`'s four relation FKs use `CASCADE` —
+  contact outlives its company; activity does not outlive its subject.
+- **Partially resolved.** The lifecycle invariants described above (Lead
+  conversion fields set together, Deal/Task timestamps consistent with
+  their status, Activity immutability) are still enforced only at the
+  application/service layer, not by database constraints or triggers —
+  except Activity immutability, where the one concrete mutation path
+  that exists today (the Django admin, since no custom CRM views exist
+  yet) was closed by disabling `ActivityAdmin.has_change_permission`.
+  The others remain an accepted trade-off for a single-maintainer app
+  with no external write path; revisit if that stops being true.
+- **Still open.** Whether `Task`/`Activity` should also relate directly
+  to `Company` and/or `Lead` (they currently don't, matching the original
+  brief's diagram) — revisit if the UI ends up needing a "tasks for this
+  company"
   view that the current Contact/Deal-only relations can't answer without
   an extra join.

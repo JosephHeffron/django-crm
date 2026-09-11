@@ -6,13 +6,14 @@ begins. See `CLAUDE.md` for the workflow this repository follows.
 
 - [x] **Phase 0 — Development rules.** `CLAUDE.md`, git baseline, `.gitignore`,
       this roadmap, `docs/ARCHITECTURE.md`.
-- [ ] **Phase 1 — Bootstrap Django.** `config/`/`apps/` project structure,
+- [x] **Phase 1 — Bootstrap Django.** `config/`/`apps/` project structure,
       environment-based settings split, PostgreSQL wired up, dependency
       management, project boots and passes `manage.py check`.
 - [ ] **Phase 2 — Database design.** Design Companies/Contacts/Leads/Deals/
       Activities/Tasks/Notes relationships in `docs/DATABASE_DESIGN.md` before
-      writing models; implement models + migrations + admin registration;
-      schema review in `docs/DATABASE_REVIEW.md`.
+      writing models (done); implement models + migrations + admin
+      registration (done); schema review in `docs/DATABASE_REVIEW.md`
+      (not yet done — remaining item before this phase is checked off).
 - [ ] **Phase 3 — CRM interface.** Application shell (nav, layout, base
       templates, messages, error pages), then Companies and Contacts CRUD,
       then Leads and Deals workflows.
