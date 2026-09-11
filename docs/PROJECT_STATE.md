@@ -17,8 +17,9 @@ actually verified.
 
 Phase 2 (CRM database) is complete. Phase 3 (CRM interface) is in
 progress — units 1 (authentication + base shell), 2 (full navigation,
-error pages, styling), and 3 (Companies CRUD) are done and merged. Next:
-Contacts CRUD.
+error pages, styling), 3 (Companies CRUD), and 4 (Contacts CRUD) are
+done and merged. Next: Leads and Deals workflows (unit 5, the last
+Phase 3 unit).
 
 Phase 2's `docs/DATABASE_REVIEW.md` found 2 HIGH findings (Activity's
 `CASCADE` can silently destroy history still relevant to a surviving
@@ -114,6 +115,16 @@ Phase 3 — see Known Issues below.
   (`is_active=False`, never calls `.delete()`), which made the earlier
   fix moot. 78 tests total. Full detail in
   `logs/claude/phase-03-companies-crud.md`.
+- Phase 3 unit 4 — Contacts CRUD (PR #22): list (search across name/
+  email + active/inactive + company filters + pagination), detail
+  (shows linked Company, related Deals/Tasks), create, edit, deactivate
+  views, replacing the `crm:contact_list` placeholder. Checked
+  `docs/DATABASE_DESIGN.md` before building (unit 3's lesson) and used
+  deactivation from the start this time. Automated review still caught
+  three real gaps in the company filter: no UI control to actually set
+  it, pagination silently dropping it, and a non-numeric value crashing
+  with a 500 — all reproduced and re-verified fixed. 107 tests total.
+  Full detail in `logs/claude/phase-03-contacts-crud.md`.
 
 ## Currently working on
 
@@ -123,16 +134,12 @@ anything. (A 7th, the pytest security fix, was merged.)
 
 ## Next
 
-1. Phase 3 unit 4 — Contacts CRUD, following the same pattern (list/
-   detail/create/edit + deactivate-or-delete depending on what
-   `docs/DATABASE_DESIGN.md` actually documents for Contact — check
-   before assuming, per unit 3's lesson).
-2. Phase 3 unit 5 — Leads and Deals workflows (per `docs/ROADMAP.md`'s
-   Phase 3 scope).
-3. Before Phase 4: resolve `docs/DATABASE_REVIEW.md`'s two HIGH findings
+1. Phase 3 unit 5 — Leads and Deals workflows (per `docs/ROADMAP.md`'s
+   Phase 3 scope) — the last unit before Phase 3 is fully complete.
+2. Before Phase 4: resolve `docs/DATABASE_REVIEW.md`'s two HIGH findings
    (Activity CASCADE, on_delete enforcement) and the Activity-immutability
    MEDIUM finding — deferred by explicit user choice, not forgotten.
-4. Review/merge (or leave) the remaining open Dependabot PRs.
+3. Review/merge (or leave) the remaining open Dependabot PRs.
 
 ## Known issues
 
