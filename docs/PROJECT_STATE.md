@@ -4,10 +4,10 @@ Update this file at the end of every session (see `CLAUDE.md`'s Session
 Close Procedure). Do not describe anything as complete unless it was
 actually verified.
 
-> **Session paused here on 2026-09-11.** Repo is clean (`main` up to
-> date, nothing uncommitted, no PRs open from this session). To resume,
-> see "Next" below — a decision is needed on how to handle the two HIGH
-> findings from `docs/DATABASE_REVIEW.md` before continuing.
+> **Last updated 2026-09-11.** Repo is clean (`main` up to date, nothing
+> uncommitted). User chose to defer `docs/DATABASE_REVIEW.md`'s HIGH
+> findings until before Phase 4 and proceed with Phase 3 now — see
+> "Next" below for where Phase 3 currently stands.
 
 ## Project version
 
@@ -15,14 +15,18 @@ actually verified.
 
 ## Current phase
 
-Phase 2 (CRM database) — design, model implementation, and schema review
-all complete and merged. `docs/DATABASE_REVIEW.md` found 2 HIGH findings
-(Activity's CASCADE can silently destroy history still relevant to a
-surviving object; `on_delete` guarantees only hold through the Django
-ORM, not raw SQL) plus a MEDIUM finding that Activity immutability isn't
-actually enforced beyond the admin. The review's own recommendation:
-these don't need to block Phase 3 (CRM interface), but should be
-resolved before Phase 4 (Activities/Tasks UI) builds on top of them.
+Phase 2 (CRM database) is complete. Phase 3 (CRM interface) is in
+progress — unit 1 (authentication + minimal base template shell) is done
+and merged. Next units: full navigation/styling/error pages, then
+Companies CRUD, then Contacts CRUD.
+
+Phase 2's `docs/DATABASE_REVIEW.md` found 2 HIGH findings (Activity's
+`CASCADE` can silently destroy history still relevant to a surviving
+object; `on_delete` guarantees only hold through the Django ORM, not raw
+SQL) plus a MEDIUM finding that Activity immutability isn't actually
+enforced beyond the admin. Per the user's explicit choice, these are
+deferred until before Phase 4 (Activities/Tasks UI) rather than blocking
+Phase 3 — see Known Issues below.
 
 ## Completed
 
@@ -79,6 +83,15 @@ resolved before Phase 4 (Activities/Tasks UI) builds on top of them.
   review itself (an unsound `SET_NULL` recommendation, an overly
   reassuring "nothing contradicts the design" claim) — both fixed. Full
   detail in `logs/claude/phase-02-database-review.md`.
+- Phase 3 unit 1 — authentication + minimal base template shell
+  (PR #16): Django's built-in login/logout/password-change views under
+  `apps/users`, `templates/base.html` shell, `apps.core`'s dashboard
+  placeholder now behind `login_required`. Verified end-to-end against a
+  running server before writing 9 tests. Automated review caught a real
+  `NoReverseMatch` bug on successful password change (the view's default
+  `success_url` didn't account for app namespacing) — reproduced,
+  fixed, and covered with a regression test (48 tests total). Full
+  detail in `logs/claude/phase-03-authentication.md`.
 
 ## Currently working on
 
@@ -88,18 +101,16 @@ anything. (A 7th, the pytest security fix, was merged.)
 
 ## Next
 
-**Decision needed**: whether to resolve `docs/DATABASE_REVIEW.md`'s two
-HIGH findings (+ the MEDIUM Activity-immutability one) now, or proceed
-straight to Phase 3 and resolve them before Phase 4 specifically (the
-review's own recommendation — Phase 3 doesn't touch Activity's CASCADE
-behavior or mutation surface, so nothing blocks it).
-
-1. Either: resolve the Activity findings (schema change — needs its own
-   design decision per `docs/DATABASE_REVIEW.md` finding #2's two
-   options, migration, and re-verification), or: start Phase 3 — CRM
-   interface: application shell (nav, layout, base templates), then
-   Companies/Contacts CRUD.
-2. Review/merge (or leave) the remaining open Dependabot PRs.
+1. Phase 3 unit 2 — full navigation (Companies/Contacts/Leads/Deals/
+   Activities/Tasks/Search links in the shell), styling refinement,
+   custom 404/500 error pages.
+2. Phase 3 unit 3 — Companies CRUD (list/detail/create/edit/delete,
+   search, filtering, pagination).
+3. Phase 3 unit 4 — Contacts CRUD.
+4. Before Phase 4: resolve `docs/DATABASE_REVIEW.md`'s two HIGH findings
+   (Activity CASCADE, on_delete enforcement) and the Activity-immutability
+   MEDIUM finding — deferred by explicit user choice, not forgotten.
+5. Review/merge (or leave) the remaining open Dependabot PRs.
 
 ## Known issues
 

@@ -26,3 +26,9 @@ Format: `YYYY-MM-DD | created|merged|deleted | <branch> | requested by`
 2026-09-11 | created as docs/database-review, renamed to feature/database-review (didn't match branch-naming convention) | feature/database-review | Claude, user approved
 2026-09-11 | merged (PR #14, squash) | feature/database-review | user approved
 2026-09-11 | deleted (remote, on merge; local, by Claude after sync) | feature/database-review | user approved
+2026-09-11 | created | chore/close-phase-2-review | Claude, user approved
+2026-09-11 | merged (PR #15, squash) | chore/close-phase-2-review | user approved
+2026-09-11 | deleted (remote, on merge; local, by Claude after sync) | chore/close-phase-2-review | user approved
+2026-09-11 | created | feature/authentication | Claude, user approved
+2026-09-11 | merged (PR #16, squash) | feature/authentication | user approved
+2026-09-11 | deleted (remote, on merge; local, by Claude after sync) | feature/authentication | user approved

@@ -165,3 +165,24 @@ Reviewer: Human (+ sourcery-ai bot review, 2 findings fixed —
   an unsound SET_NULL recommendation, an overly reassuring
   "nothing contradicts the design" claim)
 Status: READY
+
+2026-09-11
+Branch: main (merged from chore/close-phase-2-review, PR #15)
+Commit: ab8eb18
+Message: Close out Phase 2 database review (#15)
+Tests: test + dependency-audit passed on PR (docs/logs only)
+Migration: none
+Reviewer: Human (+ sourcery-ai bot review, 3 findings fixed —
+  stale ROADMAP status, MEDIUM finding undercount, contradictory
+  Known Issues section)
+Status: READY
+
+2026-09-11
+Branch: main (merged from feature/authentication, PR #16)
+Commit: 9b9f57c
+Message: Add authentication and a minimal base template shell (#16)
+Tests: 48 passed (10 new); test + dependency-audit passed on PR
+Migration: none
+Reviewer: Human (+ sourcery-ai bot review, 1 real bug fixed —
+  NoReverseMatch on successful password change)
+Status: READY
