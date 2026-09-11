@@ -612,10 +612,21 @@ class TaskCompleteView(LoginRequiredMixin, View):
     """One-click completion from the list or detail page, without going
     through the full edit form — the dedicated "completion workflow"
     the roadmap calls for, separate from ordinary editing. POST only.
+
+    Only acts on a pending task. The template only renders this action
+    for pending tasks, but that's a UI-level guard only — without this
+    check here too, a direct POST (e.g. a stale page, or the endpoint
+    hit directly) could silently revive an already-cancelled task
+    straight to completed. Same shape as LeadConvertView's "already
+    converted" guard.
     """
 
     def post(self, request, pk):
         task = get_object_or_404(Task, pk=pk)
+        if task.status != Task.Status.PENDING:
+            messages.info(request, f"“{task.title}” is not pending and was left unchanged.")
+            return redirect(task.get_absolute_url())
+
         task.status = Task.Status.COMPLETED
         _sync_task_completed_at(task)
         task.save(update_fields=["status", "completed_at", "updated_at"])

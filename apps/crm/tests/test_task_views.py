@@ -212,6 +212,28 @@ class TaskCompleteViewTests(TestCase):
         self.assertEqual(self.task.status, Task.Status.COMPLETED)
         self.assertIsNotNone(self.task.completed_at)
 
+    def test_does_not_complete_a_cancelled_task(self):
+        # A direct POST bypasses the UI, which only shows the "Mark
+        # complete" action for pending tasks — the view itself must
+        # not silently revive a cancelled task to completed.
+        self.task.status = Task.Status.CANCELLED
+        self.task.save()
+
+        self.client.post(reverse("crm:task_complete", args=[self.task.pk]))
+        self.task.refresh_from_db()
+        self.assertEqual(self.task.status, Task.Status.CANCELLED)
+        self.assertIsNone(self.task.completed_at)
+
+    def test_already_completed_task_is_left_unchanged(self):
+        self.task.status = Task.Status.COMPLETED
+        self.task.completed_at = timezone.now()
+        self.task.save()
+        original_completed_at = self.task.completed_at
+
+        self.client.post(reverse("crm:task_complete", args=[self.task.pk]))
+        self.task.refresh_from_db()
+        self.assertEqual(self.task.completed_at, original_completed_at)
+
     def test_redirects_to_task_detail_by_default(self):
         response = self.client.post(reverse("crm:task_complete", args=[self.task.pk]))
         self.assertRedirects(response, self.task.get_absolute_url())
