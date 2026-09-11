@@ -275,3 +275,21 @@ Tests: 158 passed (up from 135); test + dependency-audit passed on PR
 Migration: none
 Reviewer: Human (+ sourcery-ai bot review, no findings)
 Status: READY
+
+2026-09-11
+Branch: main (merged from chore/close-phase-3, PR #26)
+Commit: 33da96e
+Message: Close out Phase 3 unit 5 — Phase 3 is now fully complete (#26)
+Tests: test + dependency-audit passed on PR (docs/logs only)
+Migration: none
+Reviewer: Human (+ sourcery-ai bot review, no findings)
+Status: READY
+
+2026-09-11
+Branch: main (merged from fix/activity-cascade-and-immutability, PR #27)
+Commit: 1ac9da0
+Message: Resolve the deferred Phase 2 review findings before Phase 4 (#27)
+Tests: 161 passed (up from 158); test + dependency-audit passed on PR
+Migration: crm.0003_remove_activity_activity_has_related_object_and_more
+Reviewer: Human (+ sourcery-ai bot review, no findings)
+Status: READY
