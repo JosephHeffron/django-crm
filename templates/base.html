@@ -1,0 +1,35 @@
+{% load static %}<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}CRM{% endblock %}</title>
+  <link rel="stylesheet" href="{% static 'css/base.css' %}">
+</head>
+<body>
+  <header class="site-header">
+    <a class="brand" href="{% url 'core:index' %}">CRM</a>
+    {% if user.is_authenticated %}
+      <nav class="main-nav">
+        <span class="nav-user">{{ user.username }}</span>
+        <form method="post" action="{% url 'users:logout' %}" class="logout-form">
+          {% csrf_token %}
+          <button type="submit" class="link-button">Log out</button>
+        </form>
+      </nav>
+    {% endif %}
+  </header>
+
+  {% if messages %}
+    <ul class="messages">
+      {% for message in messages %}
+        <li class="message {{ message.tags }}">{{ message }}</li>
+      {% endfor %}
+    </ul>
+  {% endif %}
+
+  <main class="site-main">
+    {% block content %}{% endblock %}
+  </main>
+</body>
+</html>
