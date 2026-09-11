@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+
+{% block title %}{{ company.name }}{% endblock %}
+
+{% block content %}
+  <p><a href="{% url 'crm:company_list' %}">← Companies</a></p>
+  <h1>{{ company.name }}</h1>
+  <p>{% if company.is_active %}Active{% else %}Inactive{% endif %}</p>
+
+  <dl>
+    <dt>Website</dt>
+    <dd>{% if company.website %}<a href="{{ company.website }}">{{ company.website }}</a>{% else %}—{% endif %}</dd>
+    <dt>Phone</dt>
+    <dd>{{ company.phone|default:"—" }}</dd>
+    <dt>Industry</dt>
+    <dd>{{ company.industry|default:"—" }}</dd>
+    <dt>Owner</dt>
+    <dd>{{ company.owner|default:"Unassigned" }}</dd>
+    <dt>Notes</dt>
+    <dd>{{ company.notes|default:"—"|linebreaksbr }}</dd>
+  </dl>
+
+  <p>
+    <a href="{% url 'crm:company_update' company.pk %}">Edit</a>
+    {% if company.is_active %}
+      &middot;
+      <a href="{% url 'crm:company_deactivate' company.pk %}">Deactivate</a>
+    {% endif %}
+  </p>
+
+  <h2>Contacts</h2>
+  {% if contacts %}
+    <ul>
+      {% for contact in contacts %}
+        <li>{{ contact.first_name }} {{ contact.last_name }}</li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <p>No contacts yet.</p>
+  {% endif %}
+
+  <h2>Deals</h2>
+  {% if deals %}
+    <ul>
+      {% for deal in deals %}
+        <li>{{ deal.title }} — {{ deal.get_stage_display }}</li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <p>No deals yet.</p>
+  {% endif %}
+{% endblock %}

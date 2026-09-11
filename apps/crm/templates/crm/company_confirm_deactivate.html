@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+
+{% block title %}Deactivate {{ object.name }}{% endblock %}
+
+{% block content %}
+  <h1>Deactivate {{ object.name }}?</h1>
+  <p>It stays on record — you can reactivate it later by editing it.</p>
+  <form method="post">
+    {% csrf_token %}
+    <button type="submit">Deactivate</button>
+    <a href="{{ object.get_absolute_url }}">Cancel</a>
+  </form>
+{% endblock %}
