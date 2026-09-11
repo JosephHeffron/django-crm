@@ -1,0 +1,58 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.eggs/
+build/
+dist/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# pyenv (keep .python-version tracked; ignore any local pyenv caches)
+
+# Environment / secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.crt
+secrets/
+
+# Django
+*.sqlite3
+/media/
+/staticfiles/
+local_settings.py
+
+# Database dumps / backups
+*.sql
+*.sql.gz
+*.dump
+*.backup
+
+# Test / coverage artifacts
+.coverage
+.coverage.*
+htmlcov/
+.pytest_cache/
+.tox/
+nosetests.xml
+coverage.xml
+
+# IDE / editor
+.vscode/*
+!.vscode/extensions.json
+.idea/
+*.swp
+*.swo
+.DS_Store
+
+# Container / runtime
+*.log
+*.pid
+containers/**/*.local
