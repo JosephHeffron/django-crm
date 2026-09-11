@@ -4,11 +4,20 @@ from django.db.models import Q
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
+from django.utils.http import url_has_allowed_host_and_scheme
 from django.views import View
 from django.views.generic import CreateView, DetailView, ListView, UpdateView
 
-from .forms import ActivityForm, CompanyForm, ContactForm, DealForm, LeadConversionForm, LeadForm
-from .models import Activity, Company, Contact, Deal, Lead
+from .forms import (
+    ActivityForm,
+    CompanyForm,
+    ContactForm,
+    DealForm,
+    LeadConversionForm,
+    LeadForm,
+    TaskForm,
+)
+from .models import Activity, Company, Contact, Deal, Lead, Task
 
 
 def _split_lead_name(name):
@@ -43,6 +52,19 @@ def _sync_deal_closed_at(deal):
             deal.closed_at = timezone.now()
     else:
         deal.closed_at = None
+
+
+def _sync_task_completed_at(task):
+    """Same pattern as _sync_deal_closed_at, for Task.completed_at —
+    set when status becomes completed, cleared otherwise (reopened to
+    pending, or cancelled). Documented in docs/DATABASE_DESIGN.md's
+    Lifecycle behavior as an application-layer invariant.
+    """
+    if task.status == Task.Status.COMPLETED:
+        if task.completed_at is None:
+            task.completed_at = timezone.now()
+    else:
+        task.completed_at = None
 
 
 class CompanyListView(LoginRequiredMixin, ListView):
@@ -506,3 +528,102 @@ class ActivityCreateView(LoginRequiredMixin, CreateView):
             if related is not None:
                 return related.get_absolute_url()
         return reverse("crm:activity_list")
+
+
+class TaskListView(LoginRequiredMixin, ListView):
+    model = Task
+    template_name = "crm/task_list.html"
+    context_object_name = "tasks"
+    paginate_by = 25
+
+    def get_queryset(self):
+        queryset = super().get_queryset().select_related("assigned_to", "contact", "deal")
+
+        status = self.request.GET.get("status")
+        if status in Task.Status.values:
+            queryset = queryset.filter(status=status)
+
+        priority = self.request.GET.get("priority")
+        if priority in Task.Priority.values:
+            queryset = queryset.filter(priority=priority)
+
+        if self.request.GET.get("mine") == "1":
+            queryset = queryset.filter(assigned_to=self.request.user)
+
+        if self.request.GET.get("overdue") == "1":
+            queryset = queryset.filter(
+                status=Task.Status.PENDING, due_date__lt=timezone.localdate()
+            )
+
+        return queryset
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["status"] = self.request.GET.get("status", "")
+        context["priority"] = self.request.GET.get("priority", "")
+        context["mine"] = self.request.GET.get("mine") == "1"
+        context["overdue"] = self.request.GET.get("overdue") == "1"
+        context["status_choices"] = Task.Status.choices
+        context["priority_choices"] = Task.Priority.choices
+        return context
+
+
+class TaskDetailView(LoginRequiredMixin, DetailView):
+    model = Task
+    template_name = "crm/task_detail.html"
+    context_object_name = "task"
+
+
+class TaskCreateView(LoginRequiredMixin, CreateView):
+    model = Task
+    form_class = TaskForm
+    template_name = "crm/task_form.html"
+
+    def get_initial(self):
+        initial = super().get_initial()
+        initial.setdefault("assigned_to", self.request.user.pk)
+        for field in ("contact", "deal"):
+            value = _int_or_none(self.request.GET.get(field))
+            if value is not None:
+                initial[field] = value
+        return initial
+
+    def form_valid(self, form):
+        form.instance.created_by = self.request.user
+        _sync_task_completed_at(form.instance)
+        response = super().form_valid(form)
+        messages.success(self.request, f"Created task “{self.object.title}”.")
+        return response
+
+
+class TaskUpdateView(LoginRequiredMixin, UpdateView):
+    model = Task
+    form_class = TaskForm
+    template_name = "crm/task_form.html"
+
+    def form_valid(self, form):
+        _sync_task_completed_at(form.instance)
+        response = super().form_valid(form)
+        messages.success(self.request, f"Updated task “{self.object.title}”.")
+        return response
+
+
+class TaskCompleteView(LoginRequiredMixin, View):
+    """One-click completion from the list or detail page, without going
+    through the full edit form — the dedicated "completion workflow"
+    the roadmap calls for, separate from ordinary editing. POST only.
+    """
+
+    def post(self, request, pk):
+        task = get_object_or_404(Task, pk=pk)
+        task.status = Task.Status.COMPLETED
+        _sync_task_completed_at(task)
+        task.save(update_fields=["status", "completed_at", "updated_at"])
+        messages.success(request, f"Completed “{task.title}”.")
+
+        next_url = request.POST.get("next")
+        if next_url and url_has_allowed_host_and_scheme(
+            next_url, allowed_hosts={request.get_host()}, require_https=request.is_secure()
+        ):
+            return redirect(next_url)
+        return redirect(task.get_absolute_url())

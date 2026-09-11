@@ -44,7 +44,7 @@
   {% if tasks %}
     <ul>
       {% for task in tasks %}
-        <li>{{ task.title }} — {{ task.get_status_display }}</li>
+        <li><a href="{{ task.get_absolute_url }}">{{ task.title }}</a> — {{ task.get_status_display }}</li>
       {% endfor %}
     </ul>
   {% else %}
