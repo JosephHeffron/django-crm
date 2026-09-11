@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+
+{% block title %}Activities{% endblock %}
+
+{% block content %}
+  <h1>Activities</h1>
+
+  <p><a href="{% url 'crm:activity_create' %}">Log activity</a></p>
+
+  <form method="get" class="filter-form">
+    <select name="type">
+      <option value="" {% if not activity_type %}selected{% endif %}>All types</option>
+      {% for value, label in type_choices %}
+        <option value="{{ value }}" {% if activity_type == value %}selected{% endif %}>{{ label }}</option>
+      {% endfor %}
+    </select>
+    <button type="submit">Filter</button>
+  </form>
+
+  {% if activities %}
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>When</th>
+          <th>Type</th>
+          <th>Subject</th>
+          <th>Related to</th>
+          <th>By</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for activity in activities %}
+          <tr>
+            <td>{{ activity.created_at }}</td>
+            <td>{{ activity.get_activity_type_display }}</td>
+            <td>{{ activity.subject }}</td>
+            <td>
+              {% if activity.company %}<a href="{{ activity.company.get_absolute_url }}">{{ activity.company.name }}</a>{% endif %}
+              {% if activity.contact %}<a href="{{ activity.contact.get_absolute_url }}">{{ activity.contact }}</a>{% endif %}
+              {% if activity.lead %}<a href="{{ activity.lead.get_absolute_url }}">{{ activity.lead.name }}</a>{% endif %}
+              {% if activity.deal %}<a href="{{ activity.deal.get_absolute_url }}">{{ activity.deal.title }}</a>{% endif %}
+              {% if not activity.company and not activity.contact and not activity.lead and not activity.deal %}—{% endif %}
+            </td>
+            <td>{{ activity.created_by }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+
+    {% if is_paginated %}
+      <nav class="pagination">
+        {% if page_obj.has_previous %}
+          <a href="?page={{ page_obj.previous_page_number }}{% if activity_type %}&type={{ activity_type }}{% endif %}">Previous</a>
+        {% endif %}
+        <span>Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+        {% if page_obj.has_next %}
+          <a href="?page={{ page_obj.next_page_number }}{% if activity_type %}&type={{ activity_type }}{% endif %}">Next</a>
+        {% endif %}
+      </nav>
+    {% endif %}
+  {% else %}
+    <p>No activities found.</p>
+  {% endif %}
+{% endblock %}

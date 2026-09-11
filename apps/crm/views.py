@@ -2,12 +2,13 @@ from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db.models import Q
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.utils import timezone
 from django.views import View
 from django.views.generic import CreateView, DetailView, ListView, UpdateView
 
-from .forms import CompanyForm, ContactForm, DealForm, LeadConversionForm, LeadForm
-from .models import Company, Contact, Deal, Lead
+from .forms import ActivityForm, CompanyForm, ContactForm, DealForm, LeadConversionForm, LeadForm
+from .models import Activity, Company, Contact, Deal, Lead
 
 
 def _split_lead_name(name):
@@ -15,6 +16,19 @@ def _split_lead_name(name):
     if len(parts) == 2:
         return parts[0], parts[1]
     return name.strip(), ""
+
+
+def _int_or_none(value):
+    if not value:
+        return None
+    try:
+        return int(value)
+    except ValueError:
+        return None
+
+
+def _log_activity_url(field, obj):
+    return f"{reverse('crm:activity_create')}?{field}={obj.pk}"
 
 
 def _sync_deal_closed_at(deal):
@@ -67,6 +81,8 @@ class CompanyDetailView(LoginRequiredMixin, DetailView):
         context = super().get_context_data(**kwargs)
         context["contacts"] = self.object.contacts.all()
         context["deals"] = self.object.deals.all()
+        context["activities"] = self.object.activities.all()
+        context["log_activity_url"] = _log_activity_url("company", self.object)
         return context
 
 
@@ -167,6 +183,8 @@ class ContactDetailView(LoginRequiredMixin, DetailView):
         context = super().get_context_data(**kwargs)
         context["deals"] = self.object.deals.all()
         context["tasks"] = self.object.tasks.all()
+        context["activities"] = self.object.activities.all()
+        context["log_activity_url"] = _log_activity_url("contact", self.object)
         return context
 
 
@@ -242,6 +260,12 @@ class LeadDetailView(LoginRequiredMixin, DetailView):
     model = Lead
     template_name = "crm/lead_detail.html"
     context_object_name = "lead"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["activities"] = self.object.activities.all()
+        context["log_activity_url"] = _log_activity_url("lead", self.object)
+        return context
 
 
 class LeadCreateView(LoginRequiredMixin, CreateView):
@@ -393,6 +417,8 @@ class DealDetailView(LoginRequiredMixin, DetailView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context["tasks"] = self.object.tasks.all()
+        context["activities"] = self.object.activities.all()
+        context["log_activity_url"] = _log_activity_url("deal", self.object)
         return context
 
 
@@ -419,3 +445,64 @@ class DealUpdateView(LoginRequiredMixin, UpdateView):
         response = super().form_valid(form)
         messages.success(self.request, f"Updated deal “{self.object.title}”.")
         return response
+
+
+class ActivityListView(LoginRequiredMixin, ListView):
+    model = Activity
+    template_name = "crm/activity_list.html"
+    context_object_name = "activities"
+    paginate_by = 25
+
+    def get_queryset(self):
+        queryset = (
+            super()
+            .get_queryset()
+            .select_related("company", "contact", "lead", "deal", "created_by")
+        )
+        activity_type = self.request.GET.get("type")
+        if activity_type in Activity.ActivityType.values:
+            queryset = queryset.filter(activity_type=activity_type)
+        return queryset
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["activity_type"] = self.request.GET.get("type", "")
+        context["type_choices"] = Activity.ActivityType.choices
+        return context
+
+
+class ActivityCreateView(LoginRequiredMixin, CreateView):
+    """No ActivityUpdateView exists, deliberately — Activity.save()
+    itself rejects updates (docs/DATABASE_DESIGN.md, immutable history).
+    No ActivityDetailView either: an Activity's "detail page" is the
+    timeline on whichever Company/Contact/Lead/Deal it's attached to.
+    """
+
+    model = Activity
+    form_class = ActivityForm
+    template_name = "crm/activity_form.html"
+
+    def get_initial(self):
+        # Supports linking in from a specific record's detail page
+        # (e.g. "Log a call" on a Company) via ?company=<id> etc., so
+        # the relevant relation is pre-selected rather than making the
+        # user pick it again.
+        initial = super().get_initial()
+        for field in ("company", "contact", "lead", "deal"):
+            value = _int_or_none(self.request.GET.get(field))
+            if value is not None:
+                initial[field] = value
+        return initial
+
+    def form_valid(self, form):
+        form.instance.created_by = self.request.user
+        response = super().form_valid(form)
+        messages.success(self.request, "Logged activity.")
+        return response
+
+    def get_success_url(self):
+        activity = self.object
+        for related in (activity.company, activity.contact, activity.lead, activity.deal):
+            if related is not None:
+                return related.get_absolute_url()
+        return reverse("crm:activity_list")
