@@ -248,3 +248,30 @@ Reviewer: Human (+ sourcery-ai bot review, 3 real findings fixed —
   missing company-filter UI control, pagination dropping the company
   filter, 500 on a non-numeric company param)
 Status: READY
+
+2026-09-11
+Branch: main (merged from chore/close-phase-3-unit-4, PR #23)
+Commit: 82b5303
+Message: Close out Phase 3 unit 4 (Contacts CRUD) (#23)
+Tests: test + dependency-audit passed on PR (docs/logs only)
+Migration: none
+Reviewer: Human (+ sourcery-ai bot review, no findings)
+Status: READY
+
+2026-09-11
+Branch: main (merged from feature/leads-crud, PR #24)
+Commit: 2acdbcb
+Message: Add Leads CRUD and the lead-to-Contact/Company/Deal conversion workflow (#24)
+Tests: 135 passed (up from 107); test + dependency-audit passed on PR
+Migration: none
+Reviewer: Human (+ sourcery-ai bot review, no findings)
+Status: READY
+
+2026-09-11
+Branch: main (merged from feature/deals-crud, PR #25)
+Commit: 98cd056
+Message: Add Deals CRUD, completing Phase 3 unit 5 (Leads and Deals workflows) (#25)
+Tests: 158 passed (up from 135); test + dependency-audit passed on PR
+Migration: none
+Reviewer: Human (+ sourcery-ai bot review, no findings)
+Status: READY

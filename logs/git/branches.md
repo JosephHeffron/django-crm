@@ -50,3 +50,12 @@ Format: `YYYY-MM-DD | created|merged|deleted | <branch> | requested by`
 2026-09-11 | created | feature/contacts-crud | Claude, user approved
 2026-09-11 | merged (PR #22, squash) | feature/contacts-crud | user approved
 2026-09-11 | deleted (remote, on merge; local, by Claude after sync) | feature/contacts-crud | user approved
+2026-09-11 | created | chore/close-phase-3-unit-4 | Claude, user approved
+2026-09-11 | merged (PR #23, squash) | chore/close-phase-3-unit-4 | user approved
+2026-09-11 | deleted (remote, on merge; local, by Claude after sync) | chore/close-phase-3-unit-4 | user approved
+2026-09-11 | created | feature/leads-crud | Claude, user approved
+2026-09-11 | merged (PR #24, squash) | feature/leads-crud | user approved
+2026-09-11 | deleted (remote, on merge; local, by Claude after sync) | feature/leads-crud | user approved
+2026-09-11 | created | feature/deals-crud | Claude, user approved
+2026-09-11 | merged (PR #25, squash) | feature/deals-crud | user approved
+2026-09-11 | deleted (remote, on merge; local, by Claude after sync) | feature/deals-crud | user approved

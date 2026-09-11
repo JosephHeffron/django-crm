@@ -17,9 +17,10 @@ begins. See `CLAUDE.md` for the workflow this repository follows.
       behavior and on_delete enforcement; tracked in
       `docs/PROJECT_STATE.md`'s Known Issues, to be resolved before
       Phase 4, not blocking this phase or Phase 3).
-- [ ] **Phase 3 — CRM interface.** Application shell (nav, layout, base
+- [x] **Phase 3 — CRM interface.** Application shell (nav, layout, base
       templates, messages, error pages), then Companies and Contacts CRUD,
-      then Leads and Deals workflows.
+      then Leads and Deals workflows. Done in 5 units — full detail in
+      `logs/claude/phase-03-*.md`.
 - [ ] **Phase 4 — Activities, notes, tasks, history.** Activity timeline
       component, Tasks (my tasks / overdue / completion workflow), lightweight
       audit history for important record changes.

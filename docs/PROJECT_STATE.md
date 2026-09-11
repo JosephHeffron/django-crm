@@ -5,9 +5,9 @@ Close Procedure). Do not describe anything as complete unless it was
 actually verified.
 
 > **Last updated 2026-09-11.** Repo is clean (`main` up to date, nothing
-> uncommitted). User chose to defer `docs/DATABASE_REVIEW.md`'s HIGH
-> findings until before Phase 4 and proceed with Phase 3 now — see
-> "Next" below for where Phase 3 currently stands.
+> uncommitted). Phase 3 is fully complete. Next: resolve
+> `docs/DATABASE_REVIEW.md`'s deferred HIGH findings before starting
+> Phase 4 — see "Next" below.
 
 ## Project version
 
@@ -15,11 +15,12 @@ actually verified.
 
 ## Current phase
 
-Phase 2 (CRM database) is complete. Phase 3 (CRM interface) is in
-progress — units 1 (authentication + base shell), 2 (full navigation,
-error pages, styling), 3 (Companies CRUD), and 4 (Contacts CRUD) are
-done and merged. Next: Leads and Deals workflows (unit 5, the last
-Phase 3 unit).
+Phase 2 (CRM database) and Phase 3 (CRM interface) are both complete.
+Phase 3 shipped in 5 units: authentication + base shell, full
+navigation/error pages/styling, Companies CRUD, Contacts CRUD, and
+Leads/Deals workflows (including the lead-to-Contact/Company/Deal
+conversion workflow). Next: resolve the deferred Phase 2 review
+findings, then Phase 4 (Activities, Tasks, audit history).
 
 Phase 2's `docs/DATABASE_REVIEW.md` found 2 HIGH findings (Activity's
 `CASCADE` can silently destroy history still relevant to a surviving
@@ -125,6 +126,20 @@ Phase 3 — see Known Issues below.
   it, pagination silently dropping it, and a non-numeric value crashing
   with a 500 — all reproduced and re-verified fixed. 107 tests total.
   Full detail in `logs/claude/phase-03-contacts-crud.md`.
+- Phase 3 unit 5 — Leads and Deals workflows (PRs #24, #25), the final
+  Phase 3 unit: Lead CRUD with a status field that excludes "Converted"
+  as directly selectable (only the dedicated conversion workflow can
+  set it), and `LeadConvertView` — link/create a Company, always create
+  a Contact, optionally open a Deal, then mark the Lead converted, per
+  `docs/DATABASE_DESIGN.md`'s Lifecycle section. Deal CRUD with form
+  validation mirroring both of Deal's DB `CheckConstraint`s (applied
+  proactively this time, not found by review) and a `closed_at`
+  set/clear lifecycle tied to stage. Deal references from Company/
+  Contact/Lead detail pages now link properly. 158 tests total, zero
+  real findings from review on either PR — full detail in
+  `logs/claude/phase-03-leads-deals.md`.
+
+**Phase 3 (CRM interface) is now fully complete.**
 
 ## Currently working on
 
@@ -134,11 +149,12 @@ anything. (A 7th, the pytest security fix, was merged.)
 
 ## Next
 
-1. Phase 3 unit 5 — Leads and Deals workflows (per `docs/ROADMAP.md`'s
-   Phase 3 scope) — the last unit before Phase 3 is fully complete.
-2. Before Phase 4: resolve `docs/DATABASE_REVIEW.md`'s two HIGH findings
-   (Activity CASCADE, on_delete enforcement) and the Activity-immutability
-   MEDIUM finding — deferred by explicit user choice, not forgotten.
+1. Resolve `docs/DATABASE_REVIEW.md`'s two HIGH findings (Activity
+   CASCADE, on_delete enforcement) and the Activity-immutability MEDIUM
+   finding — deferred since the start of Phase 3, and this is the
+   natural point to return to them since Phase 4's Activity Timeline
+   work is exactly what they're about.
+2. Phase 4 — Activities, Tasks, audit history.
 3. Review/merge (or leave) the remaining open Dependabot PRs.
 
 ## Known issues
