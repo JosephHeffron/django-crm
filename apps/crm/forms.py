@@ -1,6 +1,6 @@
 from django import forms
 
-from .models import Company, Contact, Deal, Lead
+from .models import Activity, Company, Contact, Deal, Lead
 
 
 class CompanyForm(forms.ModelForm):
@@ -114,4 +114,32 @@ class DealForm(forms.ModelForm):
         probability = cleaned_data.get("probability")
         if probability is not None and not (0 <= probability <= 100):
             self.add_error("probability", "Probability must be between 0 and 100.")
+        return cleaned_data
+
+
+class ActivityForm(forms.ModelForm):
+    class Meta:
+        model = Activity
+        fields = [
+            "activity_type",
+            "subject",
+            "description",
+            "company",
+            "contact",
+            "lead",
+            "deal",
+        ]
+
+    def clean(self):
+        # The DB-level "at least one relation" constraint was removed
+        # (docs/DATABASE_REVIEW.md finding #2 — an Activity may
+        # legitimately degrade to zero relations if the things it once
+        # referenced get deleted), but a *new* Activity should still be
+        # tagged to at least one record on creation. Enforced here, at
+        # the form layer, per docs/DATABASE_DESIGN.md's plan for this.
+        cleaned_data = super().clean()
+        if not any(cleaned_data.get(field) for field in ("company", "contact", "lead", "deal")):
+            raise forms.ValidationError(
+                "An activity needs to be linked to a company, contact, lead, or deal."
+            )
         return cleaned_data
