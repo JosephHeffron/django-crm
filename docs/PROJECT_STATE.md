@@ -73,7 +73,7 @@ resolved before Phase 4 (Activities/Tasks UI) builds on top of them.
   all four relation FKs can destroy history still relevant to a
   surviving object (confirmed by deleting a Deal and watching an
   Activity also tagged to a still-existing Company vanish with it). Plus
-  4 MEDIUM findings (including that Activity immutability still isn't
+  5 MEDIUM findings (including that Activity immutability still isn't
   enforced beyond the admin — confirmed a plain `.save()` bypasses it)
   and several LOW findings. Automated review caught two issues in the
   review itself (an unsound `SET_NULL` recommendation, an overly
@@ -103,7 +103,25 @@ behavior or mutation surface, so nothing blocks it).
 
 ## Known issues
 
-None.
+Two HIGH-severity schema findings from `docs/DATABASE_REVIEW.md`,
+deliberately not yet fixed (review-only, per the explicit instruction —
+see "Next" above for the resolution decision):
+
+1. `Activity`'s `CASCADE` on all four relation FKs can destroy history
+   still relevant to a surviving object, if an Activity is tagged to
+   more than one of Company/Contact/Lead/Deal at once and only one of
+   them is deleted.
+2. `on_delete` behavior (`PROTECT`/`SET_NULL`/`CASCADE`) is enforced
+   entirely by Django's ORM, not by PostgreSQL — any deletion that
+   bypasses the ORM (raw SQL, a future data-migration script) won't
+   honor it.
+
+Plus one MEDIUM finding worth flagging here specifically: `Activity`
+immutability (documented as an invariant) is enforced only by
+`ActivityAdmin.has_change_permission`, not at the model layer — any
+other write path can still edit or reassign an existing Activity.
+
+Full findings, severities, and recommendations: `docs/DATABASE_REVIEW.md`.
 
 ## Production
 
