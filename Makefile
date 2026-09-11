@@ -19,7 +19,7 @@ lint:
 
 security:
 	$(VENV)/pip-audit -r requirements.txt
-	$(VENV)/bandit -r apps config
+	$(VENV)/bandit -r apps config -x '*/tests/*,*/migrations/*'
 
 migrate:
 	$(VENV)/python manage.py migrate
