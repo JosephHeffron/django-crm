@@ -21,8 +21,10 @@ for meaningful changes — not for every small fix or documentation tweak.
   Activity, with constraints, indexes, and lifecycle behavior documented
   in `docs/DATABASE_DESIGN.md` and audited in `docs/DATABASE_REVIEW.md`.
 - CRM interface: authentication, application shell (navigation, error
-  pages, styling), full CRUD for Companies, Contacts, Leads, and Deals,
-  and the Lead-to-Contact/Company/Deal conversion workflow.
+  pages, styling), create/edit/deactivate workflows for Companies and
+  Contacts, create/edit workflows for Leads and Deals (neither is
+  deleted or deactivated from the UI), and the Lead-to-Contact/
+  Company/Deal conversion workflow.
 - Activity timeline: a reusable component on Company/Contact/Lead/Deal
   detail pages for logging and reviewing calls, meetings, emails, and
   notes.
