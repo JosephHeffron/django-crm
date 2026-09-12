@@ -198,6 +198,15 @@ dd {
   margin: 0;
 }
 
+.dashboard-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1.5rem;
+  list-style: none;
+  margin: 0 0 1rem;
+  padding: 0;
+}
+
 .timeline {
   list-style: none;
   margin: 0;

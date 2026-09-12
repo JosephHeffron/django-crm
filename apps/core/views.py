@@ -1,10 +1,8 @@
-from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
-from django.db.models import Q
-from django.shortcuts import render
+from django.db.models import Count, Q, Sum
 from django.views.generic import TemplateView
 
-from apps.crm.models import Company, Contact, Deal, Lead, Task
+from apps.crm.models import Activity, Company, Contact, Deal, Lead, Task
 
 # Caps each category's results rather than paginating each one
 # separately — simpler, and a search this wide (five models at once)
@@ -13,10 +11,68 @@ from apps.crm.models import Company, Contact, Deal, Lead, Task
 # lists, don't load unbounded record sets).
 SEARCH_RESULTS_PER_MODEL = 20
 
+# Same reasoning for the dashboard's bounded lists (my tasks, recent
+# activity) — a fixed cap instead of pagination on a page meant for an
+# at-a-glance summary, not a full record browser.
+DASHBOARD_LIST_LIMIT = 10
 
-@login_required
-def index(request):
-    return render(request, "core/index.html")
+
+class DashboardView(LoginRequiredMixin, TemplateView):
+    """Operational at-a-glance summary — quick counts, open pipeline by
+    stage, the signed-in user's own pending tasks, and recent activity
+    across the CRM. Deliberately no charting library or JS dashboard
+    framework (CLAUDE.md's "do not overengineer" rule) — every number
+    here is a plain Django ORM aggregate, rendered server-side.
+    """
+
+    template_name = "core/index.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+
+        context["company_count"] = Company.objects.filter(is_active=True).count()
+        context["contact_count"] = Contact.objects.filter(is_active=True).count()
+        # "Open" leads: not yet converted — a converted Lead's own
+        # workflow is done (docs/DATABASE_DESIGN.md's Lifecycle
+        # section), so it's no longer something to act on.
+        context["open_lead_count"] = Lead.objects.exclude(status=Lead.Status.CONVERTED).count()
+        context["pending_task_count"] = Task.objects.filter(status=Task.Status.PENDING).count()
+
+        open_deals = Deal.objects.exclude(stage__in=Deal.CLOSED_STAGES)
+        context["open_deal_count"] = open_deals.count()
+        context["open_deal_value"] = open_deals.aggregate(total=Sum("value"))["total"] or 0
+
+        stage_counts = {
+            row["stage"]: row
+            for row in Deal.objects.values("stage").annotate(
+                count=Count("id"), total_value=Sum("value")
+            )
+        }
+        # Iterate Deal.Stage.choices (not the raw annotated queryset)
+        # so the breakdown follows the pipeline's natural order —
+        # Meta.ordering doesn't apply to .values().annotate(), and an
+        # alphabetical fallback would scramble prospecting → ... →
+        # closed_lost into a meaningless sequence.
+        context["deals_by_stage"] = [
+            {
+                "label": label,
+                "count": stage_counts.get(value, {}).get("count", 0),
+                "total_value": stage_counts.get(value, {}).get("total_value") or 0,
+            }
+            for value, label in Deal.Stage.choices
+        ]
+
+        context["my_tasks"] = (
+            Task.objects.filter(assigned_to=self.request.user, status=Task.Status.PENDING)
+            .select_related("contact", "deal")
+            .order_by("due_date", "pk")[:DASHBOARD_LIST_LIMIT]
+        )
+
+        context["recent_activities"] = Activity.objects.select_related(
+            "created_by", "company", "contact", "lead", "deal"
+        )[:DASHBOARD_LIST_LIMIT]
+
+        return context
 
 
 def _search(query):
