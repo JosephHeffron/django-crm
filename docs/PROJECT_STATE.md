@@ -5,8 +5,9 @@ Close Procedure). Do not describe anything as complete unless it was
 actually verified.
 
 > **Last updated 2026-09-11.** Repo is clean (`main` up to date, nothing
-> uncommitted). Phase 4 is in progress — unit 1 (Activity timeline)
-> done and merged. Next: Tasks (unit 2) — see "Next" below.
+> uncommitted). Phase 4 is in progress — units 1 (Activity timeline)
+> and 2 (Tasks) done and merged. Next: lightweight audit history
+> (unit 3) — see "Next" below.
 
 ## Project version
 
@@ -21,7 +22,7 @@ Leads/Deals workflows (including the lead-to-Contact/Company/Deal
 conversion workflow). The two deferred HIGH findings and one MEDIUM
 finding from `docs/DATABASE_REVIEW.md` were resolved before starting
 Phase 4. Phase 4 (Activities, Tasks, audit history) is now in progress —
-unit 1 (Activity timeline) is done and merged.
+units 1 (Activity timeline) and 2 (Tasks) are done and merged.
 
 Phase 2's `docs/DATABASE_REVIEW.md` found 2 HIGH findings (Activity's
 `CASCADE` can silently destroy history still relevant to a surviving
@@ -161,6 +162,23 @@ Phase 3 — see Known Issues below.
   it's immutable and its "detail page" is the timeline on whichever
   record it's attached to. 181 tests total, zero findings from review.
   Full detail in `logs/claude/phase-04-activity-timeline.md`.
+- Phase 4 unit 2 — Tasks (PR #31): list (status/priority filters,
+  `?mine=1`, `?overdue=1`, pagination), detail, create, edit views, and
+  a dedicated `TaskCompleteView` (POST-only one-click completion,
+  separate from the edit form, open-redirect-safe `next` handling),
+  replacing the `crm:task_list` placeholder. `completed_at` kept in
+  sync with `status` via `_sync_task_completed_at`, mirroring the
+  existing `Deal.closed_at` pattern. Contact/Deal detail pages' task
+  listings now link to task detail. Sourcery's automated review was
+  rate-limited on this PR (no findings either way), so it merged on
+  CI + full local verification alone (207 tests total at merge time).
+  A subsequent, deliberately more thorough manual review (to
+  compensate for the missing Sourcery pass) found a real bug:
+  `TaskCompleteView` had no guard against completing an already-
+  cancelled task via a direct POST — fixed with the same kind of
+  status guard `LeadConvertView` already uses, plus 2 regression
+  tests (209 tests total). Full detail in
+  `logs/claude/phase-04-tasks.md`.
 
 ## Currently working on
 
@@ -170,11 +188,9 @@ anything. (A 7th, the pytest security fix, was merged.)
 
 ## Next
 
-1. Phase 4 unit 2 — Tasks (list/detail/create/edit/completion workflow,
-   "my tasks"/"overdue tasks" views), per Prompt 4.2.
-2. Phase 4 unit 3 — lightweight audit history for important CRM record
+1. Phase 4 unit 3 — lightweight audit history for important CRM record
    changes, per Prompt 4.3.
-3. Review/merge (or leave) the remaining open Dependabot PRs.
+2. Review/merge (or leave) the remaining open Dependabot PRs.
 
 ## Known issues
 
