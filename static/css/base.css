@@ -50,6 +50,14 @@ body {
   text-decoration: underline;
 }
 
+.nav-search input[type="search"] {
+  padding: 0.25rem 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: transparent;
+  color: inherit;
+}
+
 .user-controls {
   display: flex;
   align-items: center;

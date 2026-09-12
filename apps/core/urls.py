@@ -6,9 +6,5 @@ app_name = "core"
 
 urlpatterns = [
     path("", views.index, name="index"),
-    path(
-        "search/",
-        views.ComingSoonView.as_view(section_label="Search"),
-        name="search",
-    ),
+    path("search/", views.SearchView.as_view(), name="search"),
 ]
