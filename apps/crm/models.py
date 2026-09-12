@@ -1,4 +1,6 @@
 from django.conf import settings
+from django.contrib.contenttypes.fields import GenericForeignKey
+from django.contrib.contenttypes.models import ContentType
 from django.db import models
 from django.urls import reverse
 from django.utils import timezone
@@ -304,6 +306,47 @@ class Task(models.Model):
 
     def get_absolute_url(self):
         return reverse("crm:task_detail", kwargs={"pk": self.pk})
+
+
+class AuditLogEntry(models.Model):
+    """Who changed a Company/Contact/Lead/Deal, what changed, and when.
+
+    Deliberately lightweight — no reconstruction of past states, no
+    revert, no event-sourcing (docs/DATABASE_DESIGN.md's "Audit history"
+    section). Only Company/Contact/Lead/Deal are ever pointed at here;
+    Task and Activity are out of scope (see that section for why).
+    """
+
+    class Action(models.TextChoices):
+        CREATED = "created", "Created"
+        UPDATED = "updated", "Updated"
+
+    content_type = models.ForeignKey(
+        ContentType,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+    )
+    object_id = models.PositiveIntegerField(null=True, blank=True)
+    record = GenericForeignKey("content_type", "object_id")
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="audit_log_entries",
+    )
+    action = models.CharField(max_length=10, choices=Action.choices)
+    changes = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name_plural = "audit log entries"
+        ordering = ["-created_at"]
+        indexes = [models.Index(fields=["content_type", "object_id", "created_at"])]
+
+    def __str__(self):
+        return f"{self.get_action_display()} {self.content_type} #{self.object_id}"
 
 
 class Activity(models.Model):

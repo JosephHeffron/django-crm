@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import Activity, Company, Contact, Deal, Lead, Task
+from .models import Activity, AuditLogEntry, Company, Contact, Deal, Lead, Task
 
 
 @admin.register(Company)
@@ -60,4 +60,22 @@ class ActivityAdmin(admin.ModelAdmin):
         # friendlier UX than letting someone fill out an edit form and
         # only then hit a raw error on submit. Deletion is still
         # allowed (correcting a mistaken entry), editing in place is not.
+        return False
+
+
+@admin.register(AuditLogEntry)
+class AuditLogEntryAdmin(admin.ModelAdmin):
+    list_display = ("created_at", "user", "action", "content_type", "object_id")
+    list_filter = ("action", "content_type")
+
+    def has_add_permission(self, request):
+        # Entries are only ever written by the application's own
+        # Create/Update views (docs/DATABASE_DESIGN.md's "Audit history"
+        # section) — an admin-created entry would misrepresent history
+        # that never actually happened.
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        # Same reasoning as ActivityAdmin: a record of what happened
+        # shouldn't itself be editable after the fact.
         return False

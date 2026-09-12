@@ -166,6 +166,47 @@ see the ERD note above).
 
 Indexes: `status`, `due_date`, `assigned_to`, `contact`, `deal`.
 
+### AuditLogEntry
+
+A lightweight, append-only record of who changed what on the four "core
+business record" models — Company, Contact, Lead, Deal — and when.
+Deliberately not a general-purpose event store or a full history/
+versioning system (no reconstruction of past states, no revert):
+`docs/PROJECT_STATE.md`'s "don't overengineer" rule applies here as much
+as anywhere else in this schema.
+
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `content_type` | FK → `ContentType` | yes | Which model the change was on. Uses Django's built-in `contenttypes` framework rather than one log table per audited model. |
+| `object_id` | PositiveIntegerField | yes | Together with `content_type`, a `GenericForeignKey` to the changed record. Not itself an FK — the referenced record can later be nothing (e.g. hypothetically deleted), same trade-off any generic-relation design accepts. |
+| `user` | FK → User | no (nullable) | `on_delete=SET_NULL` — the log entry should survive a user account being removed; `null` covers the (currently theoretical) case of a change with no request-bound user. |
+| `action` | CharField, choices | yes | `created` or `updated`. No `deleted` — see Scope below. |
+| `changes` | JSONField | yes | `{field_name: [old_display_value, new_display_value]}` for exactly the fields that changed. Empty `{}` for `created` (nothing to diff against). |
+| `created_at` | DateTimeField | auto | When the change was recorded. |
+
+Indexes: `(content_type, object_id, created_at)` — the query this table
+exists to serve is "show me this record's history, newest first."
+
+**Scope — what is and isn't audited:**
+
+- Only Company, Contact, Lead, Deal are audited. Not Task (lower-stakes,
+  and its own status/`completed_at` lifecycle is already visible on the
+  record itself) and not Activity (already an immutable append-only log
+  by design — auditing an audit trail is redundant).
+- Only changes made through the application's own Create/Update views are
+  recorded. **Not audited:** Django admin edits, `manage.py shell`/
+  management-command changes, and any direct database writes. This is a
+  deliberate scope limit, not an oversight — see Decisions below.
+- Deactivation (`is_active=False` on Company/Contact) goes through the
+  same `UpdateView`-adjacent code path as other field changes and *is*
+  captured — it shows up as an `updated` entry with `is_active` in
+  `changes`, not as a separate `deleted`-style action, since these
+  records are never hard-deleted (see Constraints).
+- Lead conversion's side effects (creating a Contact/Company, opening a
+  Deal) are recorded as their own `created`/`updated` entries on those
+  records through the normal write path — there's no special-cased
+  "conversion" audit action.
+
 ### Activity
 
 A historical record — call, meeting, email, or note — tied to whichever
@@ -272,6 +313,16 @@ begin with, or degrading to zero via `SET_NULL` — see Constraints below.
   user-manageable data rather than a fixed set of choices in code.
 - Composite/query-pattern-driven indexes deferred until the features that
   would actually exercise them exist (see Activity indexes above).
+- `AuditLogEntry` rows are written explicitly from each audited model's
+  `CreateView`/`UpdateView.form_valid()` — the same place `created_by`
+  already gets set and `_sync_deal_closed_at`/`_sync_task_completed_at`
+  already run — rather than via `pre_save`/`post_save` signals. Signals
+  would catch admin/shell writes too, but they can't see `request.user`
+  without a thread-local (a well-known anti-pattern this app has no
+  other reason to introduce). Explicit calls from the views that already
+  have both the user and the changed fields are simpler and sufficient
+  for a single-maintainer app where admin/shell edits are rare and their
+  exclusion is accepted (see AuditLogEntry's Scope note above).
 
 ## Implementation notes and remaining open questions
 
