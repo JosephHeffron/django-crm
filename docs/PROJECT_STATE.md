@@ -5,9 +5,9 @@ Close Procedure). Do not describe anything as complete unless it was
 actually verified.
 
 > **Last updated 2026-09-12.** Repo is clean (`main` up to date, nothing
-> uncommitted). **Phase 4 is now fully complete** (Activity timeline,
-> Tasks, Audit history). Next: Phase 5 — Search, dashboard, usability —
-> see "Next" below.
+> uncommitted). Phase 4 is fully complete. Phase 5 is in progress —
+> unit 1 (Global search) done and merged. Next: operational dashboard
+> (unit 2) — see "Next" below.
 
 ## Project version
 
@@ -24,7 +24,8 @@ two deferred HIGH findings and one MEDIUM finding from
 `docs/DATABASE_REVIEW.md` were resolved before starting Phase 4. Phase
 4 shipped in 3 units: Activity timeline, Tasks (plus a post-merge fix
 for a real `TaskCompleteView` bug), and lightweight audit history for
-Company/Contact/Lead/Deal.
+Company/Contact/Lead/Deal. Phase 5 (Search, dashboard, usability) is
+now in progress — unit 1 (Global search) is done and merged.
 
 Phase 2's `docs/DATABASE_REVIEW.md` found 2 HIGH findings (Activity's
 `CASCADE` can silently destroy history still relevant to a surviving
@@ -198,6 +199,22 @@ Phase 3 — see Known Issues below.
 
 **Phase 4 (Activities, Tasks, audit history) is now fully complete.**
 
+- Phase 5 unit 1 — Global search (PR #36): `SearchView` searches
+  Company/Contact/Lead/Deal/Task by name-like fields, capped at 20
+  results per model, each ordered by its own natural key plus `pk` as
+  a tiebreaker so results are stable across requests even when rows
+  tie on that key. Activity excluded — no detail page of its own,
+  same reasoning as `AuditLogEntry`'s scope. Replaces the
+  `core:search` `ComingSoonView` placeholder; `ComingSoonView` itself
+  and its template removed as fully dead code. Adds a search box to
+  the site nav. 239 tests total. The user pasted an external review
+  with two findings: one ("missing template") was verified false
+  against the actual commit; the other (no ordering tiebreaker) was
+  real once checked against the actual generated SQL, and was fixed
+  with a regression test that asserts the fix's effect directly
+  (`sorted(pk)`), not just that two requests match. Full detail in
+  `logs/claude/phase-05-global-search.md`.
+
 ## Currently working on
 
 Nothing in progress. 6 Dependabot PRs (4 pip minor/patch bumps, 2 GitHub
@@ -206,9 +223,11 @@ anything. (A 7th, the pytest security fix, was merged.)
 
 ## Next
 
-1. Phase 5 — Search, dashboard, usability: global search across CRM
-   objects, an operational dashboard, a dedicated usability review pass.
-2. Review/merge (or leave) the remaining open Dependabot PRs.
+1. Phase 5 unit 2 — operational dashboard: build out `core:index`
+   (currently just "Signed in as {{ user.username }}") with real
+   at-a-glance CRM data.
+2. Phase 5 unit 3 — a dedicated usability review pass.
+3. Review/merge (or leave) the remaining open Dependabot PRs.
 
 ## Known issues
 
