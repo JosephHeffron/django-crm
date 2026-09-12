@@ -1,5 +1,6 @@
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
+from django.contrib.contenttypes.models import ContentType
 from django.db.models import Q
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
@@ -17,7 +18,7 @@ from .forms import (
     LeadForm,
     TaskForm,
 )
-from .models import Activity, Company, Contact, Deal, Lead, Task
+from .models import Activity, AuditLogEntry, Company, Contact, Deal, Lead, Task
 
 
 def _split_lead_name(name):
@@ -67,6 +68,44 @@ def _sync_task_completed_at(task):
         task.completed_at = None
 
 
+def _record_audit_log(user, obj, action, changes=None):
+    """Write one AuditLogEntry for a Company/Contact/Lead/Deal change.
+
+    Called explicitly from each audited model's Create/UpdateView —
+    see docs/DATABASE_DESIGN.md's "Audit history" section for why this
+    isn't signal-based.
+    """
+    AuditLogEntry.objects.create(
+        content_type=ContentType.objects.get_for_model(obj),
+        object_id=obj.pk,
+        user=user,
+        action=action,
+        changes=changes or {},
+    )
+
+
+def _diff_changed_fields(previous, current, changed_fields):
+    """Build the {field: [old, new]} dict AuditLogEntry.changes expects,
+    from the pre-edit instance, the post-edit instance, and the list of
+    field names the form actually changed (form.changed_data).
+    """
+    changes = {}
+    for field in changed_fields:
+        old_value = getattr(previous, field, None)
+        new_value = getattr(current, field, None)
+        changes[field] = [
+            None if old_value is None else str(old_value),
+            None if new_value is None else str(new_value),
+        ]
+    return changes
+
+
+def _audit_log_for(obj):
+    return AuditLogEntry.objects.filter(
+        content_type=ContentType.objects.get_for_model(obj), object_id=obj.pk
+    ).select_related("user")
+
+
 class CompanyListView(LoginRequiredMixin, ListView):
     model = Company
     template_name = "crm/company_list.html"
@@ -105,6 +144,7 @@ class CompanyDetailView(LoginRequiredMixin, DetailView):
         context["deals"] = self.object.deals.all()
         context["activities"] = self.object.activities.all()
         context["log_activity_url"] = _log_activity_url("company", self.object)
+        context["audit_log"] = _audit_log_for(self.object)
         return context
 
 
@@ -116,6 +156,7 @@ class CompanyCreateView(LoginRequiredMixin, CreateView):
     def form_valid(self, form):
         form.instance.created_by = self.request.user
         response = super().form_valid(form)
+        _record_audit_log(self.request.user, self.object, AuditLogEntry.Action.CREATED)
         messages.success(self.request, f"Created company “{self.object.name}”.")
         return response
 
@@ -126,7 +167,11 @@ class CompanyUpdateView(LoginRequiredMixin, UpdateView):
     template_name = "crm/company_form.html"
 
     def form_valid(self, form):
+        previous = Company.objects.get(pk=self.object.pk)
         response = super().form_valid(form)
+        changes = _diff_changed_fields(previous, self.object, form.changed_data)
+        if changes:
+            _record_audit_log(self.request.user, self.object, AuditLogEntry.Action.UPDATED, changes)
         messages.success(self.request, f"Updated company “{self.object.name}”.")
         return response
 
@@ -148,8 +193,16 @@ class CompanyDeactivateView(LoginRequiredMixin, DetailView):
 
     def post(self, request, *args, **kwargs):
         company = self.get_object()
+        was_active = company.is_active
         company.is_active = False
         company.save(update_fields=["is_active"])
+        if was_active != company.is_active:
+            _record_audit_log(
+                request.user,
+                company,
+                AuditLogEntry.Action.UPDATED,
+                {"is_active": [str(was_active), str(company.is_active)]},
+            )
         messages.success(request, f"Deactivated company “{company.name}”.")
         return redirect(company.get_absolute_url())
 
@@ -207,6 +260,7 @@ class ContactDetailView(LoginRequiredMixin, DetailView):
         context["tasks"] = self.object.tasks.all()
         context["activities"] = self.object.activities.all()
         context["log_activity_url"] = _log_activity_url("contact", self.object)
+        context["audit_log"] = _audit_log_for(self.object)
         return context
 
 
@@ -218,6 +272,7 @@ class ContactCreateView(LoginRequiredMixin, CreateView):
     def form_valid(self, form):
         form.instance.created_by = self.request.user
         response = super().form_valid(form)
+        _record_audit_log(self.request.user, self.object, AuditLogEntry.Action.CREATED)
         messages.success(self.request, f"Created contact “{self.object}”.")
         return response
 
@@ -228,7 +283,11 @@ class ContactUpdateView(LoginRequiredMixin, UpdateView):
     template_name = "crm/contact_form.html"
 
     def form_valid(self, form):
+        previous = Contact.objects.get(pk=self.object.pk)
         response = super().form_valid(form)
+        changes = _diff_changed_fields(previous, self.object, form.changed_data)
+        if changes:
+            _record_audit_log(self.request.user, self.object, AuditLogEntry.Action.UPDATED, changes)
         messages.success(self.request, f"Updated contact “{self.object}”.")
         return response
 
@@ -242,8 +301,16 @@ class ContactDeactivateView(LoginRequiredMixin, DetailView):
 
     def post(self, request, *args, **kwargs):
         contact = self.get_object()
+        was_active = contact.is_active
         contact.is_active = False
         contact.save(update_fields=["is_active"])
+        if was_active != contact.is_active:
+            _record_audit_log(
+                request.user,
+                contact,
+                AuditLogEntry.Action.UPDATED,
+                {"is_active": [str(was_active), str(contact.is_active)]},
+            )
         messages.success(request, f"Deactivated contact “{contact}”.")
         return redirect(contact.get_absolute_url())
 
@@ -287,6 +354,7 @@ class LeadDetailView(LoginRequiredMixin, DetailView):
         context = super().get_context_data(**kwargs)
         context["activities"] = self.object.activities.all()
         context["log_activity_url"] = _log_activity_url("lead", self.object)
+        context["audit_log"] = _audit_log_for(self.object)
         return context
 
 
@@ -298,6 +366,7 @@ class LeadCreateView(LoginRequiredMixin, CreateView):
     def form_valid(self, form):
         form.instance.created_by = self.request.user
         response = super().form_valid(form)
+        _record_audit_log(self.request.user, self.object, AuditLogEntry.Action.CREATED)
         messages.success(self.request, f"Created lead “{self.object.name}”.")
         return response
 
@@ -308,7 +377,11 @@ class LeadUpdateView(LoginRequiredMixin, UpdateView):
     template_name = "crm/lead_form.html"
 
     def form_valid(self, form):
+        previous = Lead.objects.get(pk=self.object.pk)
         response = super().form_valid(form)
+        changes = _diff_changed_fields(previous, self.object, form.changed_data)
+        if changes:
+            _record_audit_log(self.request.user, self.object, AuditLogEntry.Action.UPDATED, changes)
         messages.success(self.request, f"Updated lead “{self.object.name}”.")
         return response
 
@@ -358,6 +431,7 @@ class LeadConvertView(LoginRequiredMixin, View):
             company = data["existing_company"]
         elif data["new_company_name"]:
             company = Company.objects.create(name=data["new_company_name"], created_by=request.user)
+            _record_audit_log(request.user, company, AuditLogEntry.Action.CREATED)
         else:
             company = None
 
@@ -369,6 +443,7 @@ class LeadConvertView(LoginRequiredMixin, View):
             company=company,
             created_by=request.user,
         )
+        _record_audit_log(request.user, contact, AuditLogEntry.Action.CREATED)
 
         deal = None
         if data["create_deal"]:
@@ -379,7 +454,13 @@ class LeadConvertView(LoginRequiredMixin, View):
                 value=data["deal_value"],
                 created_by=request.user,
             )
+            _record_audit_log(request.user, deal, AuditLogEntry.Action.CREATED)
 
+        # Conversion's own record-level changes are logged as a normal
+        # "updated" entry on the Lead (docs/DATABASE_DESIGN.md's Audit
+        # history section) — there's no special-cased "conversion"
+        # audit action.
+        previous_status = lead.status
         lead.status = Lead.Status.CONVERTED
         lead.converted_at = timezone.now()
         lead.converted_company = company
@@ -394,6 +475,12 @@ class LeadConvertView(LoginRequiredMixin, View):
                 "converted_deal",
                 "updated_at",
             ]
+        )
+        _record_audit_log(
+            request.user,
+            lead,
+            AuditLogEntry.Action.UPDATED,
+            {"status": [previous_status, lead.status]},
         )
 
         messages.success(request, f"Converted “{lead.name}”.")
@@ -441,6 +528,7 @@ class DealDetailView(LoginRequiredMixin, DetailView):
         context["tasks"] = self.object.tasks.all()
         context["activities"] = self.object.activities.all()
         context["log_activity_url"] = _log_activity_url("deal", self.object)
+        context["audit_log"] = _audit_log_for(self.object)
         return context
 
 
@@ -453,6 +541,7 @@ class DealCreateView(LoginRequiredMixin, CreateView):
         form.instance.created_by = self.request.user
         _sync_deal_closed_at(form.instance)
         response = super().form_valid(form)
+        _record_audit_log(self.request.user, self.object, AuditLogEntry.Action.CREATED)
         messages.success(self.request, f"Created deal “{self.object.title}”.")
         return response
 
@@ -463,8 +552,12 @@ class DealUpdateView(LoginRequiredMixin, UpdateView):
     template_name = "crm/deal_form.html"
 
     def form_valid(self, form):
+        previous = Deal.objects.get(pk=self.object.pk)
         _sync_deal_closed_at(form.instance)
         response = super().form_valid(form)
+        changes = _diff_changed_fields(previous, self.object, form.changed_data)
+        if changes:
+            _record_audit_log(self.request.user, self.object, AuditLogEntry.Action.UPDATED, changes)
         messages.success(self.request, f"Updated deal “{self.object.title}”.")
         return response
 
