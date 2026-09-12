@@ -18,8 +18,10 @@
         <a href="{% url 'crm:deal_list' %}">Deals</a>
         <a href="{% url 'crm:activity_list' %}">Activities</a>
         <a href="{% url 'crm:task_list' %}">Tasks</a>
-        <a href="{% url 'core:search' %}">Search</a>
       </nav>
+      <form method="get" action="{% url 'core:search' %}" class="nav-search">
+        <input type="search" name="q" placeholder="Search" aria-label="Search">
+      </form>
       <div class="user-controls">
         <span class="nav-user">{{ user.username }}</span>
         <a href="{% url 'users:password_change' %}">Change password</a>
