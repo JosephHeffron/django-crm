@@ -6,8 +6,9 @@ actually verified.
 
 > **Last updated 2026-09-12.** Repo is clean (`main` up to date, nothing
 > uncommitted). Phase 4 is fully complete. Phase 5 is in progress —
-> unit 1 (Global search) done and merged. Next: operational dashboard
-> (unit 2) — see "Next" below.
+> units 1 (Global search) and 2 (Operational dashboard) done and
+> merged. Next: a dedicated usability review pass (unit 3) — see
+> "Next" below.
 
 ## Project version
 
@@ -25,7 +26,8 @@ two deferred HIGH findings and one MEDIUM finding from
 4 shipped in 3 units: Activity timeline, Tasks (plus a post-merge fix
 for a real `TaskCompleteView` bug), and lightweight audit history for
 Company/Contact/Lead/Deal. Phase 5 (Search, dashboard, usability) is
-now in progress — unit 1 (Global search) is done and merged.
+now in progress — units 1 (Global search) and 2 (Operational
+dashboard) are done and merged.
 
 Phase 2's `docs/DATABASE_REVIEW.md` found 2 HIGH findings (Activity's
 `CASCADE` can silently destroy history still relevant to a surviving
@@ -214,6 +216,21 @@ Phase 3 — see Known Issues below.
   with a regression test that asserts the fix's effect directly
   (`sorted(pk)`), not just that two requests match. Full detail in
   `logs/claude/phase-05-global-search.md`.
+- Phase 5 unit 2 — Operational dashboard (PR #39): `DashboardView`
+  replaces the placeholder "Signed in as {{ user.username }}" page
+  with quick counts (active companies/contacts, open leads, open deals
+  + total value, pending tasks), an open-deal pipeline breakdown by
+  stage in natural pipeline order (not alphabetical — `.values()`/
+  `.annotate()` doesn't respect `Meta.ordering`, so this is built by
+  iterating `Deal.Stage.choices` directly), the signed-in user's own
+  pending tasks, and a recent-activity feed. No charting library or JS
+  dashboard framework — plain server-side ORM aggregates throughout.
+  254 tests total. Sourcery was rate-limited on this PR too; rather
+  than a fresh adversarial script, reasoned through the same edge
+  cases (null-value `Sum()` handling, zero-default stage lookups,
+  per-user task scoping) directly against what the existing tests
+  already assert — no new issues found. Full detail in
+  `logs/claude/phase-05-operational-dashboard.md`.
 
 ## Currently working on
 
@@ -223,11 +240,9 @@ anything. (A 7th, the pytest security fix, was merged.)
 
 ## Next
 
-1. Phase 5 unit 2 — operational dashboard: build out `core:index`
-   (currently just "Signed in as {{ user.username }}") with real
-   at-a-glance CRM data.
-2. Phase 5 unit 3 — a dedicated usability review pass.
-3. Review/merge (or leave) the remaining open Dependabot PRs.
+1. Phase 5 unit 3 — a dedicated usability review pass (the final
+   Phase 5 unit).
+2. Review/merge (or leave) the remaining open Dependabot PRs.
 
 ## Known issues
 
