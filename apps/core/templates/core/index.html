@@ -3,7 +3,66 @@
 {% block title %}Dashboard{% endblock %}
 
 {% block content %}
-  <h1>CRM</h1>
-  <p>Signed in as {{ user.username }}. The dashboard and navigation will be
-  built out in the next unit of Phase 3.</p>
+  <h1>Dashboard</h1>
+
+  <ul class="dashboard-stats">
+    <li><a href="{% url 'crm:company_list' %}?status=active">{{ company_count }} active companies</a></li>
+    <li><a href="{% url 'crm:contact_list' %}?status=active">{{ contact_count }} active contacts</a></li>
+    <li><a href="{% url 'crm:lead_list' %}">{{ open_lead_count }} open leads</a></li>
+    <li><a href="{% url 'crm:deal_list' %}?open=1">{{ open_deal_count }} open deals ({{ open_deal_value }})</a></li>
+    <li><a href="{% url 'crm:task_list' %}?status=pending">{{ pending_task_count }} pending tasks</a></li>
+  </ul>
+
+  <h2>Pipeline by stage</h2>
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>Stage</th>
+        <th>Deals</th>
+        <th>Value</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for stage in deals_by_stage %}
+        <tr>
+          <td>{{ stage.label }}</td>
+          <td>{{ stage.count }}</td>
+          <td>{{ stage.total_value }}</td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <h2>Your tasks</h2>
+  {% if my_tasks %}
+    <ul>
+      {% for task in my_tasks %}
+        <li>
+          <a href="{{ task.get_absolute_url }}">{{ task.title }}</a>
+          &mdash; {{ task.due_date|default:"no due date" }}{% if task.is_overdue %} (overdue){% endif %}
+        </li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <p>No pending tasks assigned to you.</p>
+  {% endif %}
+  <p><a href="{% url 'crm:task_list' %}?mine=1">View all my tasks</a></p>
+
+  <h2>Recent activity</h2>
+  {% if recent_activities %}
+    <ul class="timeline">
+      {% for activity in recent_activities %}
+        <li class="timeline-entry">
+          <div class="timeline-meta">
+            <strong>{{ activity.get_activity_type_display }}</strong>
+            <span>{{ activity.created_at }}</span>
+            <span>{{ activity.created_by }}</span>
+          </div>
+          <div class="timeline-subject">{{ activity.subject }}</div>
+        </li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <p>No activity yet.</p>
+  {% endif %}
 {% endblock %}
