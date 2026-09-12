@@ -17,3 +17,19 @@ for meaningful changes — not for every small fix or documentation tweak.
   tracking (`docs/PROJECT_STATE.md`), CI foundation
   (`.github/workflows/ci.yml`, `security.yml`), Dependabot, pre-commit
   configuration.
+- CRM database schema and models: Company, Contact, Lead, Deal, Task,
+  Activity, with constraints, indexes, and lifecycle behavior documented
+  in `docs/DATABASE_DESIGN.md` and audited in `docs/DATABASE_REVIEW.md`.
+- CRM interface: authentication, application shell (navigation, error
+  pages, styling), full CRUD for Companies, Contacts, Leads, and Deals,
+  and the Lead-to-Contact/Company/Deal conversion workflow.
+- Activity timeline: a reusable component on Company/Contact/Lead/Deal
+  detail pages for logging and reviewing calls, meetings, emails, and
+  notes.
+- Tasks: list/detail/create/edit views with status and priority filters,
+  "my tasks" and "overdue" views, and a dedicated one-click completion
+  workflow.
+- Lightweight audit history: records who changed what and when on
+  Company/Contact/Lead/Deal, shown as a "History" section on each
+  record's detail page.
+- Global search across Companies, Contacts, Leads, Deals, and Tasks.
