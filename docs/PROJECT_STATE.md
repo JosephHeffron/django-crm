@@ -4,10 +4,10 @@ Update this file at the end of every session (see `CLAUDE.md`'s Session
 Close Procedure). Do not describe anything as complete unless it was
 actually verified.
 
-> **Last updated 2026-09-11.** Repo is clean (`main` up to date, nothing
-> uncommitted). Phase 4 is in progress — units 1 (Activity timeline)
-> and 2 (Tasks) done and merged. Next: lightweight audit history
-> (unit 3) — see "Next" below.
+> **Last updated 2026-09-12.** Repo is clean (`main` up to date, nothing
+> uncommitted). **Phase 4 is now fully complete** (Activity timeline,
+> Tasks, Audit history). Next: Phase 5 — Search, dashboard, usability —
+> see "Next" below.
 
 ## Project version
 
@@ -15,14 +15,16 @@ actually verified.
 
 ## Current phase
 
-Phase 2 (CRM database) and Phase 3 (CRM interface) are both complete.
-Phase 3 shipped in 5 units: authentication + base shell, full
-navigation/error pages/styling, Companies CRUD, Contacts CRUD, and
-Leads/Deals workflows (including the lead-to-Contact/Company/Deal
-conversion workflow). The two deferred HIGH findings and one MEDIUM
-finding from `docs/DATABASE_REVIEW.md` were resolved before starting
-Phase 4. Phase 4 (Activities, Tasks, audit history) is now in progress —
-units 1 (Activity timeline) and 2 (Tasks) are done and merged.
+Phase 2 (CRM database), Phase 3 (CRM interface), and Phase 4
+(Activities, Tasks, audit history) are all complete. Phase 3 shipped in
+5 units: authentication + base shell, full navigation/error
+pages/styling, Companies CRUD, Contacts CRUD, and Leads/Deals workflows
+(including the lead-to-Contact/Company/Deal conversion workflow). The
+two deferred HIGH findings and one MEDIUM finding from
+`docs/DATABASE_REVIEW.md` were resolved before starting Phase 4. Phase
+4 shipped in 3 units: Activity timeline, Tasks (plus a post-merge fix
+for a real `TaskCompleteView` bug), and lightweight audit history for
+Company/Contact/Lead/Deal.
 
 Phase 2's `docs/DATABASE_REVIEW.md` found 2 HIGH findings (Activity's
 `CASCADE` can silently destroy history still relevant to a surviving
@@ -179,6 +181,22 @@ Phase 3 — see Known Issues below.
   status guard `LeadConvertView` already uses, plus 2 regression
   tests (209 tests total). Full detail in
   `logs/claude/phase-04-tasks.md`.
+- Phase 4 unit 3 — Audit history (PR #34), the final Phase 4 unit: a
+  new `AuditLogEntry` model (generic FK via `contenttypes`) records who
+  changed what and when on Company/Contact/Lead/Deal — scope confirmed
+  with the user up front; Task and Activity are deliberately excluded.
+  Design written into `docs/DATABASE_DESIGN.md` before implementation.
+  Written explicitly from each model's Create/Update/Deactivate views
+  and Lead conversion (not signal-based — signals can't see
+  `request.user` without a thread-local). Displayed as a "History"
+  section on all four detail pages. 227 tests total. Sourcery was
+  rate-limited on this PR too; per the lesson from unit 2, did a
+  second deliberately adversarial manual review pass afterward
+  (checking specifically for XSS in the history display, multi-edit
+  and round-trip sequences, cross-user visibility) — came back clean.
+  Full detail in `logs/claude/phase-04-audit-history.md`.
+
+**Phase 4 (Activities, Tasks, audit history) is now fully complete.**
 
 ## Currently working on
 
@@ -188,8 +206,8 @@ anything. (A 7th, the pytest security fix, was merged.)
 
 ## Next
 
-1. Phase 4 unit 3 — lightweight audit history for important CRM record
-   changes, per Prompt 4.3.
+1. Phase 5 — Search, dashboard, usability: global search across CRM
+   objects, an operational dashboard, a dedicated usability review pass.
 2. Review/merge (or leave) the remaining open Dependabot PRs.
 
 ## Known issues

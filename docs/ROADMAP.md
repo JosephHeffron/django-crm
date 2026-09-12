@@ -21,9 +21,10 @@ begins. See `CLAUDE.md` for the workflow this repository follows.
       templates, messages, error pages), then Companies and Contacts CRUD,
       then Leads and Deals workflows. Done in 5 units — full detail in
       `logs/claude/phase-03-*.md`.
-- [ ] **Phase 4 — Activities, notes, tasks, history.** Activity timeline
+- [x] **Phase 4 — Activities, notes, tasks, history.** Activity timeline
       component, Tasks (my tasks / overdue / completion workflow), lightweight
-      audit history for important record changes.
+      audit history for important record changes. Done in 3 units — full
+      detail in `logs/claude/phase-04-*.md`.
 - [ ] **Phase 5 — Search, dashboard, usability.** Global search across CRM
       objects, operational dashboard, a dedicated usability review pass.
 - [ ] **Phase 6 — Security hardening.** Full Django security audit
