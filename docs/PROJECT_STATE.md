@@ -5,9 +5,9 @@ Close Procedure). Do not describe anything as complete unless it was
 actually verified.
 
 > **Last updated 2026-09-13.** Repo is clean (`main` up to date, nothing
-> uncommitted). **Phase 5 is now fully complete** (Global search,
-> Operational dashboard, Usability review). Next: Phase 6 — Security
-> hardening — see "Next" below.
+> uncommitted). Phase 5 is fully complete. Phase 6 (Security hardening)
+> is in progress — unit 1 (Security audit) done and merged. Next: a
+> practical role/permission model (unit 2) — see "Next" below.
 
 ## Project version
 
@@ -25,8 +25,10 @@ two deferred HIGH findings and one MEDIUM finding from
 4 shipped in 3 units: Activity timeline, Tasks (plus a post-merge fix
 for a real `TaskCompleteView` bug), and lightweight audit history for
 Company/Contact/Lead/Deal. Phase 5 (Search, dashboard, usability) is
-now complete — Global search, Operational dashboard, and a usability
-review pass that found and fixed a real bug (see "Completed" below).
+complete — Global search, Operational dashboard, and a usability
+review pass that found and fixed a real bug. Phase 6 (Security
+hardening) is now in progress — unit 1 (Security audit) is done and
+merged.
 
 Phase 2's `docs/DATABASE_REVIEW.md` found 2 HIGH findings (Activity's
 `CASCADE` can silently destroy history still relevant to a surviving
@@ -250,6 +252,19 @@ Phase 3 — see Known Issues below.
 
 **Phase 5 (Search, dashboard, usability) is now fully complete.**
 
+- Phase 6 unit 1 — Security audit (PR #43): `manage.py check --deploy`
+  against production settings is clean; a repo-wide grep for raw SQL,
+  `mark_safe`/`|safe`, `@csrf_exempt`, and `eval`/`exec` found none.
+  Two safe fixes applied — `CSRF_COOKIE_HTTPONLY` (no JS in this app
+  ever reads that cookie; verified live via a real login + form-submit
+  round trip against a running dev server, since Django's test client
+  disables real CSRF checks by default) and a stronger password
+  minimum (8 → 12). Everything else found (no role separation, no
+  login rate-limiting, the default `/admin/` path, no CSP, no custom
+  `AUTH_USER_MODEL`) documented as a deliberate deferral with reasoning
+  in `docs/SECURITY_REVIEW.md`, not a silent gap. 271 tests total. Full
+  detail in `logs/claude/phase-06-security-audit.md`.
+
 ## Currently working on
 
 Nothing in progress. 6 Dependabot PRs (4 pip minor/patch bumps, 2 GitHub
@@ -258,10 +273,10 @@ anything. (A 7th, the pytest security fix, was merged.)
 
 ## Next
 
-1. Phase 6 — Security hardening: full Django security audit
-   (`docs/SECURITY_REVIEW.md`), a practical role/permission model
-   (`docs/PERMISSIONS.md`), dependency security audit.
-2. Review/merge (or leave) the remaining open Dependabot PRs.
+1. Phase 6 unit 2 — a practical role/permission model
+   (`docs/PERMISSIONS.md`), using Django's built-in Groups/Permissions.
+2. Phase 6 unit 3 — dependency security audit.
+3. Review/merge (or leave) the remaining open Dependabot PRs.
 
 ## Known issues
 
