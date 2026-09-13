@@ -4,11 +4,10 @@ Update this file at the end of every session (see `CLAUDE.md`'s Session
 Close Procedure). Do not describe anything as complete unless it was
 actually verified.
 
-> **Last updated 2026-09-12.** Repo is clean (`main` up to date, nothing
-> uncommitted). Phase 4 is fully complete. Phase 5 is in progress —
-> units 1 (Global search) and 2 (Operational dashboard) done and
-> merged. Next: a dedicated usability review pass (unit 3) — see
-> "Next" below.
+> **Last updated 2026-09-13.** Repo is clean (`main` up to date, nothing
+> uncommitted). **Phase 5 is now fully complete** (Global search,
+> Operational dashboard, Usability review). Next: Phase 6 — Security
+> hardening — see "Next" below.
 
 ## Project version
 
@@ -26,8 +25,8 @@ two deferred HIGH findings and one MEDIUM finding from
 4 shipped in 3 units: Activity timeline, Tasks (plus a post-merge fix
 for a real `TaskCompleteView` bug), and lightweight audit history for
 Company/Contact/Lead/Deal. Phase 5 (Search, dashboard, usability) is
-now in progress — units 1 (Global search) and 2 (Operational
-dashboard) are done and merged.
+now complete — Global search, Operational dashboard, and a usability
+review pass that found and fixed a real bug (see "Completed" below).
 
 Phase 2's `docs/DATABASE_REVIEW.md` found 2 HIGH findings (Activity's
 `CASCADE` can silently destroy history still relevant to a surviving
@@ -231,6 +230,25 @@ Phase 3 — see Known Issues below.
   per-user task scoping) directly against what the existing tests
   already assert — no new issues found. Full detail in
   `logs/claude/phase-05-operational-dashboard.md`.
+- Phase 5 unit 3 — Usability review (PR #41), the final Phase 5 unit:
+  no visual browser tool was available (this project's `WebFetch` tool
+  refuses `localhost`), so the review ran a real authenticated
+  walkthrough against the dev server via `curl` (real CSRF tokens,
+  real cookies) rather than relying only on the Django test client.
+  **Found and fixed a real bug**: Django's `{# #}` comment tag doesn't
+  support multi-line content, so the multi-line comments atop
+  `_activity_timeline.html`/`_audit_history.html` had been rendering as
+  literal raw text on every Company/Contact/Lead/Deal detail page since
+  Phase 4 — undetected by ~250 existing tests because none asserted on
+  the *absence* of that text. Also fixed: missing accessible labels on
+  every list page's filter inputs, no Cancel link on any create/edit
+  form, no current-page nav indicator, missing `role="status"` on
+  flash messages, no horizontal-scroll handling for data tables on
+  narrow viewports. Findings and fixes documented in
+  `docs/USABILITY_REVIEW.md`. 268 tests total. Full detail in
+  `logs/claude/phase-05-usability-review.md`.
+
+**Phase 5 (Search, dashboard, usability) is now fully complete.**
 
 ## Currently working on
 
@@ -240,8 +258,9 @@ anything. (A 7th, the pytest security fix, was merged.)
 
 ## Next
 
-1. Phase 5 unit 3 — a dedicated usability review pass (the final
-   Phase 5 unit).
+1. Phase 6 — Security hardening: full Django security audit
+   (`docs/SECURITY_REVIEW.md`), a practical role/permission model
+   (`docs/PERMISSIONS.md`), dependency security audit.
 2. Review/merge (or leave) the remaining open Dependabot PRs.
 
 ## Known issues
