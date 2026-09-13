@@ -1,5 +1,9 @@
 from django.conf import settings
+from django.contrib.contenttypes.fields import GenericForeignKey
+from django.contrib.contenttypes.models import ContentType
 from django.db import models
+from django.urls import reverse
+from django.utils import timezone
 
 
 class Company(models.Model):
@@ -31,6 +35,9 @@ class Company(models.Model):
 
     def __str__(self):
         return self.name
+
+    def get_absolute_url(self):
+        return reverse("crm:company_detail", kwargs={"pk": self.pk})
 
 
 class Contact(models.Model):
@@ -72,6 +79,9 @@ class Contact(models.Model):
 
     def __str__(self):
         return f"{self.first_name} {self.last_name}"
+
+    def get_absolute_url(self):
+        return reverse("crm:contact_detail", kwargs={"pk": self.pk})
 
 
 class Lead(models.Model):
@@ -145,6 +155,9 @@ class Lead(models.Model):
 
     def __str__(self):
         return self.name
+
+    def get_absolute_url(self):
+        return reverse("crm:lead_detail", kwargs={"pk": self.pk})
 
 
 class Deal(models.Model):
@@ -222,6 +235,9 @@ class Deal(models.Model):
     def __str__(self):
         return self.title
 
+    def get_absolute_url(self):
+        return reverse("crm:deal_detail", kwargs={"pk": self.pk})
+
 
 class Task(models.Model):
     class Priority(models.TextChoices):
@@ -277,8 +293,60 @@ class Task(models.Model):
             models.Index(fields=["assigned_to"]),
         ]
 
+    @property
+    def is_overdue(self):
+        return (
+            self.status == self.Status.PENDING
+            and self.due_date is not None
+            and self.due_date < timezone.localdate()
+        )
+
     def __str__(self):
         return self.title
+
+    def get_absolute_url(self):
+        return reverse("crm:task_detail", kwargs={"pk": self.pk})
+
+
+class AuditLogEntry(models.Model):
+    """Who changed a Company/Contact/Lead/Deal, what changed, and when.
+
+    Deliberately lightweight — no reconstruction of past states, no
+    revert, no event-sourcing (docs/DATABASE_DESIGN.md's "Audit history"
+    section). Only Company/Contact/Lead/Deal are ever pointed at here;
+    Task and Activity are out of scope (see that section for why).
+    """
+
+    class Action(models.TextChoices):
+        CREATED = "created", "Created"
+        UPDATED = "updated", "Updated"
+
+    content_type = models.ForeignKey(
+        ContentType,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+    )
+    object_id = models.PositiveIntegerField(null=True, blank=True)
+    record = GenericForeignKey("content_type", "object_id")
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="audit_log_entries",
+    )
+    action = models.CharField(max_length=10, choices=Action.choices)
+    changes = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name_plural = "audit log entries"
+        ordering = ["-created_at"]
+        indexes = [models.Index(fields=["content_type", "object_id", "created_at"])]
+
+    def __str__(self):
+        return f"{self.get_action_display()} {self.content_type} #{self.object_id}"
 
 
 class Activity(models.Model):
@@ -295,28 +363,28 @@ class Activity(models.Model):
         Company,
         null=True,
         blank=True,
-        on_delete=models.CASCADE,
+        on_delete=models.SET_NULL,
         related_name="activities",
     )
     contact = models.ForeignKey(
         Contact,
         null=True,
         blank=True,
-        on_delete=models.CASCADE,
+        on_delete=models.SET_NULL,
         related_name="activities",
     )
     lead = models.ForeignKey(
         Lead,
         null=True,
         blank=True,
-        on_delete=models.CASCADE,
+        on_delete=models.SET_NULL,
         related_name="activities",
     )
     deal = models.ForeignKey(
         Deal,
         null=True,
         blank=True,
-        on_delete=models.CASCADE,
+        on_delete=models.SET_NULL,
         related_name="activities",
     )
     created_by = models.ForeignKey(
@@ -329,18 +397,20 @@ class Activity(models.Model):
     class Meta:
         verbose_name_plural = "activities"
         ordering = ["-created_at"]
-        constraints = [
-            models.CheckConstraint(
-                condition=(
-                    models.Q(company__isnull=False)
-                    | models.Q(contact__isnull=False)
-                    | models.Q(lead__isnull=False)
-                    | models.Q(deal__isnull=False)
-                ),
-                name="activity_has_related_object",
-            )
-        ]
         indexes = [models.Index(fields=["activity_type"])]
 
     def __str__(self):
         return self.subject
+
+    def save(self, *args, **kwargs):
+        # Activity is documented as immutable history
+        # (docs/DATABASE_DESIGN.md). Enforced here — not just in
+        # ActivityAdmin.has_change_permission — because a plain
+        # .save() on an existing instance previously bypassed that
+        # entirely (docs/DATABASE_REVIEW.md finding #7, confirmed
+        # empirically). Bulk .update()/.bulk_update() calls still
+        # bypass this, same as any Django model — documented as an
+        # accepted, narrower residual gap.
+        if self.pk is not None:
+            raise ValueError("Activity records are immutable and cannot be updated after creation.")
+        super().save(*args, **kwargs)

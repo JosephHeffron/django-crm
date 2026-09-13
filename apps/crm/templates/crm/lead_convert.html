@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+
+{% block title %}Convert {{ lead.name }}{% endblock %}
+
+{% block content %}
+  <p><a href="{{ lead.get_absolute_url }}">← {{ lead.name }}</a></p>
+  <h1>Convert {{ lead.name }}</h1>
+  <p>This creates a Contact (and optionally a Company and a Deal), then marks this lead converted. The lead itself is kept as a record of where they came from.</p>
+
+  <form method="post">
+    {% csrf_token %}
+    <h2>Company</h2>
+    {{ form.existing_company.label_tag }} {{ form.existing_company }}
+    {{ form.existing_company.errors }}
+    <p>{{ form.new_company_name.label_tag }} {{ form.new_company_name }}</p>
+    {{ form.new_company_name.errors }}
+
+    <h2>Contact</h2>
+    <p>{{ form.contact_first_name.label_tag }} {{ form.contact_first_name }}</p>
+    {{ form.contact_first_name.errors }}
+    <p>{{ form.contact_last_name.label_tag }} {{ form.contact_last_name }}</p>
+    {{ form.contact_last_name.errors }}
+    <p>{{ form.contact_email.label_tag }} {{ form.contact_email }}</p>
+    {{ form.contact_email.errors }}
+    <p>{{ form.contact_phone.label_tag }} {{ form.contact_phone }}</p>
+    {{ form.contact_phone.errors }}
+
+    <h2>Deal</h2>
+    <p>{{ form.create_deal }} {{ form.create_deal.label_tag }}</p>
+    <p>{{ form.deal_title.label_tag }} {{ form.deal_title }}</p>
+    {{ form.deal_title.errors }}
+    <p>{{ form.deal_value.label_tag }} {{ form.deal_value }}</p>
+    {{ form.deal_value.errors }}
+
+    {{ form.non_field_errors }}
+    <button type="submit">Convert</button>
+  </form>
+{% endblock %}

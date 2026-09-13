@@ -6,21 +6,28 @@ begins. See `CLAUDE.md` for the workflow this repository follows.
 
 - [x] **Phase 0 — Development rules.** `CLAUDE.md`, git baseline, `.gitignore`,
       this roadmap, `docs/ARCHITECTURE.md`.
-- [ ] **Phase 1 — Bootstrap Django.** `config/`/`apps/` project structure,
+- [x] **Phase 1 — Bootstrap Django.** `config/`/`apps/` project structure,
       environment-based settings split, PostgreSQL wired up, dependency
       management, project boots and passes `manage.py check`.
-- [ ] **Phase 2 — Database design.** Design Companies/Contacts/Leads/Deals/
+- [x] **Phase 2 — Database design.** Design Companies/Contacts/Leads/Deals/
       Activities/Tasks/Notes relationships in `docs/DATABASE_DESIGN.md` before
-      writing models; implement models + migrations + admin registration;
-      schema review in `docs/DATABASE_REVIEW.md`.
-- [ ] **Phase 3 — CRM interface.** Application shell (nav, layout, base
+      writing models (done); implement models + migrations + admin
+      registration (done); schema review in `docs/DATABASE_REVIEW.md`
+      (done — found 2 HIGH + 5 MEDIUM findings on Activity's CASCADE
+      behavior and on_delete enforcement; tracked in
+      `docs/PROJECT_STATE.md`'s Known Issues, to be resolved before
+      Phase 4, not blocking this phase or Phase 3).
+- [x] **Phase 3 — CRM interface.** Application shell (nav, layout, base
       templates, messages, error pages), then Companies and Contacts CRUD,
-      then Leads and Deals workflows.
-- [ ] **Phase 4 — Activities, notes, tasks, history.** Activity timeline
+      then Leads and Deals workflows. Done in 5 units — full detail in
+      `logs/claude/phase-03-*.md`.
+- [x] **Phase 4 — Activities, notes, tasks, history.** Activity timeline
       component, Tasks (my tasks / overdue / completion workflow), lightweight
-      audit history for important record changes.
-- [ ] **Phase 5 — Search, dashboard, usability.** Global search across CRM
+      audit history for important record changes. Done in 3 units — full
+      detail in `logs/claude/phase-04-*.md`.
+- [x] **Phase 5 — Search, dashboard, usability.** Global search across CRM
       objects, operational dashboard, a dedicated usability review pass.
+      Done in 3 units — full detail in `logs/claude/phase-05-*.md`.
 - [ ] **Phase 6 — Security hardening.** Full Django security audit
       (`docs/SECURITY_REVIEW.md`), practical role/permission model
       (`docs/PERMISSIONS.md`), dependency security audit.
