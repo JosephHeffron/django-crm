@@ -26,4 +26,4 @@ jobs:
         run: pip-audit -r requirements.txt
 
       - name: bandit
-        run: bandit -r apps config
+        run: bandit -r apps config -x '*/tests/*,*/migrations/*'

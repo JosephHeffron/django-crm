@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+
+{% block title %}Companies{% endblock %}
+
+{% block content %}
+  <h1>Companies</h1>
+
+  <p><a href="{% url 'crm:company_create' %}">Add company</a></p>
+
+  <form method="get" class="filter-form">
+    <label for="id_q" class="sr-only">Search by name</label>
+    <input type="text" id="id_q" name="q" value="{{ query }}" placeholder="Search by name">
+    <label for="id_status" class="sr-only">Status</label>
+    <select id="id_status" name="status">
+      <option value="" {% if not status %}selected{% endif %}>All</option>
+      <option value="active" {% if status == "active" %}selected{% endif %}>Active</option>
+      <option value="inactive" {% if status == "inactive" %}selected{% endif %}>Inactive</option>
+    </select>
+    <button type="submit">Filter</button>
+  </form>
+
+  {% if companies %}
+    <div class="table-responsive">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Industry</th>
+          <th>Owner</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for company in companies %}
+          <tr>
+            <td><a href="{{ company.get_absolute_url }}">{{ company.name }}</a></td>
+            <td>{{ company.industry|default:"—" }}</td>
+            <td>{{ company.owner|default:"Unassigned" }}</td>
+            <td>{% if company.is_active %}Active{% else %}Inactive{% endif %}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    </div>
+
+    {% if is_paginated %}
+      <nav class="pagination">
+        {% if page_obj.has_previous %}
+          <a href="?page={{ page_obj.previous_page_number }}{% if query %}&q={{ query }}{% endif %}{% if status %}&status={{ status }}{% endif %}">Previous</a>
+        {% endif %}
+        <span>Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+        {% if page_obj.has_next %}
+          <a href="?page={{ page_obj.next_page_number }}{% if query %}&q={{ query }}{% endif %}{% if status %}&status={{ status }}{% endif %}">Next</a>
+        {% endif %}
+      </nav>
+    {% endif %}
+  {% else %}
+    <p>No companies found.</p>
+  {% endif %}
+{% endblock %}
