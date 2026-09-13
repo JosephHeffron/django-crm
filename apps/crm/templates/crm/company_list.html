@@ -8,8 +8,10 @@
   <p><a href="{% url 'crm:company_create' %}">Add company</a></p>
 
   <form method="get" class="filter-form">
-    <input type="text" name="q" value="{{ query }}" placeholder="Search by name">
-    <select name="status">
+    <label for="id_q" class="sr-only">Search by name</label>
+    <input type="text" id="id_q" name="q" value="{{ query }}" placeholder="Search by name">
+    <label for="id_status" class="sr-only">Status</label>
+    <select id="id_status" name="status">
       <option value="" {% if not status %}selected{% endif %}>All</option>
       <option value="active" {% if status == "active" %}selected{% endif %}>Active</option>
       <option value="inactive" {% if status == "inactive" %}selected{% endif %}>Inactive</option>
@@ -18,6 +20,7 @@
   </form>
 
   {% if companies %}
+    <div class="table-responsive">
     <table class="data-table">
       <thead>
         <tr>
@@ -38,6 +41,7 @@
         {% endfor %}
       </tbody>
     </table>
+    </div>
 
     {% if is_paginated %}
       <nav class="pagination">

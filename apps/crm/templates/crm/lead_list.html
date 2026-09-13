@@ -8,8 +8,10 @@
   <p><a href="{% url 'crm:lead_create' %}">Add lead</a></p>
 
   <form method="get" class="filter-form">
-    <input type="text" name="q" value="{{ query }}" placeholder="Search by name, company, or email">
-    <select name="status">
+    <label for="id_q" class="sr-only">Search by name, company, or email</label>
+    <input type="text" id="id_q" name="q" value="{{ query }}" placeholder="Search by name, company, or email">
+    <label for="id_status" class="sr-only">Status</label>
+    <select id="id_status" name="status">
       <option value="" {% if not status %}selected{% endif %}>All statuses</option>
       {% for value, label in status_choices %}
         <option value="{{ value }}" {% if status == value %}selected{% endif %}>{{ label }}</option>
@@ -19,6 +21,7 @@
   </form>
 
   {% if leads %}
+    <div class="table-responsive">
     <table class="data-table">
       <thead>
         <tr>
@@ -41,6 +44,7 @@
         {% endfor %}
       </tbody>
     </table>
+    </div>
 
     {% if is_paginated %}
       <nav class="pagination">

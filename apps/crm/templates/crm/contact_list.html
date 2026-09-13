@@ -8,13 +8,16 @@
   <p><a href="{% url 'crm:contact_create' %}">Add contact</a></p>
 
   <form method="get" class="filter-form">
-    <input type="text" name="q" value="{{ query }}" placeholder="Search by name or email">
-    <select name="status">
+    <label for="id_q" class="sr-only">Search by name or email</label>
+    <input type="text" id="id_q" name="q" value="{{ query }}" placeholder="Search by name or email">
+    <label for="id_status" class="sr-only">Status</label>
+    <select id="id_status" name="status">
       <option value="" {% if not status %}selected{% endif %}>All</option>
       <option value="active" {% if status == "active" %}selected{% endif %}>Active</option>
       <option value="inactive" {% if status == "inactive" %}selected{% endif %}>Inactive</option>
     </select>
-    <select name="company">
+    <label for="id_company" class="sr-only">Company</label>
+    <select id="id_company" name="company">
       <option value="">All companies</option>
       {% for company in companies %}
         <option value="{{ company.pk }}" {% if company_id == company.pk|stringformat:"s" %}selected{% endif %}>{{ company.name }}</option>
@@ -24,6 +27,7 @@
   </form>
 
   {% if contacts %}
+    <div class="table-responsive">
     <table class="data-table">
       <thead>
         <tr>
@@ -50,6 +54,7 @@
         {% endfor %}
       </tbody>
     </table>
+    </div>
 
     {% if is_paginated %}
       <nav class="pagination">

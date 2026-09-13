@@ -1,7 +1,9 @@
-{# Reusable activity timeline. Expects `activities` (a queryset, newest
-   first — Activity's own default ordering) and `log_activity_url`
-   (built by _log_activity_url() in views.py) in the including
-   template's context. #}
+{% comment %}
+Reusable activity timeline. Expects `activities` (a queryset, newest
+first — Activity's own default ordering) and `log_activity_url`
+(built by _log_activity_url() in views.py) in the including
+template's context.
+{% endcomment %}
 <h2>Activity</h2>
 <p><a href="{{ log_activity_url }}">Log activity</a></p>
 

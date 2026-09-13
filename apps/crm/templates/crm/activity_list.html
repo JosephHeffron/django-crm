@@ -8,7 +8,8 @@
   <p><a href="{% url 'crm:activity_create' %}">Log activity</a></p>
 
   <form method="get" class="filter-form">
-    <select name="type">
+    <label for="id_type" class="sr-only">Activity type</label>
+    <select id="id_type" name="type">
       <option value="" {% if not activity_type %}selected{% endif %}>All types</option>
       {% for value, label in type_choices %}
         <option value="{{ value }}" {% if activity_type == value %}selected{% endif %}>{{ label }}</option>

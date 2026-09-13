@@ -16,13 +16,15 @@
   </p>
 
   <form method="get" class="filter-form">
-    <select name="status">
+    <label for="id_status" class="sr-only">Status</label>
+    <select id="id_status" name="status">
       <option value="" {% if not status %}selected{% endif %}>All statuses</option>
       {% for value, label in status_choices %}
         <option value="{{ value }}" {% if status == value %}selected{% endif %}>{{ label }}</option>
       {% endfor %}
     </select>
-    <select name="priority">
+    <label for="id_priority" class="sr-only">Priority</label>
+    <select id="id_priority" name="priority">
       <option value="" {% if not priority %}selected{% endif %}>All priorities</option>
       {% for value, label in priority_choices %}
         <option value="{{ value }}" {% if priority == value %}selected{% endif %}>{{ label }}</option>
@@ -34,6 +36,7 @@
   </form>
 
   {% if tasks %}
+    <div class="table-responsive">
     <table class="data-table">
       <thead>
         <tr>
@@ -56,6 +59,7 @@
         {% endfor %}
       </tbody>
     </table>
+    </div>
 
     {% if is_paginated %}
       <nav class="pagination">

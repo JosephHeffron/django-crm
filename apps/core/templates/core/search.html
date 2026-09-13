@@ -6,7 +6,8 @@
   <h1>Search</h1>
 
   <form method="get" class="filter-form">
-    <input type="text" name="q" value="{{ query }}" placeholder="Search companies, contacts, leads, deals, tasks" autofocus>
+    <label for="id_q" class="sr-only">Search query</label>
+    <input type="text" id="id_q" name="q" value="{{ query }}" placeholder="Search companies, contacts, leads, deals, tasks" autofocus>
     <button type="submit">Search</button>
   </form>
 

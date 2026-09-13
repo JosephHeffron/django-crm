@@ -8,8 +8,10 @@
   <p><a href="{% url 'crm:deal_create' %}">Add deal</a></p>
 
   <form method="get" class="filter-form">
-    <input type="text" name="q" value="{{ query }}" placeholder="Search by title">
-    <select name="stage">
+    <label for="id_q" class="sr-only">Search by title</label>
+    <input type="text" id="id_q" name="q" value="{{ query }}" placeholder="Search by title">
+    <label for="id_stage" class="sr-only">Stage</label>
+    <select id="id_stage" name="stage">
       <option value="" {% if not stage %}selected{% endif %}>All stages</option>
       {% for value, label in stage_choices %}
         <option value="{{ value }}" {% if stage == value %}selected{% endif %}>{{ label }}</option>
@@ -20,6 +22,7 @@
   </form>
 
   {% if deals %}
+    <div class="table-responsive">
     <table class="data-table">
       <thead>
         <tr>
@@ -56,6 +59,7 @@
         {% endfor %}
       </tbody>
     </table>
+    </div>
 
     {% if is_paginated %}
       <nav class="pagination">
