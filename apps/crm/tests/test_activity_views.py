@@ -90,6 +90,16 @@ class ActivityCreateViewTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertNotIn("company", response.context["form"].initial)
 
+    def test_cancel_url_falls_back_to_activity_list_with_no_relation(self):
+        # Usability review finding: "Cancel" needs somewhere sensible
+        # to go back to even before a save exists.
+        response = self.client.get(reverse("crm:activity_create"))
+        self.assertEqual(response.context["cancel_url"], reverse("crm:activity_list"))
+
+    def test_cancel_url_matches_the_prefilled_relation(self):
+        response = self.client.get(reverse("crm:activity_create"), {"company": self.company.pk})
+        self.assertEqual(response.context["cancel_url"], self.company.get_absolute_url())
+
     def test_create_sets_created_by(self):
         response = self.client.post(
             reverse("crm:activity_create"),

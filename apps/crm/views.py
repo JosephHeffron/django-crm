@@ -609,6 +609,25 @@ class ActivityCreateView(LoginRequiredMixin, CreateView):
                 initial[field] = value
         return initial
 
+    def get_context_data(self, **kwargs):
+        # "Cancel" needs somewhere sensible to go back to even before a
+        # save exists — reuses the same ?relation=<id> query params as
+        # get_initial(), in the same priority order get_success_url()
+        # uses after a save.
+        context = super().get_context_data(**kwargs)
+        context["cancel_url"] = self._relation_url_from_query() or reverse("crm:activity_list")
+        return context
+
+    def _relation_url_from_query(self):
+        models_by_field = {"company": Company, "contact": Contact, "lead": Lead, "deal": Deal}
+        for field, model in models_by_field.items():
+            value = _int_or_none(self.request.GET.get(field))
+            if value is not None:
+                related = model.objects.filter(pk=value).first()
+                if related is not None:
+                    return related.get_absolute_url()
+        return None
+
     def form_valid(self, form):
         form.instance.created_by = self.request.user
         response = super().form_valid(form)

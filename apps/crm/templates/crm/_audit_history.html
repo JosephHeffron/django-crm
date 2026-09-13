@@ -1,8 +1,10 @@
-{# Reusable audit history. Expects `audit_log` (a queryset, newest
-   first — AuditLogEntry's own default ordering) in the including
-   template's context. See docs/DATABASE_DESIGN.md's "Audit history"
-   section for scope: only records changes made through this app's own
-   Create/Update views, not admin/shell edits. #}
+{% comment %}
+Reusable audit history. Expects `audit_log` (a queryset, newest
+first — AuditLogEntry's own default ordering) in the including
+template's context. See docs/DATABASE_DESIGN.md's "Audit history"
+section for scope: only records changes made through this app's own
+Create/Update views, not admin/shell edits.
+{% endcomment %}
 <h2>History</h2>
 
 {% if audit_log %}

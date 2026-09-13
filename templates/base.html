@@ -11,13 +11,13 @@
     <a class="brand" href="{% url 'core:index' %}">CRM</a>
     {% if user.is_authenticated %}
       <nav class="main-nav">
-        <a href="{% url 'core:index' %}">Dashboard</a>
-        <a href="{% url 'crm:company_list' %}">Companies</a>
-        <a href="{% url 'crm:contact_list' %}">Contacts</a>
-        <a href="{% url 'crm:lead_list' %}">Leads</a>
-        <a href="{% url 'crm:deal_list' %}">Deals</a>
-        <a href="{% url 'crm:activity_list' %}">Activities</a>
-        <a href="{% url 'crm:task_list' %}">Tasks</a>
+        <a href="{% url 'core:index' %}" {% if request.resolver_match.url_name == "index" %}aria-current="page"{% endif %}>Dashboard</a>
+        <a href="{% url 'crm:company_list' %}" {% if "company" in request.resolver_match.url_name %}aria-current="page"{% endif %}>Companies</a>
+        <a href="{% url 'crm:contact_list' %}" {% if "contact" in request.resolver_match.url_name %}aria-current="page"{% endif %}>Contacts</a>
+        <a href="{% url 'crm:lead_list' %}" {% if "lead" in request.resolver_match.url_name %}aria-current="page"{% endif %}>Leads</a>
+        <a href="{% url 'crm:deal_list' %}" {% if "deal" in request.resolver_match.url_name %}aria-current="page"{% endif %}>Deals</a>
+        <a href="{% url 'crm:activity_list' %}" {% if "activity" in request.resolver_match.url_name %}aria-current="page"{% endif %}>Activities</a>
+        <a href="{% url 'crm:task_list' %}" {% if "task" in request.resolver_match.url_name %}aria-current="page"{% endif %}>Tasks</a>
       </nav>
       <form method="get" action="{% url 'core:search' %}" class="nav-search">
         <input type="search" name="q" placeholder="Search" aria-label="Search">
@@ -34,7 +34,7 @@
   </header>
 
   {% if messages %}
-    <ul class="messages">
+    <ul class="messages" role="status">
       {% for message in messages %}
         <li class="message {{ message.tags }}">{{ message }}</li>
       {% endfor %}

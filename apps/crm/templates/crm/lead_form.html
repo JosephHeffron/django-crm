@@ -8,5 +8,6 @@
     {% csrf_token %}
     {{ form.as_p }}
     <button type="submit">Save</button>
+    <a href="{% if object %}{{ object.get_absolute_url }}{% else %}{% url 'crm:lead_list' %}{% endif %}">Cancel</a>
   </form>
 {% endblock %}

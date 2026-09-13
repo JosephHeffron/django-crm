@@ -46,3 +46,14 @@ class NavigationTests(TestCase):
             response = self.client.get(url)
             self.assertEqual(response.status_code, 200, f"{name} should render")
             self.assertContains(response, label)
+
+    def test_current_nav_section_is_marked_for_orientation(self):
+        # Usability review finding: the nav had no way to tell which
+        # section you're currently in.
+        response = self.client.get(reverse("crm:company_list"))
+        self.assertContains(response, 'aria-current="page">Companies')
+        self.assertNotContains(response, 'aria-current="page">Contacts')
+
+    def test_dashboard_is_marked_current_on_the_dashboard(self):
+        response = self.client.get(reverse("core:index"))
+        self.assertContains(response, 'aria-current="page">Dashboard')
