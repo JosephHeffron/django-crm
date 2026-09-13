@@ -5,9 +5,9 @@ Close Procedure). Do not describe anything as complete unless it was
 actually verified.
 
 > **Last updated 2026-09-13.** Repo is clean (`main` up to date, nothing
-> uncommitted). Phase 5 is fully complete. Phase 6 (Security hardening)
-> is in progress — unit 1 (Security audit) done and merged. Next: a
-> practical role/permission model (unit 2) — see "Next" below.
+> uncommitted). Phase 6 (Security hardening) is in progress — units 1
+> (Security audit) and 2 (Role/permission model) done and merged.
+> Next: dependency security audit (unit 3) — see "Next" below.
 
 ## Project version
 
@@ -27,8 +27,8 @@ for a real `TaskCompleteView` bug), and lightweight audit history for
 Company/Contact/Lead/Deal. Phase 5 (Search, dashboard, usability) is
 complete — Global search, Operational dashboard, and a usability
 review pass that found and fixed a real bug. Phase 6 (Security
-hardening) is now in progress — unit 1 (Security audit) is done and
-merged.
+hardening) is now in progress — unit 1 (Security audit) and unit 2
+(Role/permission model) are done and merged.
 
 Phase 2's `docs/DATABASE_REVIEW.md` found 2 HIGH findings (Activity's
 `CASCADE` can silently destroy history still relevant to a surviving
@@ -264,6 +264,23 @@ Phase 3 — see Known Issues below.
   `AUTH_USER_MODEL`) documented as a deliberate deferral with reasoning
   in `docs/SECURITY_REVIEW.md`, not a silent gap. 271 tests total. Full
   detail in `logs/claude/phase-06-security-audit.md`.
+- Phase 6 unit 2 — Role/permission model (PR #45): a "Staff" Group
+  (seeded by a data migration, verified against a genuinely fresh
+  PostgreSQL database — model permissions are created by a
+  `post_migrate` signal that fires *after* this migration would
+  otherwise run, a real gotcha this migration handles explicitly)
+  holds add/change permissions on the six CRM models; every
+  create/edit/deactivate/complete/convert view (15 total) now uses
+  `PermissionRequiredMixin`; superusers bypass via Django's own
+  built-in behavior. Visibility stays unrestricted — only writes are
+  gated. Added a custom `403.html` matching the existing 404/500
+  pages. Sourcery was rate-limited on this PR; a post-merge
+  self-review pass found and fixed two real gaps before merging: the
+  "Staff" Group name could be confused with Django's unrelated
+  `is_staff` field (documented explicitly, verified empirically that
+  each is independent of the other), and the Deactivate confirmation
+  page's GET wasn't explicitly tested for the 403 boundary (added).
+  296 tests total. Full detail in `logs/claude/phase-06-permissions.md`.
 
 ## Currently working on
 
@@ -273,10 +290,8 @@ anything. (A 7th, the pytest security fix, was merged.)
 
 ## Next
 
-1. Phase 6 unit 2 — a practical role/permission model
-   (`docs/PERMISSIONS.md`), using Django's built-in Groups/Permissions.
-2. Phase 6 unit 3 — dependency security audit.
-3. Review/merge (or leave) the remaining open Dependabot PRs.
+1. Phase 6 unit 3 — dependency security audit (the final Phase 6 unit).
+2. Review/merge (or leave) the remaining open Dependabot PRs.
 
 ## Known issues
 
