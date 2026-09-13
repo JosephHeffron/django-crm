@@ -6,6 +6,7 @@ from django.urls import reverse
 from django.utils import timezone
 
 from apps.crm.models import Company, Contact, Deal, Task
+from apps.crm.tests._helpers import grant_staff
 
 User = get_user_model()
 
@@ -13,6 +14,7 @@ User = get_user_model()
 class TaskListViewTests(TestCase):
     def setUp(self):
         self.user = User.objects.create_user("alice", password="correct-horse-battery")
+        grant_staff(self.user)
         self.other_user = User.objects.create_user("bob", password="correct-horse-battery")
         self.client.login(username="alice", password="correct-horse-battery")
 
@@ -95,6 +97,7 @@ class TaskListViewTests(TestCase):
 class TaskCreateViewTests(TestCase):
     def setUp(self):
         self.user = User.objects.create_user("alice", password="correct-horse-battery")
+        grant_staff(self.user)
         self.client.login(username="alice", password="correct-horse-battery")
         self.contact = Contact.objects.create(
             first_name="Ada", last_name="Lovelace", created_by=self.user
@@ -153,6 +156,7 @@ class TaskCreateViewTests(TestCase):
 class TaskUpdateViewTests(TestCase):
     def setUp(self):
         self.user = User.objects.create_user("alice", password="correct-horse-battery")
+        grant_staff(self.user)
         self.client.login(username="alice", password="correct-horse-battery")
         self.task = Task.objects.create(
             title="Original", assigned_to=self.user, created_by=self.user
@@ -197,6 +201,7 @@ class TaskUpdateViewTests(TestCase):
 class TaskCompleteViewTests(TestCase):
     def setUp(self):
         self.user = User.objects.create_user("alice", password="correct-horse-battery")
+        grant_staff(self.user)
         self.client.login(username="alice", password="correct-horse-battery")
         self.task = Task.objects.create(title="Do it", assigned_to=self.user, created_by=self.user)
 
@@ -256,6 +261,7 @@ class TaskCompleteViewTests(TestCase):
 class TaskDetailViewTests(TestCase):
     def setUp(self):
         self.user = User.objects.create_user("alice", password="correct-horse-battery")
+        grant_staff(self.user)
         self.client.login(username="alice", password="correct-horse-battery")
         self.task = Task.objects.create(
             title="Check in", assigned_to=self.user, created_by=self.user
@@ -282,6 +288,7 @@ class TaskDetailViewTests(TestCase):
 class TaskLinkedFromRelatedDetailPagesTests(TestCase):
     def setUp(self):
         self.user = User.objects.create_user("alice", password="correct-horse-battery")
+        grant_staff(self.user)
         self.client.login(username="alice", password="correct-horse-battery")
         self.contact = Contact.objects.create(
             first_name="Ada", last_name="Lovelace", created_by=self.user

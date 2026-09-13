@@ -1,5 +1,5 @@
 from django.contrib import messages
-from django.contrib.auth.mixins import LoginRequiredMixin
+from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
 from django.contrib.contenttypes.models import ContentType
 from django.db.models import Q
 from django.shortcuts import get_object_or_404, redirect, render
@@ -148,10 +148,11 @@ class CompanyDetailView(LoginRequiredMixin, DetailView):
         return context
 
 
-class CompanyCreateView(LoginRequiredMixin, CreateView):
+class CompanyCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView):
     model = Company
     form_class = CompanyForm
     template_name = "crm/company_form.html"
+    permission_required = "crm.add_company"
 
     def form_valid(self, form):
         form.instance.created_by = self.request.user
@@ -161,10 +162,11 @@ class CompanyCreateView(LoginRequiredMixin, CreateView):
         return response
 
 
-class CompanyUpdateView(LoginRequiredMixin, UpdateView):
+class CompanyUpdateView(LoginRequiredMixin, PermissionRequiredMixin, UpdateView):
     model = Company
     form_class = CompanyForm
     template_name = "crm/company_form.html"
+    permission_required = "crm.change_company"
 
     def form_valid(self, form):
         previous = Company.objects.get(pk=self.object.pk)
@@ -176,7 +178,7 @@ class CompanyUpdateView(LoginRequiredMixin, UpdateView):
         return response
 
 
-class CompanyDeactivateView(LoginRequiredMixin, DetailView):
+class CompanyDeactivateView(LoginRequiredMixin, PermissionRequiredMixin, DetailView):
     """GET shows a confirmation page; POST deactivates (is_active=False).
 
     Not a DeleteView: docs/DATABASE_DESIGN.md documents `is_active` as
@@ -190,6 +192,9 @@ class CompanyDeactivateView(LoginRequiredMixin, DetailView):
 
     model = Company
     template_name = "crm/company_confirm_deactivate.html"
+    # Deactivation is a plain field change (docs/PERMISSIONS.md) —
+    # no separate "deactivate" permission exists.
+    permission_required = "crm.change_company"
 
     def post(self, request, *args, **kwargs):
         company = self.get_object()
@@ -264,10 +269,11 @@ class ContactDetailView(LoginRequiredMixin, DetailView):
         return context
 
 
-class ContactCreateView(LoginRequiredMixin, CreateView):
+class ContactCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView):
     model = Contact
     form_class = ContactForm
     template_name = "crm/contact_form.html"
+    permission_required = "crm.add_contact"
 
     def form_valid(self, form):
         form.instance.created_by = self.request.user
@@ -277,10 +283,11 @@ class ContactCreateView(LoginRequiredMixin, CreateView):
         return response
 
 
-class ContactUpdateView(LoginRequiredMixin, UpdateView):
+class ContactUpdateView(LoginRequiredMixin, PermissionRequiredMixin, UpdateView):
     model = Contact
     form_class = ContactForm
     template_name = "crm/contact_form.html"
+    permission_required = "crm.change_contact"
 
     def form_valid(self, form):
         previous = Contact.objects.get(pk=self.object.pk)
@@ -292,12 +299,13 @@ class ContactUpdateView(LoginRequiredMixin, UpdateView):
         return response
 
 
-class ContactDeactivateView(LoginRequiredMixin, DetailView):
+class ContactDeactivateView(LoginRequiredMixin, PermissionRequiredMixin, DetailView):
     """Same pattern as CompanyDeactivateView — is_active=False, never a
     hard delete. See that view's docstring for the reasoning."""
 
     model = Contact
     template_name = "crm/contact_confirm_deactivate.html"
+    permission_required = "crm.change_contact"
 
     def post(self, request, *args, **kwargs):
         contact = self.get_object()
@@ -358,10 +366,11 @@ class LeadDetailView(LoginRequiredMixin, DetailView):
         return context
 
 
-class LeadCreateView(LoginRequiredMixin, CreateView):
+class LeadCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView):
     model = Lead
     form_class = LeadForm
     template_name = "crm/lead_form.html"
+    permission_required = "crm.add_lead"
 
     def form_valid(self, form):
         form.instance.created_by = self.request.user
@@ -371,10 +380,11 @@ class LeadCreateView(LoginRequiredMixin, CreateView):
         return response
 
 
-class LeadUpdateView(LoginRequiredMixin, UpdateView):
+class LeadUpdateView(LoginRequiredMixin, PermissionRequiredMixin, UpdateView):
     model = Lead
     form_class = LeadForm
     template_name = "crm/lead_form.html"
+    permission_required = "crm.change_lead"
 
     def form_valid(self, form):
         previous = Lead.objects.get(pk=self.object.pk)
@@ -386,7 +396,7 @@ class LeadUpdateView(LoginRequiredMixin, UpdateView):
         return response
 
 
-class LeadConvertView(LoginRequiredMixin, View):
+class LeadConvertView(LoginRequiredMixin, PermissionRequiredMixin, View):
     """GET shows a conversion form pre-filled from the Lead; POST
     creates/links a Company, always creates a Contact, optionally opens
     a Deal, then marks the Lead converted — the workflow documented in
@@ -394,6 +404,13 @@ class LeadConvertView(LoginRequiredMixin, View):
     is kept, not deleted, as the historical record of where the
     Company/Contact/Deal came from.
     """
+
+    # Both required — see docs/PERMISSIONS.md for why: this is one
+    # business operation spanning several models, but Company/Deal
+    # creation (conditional, inside the same view) is treated as an
+    # accepted side effect of an already-authorized conversion rather
+    # than separately gated.
+    permission_required = ("crm.change_lead", "crm.add_contact")
 
     template_name = "crm/lead_convert.html"
 
@@ -532,10 +549,11 @@ class DealDetailView(LoginRequiredMixin, DetailView):
         return context
 
 
-class DealCreateView(LoginRequiredMixin, CreateView):
+class DealCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView):
     model = Deal
     form_class = DealForm
     template_name = "crm/deal_form.html"
+    permission_required = "crm.add_deal"
 
     def form_valid(self, form):
         form.instance.created_by = self.request.user
@@ -546,10 +564,11 @@ class DealCreateView(LoginRequiredMixin, CreateView):
         return response
 
 
-class DealUpdateView(LoginRequiredMixin, UpdateView):
+class DealUpdateView(LoginRequiredMixin, PermissionRequiredMixin, UpdateView):
     model = Deal
     form_class = DealForm
     template_name = "crm/deal_form.html"
+    permission_required = "crm.change_deal"
 
     def form_valid(self, form):
         previous = Deal.objects.get(pk=self.object.pk)
@@ -586,7 +605,7 @@ class ActivityListView(LoginRequiredMixin, ListView):
         return context
 
 
-class ActivityCreateView(LoginRequiredMixin, CreateView):
+class ActivityCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView):
     """No ActivityUpdateView exists, deliberately — Activity.save()
     itself rejects updates (docs/DATABASE_DESIGN.md, immutable history).
     No ActivityDetailView either: an Activity's "detail page" is the
@@ -596,6 +615,7 @@ class ActivityCreateView(LoginRequiredMixin, CreateView):
     model = Activity
     form_class = ActivityForm
     template_name = "crm/activity_form.html"
+    permission_required = "crm.add_activity"
 
     def get_initial(self):
         # Supports linking in from a specific record's detail page
@@ -686,10 +706,11 @@ class TaskDetailView(LoginRequiredMixin, DetailView):
     context_object_name = "task"
 
 
-class TaskCreateView(LoginRequiredMixin, CreateView):
+class TaskCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView):
     model = Task
     form_class = TaskForm
     template_name = "crm/task_form.html"
+    permission_required = "crm.add_task"
 
     def get_initial(self):
         initial = super().get_initial()
@@ -708,10 +729,11 @@ class TaskCreateView(LoginRequiredMixin, CreateView):
         return response
 
 
-class TaskUpdateView(LoginRequiredMixin, UpdateView):
+class TaskUpdateView(LoginRequiredMixin, PermissionRequiredMixin, UpdateView):
     model = Task
     form_class = TaskForm
     template_name = "crm/task_form.html"
+    permission_required = "crm.change_task"
 
     def form_valid(self, form):
         _sync_task_completed_at(form.instance)
@@ -720,7 +742,7 @@ class TaskUpdateView(LoginRequiredMixin, UpdateView):
         return response
 
 
-class TaskCompleteView(LoginRequiredMixin, View):
+class TaskCompleteView(LoginRequiredMixin, PermissionRequiredMixin, View):
     """One-click completion from the list or detail page, without going
     through the full edit form — the dedicated "completion workflow"
     the roadmap calls for, separate from ordinary editing. POST only.
@@ -732,6 +754,8 @@ class TaskCompleteView(LoginRequiredMixin, View):
     straight to completed. Same shape as LeadConvertView's "already
     converted" guard.
     """
+
+    permission_required = "crm.change_task"
 
     def post(self, request, pk):
         task = get_object_or_404(Task, pk=pk)
