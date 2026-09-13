@@ -25,8 +25,9 @@ begins. See `CLAUDE.md` for the workflow this repository follows.
       component, Tasks (my tasks / overdue / completion workflow), lightweight
       audit history for important record changes. Done in 3 units — full
       detail in `logs/claude/phase-04-*.md`.
-- [ ] **Phase 5 — Search, dashboard, usability.** Global search across CRM
+- [x] **Phase 5 — Search, dashboard, usability.** Global search across CRM
       objects, operational dashboard, a dedicated usability review pass.
+      Done in 3 units — full detail in `logs/claude/phase-05-*.md`.
 - [ ] **Phase 6 — Security hardening.** Full Django security audit
       (`docs/SECURITY_REVIEW.md`), practical role/permission model
       (`docs/PERMISSIONS.md`), dependency security audit.
