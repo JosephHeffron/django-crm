@@ -71,10 +71,22 @@ DATABASES = {
 
 AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
-    {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator"},
+    {
+        "NAME": "django.contrib.auth.password_validation.MinimumLengthValidator",
+        # Django's own default is 8 — raised per docs/SECURITY_REVIEW.md
+        # to a more modern minimum. No downside: this only affects
+        # future password sets/changes, not existing accounts.
+        "OPTIONS": {"min_length": 12},
+    },
     {"NAME": "django.contrib.auth.password_validation.CommonPasswordValidator"},
     {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
 ]
+
+# No JavaScript in this app ever reads the CSRF cookie — every
+# {% csrf_token %} is a server-rendered hidden form field — so there's
+# no reason for the cookie to be script-readable. See
+# docs/SECURITY_REVIEW.md.
+CSRF_COOKIE_HTTPONLY = True
 
 LANGUAGE_CODE = "en-us"
 TIME_ZONE = "UTC"
