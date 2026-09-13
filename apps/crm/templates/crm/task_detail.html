@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+
+{% block title %}{{ task.title }}{% endblock %}
+
+{% block content %}
+  <p><a href="{% url 'crm:task_list' %}">← Tasks</a></p>
+  <h1>{{ task.title }}</h1>
+
+  <p>
+    <a href="{% url 'crm:task_update' task.pk %}">Edit</a>
+    {% if task.status == "pending" %}
+      &middot;
+      <form method="post" action="{% url 'crm:task_complete' task.pk %}" style="display:inline">
+        {% csrf_token %}
+        <input type="hidden" name="next" value="{{ task.get_absolute_url }}">
+        <button type="submit">Mark complete</button>
+      </form>
+    {% endif %}
+  </p>
+
+  <dl>
+    <dt>Status</dt>
+    <dd>{{ task.get_status_display }}{% if task.is_overdue %} (overdue){% endif %}</dd>
+
+    <dt>Priority</dt>
+    <dd>{{ task.get_priority_display }}</dd>
+
+    <dt>Due date</dt>
+    <dd>{{ task.due_date|default:"—" }}</dd>
+
+    <dt>Assigned to</dt>
+    <dd>{{ task.assigned_to }}</dd>
+
+    <dt>Contact</dt>
+    <dd>
+      {% if task.contact %}
+        <a href="{{ task.contact.get_absolute_url }}">{{ task.contact }}</a>
+      {% else %}
+        —
+      {% endif %}
+    </dd>
+
+    <dt>Deal</dt>
+    <dd>
+      {% if task.deal %}
+        <a href="{{ task.deal.get_absolute_url }}">{{ task.deal }}</a>
+      {% else %}
+        —
+      {% endif %}
+    </dd>
+
+    <dt>Description</dt>
+    <dd>{{ task.description|default:"—"|linebreaksbr }}</dd>
+
+    <dt>Completed at</dt>
+    <dd>{{ task.completed_at|default:"—" }}</dd>
+
+    <dt>Created by</dt>
+    <dd>{{ task.created_by }}</dd>
+
+    <dt>Created at</dt>
+    <dd>{{ task.created_at }}</dd>
+  </dl>
+{% endblock %}
