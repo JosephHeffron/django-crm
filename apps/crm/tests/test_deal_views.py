@@ -4,6 +4,7 @@ from django.urls import reverse
 from django.utils import timezone
 
 from apps.crm.models import Company, Contact, Deal, Task
+from apps.crm.tests._helpers import grant_staff
 
 User = get_user_model()
 
@@ -11,6 +12,7 @@ User = get_user_model()
 class DealListViewTests(TestCase):
     def setUp(self):
         self.user = User.objects.create_user("alice", password="correct-horse-battery")
+        grant_staff(self.user)
         self.client.login(username="alice", password="correct-horse-battery")
         self.company = Company.objects.create(name="Acme Corp", created_by=self.user)
 
@@ -89,6 +91,7 @@ class DealListViewTests(TestCase):
 class DealDetailViewTests(TestCase):
     def setUp(self):
         self.user = User.objects.create_user("alice", password="correct-horse-battery")
+        grant_staff(self.user)
         self.client.login(username="alice", password="correct-horse-battery")
         self.company = Company.objects.create(name="Acme Corp", created_by=self.user)
         self.deal = Deal.objects.create(
@@ -120,6 +123,7 @@ class DealDetailViewTests(TestCase):
 class DealCreateViewTests(TestCase):
     def setUp(self):
         self.user = User.objects.create_user("alice", password="correct-horse-battery")
+        grant_staff(self.user)
         self.client.login(username="alice", password="correct-horse-battery")
         self.company = Company.objects.create(name="Acme Corp", created_by=self.user)
         self.contact = Contact.objects.create(
@@ -196,6 +200,7 @@ class DealCreateViewTests(TestCase):
 class DealUpdateViewTests(TestCase):
     def setUp(self):
         self.user = User.objects.create_user("alice", password="correct-horse-battery")
+        grant_staff(self.user)
         self.client.login(username="alice", password="correct-horse-battery")
         self.company = Company.objects.create(name="Acme Corp", created_by=self.user)
         self.deal = Deal.objects.create(

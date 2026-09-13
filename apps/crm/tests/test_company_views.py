@@ -3,6 +3,7 @@ from django.test import TestCase
 from django.urls import reverse
 
 from apps.crm.models import Company
+from apps.crm.tests._helpers import grant_staff
 
 User = get_user_model()
 
@@ -10,6 +11,7 @@ User = get_user_model()
 class CompanyListViewTests(TestCase):
     def setUp(self):
         self.user = User.objects.create_user("alice", password="correct-horse-battery")
+        grant_staff(self.user)
         self.client.login(username="alice", password="correct-horse-battery")
 
     def test_anonymous_user_is_redirected(self):
@@ -70,6 +72,7 @@ class CompanyListViewTests(TestCase):
 class CompanyDetailViewTests(TestCase):
     def setUp(self):
         self.user = User.objects.create_user("alice", password="correct-horse-battery")
+        grant_staff(self.user)
         self.client.login(username="alice", password="correct-horse-battery")
         self.company = Company.objects.create(name="Acme Corp", created_by=self.user)
 
@@ -109,6 +112,7 @@ class CompanyDetailViewTests(TestCase):
 class CompanyCreateViewTests(TestCase):
     def setUp(self):
         self.user = User.objects.create_user("alice", password="correct-horse-battery")
+        grant_staff(self.user)
         self.client.login(username="alice", password="correct-horse-battery")
 
     def test_anonymous_user_is_redirected(self):
@@ -138,6 +142,7 @@ class CompanyCreateViewTests(TestCase):
 class CompanyUpdateViewTests(TestCase):
     def setUp(self):
         self.user = User.objects.create_user("alice", password="correct-horse-battery")
+        grant_staff(self.user)
         self.client.login(username="alice", password="correct-horse-battery")
         self.company = Company.objects.create(name="Acme Corp", created_by=self.user)
 
@@ -178,6 +183,7 @@ class CompanyDeactivateViewTests(TestCase):
 
     def setUp(self):
         self.user = User.objects.create_user("alice", password="correct-horse-battery")
+        grant_staff(self.user)
         self.client.login(username="alice", password="correct-horse-battery")
         self.company = Company.objects.create(name="Acme Corp", created_by=self.user)
 

@@ -15,6 +15,7 @@ from django.contrib.auth import get_user_model
 from django.test import TestCase
 
 from apps.crm.models import Company, Contact, Deal, Lead
+from apps.crm.tests._helpers import grant_staff
 
 User = get_user_model()
 
@@ -22,6 +23,7 @@ User = get_user_model()
 class TemplateCommentsAreNotLeakedTests(TestCase):
     def setUp(self):
         self.user = User.objects.create_user("alice", password="correct-horse-battery")
+        grant_staff(self.user)
         self.client.login(username="alice", password="correct-horse-battery")
 
     def test_company_detail_does_not_leak_partial_comments(self):
@@ -59,6 +61,7 @@ class CreateEditFormsHaveCancelLinksTests(TestCase):
 
     def setUp(self):
         self.user = User.objects.create_user("alice", password="correct-horse-battery")
+        grant_staff(self.user)
         self.client.login(username="alice", password="correct-horse-battery")
 
     def test_company_add_cancels_to_list(self):
