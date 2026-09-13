@@ -28,9 +28,11 @@ begins. See `CLAUDE.md` for the workflow this repository follows.
 - [x] **Phase 5 — Search, dashboard, usability.** Global search across CRM
       objects, operational dashboard, a dedicated usability review pass.
       Done in 3 units — full detail in `logs/claude/phase-05-*.md`.
-- [ ] **Phase 6 — Security hardening.** Full Django security audit
+- [x] **Phase 6 — Security hardening.** Full Django security audit
       (`docs/SECURITY_REVIEW.md`), practical role/permission model
-      (`docs/PERMISSIONS.md`), dependency security audit.
+      (`docs/PERMISSIONS.md`), dependency security audit
+      (`docs/DEPENDENCY_AUDIT.md`). Done in 3 units — full detail in
+      `logs/claude/phase-06-*.md`.
 - [ ] **Phase 7 — Containerization with Podman.** Django production container
       (Gunicorn, non-root), PostgreSQL container with persistent volume,
       complete `podman-compose` configuration.

@@ -5,9 +5,12 @@ Close Procedure). Do not describe anything as complete unless it was
 actually verified.
 
 > **Last updated 2026-09-13.** Repo is clean (`main` up to date, nothing
-> uncommitted). Phase 6 (Security hardening) is in progress — units 1
-> (Security audit) and 2 (Role/permission model) done and merged.
-> Next: dependency security audit (unit 3) — see "Next" below.
+> uncommitted). **Phase 6 (Security hardening) is now fully complete**
+> (Security audit, Role/permission model, Dependency security audit).
+> Next: Phase 7 — Containerization with Podman — see "Next" below. Note:
+> the GitHub repo was switched from public to private by the user
+> during this phase (Sourcery's free tier no longer reviews it as a
+> result — not a rate-limit, a plan/access change).
 
 ## Project version
 
@@ -27,8 +30,9 @@ for a real `TaskCompleteView` bug), and lightweight audit history for
 Company/Contact/Lead/Deal. Phase 5 (Search, dashboard, usability) is
 complete — Global search, Operational dashboard, and a usability
 review pass that found and fixed a real bug. Phase 6 (Security
-hardening) is now in progress — unit 1 (Security audit) and unit 2
-(Role/permission model) are done and merged.
+hardening) is now complete — Security audit, Role/permission model,
+and a dependency security audit that also cleared a long-open backlog
+of 6 Dependabot PRs.
 
 Phase 2's `docs/DATABASE_REVIEW.md` found 2 HIGH findings (Activity's
 `CASCADE` can silently destroy history still relevant to a surviving
@@ -281,17 +285,34 @@ Phase 3 — see Known Issues below.
   each is independent of the other), and the Deactivate confirmation
   page's GET wasn't explicitly tested for the 403 boundary (added).
   296 tests total. Full detail in `logs/claude/phase-06-permissions.md`.
+- Phase 6 unit 3 — Dependency security audit (PR #47), the final
+  Phase 6 unit: `pip-audit` clean, no open Dependabot security alerts,
+  production dependencies (Django, psycopg2-binary, python-dotenv)
+  already at latest. **Cleared the long-open backlog of 6 Dependabot
+  PRs** — each pip-tooling bump (`ruff`, `bandit`, `pytest-django`,
+  `pre-commit`) re-verified locally against the *current* codebase
+  (not the much-staler codebase each PR's own CI last ran against)
+  before merging; one genuine merge conflict on `requirements-dev.txt`
+  resolved by hand. Found and fixed a real gap during the audit:
+  `.github/dependabot.yml` didn't track the `pre-commit` ecosystem at
+  all, and `.pre-commit-config.yaml`'s own `ruff` pin had already
+  silently drifted from `requirements-dev.txt`'s — added the ecosystem
+  and synced the pins. 296 tests total (unchanged — a dependency audit
+  doesn't add test cases of its own). Full detail in
+  `logs/claude/phase-06-dependency-audit.md`.
+
+**Phase 6 (Security hardening) is now fully complete.**
 
 ## Currently working on
 
-Nothing in progress. 6 Dependabot PRs (4 pip minor/patch bumps, 2 GitHub
-Actions bumps) are still open, waiting on review/merge — not blocking
-anything. (A 7th, the pytest security fix, was merged.)
+Nothing in progress. All 6 previously-open Dependabot PRs were
+reviewed and merged as part of Phase 6 unit 3 — none remain open.
 
 ## Next
 
-1. Phase 6 unit 3 — dependency security audit (the final Phase 6 unit).
-2. Review/merge (or leave) the remaining open Dependabot PRs.
+1. Phase 7 — Containerization with Podman: Django production container
+   (Gunicorn, non-root), PostgreSQL container with persistent volume,
+   complete `podman-compose` configuration.
 
 ## Known issues
 
