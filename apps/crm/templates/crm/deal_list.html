@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+
+{% block title %}Deals{% endblock %}
+
+{% block content %}
+  <h1>Deals</h1>
+
+  <p><a href="{% url 'crm:deal_create' %}">Add deal</a></p>
+
+  <form method="get" class="filter-form">
+    <label for="id_q" class="sr-only">Search by title</label>
+    <input type="text" id="id_q" name="q" value="{{ query }}" placeholder="Search by title">
+    <label for="id_stage" class="sr-only">Stage</label>
+    <select id="id_stage" name="stage">
+      <option value="" {% if not stage %}selected{% endif %}>All stages</option>
+      {% for value, label in stage_choices %}
+        <option value="{{ value }}" {% if stage == value %}selected{% endif %}>{{ label }}</option>
+      {% endfor %}
+    </select>
+    <label><input type="checkbox" name="open" value="1" {% if open_only %}checked{% endif %}> Open only</label>
+    <button type="submit">Filter</button>
+  </form>
+
+  {% if deals %}
+    <div class="table-responsive">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Title</th>
+          <th>Company</th>
+          <th>Contact</th>
+          <th>Stage</th>
+          <th>Value</th>
+          <th>Owner</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for deal in deals %}
+          <tr>
+            <td><a href="{{ deal.get_absolute_url }}">{{ deal.title }}</a></td>
+            <td>
+              {% if deal.company %}
+                <a href="{{ deal.company.get_absolute_url }}">{{ deal.company.name }}</a>
+              {% else %}
+                —
+              {% endif %}
+            </td>
+            <td>
+              {% if deal.contact %}
+                <a href="{{ deal.contact.get_absolute_url }}">{{ deal.contact }}</a>
+              {% else %}
+                —
+              {% endif %}
+            </td>
+            <td>{{ deal.get_stage_display }}</td>
+            <td>{% if deal.value %}{{ deal.value }}{% else %}—{% endif %}</td>
+            <td>{{ deal.owner|default:"Unassigned" }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    </div>
+
+    {% if is_paginated %}
+      <nav class="pagination">
+        {% if page_obj.has_previous %}
+          <a href="?page={{ page_obj.previous_page_number }}{% if query %}&q={{ query }}{% endif %}{% if stage %}&stage={{ stage }}{% endif %}{% if open_only %}&open=1{% endif %}">Previous</a>
+        {% endif %}
+        <span>Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+        {% if page_obj.has_next %}
+          <a href="?page={{ page_obj.next_page_number }}{% if query %}&q={{ query }}{% endif %}{% if stage %}&stage={{ stage }}{% endif %}{% if open_only %}&open=1{% endif %}">Next</a>
+        {% endif %}
+      </nav>
+    {% endif %}
+  {% else %}
+    <p>No deals found.</p>
+  {% endif %}
+{% endblock %}

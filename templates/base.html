@@ -1,0 +1,48 @@
+{% load static %}<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}CRM{% endblock %}</title>
+  <link rel="stylesheet" href="{% static 'css/base.css' %}">
+</head>
+<body>
+  <header class="site-header">
+    <a class="brand" href="{% url 'core:index' %}">CRM</a>
+    {% if user.is_authenticated %}
+      <nav class="main-nav">
+        <a href="{% url 'core:index' %}" {% if request.resolver_match.url_name == "index" %}aria-current="page"{% endif %}>Dashboard</a>
+        <a href="{% url 'crm:company_list' %}" {% if "company" in request.resolver_match.url_name %}aria-current="page"{% endif %}>Companies</a>
+        <a href="{% url 'crm:contact_list' %}" {% if "contact" in request.resolver_match.url_name %}aria-current="page"{% endif %}>Contacts</a>
+        <a href="{% url 'crm:lead_list' %}" {% if "lead" in request.resolver_match.url_name %}aria-current="page"{% endif %}>Leads</a>
+        <a href="{% url 'crm:deal_list' %}" {% if "deal" in request.resolver_match.url_name %}aria-current="page"{% endif %}>Deals</a>
+        <a href="{% url 'crm:activity_list' %}" {% if "activity" in request.resolver_match.url_name %}aria-current="page"{% endif %}>Activities</a>
+        <a href="{% url 'crm:task_list' %}" {% if "task" in request.resolver_match.url_name %}aria-current="page"{% endif %}>Tasks</a>
+      </nav>
+      <form method="get" action="{% url 'core:search' %}" class="nav-search">
+        <input type="search" name="q" placeholder="Search" aria-label="Search">
+      </form>
+      <div class="user-controls">
+        <span class="nav-user">{{ user.username }}</span>
+        <a href="{% url 'users:password_change' %}">Change password</a>
+        <form method="post" action="{% url 'users:logout' %}" class="logout-form">
+          {% csrf_token %}
+          <button type="submit" class="link-button">Log out</button>
+        </form>
+      </div>
+    {% endif %}
+  </header>
+
+  {% if messages %}
+    <ul class="messages" role="status">
+      {% for message in messages %}
+        <li class="message {{ message.tags }}">{{ message }}</li>
+      {% endfor %}
+    </ul>
+  {% endif %}
+
+  <main class="site-main">
+    {% block content %}{% endblock %}
+  </main>
+</body>
+</html>

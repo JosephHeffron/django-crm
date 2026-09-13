@@ -1,0 +1,28 @@
+{% comment %}
+Reusable activity timeline. Expects `activities` (a queryset, newest
+first — Activity's own default ordering) and `log_activity_url`
+(built by _log_activity_url() in views.py) in the including
+template's context.
+{% endcomment %}
+<h2>Activity</h2>
+<p><a href="{{ log_activity_url }}">Log activity</a></p>
+
+{% if activities %}
+  <ul class="timeline">
+    {% for activity in activities %}
+      <li class="timeline-entry">
+        <div class="timeline-meta">
+          <strong>{{ activity.get_activity_type_display }}</strong>
+          <span>{{ activity.created_at }}</span>
+          <span>{{ activity.created_by }}</span>
+        </div>
+        <div class="timeline-subject">{{ activity.subject }}</div>
+        {% if activity.description %}
+          <div class="timeline-description">{{ activity.description|linebreaksbr }}</div>
+        {% endif %}
+      </li>
+    {% endfor %}
+  </ul>
+{% else %}
+  <p>No activity yet.</p>
+{% endif %}
