@@ -91,6 +91,13 @@ class NonStaffUserIsForbiddenFromMutatingViewsTests(TestCase):
         self.company.refresh_from_db()
         self.assertTrue(self.company.is_active)
 
+    def test_company_deactivate_confirmation_page_also_forbidden(self):
+        # PermissionRequiredMixin.dispatch() gates every HTTP method
+        # uniformly, so the GET confirmation page is blocked too, not
+        # just the POST that actually deactivates.
+        response = self.client.get(reverse("crm:company_deactivate", args=[self.company.pk]))
+        self.assertEqual(response.status_code, 403)
+
     def test_contact_create_forbidden(self):
         response = self.client.get(reverse("crm:contact_create"))
         self.assertEqual(response.status_code, 403)

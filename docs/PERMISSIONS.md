@@ -22,6 +22,15 @@ Three tiers, not a full role hierarchy — kept deliberately small:
    membership is: through the admin's User change form, by a
    superuser. No custom "assign role" UI — that would duplicate what
    the admin already does for free.
+
+   **Not the same thing as `User.is_staff`.** Django's own `is_staff`
+   field is a separate, orthogonal concept — it only controls whether
+   an account can log into `/admin/` at all. A user can be in the
+   "Staff" Group (full CRM add/change access) with `is_staff=False`
+   and never touch the admin site; equally, `is_staff=True` grants no
+   CRM permissions by itself. The name overlap is coincidental — worth
+   spelling out explicitly here so it isn't a source of confusion for
+   whoever manages users later.
 3. **Everyone else (logged in, no group)** — implicitly read-only.
    Not a Group at all — the *absence* of Staff membership already
    means "no add/change permission," so there's nothing to define for
