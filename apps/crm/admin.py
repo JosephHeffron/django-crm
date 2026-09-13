@@ -1,1 +1,81 @@
-# Register your models here.
+from django.contrib import admin
+
+from .models import Activity, AuditLogEntry, Company, Contact, Deal, Lead, Task
+
+
+@admin.register(Company)
+class CompanyAdmin(admin.ModelAdmin):
+    list_display = ("name", "industry", "owner", "is_active", "created_at")
+    list_filter = ("is_active", "industry")
+    search_fields = ("name", "website")
+
+
+@admin.register(Contact)
+class ContactAdmin(admin.ModelAdmin):
+    list_display = ("last_name", "first_name", "email", "company", "owner", "is_active")
+    list_filter = ("is_active", "company")
+    search_fields = ("first_name", "last_name", "email")
+
+
+@admin.register(Lead)
+class LeadAdmin(admin.ModelAdmin):
+    list_display = ("name", "company_name", "status", "source", "owner", "created_at")
+    list_filter = ("status", "source")
+    search_fields = ("name", "company_name", "email")
+
+
+@admin.register(Deal)
+class DealAdmin(admin.ModelAdmin):
+    list_display = ("title", "company", "contact", "stage", "value", "owner", "expected_close_date")
+    list_filter = ("stage",)
+    search_fields = ("title",)
+
+
+@admin.register(Task)
+class TaskAdmin(admin.ModelAdmin):
+    list_display = ("title", "assigned_to", "status", "priority", "due_date")
+    list_filter = ("status", "priority")
+    search_fields = ("title",)
+
+
+@admin.register(Activity)
+class ActivityAdmin(admin.ModelAdmin):
+    list_display = (
+        "subject",
+        "activity_type",
+        "company",
+        "contact",
+        "lead",
+        "deal",
+        "created_by",
+        "created_at",
+    )
+    list_filter = ("activity_type",)
+    search_fields = ("subject", "description")
+
+    def has_change_permission(self, request, obj=None):
+        # Activities are immutable history (see docs/DATABASE_DESIGN.md).
+        # Activity.save() itself now rejects updates too (see the model),
+        # but hiding the change form here is still worth doing — a
+        # friendlier UX than letting someone fill out an edit form and
+        # only then hit a raw error on submit. Deletion is still
+        # allowed (correcting a mistaken entry), editing in place is not.
+        return False
+
+
+@admin.register(AuditLogEntry)
+class AuditLogEntryAdmin(admin.ModelAdmin):
+    list_display = ("created_at", "user", "action", "content_type", "object_id")
+    list_filter = ("action", "content_type")
+
+    def has_add_permission(self, request):
+        # Entries are only ever written by the application's own
+        # Create/Update views (docs/DATABASE_DESIGN.md's "Audit history"
+        # section) — an admin-created entry would misrepresent history
+        # that never actually happened.
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        # Same reasoning as ActivityAdmin: a record of what happened
+        # shouldn't itself be editable after the fact.
+        return False

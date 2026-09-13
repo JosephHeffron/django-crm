@@ -1,0 +1,31 @@
+{% comment %}
+Reusable audit history. Expects `audit_log` (a queryset, newest
+first — AuditLogEntry's own default ordering) in the including
+template's context. See docs/DATABASE_DESIGN.md's "Audit history"
+section for scope: only records changes made through this app's own
+Create/Update views, not admin/shell edits.
+{% endcomment %}
+<h2>History</h2>
+
+{% if audit_log %}
+  <ul class="timeline">
+    {% for entry in audit_log %}
+      <li class="timeline-entry">
+        <div class="timeline-meta">
+          <strong>{{ entry.get_action_display }}</strong>
+          <span>{{ entry.created_at }}</span>
+          <span>{{ entry.user|default:"Unknown user" }}</span>
+        </div>
+        {% if entry.changes %}
+          <ul>
+            {% for field, values in entry.changes.items %}
+              <li>{{ field }}: {{ values.0|default:"—" }} → {{ values.1|default:"—" }}</li>
+            {% endfor %}
+          </ul>
+        {% endif %}
+      </li>
+    {% endfor %}
+  </ul>
+{% else %}
+  <p>No history yet.</p>
+{% endif %}
