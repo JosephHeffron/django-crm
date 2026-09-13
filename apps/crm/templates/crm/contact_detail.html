@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+
+{% block title %}{{ contact.first_name }} {{ contact.last_name }}{% endblock %}
+
+{% block content %}
+  <p><a href="{% url 'crm:contact_list' %}">← Contacts</a></p>
+  <h1>{{ contact.first_name }} {{ contact.last_name }}</h1>
+  <p>{% if contact.is_active %}Active{% else %}Inactive{% endif %}</p>
+
+  <dl>
+    <dt>Company</dt>
+    <dd>
+      {% if contact.company %}
+        <a href="{{ contact.company.get_absolute_url }}">{{ contact.company.name }}</a>
+      {% else %}
+        —
+      {% endif %}
+    </dd>
+    <dt>Title</dt>
+    <dd>{{ contact.title|default:"—" }}</dd>
+    <dt>Email</dt>
+    <dd>{{ contact.email|default:"—" }}</dd>
+    <dt>Phone</dt>
+    <dd>{{ contact.phone|default:"—" }}</dd>
+    <dt>Owner</dt>
+    <dd>{{ contact.owner|default:"Unassigned" }}</dd>
+    <dt>Notes</dt>
+    <dd>{{ contact.notes|default:"—"|linebreaksbr }}</dd>
+  </dl>
+
+  <p>
+    <a href="{% url 'crm:contact_update' contact.pk %}">Edit</a>
+    {% if contact.is_active %}
+      &middot;
+      <a href="{% url 'crm:contact_deactivate' contact.pk %}">Deactivate</a>
+    {% endif %}
+  </p>
+
+  <h2>Deals</h2>
+  {% if deals %}
+    <ul>
+      {% for deal in deals %}
+        <li><a href="{{ deal.get_absolute_url }}">{{ deal.title }}</a> — {{ deal.get_stage_display }}</li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <p>No deals yet.</p>
+  {% endif %}
+
+  <h2>Tasks</h2>
+  {% if tasks %}
+    <ul>
+      {% for task in tasks %}
+        <li><a href="{{ task.get_absolute_url }}">{{ task.title }}</a> — {{ task.get_status_display }}</li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <p>No tasks yet.</p>
+  {% endif %}
+
+  {% include "crm/_activity_timeline.html" %}
+
+  {% include "crm/_audit_history.html" %}
+{% endblock %}

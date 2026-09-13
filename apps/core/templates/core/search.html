@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+
+{% block title %}Search{% endblock %}
+
+{% block content %}
+  <h1>Search</h1>
+
+  <form method="get" class="filter-form">
+    <label for="id_q" class="sr-only">Search query</label>
+    <input type="text" id="id_q" name="q" value="{{ query }}" placeholder="Search companies, contacts, leads, deals, tasks" autofocus>
+    <button type="submit">Search</button>
+  </form>
+
+  {% if query %}
+    {% if has_results %}
+      {% if results.companies %}
+        <h2>Companies</h2>
+        <ul>
+          {% for company in results.companies %}
+            <li><a href="{{ company.get_absolute_url }}">{{ company.name }}</a></li>
+          {% endfor %}
+        </ul>
+      {% endif %}
+
+      {% if results.contacts %}
+        <h2>Contacts</h2>
+        <ul>
+          {% for contact in results.contacts %}
+            <li>
+              <a href="{{ contact.get_absolute_url }}">{{ contact }}</a>
+              {% if contact.company %}&mdash; {{ contact.company.name }}{% endif %}
+            </li>
+          {% endfor %}
+        </ul>
+      {% endif %}
+
+      {% if results.leads %}
+        <h2>Leads</h2>
+        <ul>
+          {% for lead in results.leads %}
+            <li><a href="{{ lead.get_absolute_url }}">{{ lead.name }}</a></li>
+          {% endfor %}
+        </ul>
+      {% endif %}
+
+      {% if results.deals %}
+        <h2>Deals</h2>
+        <ul>
+          {% for deal in results.deals %}
+            <li><a href="{{ deal.get_absolute_url }}">{{ deal.title }}</a></li>
+          {% endfor %}
+        </ul>
+      {% endif %}
+
+      {% if results.tasks %}
+        <h2>Tasks</h2>
+        <ul>
+          {% for task in results.tasks %}
+            <li><a href="{{ task.get_absolute_url }}">{{ task.title }}</a></li>
+          {% endfor %}
+        </ul>
+      {% endif %}
+    {% else %}
+      <p>No results found for &ldquo;{{ query }}&rdquo;.</p>
+    {% endif %}
+  {% endif %}
+{% endblock %}

@@ -1,9 +1,14 @@
 # Database design
 
-This document designs the CRM's initial data model before any code is
+This document designed the CRM's initial data model before any code was
 written (per `CLAUDE.md`'s "document why before changing architecture" and
-"do not overengineer" rules). No models exist yet — this is the plan
-`apps/crm/models.py` will implement in the next phase, after review.
+"do not overengineer" rules). `apps/crm/models.py` now implements this
+design (migrations applied, 38 model tests passing) — see
+`logs/claude/phase-02-crm-models.md` for what changed during
+implementation (two review-driven additions: a `CheckConstraint` on
+`Deal.probability`'s range, and `Activity` locked against admin edits).
+A schema review against this document (`docs/DATABASE_REVIEW.md`) is the
+next remaining step before Phase 2 is considered fully complete.
 
 All models use `settings.AUTH_USER_MODEL` (Django's built-in `User`) for
 ownership/assignment — see "Decisions to review" below for why no custom
@@ -161,6 +166,47 @@ see the ERD note above).
 
 Indexes: `status`, `due_date`, `assigned_to`, `contact`, `deal`.
 
+### AuditLogEntry
+
+A lightweight, append-only record of who changed what on the four "core
+business record" models — Company, Contact, Lead, Deal — and when.
+Deliberately not a general-purpose event store or a full history/
+versioning system (no reconstruction of past states, no revert):
+`docs/PROJECT_STATE.md`'s "don't overengineer" rule applies here as much
+as anywhere else in this schema.
+
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `content_type` | FK → `ContentType` | yes | Which model the change was on. Uses Django's built-in `contenttypes` framework rather than one log table per audited model. |
+| `object_id` | PositiveIntegerField | yes | Together with `content_type`, a `GenericForeignKey` to the changed record. Not itself an FK — the referenced record can later be nothing (e.g. hypothetically deleted), same trade-off any generic-relation design accepts. |
+| `user` | FK → User | no (nullable) | `on_delete=SET_NULL` — the log entry should survive a user account being removed; `null` covers the (currently theoretical) case of a change with no request-bound user. |
+| `action` | CharField, choices | yes | `created` or `updated`. No `deleted` — see Scope below. |
+| `changes` | JSONField | yes | `{field_name: [old_display_value, new_display_value]}` for exactly the fields that changed. Empty `{}` for `created` (nothing to diff against). |
+| `created_at` | DateTimeField | auto | When the change was recorded. |
+
+Indexes: `(content_type, object_id, created_at)` — the query this table
+exists to serve is "show me this record's history, newest first."
+
+**Scope — what is and isn't audited:**
+
+- Only Company, Contact, Lead, Deal are audited. Not Task (lower-stakes,
+  and its own status/`completed_at` lifecycle is already visible on the
+  record itself) and not Activity (already an immutable append-only log
+  by design — auditing an audit trail is redundant).
+- Only changes made through the application's own Create/Update views are
+  recorded. **Not audited:** Django admin edits, `manage.py shell`/
+  management-command changes, and any direct database writes. This is a
+  deliberate scope limit, not an oversight — see Decisions below.
+- Deactivation (`is_active=False` on Company/Contact) goes through the
+  same `UpdateView`-adjacent code path as other field changes and *is*
+  captured — it shows up as an `updated` entry with `is_active` in
+  `changes`, not as a separate `deleted`-style action, since these
+  records are never hard-deleted (see Constraints).
+- Lead conversion's side effects (creating a Contact/Company, opening a
+  Deal) are recorded as their own `created`/`updated` entries on those
+  records through the normal write path — there's no special-cased
+  "conversion" audit action.
+
 ### Activity
 
 A historical record — call, meeting, email, or note — tied to whichever
@@ -174,10 +220,10 @@ different type or reassigned to a different record.
 | `activity_type` | CharField, choices | yes | `call`, `meeting`, `email`, `note`. "Notes" is this type, not a separate model — see Decisions to review. |
 | `subject` | CharField(255) | yes | Short summary line. |
 | `description` | TextField | no | Full body/detail. |
-| `company` | FK → Company | no (nullable) | `on_delete=CASCADE` — an activity has no independent meaning once its subject is gone. |
-| `contact` | FK → Contact | no (nullable) | `on_delete=CASCADE`. |
-| `lead` | FK → Lead | no (nullable) | `on_delete=CASCADE`. |
-| `deal` | FK → Deal | no (nullable) | `on_delete=CASCADE`. |
+| `company` | FK → Company | no (nullable) | `on_delete=SET_NULL` — see below; this was `CASCADE` until `docs/DATABASE_REVIEW.md` finding #2. |
+| `contact` | FK → Contact | no (nullable) | `on_delete=SET_NULL`. |
+| `lead` | FK → Lead | no (nullable) | `on_delete=SET_NULL`. |
+| `deal` | FK → Deal | no (nullable) | `on_delete=SET_NULL`. |
 | `created_by` | FK → User | yes | `on_delete=PROTECT`. |
 | `created_at` | DateTimeField | auto | Also serves as "when this happened" — no separate `occurred_at` field unless backdating turns out to be a real need. |
 
@@ -189,24 +235,40 @@ actual query patterns," "don't optimize speculative problems without
 measurements"), these wait until the Activity Timeline feature (Phase 4)
 shows the real access pattern.
 
-`CASCADE` here is a deliberate exception to the `PROTECT` pattern used for
-User foreign keys elsewhere: Company/Contact/Lead/Deal use `PROTECT` for
-their own `owner`/`created_by`, so a user cannot be removed while they
-still own records — they must be reassigned first. But an Activity is a
-note *about* one of those business records, not about a user — if the
-record itself is deleted, its activity log should go with it rather than
-become orphaned, contentless rows.
+**Revised during Phase 3** (`docs/DATABASE_REVIEW.md` finding #2): the
+original reasoning here was `CASCADE` because "an activity has no
+independent meaning once its subject is gone" — true for an Activity
+tagged to exactly one record, but the schema always allowed tagging an
+Activity to more than one of Company/Contact/Lead/Deal at once, and
+`CASCADE` on *any one* of those four FKs destroyed the whole row,
+including its relevance to the others that were never deleted.
+Confirmed empirically (deleting a Deal wiped out an Activity that was
+also tagged to a still-existing Company). Changed all four to
+`SET_NULL`: an Activity now survives the deletion of any one of its
+tagged records, degrading toward (never past) having zero relations —
+consistent with Activity being a historical record, not something that
+should vanish because one of several things it once referenced is gone.
+No DB constraint stops an Activity being created with zero relations to
+begin with, or degrading to zero via `SET_NULL` — see Constraints below.
 
 ## Constraints
 
 - **Deal must reference at least one of `company` or `contact`.** Enforced
   with a `CheckConstraint` (`Q(company__isnull=False) | Q(contact__isnull=False)`),
   not just application-level validation, so it holds even for direct DB
-  writes. This needs verifying against PostgreSQL when implemented — flag
-  if `CheckConstraint` with an `OR` across two nullable FKs behaves
-  unexpectedly.
-- **Activity must reference at least one of `company`, `contact`, `lead`,
-  `deal`.** Same pattern, four-way `OR`.
+  writes. Verified against PostgreSQL: `\d+ crm_deal` confirms the
+  constraint is live.
+- **Activity has no equivalent DB-level constraint** — it did originally
+  (`activity_has_related_object`, "at least one of company/contact/lead/
+  deal"), but that's incompatible with `SET_NULL` gracefully degrading
+  an Activity to zero relations (the constraint would instead turn that
+  degradation into a blocked delete, which was never the intent).
+  Removed in the same migration that changed `CASCADE` to `SET_NULL`.
+  "At least one relation on creation" is now enforced at the
+  application/form layer instead (to be implemented by Activity's
+  create view in Phase 4) — a deliberately different level of guarantee
+  than Deal's constraint: Deal's rule holds forever, Activity's only
+  holds at creation time.
 - No uniqueness constraints on `Company.name`, `Contact.email`, or
   `Lead.email` — duplicates are expected and are a data-quality problem for
   a future dedup/merge feature, not something the schema should reject.
@@ -251,44 +313,69 @@ become orphaned, contentless rows.
   user-manageable data rather than a fixed set of choices in code.
 - Composite/query-pattern-driven indexes deferred until the features that
   would actually exercise them exist (see Activity indexes above).
+- `AuditLogEntry` rows are written explicitly from each audited model's
+  `CreateView`/`UpdateView.form_valid()` — the same place `created_by`
+  already gets set and `_sync_deal_closed_at`/`_sync_task_completed_at`
+  already run — rather than via `pre_save`/`post_save` signals. Signals
+  would catch admin/shell writes too, but they can't see `request.user`
+  without a thread-local (a well-known anti-pattern this app has no
+  other reason to introduce). Explicit calls from the views that already
+  have both the user and the changed fields are simpler and sufficient
+  for a single-maintainer app where admin/shell edits are rare and their
+  exclusion is accepted (see AuditLogEntry's Scope note above).
 
-## Decisions to review before implementation
+## Implementation notes and remaining open questions
 
-- `on_delete=PROTECT` for `owner`/`created_by`/`assigned_to` is a
-  meaningful behavioral choice (blocks user deletion until records are
-  reassigned) — confirm this is the intended trade-off versus
-  `SET_NULL`.
-- The two multi-column `CheckConstraint`s (Deal, Activity) need to be
-  verified against PostgreSQL during implementation — confirm Django's
-  constraint API expresses "at least one of N nullable FKs is set"
-  correctly and that `makemigrations`/`migrate` produce the expected SQL.
-- `Deal.company`/`Deal.contact` use `PROTECT`, not `SET_NULL`: an earlier
+This section was written before implementation as "decisions to review";
+now that `apps/crm/models.py` exists, each item is marked resolved or
+still open.
+
+- **Resolved.** `on_delete=PROTECT` for `owner`/`created_by`/`assigned_to`
+  was implemented as designed — a user account can't be deleted while
+  they still own records.
+- **Resolved.** Deal's multi-column `CheckConstraint` (`deal_has_company_or_contact`)
+  was verified against real PostgreSQL (`\d+ crm_deal` after `migrate`) —
+  Django's constraint API expresses "at least one of N nullable FKs is
+  set" correctly, and a second `CheckConstraint`
+  (`deal_probability_between_0_and_100`) was added during implementation
+  after review caught that the design's "0-100" note for
+  `Deal.probability` wasn't actually enforced. Activity originally had
+  an equivalent constraint too, but it was removed in Phase 3 — see the
+  `SET_NULL` note under Activity's field table and the Constraints
+  section above.
+- **Open, still a judgment call to revisit with real usage.**
+  `Deal.company`/`Deal.contact` use `PROTECT`, not `SET_NULL`: an earlier
   draft used `SET_NULL`, but since Deal also requires at least one of the
   two to be set (the `CheckConstraint` above), `SET_NULL`-ing a Deal's
   only relation would leave both null and make the delete fail with an
   `IntegrityError` anyway — `PROTECT` makes that failure explicit and
   intentional instead of an accidental side effect of the constraint.
   `Contact.company` has no such constraint (it's a single nullable FK, not
-  an "at least one of" pair) so it keeps `SET_NULL`. Confirm this
-  reasoning holds once real usage patterns exist — it may turn out
-  founders want to delete a Company and have its Deals auto-close instead
-  of being blocked.
-- `Contact.company` uses `SET_NULL` while `Activity`'s four relation FKs
-  use `CASCADE` — confirm this asymmetry (contact outlives its company;
-  activity does not outlive its subject) is the right call, not an
-  oversight.
-- The lifecycle invariants described above (Lead conversion fields set
-  together, Deal/Task timestamps consistent with their status, Activity
-  immutability) are enforced only at the application/service layer (model
-  methods used for all mutations), not by database constraints or
-  triggers — consistent with not overengineering a single-maintainer app,
-  but it means a bulk `.update()`, an ad-hoc admin edit, or direct SQL
-  could violate them. Acceptable for now since there's a single developer
-  and no external write path; revisit (e.g. add `CheckConstraint`s tying
-  `status` to the presence of `converted_at`/`closed_at`/`completed_at`,
-  or restrict admin edit access) if that stops being true.
-- Whether `Task`/`Activity` should also relate directly to `Company`
-  and/or `Lead` (they currently don't, matching the original brief's
-  diagram) — revisit if the UI ends up needing a "tasks for this company"
+  an "at least one of" pair) so it keeps `SET_NULL`. It may turn out
+  users want to delete a Company and have its Deals auto-close instead of
+  being blocked — revisit once that's a real request, not before.
+- **Revised, no longer an asymmetry.** This originally noted
+  `Contact.company` using `SET_NULL` while `Activity`'s four relation
+  FKs used `CASCADE`. Both now use `SET_NULL` — Activity's `CASCADE`
+  turned out to be a real bug (`docs/DATABASE_REVIEW.md` finding #2,
+  fixed in Phase 3), not an intentional asymmetry.
+- **Partially resolved.** The lifecycle invariants described above (Lead
+  conversion fields set together, Deal/Task timestamps consistent with
+  their status) are still enforced only at the application/service
+  layer, not by database constraints or triggers — an accepted
+  trade-off for a single-maintainer app with no external write path;
+  revisit if that stops being true. **Activity immutability is now
+  fully resolved**, at two layers: `ActivityAdmin.has_change_permission`
+  returns `False` (closes the admin UI path), and `Activity.save()`
+  itself now raises `ValueError` on any update to an existing row
+  (`docs/DATABASE_REVIEW.md` finding #7 — confirmed empirically that a
+  plain `.save()` bypassed the admin-only guard; the model-level guard
+  closes that for every write path except bulk `.update()`/
+  `.bulk_update()`, which bypass any model's `save()` by design and
+  remain a documented, narrower residual gap).
+- **Still open.** Whether `Task`/`Activity` should also relate directly
+  to `Company` and/or `Lead` (they currently don't, matching the original
+  brief's diagram) — revisit if the UI ends up needing a "tasks for this
+  company"
   view that the current Contact/Deal-only relations can't answer without
   an extra join.
