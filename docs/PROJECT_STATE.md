@@ -5,12 +5,12 @@ Close Procedure). Do not describe anything as complete unless it was
 actually verified.
 
 > **Last updated 2026-09-16.** Repo is clean (`main` up to date, nothing
-> uncommitted). **Phase 7 (Containerization with Podman) is fully
-> complete.** Phase 8 (Caddy and HTTPS) is in progress — unit 1 (the
-> Caddy container itself) is merged; unit 2 (production configuration
-> review) is next — see "Next" below. Note: the GitHub repo was switched
-> from public to private by the user (Sourcery's free tier no longer
-> reviews it as a result — not a rate-limit, a plan/access change).
+> uncommitted). **Phase 8 (Caddy and HTTPS) is now fully complete**
+> (Caddy container, production configuration review). Next: Phase 9 —
+> ARM64 deployment — see "Next" below. Note: the GitHub repo was
+> switched from public to private by the user (Sourcery's free tier no
+> longer reviews it as a result — not a rate-limit, a plan/access
+> change).
 
 ## Project version
 
@@ -367,19 +367,36 @@ Phase 3 — see Known Issues below.
   media blocks). 296 tests total (unchanged — infra work adds no
   Django test cases). Full detail in
   `logs/claude/phase-08-caddy-https.md`.
+- Phase 8 unit 2 — Production configuration review (PR #56), the final
+  Phase 8 unit: `docs/PRODUCTION_CONFIG_REVIEW.md` audits the complete
+  assembled stack (Django settings, `Containerfile`,
+  `compose.prod.yml`, `Caddyfile`). **Found and fixed a real HIGH
+  finding**: `.env.example`'s `DJANGO_SETTINGS_MODULE=config.settings.
+  development` line would silently override the production
+  container's baked-in settings via `env_file:` — confirmed live by
+  running the actual built production image against an env file
+  copied verbatim from `.env.example`, which booted with `DEBUG=True`,
+  `SECURE_SSL_REDIRECT=False`. Fixed by removing the line (the
+  existing `setdefault`/`Containerfile` `ENV` defaults were already
+  correct on their own); re-verified live against the fixed file. Two
+  MEDIUM findings deferred with reasoning (no CSP — needs a
+  real-browser check this environment can't perform against Django
+  admin's inline scripts; Caddy runs as root, the official image's
+  default, substantially mitigated by rootless Podman). 296 tests
+  total (unchanged). Full detail in
+  `logs/claude/phase-08-production-config-review.md`.
+
+**Phase 8 (Caddy and HTTPS) is now fully complete.**
 
 ## Currently working on
 
-Phase 8 unit 2 — production configuration review (not yet started).
+Nothing in progress.
 
 ## Next
 
-1. Phase 8 unit 2 — a formal production configuration review of the
-   complete assembled stack (Django settings, `Containerfile`,
-   `compose.prod.yml`, `Caddyfile`), following the established
-   `docs/DATABASE_REVIEW.md`/`docs/USABILITY_REVIEW.md`/
-   `docs/SECURITY_REVIEW.md`/dependency-audit format. Phase 8 will be
-   complete once this merges.
+1. Phase 9 — ARM64 deployment: ARM64 compatibility audit
+   (`docs/ARM64_REVIEW.md`), ARM64 image builds via `qemu-user-static`,
+   repeatable cross-architecture validation (`docs/ARM64_TESTING.md`).
 
 ## Known issues
 
