@@ -1,0 +1,39 @@
+# Local/staging Caddyfile — for testing the full reverse-proxy/HTTPS/
+# static-serving path itself, the same reasoning as compose.dev.yml
+# (Phase 7 unit 2). There's no real public domain to test against
+# locally, so `tls internal` tells Caddy to use its own local CA
+# instead of attempting real ACME/Let's Encrypt — this is what
+# Caddyfile (production) deliberately does NOT do, since a real
+# deployment needs a publicly-trusted certificate, not a self-signed
+# one.
+localhost {
+	tls internal
+
+	encode gzip
+
+	# See Caddyfile (production) for why these headers are scoped to
+	# just the two file_server blocks rather than site-wide.
+	handle_path /static/* {
+		root * /srv/static
+		file_server
+		header {
+			X-Content-Type-Options nosniff
+			X-Frame-Options DENY
+			Referrer-Policy same-origin
+		}
+	}
+
+	handle_path /media/* {
+		root * /srv/media
+		file_server
+		header {
+			X-Content-Type-Options nosniff
+			X-Frame-Options DENY
+			Referrer-Policy same-origin
+		}
+	}
+
+	handle {
+		reverse_proxy web:8000
+	}
+}

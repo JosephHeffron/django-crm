@@ -1,15 +1,14 @@
 # Production stack, per docs/ARCHITECTURE.md's "Container architecture"
-# section. Two of the eventual three containers — Caddy (HTTPS
-# termination, the only container reachable from outside the host) is
-# Phase 8, not built yet. `web` deliberately publishes no host port
-# here: that's the correct final shape (Caddy will reach it over the
-# internal Podman network instead), not a placeholder to "fix later" —
-# see logs/claude/phase-07-podman-compose.md for how this was verified
-# without a host port.
+# section — all three containers: Caddy (HTTPS termination, reverse
+# proxy, static/media serving; the only container reachable from
+# outside the host), Django (`web`, no published port — Caddy reaches
+# it over the internal Podman network), PostgreSQL.
 #
 # Usage: podman-compose -f compose.prod.yml up -d
 # Requires a real .env (copy .env.example, fill in real values) —
-# never commit .env.
+# never commit .env. Requires DJANGO_ALLOWED_HOSTS to be a real public
+# domain that resolves here — Caddy uses it both as the site address
+# and to request a real Let's Encrypt certificate for it.
 
 services:
   db:
@@ -59,7 +58,37 @@ services:
       retries: 5
       start_period: 20s
 
+  caddy:
+    image: docker.io/library/caddy:2.11.4-alpine
+    restart: unless-stopped
+    env_file: .env
+    depends_on:
+      web:
+        condition: service_healthy
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      # :Z relabels the bind-mounted file for this container's exclusive
+      # SELinux access — without it, Fedora's enforcing SELinux denies
+      # the read ("permission denied" reading the Caddyfile) even though
+      # plain Unix file permissions allow it. Confirmed against
+      # compose.dev.yml's identical mount; applies equally here. Named
+      # volumes below don't need this — Podman labels those itself.
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro,Z
+      # Read-only: Caddy only ever reads these files (Django writes
+      # them via collectstatic / user uploads), never writes to them.
+      - static_files:/srv/static:ro
+      - media_files:/srv/media:ro
+      - caddy_data:/data
+      - caddy_config:/config
+
 volumes:
   postgres_data:
   static_files:
   media_files:
+  # Caddy's own certificate storage and internal state — a named
+  # volume so a container recreation doesn't force re-issuing a real
+  # Let's Encrypt certificate every time (rate-limited by the CA).
+  caddy_data:
+  caddy_config:
