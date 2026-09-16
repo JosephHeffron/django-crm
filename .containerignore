@@ -1,0 +1,20 @@
+# Keeps the build context small and prevents secrets/dev-only files
+# from ever being copied into the image.
+.git
+.venv
+venv
+__pycache__
+*.pyc
+.env
+.env.example
+media
+staticfiles
+logs
+.pytest_cache
+.ruff_cache
+htmlcov
+.coverage
+requirements-dev.txt
+.pre-commit-config.yaml
+docs
+*.md
