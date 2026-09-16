@@ -4,13 +4,14 @@ Update this file at the end of every session (see `CLAUDE.md`'s Session
 Close Procedure). Do not describe anything as complete unless it was
 actually verified.
 
-> **Last updated 2026-09-13.** Repo is clean (`main` up to date, nothing
-> uncommitted). **Phase 6 (Security hardening) is now fully complete**
-> (Security audit, Role/permission model, Dependency security audit).
-> Next: Phase 7 — Containerization with Podman — see "Next" below. Note:
-> the GitHub repo was switched from public to private by the user
-> during this phase (Sourcery's free tier no longer reviews it as a
-> result — not a rate-limit, a plan/access change).
+> **Last updated 2026-09-16.** Repo is clean (`main` up to date, nothing
+> uncommitted). Phase 6 (Security hardening) is fully complete. Phase 7
+> (Containerization with Podman) is in progress — unit 1 (Django
+> production container) done and merged. Next: PostgreSQL container +
+> persistent volume + full `podman-compose` (unit 2) — see "Next"
+> below. Note: the GitHub repo was switched from public to private by
+> the user (Sourcery's free tier no longer reviews it as a result — not
+> a rate-limit, a plan/access change).
 
 ## Project version
 
@@ -32,7 +33,8 @@ complete — Global search, Operational dashboard, and a usability
 review pass that found and fixed a real bug. Phase 6 (Security
 hardening) is now complete — Security audit, Role/permission model,
 and a dependency security audit that also cleared a long-open backlog
-of 6 Dependabot PRs.
+of 6 Dependabot PRs. Phase 7 (Containerization with Podman) is now in
+progress — unit 1 (Django production container) is done and merged.
 
 Phase 2's `docs/DATABASE_REVIEW.md` found 2 HIGH findings (Activity's
 `CASCADE` can silently destroy history still relevant to a surviving
@@ -303,16 +305,39 @@ Phase 3 — see Known Issues below.
 
 **Phase 6 (Security hardening) is now fully complete.**
 
+- Phase 7 unit 1 — Django production container (PR #50): single-stage
+  `Containerfile` (`python:3.12-slim`) — no multi-stage build, since
+  `psycopg2-binary` ships a self-contained wheel and needs no compiler
+  step to isolate. Runs as a non-root user (uid 1000), all config from
+  environment variables, `gunicorn` (3 workers, fixed — not computed
+  from CPU count, since the deployment target is a known, singular
+  Raspberry Pi 5). `scripts/entrypoint.sh` runs `migrate`/
+  `collectstatic` at container startup (not build time — no real
+  secrets then) before handing off to gunicorn. **Verified with a real
+  live container run**, not just a successful build: a throwaway
+  `postgres:18-alpine` container proved all 22 migrations apply, 131
+  static files collect, gunicorn serves real pages with correct
+  production security headers, the container truly runs as non-root
+  (checked via `podman exec ... whoami`), and a restart is
+  idempotent. 184 MB final image, 296 tests total (unchanged — infra
+  work adds no Django test cases; the live container run is this
+  unit's real test). Full detail in
+  `logs/claude/phase-07-django-container.md`.
+
 ## Currently working on
 
-Nothing in progress. All 6 previously-open Dependabot PRs were
-reviewed and merged as part of Phase 6 unit 3 — none remain open.
+Nothing in progress. All 6 previously-open Dependabot PRs (plus a 7th,
+`pip-audit` 2.9.0→2.10.1, opened right after the audit closed and
+predicted in its own writeup) have been reviewed and merged — none
+remain open.
 
 ## Next
 
-1. Phase 7 — Containerization with Podman: Django production container
-   (Gunicorn, non-root), PostgreSQL container with persistent volume,
-   complete `podman-compose` configuration.
+1. Phase 7 unit 2 — PostgreSQL container with a persistent volume,
+   plus a complete `podman-compose` configuration wiring the Django
+   and PostgreSQL containers together (`compose.dev.yml`/
+   `compose.prod.yml` per `docs/ARCHITECTURE.md`), verified with a
+   real `podman-compose up` (the final Phase 7 unit).
 
 ## Known issues
 
