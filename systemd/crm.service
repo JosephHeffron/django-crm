@@ -1,0 +1,44 @@
+# Production systemd unit for the Django CRM's Podman Compose stack
+# (db, web, caddy — compose.prod.yml), per docs/ARCHITECTURE.md's
+# "Production deployment architecture" and
+# docs/decisions/0005-rootless-systemd-deployment.md.
+#
+# This is a systemd USER unit, not a system unit — it runs as a
+# dedicated non-root deployment account, matching the rootless Podman
+# model already used throughout this project's development and live
+# verification (Phases 7-9). Do not install this under
+# /etc/systemd/system or run it as root; see ADR 0005 for why.
+#
+# Install (as the dedicated deployment user, once per machine):
+#   mkdir -p ~/.config/systemd/user
+#   cp systemd/crm.service ~/.config/systemd/user/
+#   systemctl --user daemon-reload
+#   systemctl --user enable --now crm.service
+#   loginctl enable-linger "$(whoami)"   # starts at boot without a login session
+#
+# Usage: systemctl --user {start,stop,restart,status} crm.service
+# Logs: journalctl --user -u crm.service
+
+[Unit]
+Description=Django CRM (Podman Compose: db, web, caddy)
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+# %h expands to this user's home directory — the repository is
+# expected to be cloned there (see scripts/deploy.sh, Phase 10 unit
+# 2), not at a fixed root-owned path, since this unit runs as an
+# unprivileged user by design (ADR 0005).
+WorkingDirectory=%h/django-crm
+ExecStart=/usr/bin/podman-compose -f compose.prod.yml up -d
+ExecStop=/usr/bin/podman-compose -f compose.prod.yml down
+# podman-compose builds the web image and pulls db/caddy on first
+# start, which is slow, especially under the Raspberry Pi's own
+# (non-emulated, native ARM64) build — generous enough to not
+# spuriously time out a legitimate first boot.
+TimeoutStartSec=600
+
+[Install]
+WantedBy=default.target
