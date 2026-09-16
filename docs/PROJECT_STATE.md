@@ -5,12 +5,12 @@ Close Procedure). Do not describe anything as complete unless it was
 actually verified.
 
 > **Last updated 2026-09-16.** Repo is clean (`main` up to date, nothing
-> uncommitted). **Phase 9 (ARM64 deployment) is now fully complete**
-> (ARM64 compatibility review, image build + repeatable cross-
-> architecture validation). Next: Phase 10 — systemd on the Raspberry
-> Pi — see "Next" below. Note: the GitHub repo was switched from public
-> to private by the user (Sourcery's free tier no longer reviews it as
-> a result — not a rate-limit, a plan/access change).
+> uncommitted). **Phase 9 (ARM64 deployment) is fully complete.** Phase
+> 10 (systemd on the Raspberry Pi) is in progress — unit 1 (production
+> systemd unit) is merged; unit 2 (deployment script with rollback) is
+> next — see "Next" below. Note: the GitHub repo was switched from
+> public to private by the user (Sourcery's free tier no longer reviews
+> it as a result — not a rate-limit, a plan/access change).
 
 ## Project version
 
@@ -427,14 +427,38 @@ Phase 3 — see Known Issues below.
 
 **Phase 9 (ARM64 deployment) is now fully complete.**
 
+- Phase 10 unit 1 — Production systemd unit (PR #62): `systemd/
+  crm.service` supervises the production Podman Compose stack via
+  `Type=oneshot`/`RemainAfterExit=yes`. **A real architectural
+  decision, not just a file**: it's a systemd *user* unit, not a
+  system unit — documented in a new ADR
+  (`docs/decisions/0005-rootless-systemd-deployment.md`) — so
+  production keeps running rootless Podman under a dedicated non-root
+  account (`loginctl enable-linger`), matching every environment this
+  project has actually run Podman in so far, and keeping
+  `docs/PRODUCTION_CONFIG_REVIEW.md`'s existing Caddy-as-root
+  deferral (which assumes rootless user-namespace isolation) actually
+  true in production. Verified live under `systemctl --user` against
+  a throwaway stack: start/stop correctly bring the full 3-container
+  stack up and down, `RemainAfterExit` behaves correctly,
+  `journalctl --user` transparently captures container logs, and
+  `enable`/`disable` correctly manage the `[Install]` symlink. 296
+  tests total (unchanged). Full detail in
+  `logs/claude/phase-10-systemd-unit.md`.
+
 ## Currently working on
 
-Nothing in progress.
+Phase 10 unit 2 — a safe, non-destructive deployment script with
+rollback (`scripts/deploy.sh`) (not yet started).
 
 ## Next
 
-1. Phase 10 — systemd on the Raspberry Pi: a production systemd unit,
-   and a safe non-destructive deployment script with rollback.
+1. Phase 10 unit 2 — `scripts/deploy.sh`: pull the intended git
+   revision, build/pull ARM64 images, run migrations, restart via
+   `systemctl --user`, verify health, support rollback — per
+   `docs/ARCHITECTURE.md`'s "Production deployment architecture" and
+   `CLAUDE.md`'s "DEPLOYMENT RULES". Phase 10 will be complete once
+   this merges.
 
 ## Known issues
 
