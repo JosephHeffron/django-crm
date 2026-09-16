@@ -1,0 +1,63 @@
+# Production Caddyfile. Only Caddy is ever reachable from outside the
+# host (docs/ARCHITECTURE.md's "Security boundaries") — Django and
+# PostgreSQL stay on the internal compose network. Real automatic
+# HTTPS (Let's Encrypt) requires a real public domain resolving here;
+# see Caddyfile.dev for local/staging testing without one.
+#
+# {$DJANGO_ALLOWED_HOSTS} reuses the same env var Django itself already
+# uses for the identical piece of information (the deployment's public
+# hostname), rather than introducing a second variable for it. This only
+# works for a single hostname: Django's ALLOWED_HOSTS accepts a
+# comma-separated list, but a Caddyfile site address block expects
+# space-separated addresses — a comma-separated value here would be
+# parsed as one (invalid) address, not several. Fine for this project's
+# actual deployment plan (one Pi, one domain, per .env.example); if that
+# ever changes, this needs its own space-separated variable instead.
+{$DJANGO_ALLOWED_HOSTS} {
+	encode gzip
+
+	# Static/media served directly by Caddy — bypasses Django/gunicorn
+	# entirely for these paths (docs/ARCHITECTURE.md: "serves static
+	# files efficiently"). Because these responses never pass through
+	# Django's SecurityMiddleware, the same headers Django would have
+	# set (config/settings/production.py's SECURE_CONTENT_TYPE_NOSNIFF,
+	# X_FRAME_OPTIONS, and Django's own default SECURE_REFERRER_POLICY)
+	# are set here explicitly, scoped to just these two blocks — not
+	# site-wide, since a site-wide header block would duplicate the
+	# headers Django's own SecurityMiddleware already sets on the
+	# reverse-proxied path below. Confirmed by live testing: a site-wide
+	# block produced each header twice in the proxied response.
+	handle_path /static/* {
+		root * /srv/static
+		file_server
+		header {
+			X-Content-Type-Options nosniff
+			X-Frame-Options DENY
+			Referrer-Policy same-origin
+		}
+	}
+
+	handle_path /media/* {
+		root * /srv/media
+		file_server
+		header {
+			X-Content-Type-Options nosniff
+			X-Frame-Options DENY
+			Referrer-Policy same-origin
+		}
+	}
+
+	# Caddy's reverse_proxy sets X-Forwarded-Proto/-For/-Host for the
+	# proxied path, which is what config/settings/production.py's
+	# SECURE_PROXY_SSL_HEADER expects — verified directly by curling
+	# through this exact Caddyfile.dev/Caddyfile structure and
+	# confirming Django's response carried Strict-Transport-Security
+	# (SecurityMiddleware only adds that when it considers the request
+	# secure) with no SSL-redirect Location, i.e. Django correctly saw
+	# the proxied request as already HTTPS (see
+	# logs/claude/phase-08-caddy-https.md), not assumed from Caddy's own
+	# documentation alone.
+	handle {
+		reverse_proxy web:8000
+	}
+}
