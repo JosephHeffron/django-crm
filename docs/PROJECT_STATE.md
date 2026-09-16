@@ -5,13 +5,12 @@ Close Procedure). Do not describe anything as complete unless it was
 actually verified.
 
 > **Last updated 2026-09-16.** Repo is clean (`main` up to date, nothing
-> uncommitted). **Phase 8 (Caddy and HTTPS) is fully complete.** Phase
-> 9 (ARM64 deployment) is in progress — unit 1 (ARM64 compatibility
-> review) is merged; unit 2 (image build + repeatable cross-
-> architecture validation) is next — see "Next" below. Note: the GitHub
-> repo was switched from public to private by the user (Sourcery's free
-> tier no longer reviews it as a result — not a rate-limit, a
-> plan/access change).
+> uncommitted). **Phase 9 (ARM64 deployment) is now fully complete**
+> (ARM64 compatibility review, image build + repeatable cross-
+> architecture validation). Next: Phase 10 — systemd on the Raspberry
+> Pi — see "Next" below. Note: the GitHub repo was switched from public
+> to private by the user (Sourcery's free tier no longer reviews it as
+> a result — not a rate-limit, a plan/access change).
 
 ## Project version
 
@@ -407,20 +406,35 @@ Phase 3 — see Known Issues below.
   yet) stated explicitly. 296 tests total (unchanged — a review doc,
   no application code). Full detail in
   `logs/claude/phase-09-arm64-review.md`.
+- Phase 9 unit 2 — ARM64 image build + cross-architecture validation
+  (PR #60), the final Phase 9 unit: `scripts/test-arm64.sh` builds the
+  production image for `linux/arm64` and runs the full
+  `db`+`web`+`caddy` stack under emulation, asserting (not just
+  observing containers stay up) that migrations ran, static files
+  collected, and a real page renders both directly through gunicorn
+  and through the full Caddy proxy chain — `docs/ARM64_TESTING.md`
+  documents the procedure. **Found and fixed a real environment bug**:
+  `podman pull --platform linux/arm64` silently overwrites a shared
+  local image tag — confirmed live that this demoted the native
+  `amd64` `postgres`/`caddy` images this project's actual dev/prod
+  compose stacks depend on to dangling, which would have silently
+  forced real local development into unnecessary emulation. Fixed by
+  restoring the `amd64` tags and building that restoration into the
+  script's cleanup `trap` unconditionally — verified it fires on both
+  a clean run and a deliberately failed one. 296 tests total
+  (unchanged). Full detail in
+  `logs/claude/phase-09-arm64-testing.md`.
+
+**Phase 9 (ARM64 deployment) is now fully complete.**
 
 ## Currently working on
 
-Phase 9 unit 2 — ARM64 image build + repeatable cross-architecture
-validation (not yet started).
+Nothing in progress.
 
 ## Next
 
-1. Phase 9 unit 2 — the fuller functional ARM64 validation unit 1
-   deliberately deferred: migrations, `collectstatic`, a real served
-   page, ideally the full `db`+`web`+`caddy` stack under ARM64
-   emulation, packaged as a repeatable procedure
-   (`docs/ARM64_TESTING.md`). Phase 9 will be complete once this
-   merges.
+1. Phase 10 — systemd on the Raspberry Pi: a production systemd unit,
+   and a safe non-destructive deployment script with rollback.
 
 ## Known issues
 
