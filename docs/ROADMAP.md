@@ -39,7 +39,7 @@ begins. See `CLAUDE.md` for the workflow this repository follows.
       detail in `logs/claude/phase-07-*.md`.
 - [x] **Phase 8 — Caddy and HTTPS.** Reverse proxy, HTTPS termination, static
       / media file serving, security headers, production configuration review.
-- [ ] **Phase 9 — ARM64 deployment.** ARM64 compatibility audit
+- [x] **Phase 9 — ARM64 deployment.** ARM64 compatibility audit
       (`docs/ARM64_REVIEW.md`), ARM64 image builds via `qemu-user-static`,
       repeatable cross-architecture validation (`docs/ARM64_TESTING.md`).
 - [ ] **Phase 10 — systemd on the Raspberry Pi.** Production systemd unit,
