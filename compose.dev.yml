@@ -1,0 +1,62 @@
+# Local/staging use, per docs/ARCHITECTURE.md's "Container
+# architecture" section — for testing the containerized stack itself
+# (does the image build and run correctly, does Postgres persist data
+# across a restart, and so on), not a replacement for this project's
+# actual day-to-day dev workflow, which stays native (pyenv + a
+# locally-installed PostgreSQL, `manage.py runserver`) as established
+# since Phase 0. `web` still runs the same production-configured image
+# as compose.prod.yml (DJANGO_SETTINGS_MODULE is baked into the
+# Containerfile) — the only real difference from compose.prod.yml is
+# that both services publish a host port here, since there's no Caddy
+# in front to reach `web` through, and direct `psql` access to `db` is
+# genuinely useful while testing the stack.
+#
+# Usage: podman-compose -f compose.dev.yml up -d
+# Requires a real .env (copy .env.example, fill in real values) —
+# never commit .env.
+
+services:
+  db:
+    image: docker.io/library/postgres:18-alpine
+    restart: unless-stopped
+    env_file: .env
+    ports:
+      - "5432:5432"
+    volumes:
+      # See compose.prod.yml's matching comment — postgres:18+ expects
+      # a single mount at /var/lib/postgresql, not .../data.
+      - postgres_data_dev:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  web:
+    build:
+      context: .
+      dockerfile: Containerfile
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      POSTGRES_HOST: db
+      POSTGRES_PORT: "5432"
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "8000:8000"
+    volumes:
+      - static_files_dev:/app/staticfiles
+      - media_files_dev:/app/media
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import socket; socket.create_connection(('localhost', 8000), timeout=3)\""]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+volumes:
+  postgres_data_dev:
+  static_files_dev:
+  media_files_dev:

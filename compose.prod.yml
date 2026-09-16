@@ -1,0 +1,65 @@
+# Production stack, per docs/ARCHITECTURE.md's "Container architecture"
+# section. Two of the eventual three containers — Caddy (HTTPS
+# termination, the only container reachable from outside the host) is
+# Phase 8, not built yet. `web` deliberately publishes no host port
+# here: that's the correct final shape (Caddy will reach it over the
+# internal Podman network instead), not a placeholder to "fix later" —
+# see logs/claude/phase-07-podman-compose.md for how this was verified
+# without a host port.
+#
+# Usage: podman-compose -f compose.prod.yml up -d
+# Requires a real .env (copy .env.example, fill in real values) —
+# never commit .env.
+
+services:
+  db:
+    image: docker.io/library/postgres:18-alpine
+    restart: unless-stopped
+    env_file: .env
+    volumes:
+      # postgres:18+'s official image expects a single mount at
+      # /var/lib/postgresql (not the pre-18 .../data convention) — it
+      # places data in a major-version-specific subdirectory itself,
+      # for pg_ctlcluster-style layout and future pg_upgrade support.
+      # Confirmed by actually hitting the image's own startup error
+      # when this was still pointed at .../data.
+      - postgres_data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  web:
+    build:
+      context: .
+      dockerfile: Containerfile
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      # Overrides .env's POSTGRES_HOST/POSTGRES_PORT (meant for native
+      # local dev, where Postgres is reachable at localhost) with the
+      # compose network's own service-discovery name for `db`.
+      POSTGRES_HOST: db
+      POSTGRES_PORT: "5432"
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - static_files:/app/staticfiles
+      - media_files:/app/media
+    healthcheck:
+      # No dedicated health endpoint yet (that's Phase 12) — a plain
+      # TCP connect to gunicorn's own bound port is enough to confirm
+      # it's actually accepting connections, without adding curl/wget
+      # to the image just for this.
+      test: ["CMD-SHELL", "python -c \"import socket; socket.create_connection(('localhost', 8000), timeout=3)\""]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+volumes:
+  postgres_data:
+  static_files:
+  media_files:
