@@ -5,12 +5,13 @@ Close Procedure). Do not describe anything as complete unless it was
 actually verified.
 
 > **Last updated 2026-09-16.** Repo is clean (`main` up to date, nothing
-> uncommitted). **Phase 8 (Caddy and HTTPS) is now fully complete**
-> (Caddy container, production configuration review). Next: Phase 9 —
-> ARM64 deployment — see "Next" below. Note: the GitHub repo was
-> switched from public to private by the user (Sourcery's free tier no
-> longer reviews it as a result — not a rate-limit, a plan/access
-> change).
+> uncommitted). **Phase 8 (Caddy and HTTPS) is fully complete.** Phase
+> 9 (ARM64 deployment) is in progress — unit 1 (ARM64 compatibility
+> review) is merged; unit 2 (image build + repeatable cross-
+> architecture validation) is next — see "Next" below. Note: the GitHub
+> repo was switched from public to private by the user (Sourcery's free
+> tier no longer reviews it as a result — not a rate-limit, a
+> plan/access change).
 
 ## Project version
 
@@ -388,15 +389,38 @@ Phase 3 — see Known Issues below.
 
 **Phase 8 (Caddy and HTTPS) is now fully complete.**
 
+- Phase 9 unit 1 — ARM64 compatibility review (PR #58):
+  `docs/ARM64_REVIEW.md` audits ARM64 support across the stack, per
+  `docs/ARCHITECTURE.md`'s "ARM64 deployment strategy." Confirmed all
+  three base images (`python:3.12-slim`, `postgres:18-alpine`,
+  `caddy:2.11.4-alpine`) publish `linux/arm64/v8` manifests, and every
+  pinned Python dependency is either pure-Python or, for
+  `psycopg2-binary` (the one with compiled code), ships a matching
+  `manylinux_aarch64` wheel. **Went beyond manifest-checking** —
+  actually built the production `Containerfile` for `linux/arm64`
+  under this workstation's existing `qemu-user-static` emulation
+  (set up in Phase 0) and ran it live: `uname -m` reports `aarch64`,
+  the non-root `django` user still applies, and `psycopg2` actually
+  imports and initializes under emulation — proof the wheel is
+  genuinely ABI-compatible, not just correctly named. No compatibility
+  blockers found; limitations (emulation ≠ performance, no physical Pi
+  yet) stated explicitly. 296 tests total (unchanged — a review doc,
+  no application code). Full detail in
+  `logs/claude/phase-09-arm64-review.md`.
+
 ## Currently working on
 
-Nothing in progress.
+Phase 9 unit 2 — ARM64 image build + repeatable cross-architecture
+validation (not yet started).
 
 ## Next
 
-1. Phase 9 — ARM64 deployment: ARM64 compatibility audit
-   (`docs/ARM64_REVIEW.md`), ARM64 image builds via `qemu-user-static`,
-   repeatable cross-architecture validation (`docs/ARM64_TESTING.md`).
+1. Phase 9 unit 2 — the fuller functional ARM64 validation unit 1
+   deliberately deferred: migrations, `collectstatic`, a real served
+   page, ideally the full `db`+`web`+`caddy` stack under ARM64
+   emulation, packaged as a repeatable procedure
+   (`docs/ARM64_TESTING.md`). Phase 9 will be complete once this
+   merges.
 
 ## Known issues
 
