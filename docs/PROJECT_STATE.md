@@ -5,13 +5,12 @@ Close Procedure). Do not describe anything as complete unless it was
 actually verified.
 
 > **Last updated 2026-09-16.** Repo is clean (`main` up to date, nothing
-> uncommitted). Phase 6 (Security hardening) is fully complete. Phase 7
-> (Containerization with Podman) is in progress — unit 1 (Django
-> production container) done and merged. Next: PostgreSQL container +
-> persistent volume + full `podman-compose` (unit 2) — see "Next"
-> below. Note: the GitHub repo was switched from public to private by
-> the user (Sourcery's free tier no longer reviews it as a result — not
-> a rate-limit, a plan/access change).
+> uncommitted). **Phase 7 (Containerization with Podman) is now fully
+> complete** (Django production container, PostgreSQL container +
+> podman-compose). Next: Phase 8 — Caddy and HTTPS — see "Next" below.
+> Note: the GitHub repo was switched from public to private by the user
+> (Sourcery's free tier no longer reviews it as a result — not a
+> rate-limit, a plan/access change).
 
 ## Project version
 
@@ -33,8 +32,11 @@ complete — Global search, Operational dashboard, and a usability
 review pass that found and fixed a real bug. Phase 6 (Security
 hardening) is now complete — Security audit, Role/permission model,
 and a dependency security audit that also cleared a long-open backlog
-of 6 Dependabot PRs. Phase 7 (Containerization with Podman) is now in
-progress — unit 1 (Django production container) is done and merged.
+of 6 Dependabot PRs. Phase 7 (Containerization with Podman) is now
+complete — Django production container, and a PostgreSQL container +
+podman-compose configuration that proved its persistence guarantee by
+actually destroying and recreating containers, not just by having a
+`volumes:` section that looked right.
 
 Phase 2's `docs/DATABASE_REVIEW.md` found 2 HIGH findings (Activity's
 `CASCADE` can silently destroy history still relevant to a surviving
@@ -323,6 +325,26 @@ Phase 3 — see Known Issues below.
   work adds no Django test cases; the live container run is this
   unit's real test). Full detail in
   `logs/claude/phase-07-django-container.md`.
+- Phase 7 unit 2 — PostgreSQL container + podman-compose (PR #52), the
+  final Phase 7 unit: `compose.prod.yml` wires `postgres:18-alpine`
+  (named persistent volume, healthcheck, restart policy) to the Django
+  image from Unit 1 (`depends_on: service_healthy`); `web` publishes
+  no host port, the correct final shape once Caddy (Phase 8) exists to
+  proxy to it. `compose.dev.yml` is the same stack with both services'
+  ports published, for local/staging inspection — day-to-day dev
+  stays native, unchanged since Phase 0. **Found and fixed two real
+  bugs during live verification**: `containerfile:` isn't a valid
+  Compose Spec key (`dockerfile:` is — caught by `podman-compose
+  config` before any container ran), and `postgres:18`'s official
+  image expects its volume mounted at `/var/lib/postgresql`, not the
+  pre-18 `.../data` path (caught from the container's own exit-1 logs
+  on the first real `up`). **Proved the actual persistence guarantee**
+  by inserting a marker row, tearing the containers down, recreating
+  them from scratch, and confirming the row survived — not just
+  trusting a `volumes:` section that looked correct. 296 tests total
+  (unchanged). Full detail in `logs/claude/phase-07-podman-compose.md`.
+
+**Phase 7 (Containerization with Podman) is now fully complete.**
 
 ## Currently working on
 
@@ -333,11 +355,11 @@ remain open.
 
 ## Next
 
-1. Phase 7 unit 2 — PostgreSQL container with a persistent volume,
-   plus a complete `podman-compose` configuration wiring the Django
-   and PostgreSQL containers together (`compose.dev.yml`/
-   `compose.prod.yml` per `docs/ARCHITECTURE.md`), verified with a
-   real `podman-compose up` (the final Phase 7 unit).
+1. Phase 8 — Caddy and HTTPS: reverse proxy, HTTPS termination,
+   static/media file serving, security headers, a production
+   configuration review. This is what will finally let `web`'s
+   published-nowhere design in `compose.prod.yml` actually be reached
+   from outside the host.
 
 ## Known issues
 

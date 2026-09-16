@@ -33,9 +33,10 @@ begins. See `CLAUDE.md` for the workflow this repository follows.
       (`docs/PERMISSIONS.md`), dependency security audit
       (`docs/DEPENDENCY_AUDIT.md`). Done in 3 units — full detail in
       `logs/claude/phase-06-*.md`.
-- [ ] **Phase 7 — Containerization with Podman.** Django production container
+- [x] **Phase 7 — Containerization with Podman.** Django production container
       (Gunicorn, non-root), PostgreSQL container with persistent volume,
-      complete `podman-compose` configuration.
+      complete `podman-compose` configuration. Done in 2 units — full
+      detail in `logs/claude/phase-07-*.md`.
 - [ ] **Phase 8 — Caddy and HTTPS.** Reverse proxy, HTTPS termination, static
       / media file serving, security headers, production configuration review.
 - [ ] **Phase 9 — ARM64 deployment.** ARM64 compatibility audit
