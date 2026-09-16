@@ -5,12 +5,12 @@ Close Procedure). Do not describe anything as complete unless it was
 actually verified.
 
 > **Last updated 2026-09-16.** Repo is clean (`main` up to date, nothing
-> uncommitted). **Phase 7 (Containerization with Podman) is now fully
-> complete** (Django production container, PostgreSQL container +
-> podman-compose). Next: Phase 8 — Caddy and HTTPS — see "Next" below.
-> Note: the GitHub repo was switched from public to private by the user
-> (Sourcery's free tier no longer reviews it as a result — not a
-> rate-limit, a plan/access change).
+> uncommitted). **Phase 7 (Containerization with Podman) is fully
+> complete.** Phase 8 (Caddy and HTTPS) is in progress — unit 1 (the
+> Caddy container itself) is merged; unit 2 (production configuration
+> review) is next — see "Next" below. Note: the GitHub repo was switched
+> from public to private by the user (Sourcery's free tier no longer
+> reviews it as a result — not a rate-limit, a plan/access change).
 
 ## Project version
 
@@ -346,20 +346,40 @@ Phase 3 — see Known Issues below.
 
 **Phase 7 (Containerization with Podman) is now fully complete.**
 
+- Phase 8 unit 1 — Caddy container (PR #54): `Caddyfile`/`Caddyfile.dev`
+  (root level, matching Phase 7's file placement) added — reverse
+  proxy to `web:8000`, HTTPS termination (real automatic HTTPS in
+  production, `tls internal` for local testing), `/static/*`/`/media/*`
+  served directly by Caddy, security headers. `caddy` service wired
+  into both compose files, with new `caddy_data`/`caddy_config`
+  volumes. **Verified live** against a real 3-container stack (not
+  just a config review): HTTP→HTTPS redirect, reverse proxy, and —
+  the one thing this unit most needed to prove — that Caddy's
+  `X-Forwarded-Proto` is actually recognized by Django's
+  `SECURE_PROXY_SSL_HEADER` (confirmed via `Strict-Transport-Security`
+  present on the proxied response, not assumed from documentation).
+  That same live run found and fixed three real bugs: a host-port
+  5432 collision with this project's own native dev PostgreSQL, a
+  Fedora-SELinux bind-mount denial on the Caddyfile mount (needed
+  `:Z`), and duplicate security headers on the proxied path (Caddy's
+  header block was site-wide, duplicating what Django's
+  `SecurityMiddleware` already sets — rescoped to just the static/
+  media blocks). 296 tests total (unchanged — infra work adds no
+  Django test cases). Full detail in
+  `logs/claude/phase-08-caddy-https.md`.
+
 ## Currently working on
 
-Nothing in progress. All 6 previously-open Dependabot PRs (plus a 7th,
-`pip-audit` 2.9.0→2.10.1, opened right after the audit closed and
-predicted in its own writeup) have been reviewed and merged — none
-remain open.
+Phase 8 unit 2 — production configuration review (not yet started).
 
 ## Next
 
-1. Phase 8 — Caddy and HTTPS: reverse proxy, HTTPS termination,
-   static/media file serving, security headers, a production
-   configuration review. This is what will finally let `web`'s
-   published-nowhere design in `compose.prod.yml` actually be reached
-   from outside the host.
+1. Phase 8 unit 2 — a formal production configuration review of the
+   complete assembled stack (Django settings, `Containerfile`,
+   `compose.prod.yml`, `Caddyfile`), following the established
+   `docs/DATABASE_REVIEW.md`/`docs/USABILITY_REVIEW.md`/
+   `docs/SECURITY_REVIEW.md`/dependency-audit format. Phase 8 will be
+   complete once this merges.
 
 ## Known issues
 
