@@ -4,13 +4,13 @@ Update this file at the end of every session (see `CLAUDE.md`'s Session
 Close Procedure). Do not describe anything as complete unless it was
 actually verified.
 
-> **Last updated 2026-09-16.** Repo is clean (`main` up to date, nothing
-> uncommitted). **Phase 9 (ARM64 deployment) is fully complete.** Phase
-> 10 (systemd on the Raspberry Pi) is in progress — unit 1 (production
-> systemd unit) is merged; unit 2 (deployment script with rollback) is
-> next — see "Next" below. Note: the GitHub repo was switched from
-> public to private by the user (Sourcery's free tier no longer reviews
-> it as a result — not a rate-limit, a plan/access change).
+> **Last updated 2026-09-17.** Repo is clean (`main` up to date, nothing
+> uncommitted). **Phase 10 (systemd on the Raspberry Pi) is now fully
+> complete** (production systemd unit, deployment script with
+> rollback). Next: Phase 11 — Backups and disaster recovery — see
+> "Next" below. Note: the GitHub repo was switched from public to
+> private by the user (Sourcery's free tier no longer reviews it as a
+> result — not a rate-limit, a plan/access change).
 
 ## Project version
 
@@ -445,20 +445,42 @@ Phase 3 — see Known Issues below.
   `enable`/`disable` correctly manage the `[Install]` symlink. 296
   tests total (unchanged). Full detail in
   `logs/claude/phase-10-systemd-unit.md`.
+- Phase 10 unit 2 — Deployment script with rollback (PR #64), the
+  final Phase 10 unit: `scripts/deploy.sh` — pull an intended git
+  revision, build/pull images, restart, verify health, auto-rollback
+  on failure, plus standalone `rollback`/`status` commands. **Live
+  testing against a real throwaway git clone with a deliberately
+  broken commit found and fixed four real bugs**, all sharing one root
+  cause — a `Type=oneshot`/`RemainAfterExit=yes` systemd unit's
+  "active" state only ever reflects whether `ExecStart` last exited 0,
+  never whether the containers it started are still alive:
+  `systemctl restart` silently reused a stale container instead of
+  the freshly-built image; `systemctl stop` on an already-`failed`
+  unit was a no-op (never ran `ExecStop`) — precisely the state a
+  rollback runs in; `systemctl start` on a unit systemd believed was
+  already `active` was *also* a no-op, even with the real containers
+  gone. Fixed by having `deploy.sh` drive `podman-compose` directly
+  instead of routing through `systemctl` — `systemd/crm.service`
+  (unit 1) is untouched, still doing its real job of starting the
+  stack on boot. Also found `podman-compose up -d` can hang
+  indefinitely on a `depends_on: condition: service_healthy` chain
+  that never resolves — fixed with an explicit `timeout`. Re-verified
+  the full scenario suite (good deploy, broken deploy with real
+  auto-rollback, explicit rollback, status, dirty-tree guard) end to
+  end after the fixes. 296 tests total (unchanged). Full detail in
+  `logs/claude/phase-10-deploy-script.md`.
+
+**Phase 10 (systemd on the Raspberry Pi) is now fully complete.**
 
 ## Currently working on
 
-Phase 10 unit 2 — a safe, non-destructive deployment script with
-rollback (`scripts/deploy.sh`) (not yet started).
+Nothing in progress.
 
 ## Next
 
-1. Phase 10 unit 2 — `scripts/deploy.sh`: pull the intended git
-   revision, build/pull ARM64 images, run migrations, restart via
-   `systemctl --user`, verify health, support rollback — per
-   `docs/ARCHITECTURE.md`'s "Production deployment architecture" and
-   `CLAUDE.md`'s "DEPLOYMENT RULES". Phase 10 will be complete once
-   this merges.
+1. Phase 11 — Backups and disaster recovery: scheduled PostgreSQL
+   backups, a tested restore procedure
+   (`docs/DISASTER_RECOVERY.md`), a backup/DR audit.
 
 ## Known issues
 

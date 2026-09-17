@@ -42,7 +42,7 @@ begins. See `CLAUDE.md` for the workflow this repository follows.
 - [x] **Phase 9 — ARM64 deployment.** ARM64 compatibility audit
       (`docs/ARM64_REVIEW.md`), ARM64 image builds via `qemu-user-static`,
       repeatable cross-architecture validation (`docs/ARM64_TESTING.md`).
-- [ ] **Phase 10 — systemd on the Raspberry Pi.** Production systemd unit,
+- [x] **Phase 10 — systemd on the Raspberry Pi.** Production systemd unit,
       safe non-destructive deployment script with rollback.
 - [ ] **Phase 11 — Backups and disaster recovery.** Scheduled PostgreSQL
       backups, a tested restore procedure (`docs/DISASTER_RECOVERY.md`), a
