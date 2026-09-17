@@ -1,0 +1,18 @@
+# Schedules crm-backup.service daily. See that file for what actually
+# runs. Per docs/ARCHITECTURE.md's "Backup strategy" — "scheduled
+# logical dumps".
+#
+# Persistent=true: if the Pi was powered off or the timer missed its
+# window (e.g. at 03:00), the backup runs at the next boot/timer
+# refresh instead of silently skipping that day — a missed backup on
+# a single-host system is a real gap, not a rare edge case to ignore.
+
+[Unit]
+Description=Daily Django CRM backup
+
+[Timer]
+OnCalendar=daily
+Persistent=true
+
+[Install]
+WantedBy=timers.target
