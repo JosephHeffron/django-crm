@@ -49,7 +49,7 @@ begins. See `CLAUDE.md` for the workflow this repository follows.
       backup/DR audit.
 - [x] **Phase 12 — Logging and monitoring.** Health-check endpoint,
       application logging review (what's logged, what never is).
-- [ ] **Phase 13 — Final production audit.** Full architecture/security/ARM64
+- [x] **Phase 13 — Final production audit.** Full architecture/security/ARM64
       audit (`docs/PRODUCTION_READINESS.md`), remediation of critical/high
       findings, a clean-environment end-to-end test.
 - [ ] **Phase 14 — Documentation and handoff.** `docs/ADMIN_GUIDE.md`,
