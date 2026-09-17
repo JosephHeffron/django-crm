@@ -5,12 +5,13 @@ Close Procedure). Do not describe anything as complete unless it was
 actually verified.
 
 > **Last updated 2026-09-17.** Repo is clean (`main` up to date, nothing
-> uncommitted). **Phase 10 (systemd on the Raspberry Pi) is now fully
-> complete** (production systemd unit, deployment script with
-> rollback). Next: Phase 11 — Backups and disaster recovery — see
-> "Next" below. Note: the GitHub repo was switched from public to
-> private by the user (Sourcery's free tier no longer reviews it as a
-> result — not a rate-limit, a plan/access change).
+> uncommitted). **Phase 10 (systemd on the Raspberry Pi) is fully
+> complete.** Phase 11 (Backups and disaster recovery) is in progress —
+> unit 1 (scheduled PostgreSQL backups) is merged; unit 2 (tested
+> restore procedure + backup/DR audit) is next — see "Next" below.
+> Note: the GitHub repo was switched from public to private by the
+> user (Sourcery's free tier no longer reviews it as a result — not a
+> rate-limit, a plan/access change).
 
 ## Project version
 
@@ -472,15 +473,42 @@ Phase 3 — see Known Issues below.
 
 **Phase 10 (systemd on the Raspberry Pi) is now fully complete.**
 
+- Phase 11 unit 1 — Scheduled PostgreSQL backups (PR #66):
+  `scripts/backup.sh` — `pg_dump` (custom format) of the database
+  plus `podman volume export` of `media_files`/`caddy_data`/
+  `caddy_config` (named volumes, not host directories) plus a copy of
+  `.env`, per `docs/ARCHITECTURE.md`'s "Backup strategy". Configurable
+  retention policy; a failure-cleanup trap removes a partial backup
+  directory rather than leaving a misleading one behind.
+  `systemd/crm-backup.{service,timer}` schedules it daily (same
+  rootless user-unit model as `crm.service`, `Persistent=true` for a
+  missed window). **Verified live in an isolated clone**: inserted a
+  real marker row and file, ran the backup, then actually restored the
+  dump into a fresh database and confirmed the marker row survived —
+  not just checked the dump's structure. Also verified the retention
+  policy, the systemd timer's schedule/journald integration, and the
+  failure-cleanup path (db stopped mid-backup). **Caught and fixed a
+  real process mistake**: the first test run executed against the
+  actual project directory, copying the real `.env` into a backup
+  directory — confirmed with the user before deleting it, then moved
+  all further testing to an isolated clone (matching `deploy.sh`'s
+  established pattern). 296 tests total (unchanged). Full detail in
+  `logs/claude/phase-11-backup-script.md`.
+
 ## Currently working on
 
-Nothing in progress.
+Phase 11 unit 2 — a tested restore procedure
+(`scripts/restore.sh`, `docs/DISASTER_RECOVERY.md`) and a backup/DR
+audit (not yet started).
 
 ## Next
 
-1. Phase 11 — Backups and disaster recovery: scheduled PostgreSQL
-   backups, a tested restore procedure
-   (`docs/DISASTER_RECOVERY.md`), a backup/DR audit.
+1. Phase 11 unit 2 — `scripts/restore.sh` (with explicit safety
+   guards, since a restore is inherently destructive to the running
+   database) and `docs/DISASTER_RECOVERY.md`, tested via a real
+   backup → wipe → restore → verify drill, plus a backup/DR audit
+   reviewing the complete setup. Phase 11 will be complete once this
+   merges.
 
 ## Known issues
 
