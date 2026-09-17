@@ -35,6 +35,10 @@ local_settings.py
 *.dump
 *.backup
 
+# Deployment state (scripts/deploy.sh's rollback marker — host-local,
+# never meaningful to commit)
+/.deploy-last-good-ref
+
 # Test / coverage artifacts
 .coverage
 .coverage.*
