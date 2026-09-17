@@ -105,3 +105,50 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 LOGIN_URL = "users:login"
 LOGIN_REDIRECT_URL = "core:index"
 LOGOUT_REDIRECT_URL = "users:login"
+
+# Without this, Django's own default logging config (django.utils.log.
+# DEFAULT_LOGGING) gates its only console handler behind DEBUG=True —
+# meaning in production (DEBUG=False), an unhandled view exception
+# logs literally nowhere: not to console/journald, not anywhere,
+# since ADMINS/EMAIL_* are also unset here (mail_admins, the only
+# production-active handler DEFAULT_LOGGING defines, is a silent
+# no-op without them). Confirmed live (see docs/LOGGING_REVIEW.md):
+# simulating Django's own django.request.error(..., exc_info=True) —
+# exactly what happens on every unhandled view exception — produced
+# zero output under production settings before this fix.
+#
+# "django" gets its own explicit, unconditional console handler
+# (not gated by any DEBUG filter) with propagate=False, so it isn't
+# also picked up by the root logger below — verified live that
+# without propagate=False, a django.request error printed twice under
+# DEBUG=True (once via this handler, once via root). Everything else
+# (this project's own loggers, e.g. apps/core/views.py's health-check
+# failure log) has no handler of its own, so it reaches the root
+# logger's console handler by Python logging's normal propagation.
+#
+# Deliberately just a StreamHandler with no custom Formatter or file
+# handler — journald (via the container runtime) already timestamps
+# and persists everything this container prints to stdout, matching
+# how every other piece of this stack's logs (gunicorn, Caddy,
+# PostgreSQL) already reach an operator; adding a second log-shipping
+# mechanism here would just be redundant infrastructure.
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "handlers": {
+        "console": {
+            "class": "logging.StreamHandler",
+        },
+    },
+    "root": {
+        "handlers": ["console"],
+        "level": "INFO",
+    },
+    "loggers": {
+        "django": {
+            "handlers": ["console"],
+            "level": "INFO",
+            "propagate": False,
+        },
+    },
+}
