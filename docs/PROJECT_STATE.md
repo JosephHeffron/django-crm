@@ -5,16 +5,18 @@ Close Procedure). Do not describe anything as complete unless it was
 actually verified.
 
 > **Last updated 2026-09-17.** Repo is clean (`main` up to date, nothing
-> uncommitted). **Phase 13 (Final production audit) is in progress** —
-> unit 1 (production readiness audit) is merged; unit 2 (clean-
-> environment end-to-end test) is next — see "Next" below. Note: the
-> GitHub repo, switched from public to private earlier in the project,
-> is now **public again** — Phase 13 unit 1's audit found branch
-> protection and secret scanning had been silently disabled while
-> private (both are gated behind GitHub Pro on the free plan); the
-> user chose to go public again rather than pay for Pro, and both
+> uncommitted). **Phase 13 (Final production audit) is now fully
+> complete** (production readiness audit, clean-environment end-to-end
+> test). Next: Phase 14 — Documentation and handoff — see "Next" below.
+> Note: the GitHub repo, switched from public to private earlier in the
+> project, is now **public again** — Phase 13 unit 1's audit found
+> branch protection and secret scanning had been silently disabled
+> while private (both are gated behind GitHub Pro on the free plan);
+> the user chose to go public again rather than pay for Pro, and both
 > protections are restored. Sourcery's automated review is available
-> again as a result.
+> again as a result (though it's hit its own free-tier review-budget
+> limit on the last couple of PRs — a summary/reviewer's guide only, no
+> line-level findings).
 
 ## Project version
 
@@ -582,19 +584,38 @@ Phase 3 — see Known Issues below.
   correctly identified as blocked on something outside this audit's
   reach. 303 tests total (unchanged). Full detail in
   `logs/claude/phase-13-production-readiness.md`.
+- Phase 13 unit 2 — Clean-environment end-to-end test (PR #76), the
+  final Phase 13 unit: a real `git clone` from the public GitHub
+  remote, `systemd/crm.service` installed exactly as documented, real
+  login and a real Company record created through the actual web form
+  (not just HTTP status codes), a real backup, a simulated total
+  disaster, and a real restore — all working end to end for a
+  genuinely fresh deployment. **Found and fixed a real bug**:
+  `scripts/backup.sh`/`scripts/restore.sh` silently produced wrong,
+  empty backups when pointed at `compose.dev.yml` (whose volumes
+  carry a `_dev` suffix `compose.prod.yml`'s don't) — exactly the
+  documented `COMPOSE_FILE` override example in `backup.sh`'s own
+  header comment, never actually tested until this unit. Also found
+  that `podman volume export` doesn't reliably fail on a nonexistent
+  volume name on this Podman version. Fixed with a `VOLUME_SUFFIX` env
+  var (default empty — real production via `compose.prod.yml`
+  completely unaffected) plus an explicit `podman volume exists`
+  check; re-verified via a full second disaster/restore cycle. Native
+  dev setup (the README's path) wasn't re-verified — blocked on an
+  interactive sudo password this session couldn't supply; the user
+  chose to skip it. 303 tests total (unchanged). Full detail in
+  `logs/claude/phase-13-clean-environment-test.md`.
+
+**Phase 13 (Final production audit) is now fully complete.**
 
 ## Currently working on
 
-Phase 13 unit 2 — a clean-environment end-to-end test (not yet
-started).
+Nothing in progress.
 
 ## Next
 
-1. Phase 13 unit 2 — a clean-environment end-to-end test: starting
-   from a fresh checkout and following only the documented setup
-   steps (no assumed tribal knowledge), prove the system actually
-   works as documented for a first-time deployer. Phase 13 will be
-   complete once this merges.
+1. Phase 14 — Documentation and handoff: `docs/ADMIN_GUIDE.md`,
+   `docs/DEVELOPER_GUIDE.md`, final repository cleanup.
 
 ## Known issues
 
