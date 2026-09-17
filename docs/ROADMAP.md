@@ -47,7 +47,7 @@ begins. See `CLAUDE.md` for the workflow this repository follows.
 - [x] **Phase 11 — Backups and disaster recovery.** Scheduled PostgreSQL
       backups, a tested restore procedure (`docs/DISASTER_RECOVERY.md`), a
       backup/DR audit.
-- [ ] **Phase 12 — Logging and monitoring.** Health-check endpoint,
+- [x] **Phase 12 — Logging and monitoring.** Health-check endpoint,
       application logging review (what's logged, what never is).
 - [ ] **Phase 13 — Final production audit.** Full architecture/security/ARM64
       audit (`docs/PRODUCTION_READINESS.md`), remediation of critical/high
