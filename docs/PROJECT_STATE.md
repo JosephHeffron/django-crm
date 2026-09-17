@@ -5,9 +5,11 @@ Close Procedure). Do not describe anything as complete unless it was
 actually verified.
 
 > **Last updated 2026-09-17.** Repo is clean (`main` up to date, nothing
-> uncommitted). **Phase 13 (Final production audit) is now fully
-> complete** (production readiness audit, clean-environment end-to-end
-> test). Next: Phase 14 — Documentation and handoff — see "Next" below.
+> uncommitted). **Phase 13 (Final production audit) is fully
+> complete.** Phase 14 (Documentation and handoff) — the project's
+> final phase — is in progress: unit 1 (admin + developer guides) is
+> merged; unit 2 (final repository cleanup) is next — see "Next"
+> below.
 > Note: the GitHub repo, switched from public to private earlier in the
 > project, is now **public again** — Phase 13 unit 1's audit found
 > branch protection and secret scanning had been silently disabled
@@ -608,14 +610,31 @@ Phase 3 — see Known Issues below.
 
 **Phase 13 (Final production audit) is now fully complete.**
 
+- Phase 14 unit 1 — Admin and developer guides (PR #78):
+  `docs/ADMIN_GUIDE.md` (first-time deployment, day-to-day operations,
+  deploying updates, backups, disaster recovery, known limitations)
+  and `docs/DEVELOPER_GUIDE.md` (orientation, project layout, common
+  tasks, git workflow, how to use `logs/claude/`'s build history) —
+  both consolidate knowledge previously scattered across a dozen
+  phase-specific docs, each claim linking back to its verified source
+  rather than restating it. Spot-checked factual claims (the `/health/`
+  endpoint really is the only JSON endpoint; `crm-backup.service`'s
+  quoted install commands match its own header exactly) against the
+  actual codebase before writing. 303 tests total (unchanged). Full
+  detail in `logs/claude/phase-14-admin-developer-guides.md`.
+
 ## Currently working on
 
-Nothing in progress.
+Phase 14 unit 2 — final repository cleanup (not yet started).
 
 ## Next
 
-1. Phase 14 — Documentation and handoff: `docs/ADMIN_GUIDE.md`,
-   `docs/DEVELOPER_GUIDE.md`, final repository cleanup.
+1. Phase 14 unit 2 — final repository cleanup: known stale references
+   (`docs/ARCHITECTURE.md`'s original nested `containers/`/`compose/`
+   file-layout sketch no longer matches the real root-level layout;
+   `CHANGELOG.md` stops at roughly Phase 5, missing Phases 6-13
+   entirely) plus a general consistency pass. Phase 14 — the final
+   phase — will be complete once this merges.
 
 ## Known issues
 
