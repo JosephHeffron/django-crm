@@ -19,6 +19,21 @@ CSRF_TRUSTED_ORIGINS = [
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 SECURE_SSL_REDIRECT = True
 
+# compose.prod.yml's own healthcheck calls /health/ directly against
+# gunicorn (localhost:8000, inside the same container) to check real
+# PostgreSQL connectivity — deliberately bypassing Caddy, the same way
+# Phase 7's original TCP-connect check did. That request carries no
+# X-Forwarded-Proto header (there's no proxy involved), so without this
+# exemption SECURE_SSL_REDIRECT would 301 it to https://, which
+# gunicorn can't serve itself (it never terminates TLS) — confirmed
+# live: the healthcheck's urllib client followed that redirect straight
+# into a TLS handshake timeout against a plaintext HTTP server. Safe to
+# exempt: no host port is published for `web` in production, so this
+# path is never reachable from outside the internal Podman network
+# regardless, and the endpoint itself returns nothing more sensitive
+# than "ok"/"error".
+SECURE_REDIRECT_EXEMPT = [r"^health/$"]
+
 SESSION_COOKIE_SECURE = True
 CSRF_COOKIE_SECURE = True
 SECURE_HSTS_SECONDS = 31536000

@@ -57,7 +57,10 @@ services:
       - static_files_dev:/app/staticfiles
       - media_files_dev:/app/media
     healthcheck:
-      test: ["CMD-SHELL", "python -c \"import socket; socket.create_connection(('localhost', 8000), timeout=3)\""]
+      # See compose.prod.yml's matching comment — /health/ (Phase 12)
+      # checks real PostgreSQL connectivity, not just that gunicorn
+      # accepts TCP connections.
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/health/', timeout=3)\""]
       interval: 15s
       timeout: 5s
       retries: 5

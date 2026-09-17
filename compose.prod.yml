@@ -48,11 +48,14 @@ services:
       - static_files:/app/staticfiles
       - media_files:/app/media
     healthcheck:
-      # No dedicated health endpoint yet (that's Phase 12) — a plain
-      # TCP connect to gunicorn's own bound port is enough to confirm
-      # it's actually accepting connections, without adding curl/wget
-      # to the image just for this.
-      test: ["CMD-SHELL", "python -c \"import socket; socket.create_connection(('localhost', 8000), timeout=3)\""]
+      # /health/ (Phase 12, apps/core/views.py) actually checks
+      # PostgreSQL connectivity, not just that gunicorn is accepting
+      # TCP connections (Phase 7's original, narrower check) — a real
+      # HTTP request via urllib (stdlib, avoids adding curl/wget to
+      # the image just for this), same reasoning as the original.
+      # urlopen raises on a non-2xx status, so a 503 from the view
+      # itself correctly fails this check too.
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/health/', timeout=3)\""]
       interval: 15s
       timeout: 5s
       retries: 5
