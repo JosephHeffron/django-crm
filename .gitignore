@@ -34,6 +34,7 @@ local_settings.py
 *.sql.gz
 *.dump
 *.backup
+/backups/
 
 # Deployment state (scripts/deploy.sh's rollback marker — host-local,
 # never meaningful to commit)

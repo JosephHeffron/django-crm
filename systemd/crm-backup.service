@@ -1,0 +1,27 @@
+# Runs scripts/backup.sh, per docs/ARCHITECTURE.md's "Backup
+# strategy". Triggered by crm-backup.timer, not enabled/started
+# directly — see that file for the schedule. Same rootless systemd
+# user-unit model as crm.service (Phase 10, ADR 0005): runs as the
+# dedicated non-root deployment account, not root.
+#
+# Install (as the dedicated deployment user, alongside crm.service):
+#   cp systemd/crm-backup.service systemd/crm-backup.timer ~/.config/systemd/user/
+#   systemctl --user daemon-reload
+#   systemctl --user enable --now crm-backup.timer
+#
+# Logs: journalctl --user -u crm-backup.service
+
+[Unit]
+Description=Django CRM database/config backup
+# Only makes sense once the stack is actually up — db must be running
+# for pg_dump to have anything to connect to.
+After=crm.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=%h/django-crm
+ExecStart=%h/django-crm/scripts/backup.sh
+# A slow first backup (e.g. large media_files volume) shouldn't be
+# killed prematurely — generous, matching crm.service's own
+# TimeoutStartSec reasoning.
+TimeoutStartSec=600
