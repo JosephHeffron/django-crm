@@ -1,8 +1,15 @@
+import logging
+
 from django.contrib.auth.mixins import LoginRequiredMixin
+from django.db import connection
 from django.db.models import Count, Q, Sum
+from django.http import JsonResponse
+from django.views import View
 from django.views.generic import TemplateView
 
 from apps.crm.models import Activity, Company, Contact, Deal, Lead, Task
+
+logger = logging.getLogger(__name__)
 
 # Caps each category's results rather than paginating each one
 # separately — simpler, and a search this wide (five models at once)
@@ -112,6 +119,34 @@ def _search(query):
         .select_related("assigned_to")
         .order_by("due_date", "pk")[:SEARCH_RESULTS_PER_MODEL],
     }
+
+
+class HealthCheckView(View):
+    """Liveness/readiness check for compose.{dev,prod}.yml's `web`
+    healthcheck (Phase 12) — the thing Phase 7's original TCP-connect
+    check deferred to this phase, since a plain TCP connect only
+    proves gunicorn is listening, not that Django can actually reach
+    PostgreSQL. Deliberately unauthenticated (monitoring/orchestration
+    tooling can't log in) and GET-only (Django's plain `View` already
+    405s any other method) — no CSRF token needed since this never
+    changes state. Returns no information beyond "ok"/"error" per
+    component; a monitoring tool has no legitimate need for anything
+    more specific than that.
+    """
+
+    def get(self, request, *args, **kwargs):
+        try:
+            with connection.cursor() as cursor:
+                cursor.execute("SELECT 1")
+        except Exception:
+            # Deliberately broad: any failure reaching the database —
+            # not just the specific exceptions psycopg2/Django raise
+            # for a downed connection — means this endpoint should
+            # report unhealthy, not crash trying to be more precise
+            # about which exception it was.
+            logger.exception("Health check failed: could not reach the database")
+            return JsonResponse({"status": "error", "database": "error"}, status=503)
+        return JsonResponse({"status": "ok", "database": "ok"})
 
 
 class SearchView(LoginRequiredMixin, TemplateView):
