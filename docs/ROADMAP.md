@@ -44,7 +44,7 @@ begins. See `CLAUDE.md` for the workflow this repository follows.
       repeatable cross-architecture validation (`docs/ARM64_TESTING.md`).
 - [x] **Phase 10 — systemd on the Raspberry Pi.** Production systemd unit,
       safe non-destructive deployment script with rollback.
-- [ ] **Phase 11 — Backups and disaster recovery.** Scheduled PostgreSQL
+- [x] **Phase 11 — Backups and disaster recovery.** Scheduled PostgreSQL
       backups, a tested restore procedure (`docs/DISASTER_RECOVERY.md`), a
       backup/DR audit.
 - [ ] **Phase 12 — Logging and monitoring.** Health-check endpoint,

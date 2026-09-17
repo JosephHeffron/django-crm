@@ -5,13 +5,12 @@ Close Procedure). Do not describe anything as complete unless it was
 actually verified.
 
 > **Last updated 2026-09-17.** Repo is clean (`main` up to date, nothing
-> uncommitted). **Phase 10 (systemd on the Raspberry Pi) is fully
-> complete.** Phase 11 (Backups and disaster recovery) is in progress —
-> unit 1 (scheduled PostgreSQL backups) is merged; unit 2 (tested
-> restore procedure + backup/DR audit) is next — see "Next" below.
-> Note: the GitHub repo was switched from public to private by the
-> user (Sourcery's free tier no longer reviews it as a result — not a
-> rate-limit, a plan/access change).
+> uncommitted). **Phase 11 (Backups and disaster recovery) is now fully
+> complete** (scheduled PostgreSQL backups, tested restore procedure +
+> backup/DR audit). Next: Phase 12 — Logging and monitoring — see
+> "Next" below. Note: the GitHub repo was switched from public to
+> private by the user (Sourcery's free tier no longer reviews it as a
+> result — not a rate-limit, a plan/access change).
 
 ## Project version
 
@@ -494,21 +493,44 @@ Phase 3 — see Known Issues below.
   all further testing to an isolated clone (matching `deploy.sh`'s
   established pattern). 296 tests total (unchanged). Full detail in
   `logs/claude/phase-11-backup-script.md`.
+- Phase 11 unit 2 — Tested restore procedure + backup/DR audit (PR
+  #68), the final Phase 11 unit: `scripts/restore.sh` models a real
+  disaster — rebuilds `postgres_data`/`media_files`/`caddy_data`/
+  `caddy_config` entirely from a backup rather than restoring "over"
+  current state. Requires `--yes`, takes a best-effort pre-restore
+  safety backup, never auto-applies a backup's `.env`. **Ran two full
+  live disaster-recovery drills** in an isolated clone: destroyed
+  every container and volume, restored, confirmed a marker row, a
+  media marker file, and a real served page all survived — and
+  separately, deliberately reproduced a retention-boundary edge case
+  (the safety backup's own pruning deleting the exact backup being
+  restored from, mid-restore) before fixing and re-confirming it.
+  **Found and fixed three real bugs**: the safety backup being
+  unconditionally required (defeating recovery from a total loss,
+  the primary case), the retention-pruning race above, and a shell
+  redirection ordering bug (`2>/dev/null >&2` discards both streams,
+  not just stderr) that silently hid the usage message's backup
+  listing. `docs/DISASTER_RECOVERY.md` documents the tested procedure;
+  `docs/BACKUP_DR_AUDIT.md` audits the complete system — one HIGH
+  finding (backups live only on the same host/SD-card as the data
+  they protect, a real risk for Raspberry Pi hardware specifically),
+  two MEDIUM (unencrypted `.env` backups, no automated ongoing
+  restore verification), both deferred with reasoning rather than
+  invented solutions. 296 tests total (unchanged). Full detail in
+  `logs/claude/phase-11-restore-dr.md`.
+
+**Phase 11 (Backups and disaster recovery) is now fully complete.**
 
 ## Currently working on
 
-Phase 11 unit 2 — a tested restore procedure
-(`scripts/restore.sh`, `docs/DISASTER_RECOVERY.md`) and a backup/DR
-audit (not yet started).
+Nothing in progress.
 
 ## Next
 
-1. Phase 11 unit 2 — `scripts/restore.sh` (with explicit safety
-   guards, since a restore is inherently destructive to the running
-   database) and `docs/DISASTER_RECOVERY.md`, tested via a real
-   backup → wipe → restore → verify drill, plus a backup/DR audit
-   reviewing the complete setup. Phase 11 will be complete once this
-   merges.
+1. Phase 12 — Logging and monitoring: a health-check endpoint
+   (explicitly deferred since Phase 7's healthchecks first needed
+   it), and an application logging review (what's logged, what never
+   is).
 
 ## Known issues
 
