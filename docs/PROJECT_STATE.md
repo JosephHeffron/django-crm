@@ -5,12 +5,13 @@ Close Procedure). Do not describe anything as complete unless it was
 actually verified.
 
 > **Last updated 2026-09-17.** Repo is clean (`main` up to date, nothing
-> uncommitted). **Phase 11 (Backups and disaster recovery) is now fully
-> complete** (scheduled PostgreSQL backups, tested restore procedure +
-> backup/DR audit). Next: Phase 12 — Logging and monitoring — see
-> "Next" below. Note: the GitHub repo was switched from public to
-> private by the user (Sourcery's free tier no longer reviews it as a
-> result — not a rate-limit, a plan/access change).
+> uncommitted). **Phase 11 (Backups and disaster recovery) is fully
+> complete.** Phase 12 (Logging and monitoring) is in progress — unit 1
+> (health-check endpoint) is merged; unit 2 (application logging
+> review) is next — see "Next" below. Note: the GitHub repo was
+> switched from public to private by the user (Sourcery's free tier no
+> longer reviews it as a result — not a rate-limit, a plan/access
+> change).
 
 ## Project version
 
@@ -521,16 +522,33 @@ Phase 3 — see Known Issues below.
 
 **Phase 11 (Backups and disaster recovery) is now fully complete.**
 
+- Phase 12 unit 1 — Health-check endpoint (PR #70): `HealthCheckView`
+  at `/health/` (`apps/core/views.py`) runs a real `SELECT 1` against
+  the database, replacing Phase 7's plain-TCP-connect `web`
+  healthcheck in both compose files — the thing that check's own
+  comment explicitly deferred to this phase. Unauthenticated, GET-only,
+  returns 503 on DB failure. **Found and fixed a real bug via live
+  testing**: production's `SECURE_SSL_REDIRECT=True` redirected the
+  same-container healthcheck request to HTTPS, which `web` can't
+  serve (only Caddy terminates TLS) — the request timed out mid TLS
+  handshake. Fixed with Django's `SECURE_REDIRECT_EXEMPT`. Verified
+  live: `web` reports healthy when `db` is up (both same-container and
+  through the full Caddy proxy chain) and unhealthy (real 503) when
+  `db` is stopped. 299 tests total (296 + 3 new). Full detail in
+  `logs/claude/phase-12-health-endpoint.md`.
+
 ## Currently working on
 
-Nothing in progress.
+Phase 12 unit 2 — an application logging review (what's logged, what
+never is) (not yet started).
 
 ## Next
 
-1. Phase 12 — Logging and monitoring: a health-check endpoint
-   (explicitly deferred since Phase 7's healthchecks first needed
-   it), and an application logging review (what's logged, what never
-   is).
+1. Phase 12 unit 2 — an application logging review: what Django/this
+   project currently logs (or doesn't), whether anything sensitive
+   ever ends up in logs, and how production log output actually
+   reaches an operator (journald, per Phases 7-11's own testing).
+   Phase 12 will be complete once this merges.
 
 ## Known issues
 
