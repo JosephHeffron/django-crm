@@ -21,13 +21,17 @@
 #   <backup-timestamp> names a directory under backups/ (as produced
 #   by scripts/backup.sh), e.g. 2026-09-17T03-00-00Z.
 #
-# SERVICE_PREFIX and COMPOSE_FILE can be overridden via environment
-# variables for testing against a throwaway stack, matching
-# scripts/backup.sh and scripts/deploy.sh.
+# SERVICE_PREFIX, COMPOSE_FILE, and VOLUME_SUFFIX can be overridden
+# via environment variables for testing against a throwaway stack,
+# matching scripts/backup.sh and scripts/deploy.sh. VOLUME_SUFFIX must
+# match compose.dev.yml's own volume naming (e.g. VOLUME_SUFFIX=_dev)
+# when testing against that file — see scripts/backup.sh's matching
+# comment for why this matters and how it was found.
 set -e
 
 COMPOSE_FILE="${COMPOSE_FILE:-compose.prod.yml}"
 SERVICE_PREFIX="${SERVICE_PREFIX:-django-crm}"
+VOLUME_SUFFIX="${VOLUME_SUFFIX:-}"
 REPO_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 BACKUPS_DIR="$REPO_DIR/backups"
 DB_CONTAINER="${SERVICE_PREFIX}_db_1"
@@ -124,7 +128,7 @@ wait_for_health() {
 # for some other reason, that's still a hard stop.
 if podman container exists "$DB_CONTAINER" 2>/dev/null; then
 	echo "--- taking a safety backup of current state before restoring ---"
-	COMPOSE_FILE="$COMPOSE_FILE" SERVICE_PREFIX="$SERVICE_PREFIX" "$REPO_DIR/scripts/backup.sh" || {
+	COMPOSE_FILE="$COMPOSE_FILE" SERVICE_PREFIX="$SERVICE_PREFIX" VOLUME_SUFFIX="$VOLUME_SUFFIX" "$REPO_DIR/scripts/backup.sh" || {
 		echo "ERROR: pre-restore safety backup failed — refusing to proceed with a destructive restore" >&2
 		echo "without one. Investigate why the safety backup failed first." >&2
 		exit 1
@@ -138,19 +142,20 @@ podman-compose -f "$COMPOSE_FILE" down || true
 
 echo "--- removing current database and volumes (data is being replaced from the backup) ---"
 for vol in postgres_data media_files caddy_data caddy_config; do
-	podman volume rm "${SERVICE_PREFIX}_${vol}" 2>/dev/null || true
+	podman volume rm "${SERVICE_PREFIX}_${vol}${VOLUME_SUFFIX}" 2>/dev/null || true
 done
 
 echo "--- recreating volumes from the backup ---"
 for vol in media_files caddy_data caddy_config; do
-	podman volume create "${SERVICE_PREFIX}_${vol}" >/dev/null
-	podman volume import "${SERVICE_PREFIX}_${vol}" "$SRC/${vol}.tar"
+	fullname="${SERVICE_PREFIX}_${vol}${VOLUME_SUFFIX}"
+	podman volume create "$fullname" >/dev/null
+	podman volume import "$fullname" "$SRC/${vol}.tar"
 done
 # postgres_data is NOT imported from a volume tar — pg_dump/pg_restore
 # is the mechanism here (see docs/ARCHITECTURE.md's "logical dumps"
 # decision), so this volume is left for the db container's own
 # from-empty initialization below, then populated via pg_restore.
-podman volume create "${SERVICE_PREFIX}_postgres_data" >/dev/null
+podman volume create "${SERVICE_PREFIX}_postgres_data${VOLUME_SUFFIX}" >/dev/null
 
 echo "--- starting db only, so it can initialize an empty database first ---"
 timeout 300 podman-compose -f "$COMPOSE_FILE" up -d db ||
