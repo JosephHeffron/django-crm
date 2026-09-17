@@ -5,12 +5,16 @@ Close Procedure). Do not describe anything as complete unless it was
 actually verified.
 
 > **Last updated 2026-09-17.** Repo is clean (`main` up to date, nothing
-> uncommitted). **Phase 12 (Logging and monitoring) is now fully
-> complete** (health-check endpoint, application logging review). Next:
-> Phase 13 — Final production audit — see "Next" below. Note: the
-> GitHub repo was switched from public to private by the user
-> (Sourcery's free tier no longer reviews it as a result — not a
-> rate-limit, a plan/access change).
+> uncommitted). **Phase 13 (Final production audit) is in progress** —
+> unit 1 (production readiness audit) is merged; unit 2 (clean-
+> environment end-to-end test) is next — see "Next" below. Note: the
+> GitHub repo, switched from public to private earlier in the project,
+> is now **public again** — Phase 13 unit 1's audit found branch
+> protection and secret scanning had been silently disabled while
+> private (both are gated behind GitHub Pro on the free plan); the
+> user chose to go public again rather than pay for Pro, and both
+> protections are restored. Sourcery's automated review is available
+> again as a result.
 
 ## Project version
 
@@ -557,15 +561,40 @@ Phase 3 — see Known Issues below.
 
 **Phase 12 (Logging and monitoring) is now fully complete.**
 
+- Phase 13 unit 1 — Production readiness audit (PR #74):
+  `docs/PRODUCTION_READINESS.md` synthesizes every prior review
+  (Phases 2, 5, 6, 8, 9, 11, 12) into one consolidated picture, with
+  fresh live re-verification of a sample of the most safety-critical
+  claims (deploy checks, ruff/bandit/pip-audit, a live `psql \d+
+  crm_deal` confirming `Deal`'s `CheckConstraint`s are still present,
+  zero open Dependabot alerts) — **no drift found anywhere checked**.
+  **Found one new, real HIGH finding no prior phase covered**: branch
+  protection and secret scanning had been silently disabled on GitHub
+  ever since the repo switched to private (both gated behind GitHub
+  Pro for private repos on the free plan) — confirmed directly via the
+  API. Presented to the user as a real trade-off (stay private and
+  accept the gap, upgrade to GitHub Pro, or go public again); the user
+  chose to make the repository **public again**. Executed and
+  verified: branch protection restored to its exact original
+  documented settings, secret scanning/push protection re-enabled
+  automatically. Two HIGH items remain genuinely open (off-host
+  backup storage; a residual manual check of the real `.env`), both
+  correctly identified as blocked on something outside this audit's
+  reach. 303 tests total (unchanged). Full detail in
+  `logs/claude/phase-13-production-readiness.md`.
+
 ## Currently working on
 
-Nothing in progress.
+Phase 13 unit 2 — a clean-environment end-to-end test (not yet
+started).
 
 ## Next
 
-1. Phase 13 — Final production audit: a full architecture/security/
-   ARM64 audit (`docs/PRODUCTION_READINESS.md`), remediation of any
-   critical/high findings, a clean-environment end-to-end test.
+1. Phase 13 unit 2 — a clean-environment end-to-end test: starting
+   from a fresh checkout and following only the documented setup
+   steps (no assumed tribal knowledge), prove the system actually
+   works as documented for a first-time deployer. Phase 13 will be
+   complete once this merges.
 
 ## Known issues
 
