@@ -5,13 +5,12 @@ Close Procedure). Do not describe anything as complete unless it was
 actually verified.
 
 > **Last updated 2026-09-17.** Repo is clean (`main` up to date, nothing
-> uncommitted). **Phase 11 (Backups and disaster recovery) is fully
-> complete.** Phase 12 (Logging and monitoring) is in progress — unit 1
-> (health-check endpoint) is merged; unit 2 (application logging
-> review) is next — see "Next" below. Note: the GitHub repo was
-> switched from public to private by the user (Sourcery's free tier no
-> longer reviews it as a result — not a rate-limit, a plan/access
-> change).
+> uncommitted). **Phase 12 (Logging and monitoring) is now fully
+> complete** (health-check endpoint, application logging review). Next:
+> Phase 13 — Final production audit — see "Next" below. Note: the
+> GitHub repo was switched from public to private by the user
+> (Sourcery's free tier no longer reviews it as a result — not a
+> rate-limit, a plan/access change).
 
 ## Project version
 
@@ -536,19 +535,37 @@ Phase 3 — see Known Issues below.
   through the full Caddy proxy chain) and unhealthy (real 503) when
   `db` is stopped. 299 tests total (296 + 3 new). Full detail in
   `logs/claude/phase-12-health-endpoint.md`.
+- Phase 12 unit 2 — Application logging review (PR #72), the final
+  Phase 12 unit: `docs/LOGGING_REVIEW.md`. **Found and fixed a real
+  HIGH finding**: Django's default logging config gates its only
+  console handler behind `DEBUG=True`, and its one production-active
+  handler (`mail_admins`) is a silent no-op without `ADMINS`
+  configured (never set here) — confirmed live that an unhandled
+  production view exception logged nowhere at all, by simulating
+  Django's own exception-logging call
+  (`django.utils.log.request_logger.error(..., exc_info=True)`,
+  verified against Django's source) under real production settings.
+  Fixed with an explicit `LOGGING` setting in `config/settings/
+  base.py`: the `django` logger gets its own unconditional handler,
+  everything else reaches a root-level handler via propagation —
+  same journald delivery path as gunicorn/Caddy/PostgreSQL's logs, no
+  new infrastructure. **Caught and fixed a duplicate-logging bug in
+  the fix's own design** before ever committing it, by testing the
+  design live first. Confirmed no sensitive data anywhere in what
+  gets logged. 303 tests total (299 + 4 new). Full detail in
+  `logs/claude/phase-12-logging-review.md`.
+
+**Phase 12 (Logging and monitoring) is now fully complete.**
 
 ## Currently working on
 
-Phase 12 unit 2 — an application logging review (what's logged, what
-never is) (not yet started).
+Nothing in progress.
 
 ## Next
 
-1. Phase 12 unit 2 — an application logging review: what Django/this
-   project currently logs (or doesn't), whether anything sensitive
-   ever ends up in logs, and how production log output actually
-   reaches an operator (journald, per Phases 7-11's own testing).
-   Phase 12 will be complete once this merges.
+1. Phase 13 — Final production audit: a full architecture/security/
+   ARM64 audit (`docs/PRODUCTION_READINESS.md`), remediation of any
+   critical/high findings, a clean-environment end-to-end test.
 
 ## Known issues
 
