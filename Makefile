@@ -31,13 +31,20 @@ check:
 	$(VENV)/python manage.py check
 	$(VENV)/python manage.py makemigrations --check --dry-run
 
-# Not implemented yet — these belong to later roadmap phases and would
-# otherwise silently no-op instead of honestly failing.
 build:
-	@echo "make build: not implemented until the Containerization phase (see docs/ROADMAP.md)"; exit 1
+	podman build -t django-crm -f Containerfile .
 
+# Validates ARM64 compatibility under qemu-user-static emulation — see
+# docs/ARM64_REVIEW.md/docs/ARM64_TESTING.md. Not a substitute for
+# testing on real Raspberry Pi hardware, which this project doesn't
+# have yet.
 arm64:
-	@echo "make arm64: not implemented until the ARM64 deployment phase (see docs/ROADMAP.md)"; exit 1
+	./scripts/test-arm64.sh
 
+# Runs against the real production stack (compose.prod.yml) by
+# default — see docs/ADMIN_GUIDE.md's "Backups" section, and
+# scripts/backup.sh's own header comment for the environment
+# variables that let this target run against a throwaway stack
+# instead.
 backup:
-	@echo "make backup: not implemented until the Backups/disaster recovery phase (see docs/ROADMAP.md)"; exit 1
+	./scripts/backup.sh

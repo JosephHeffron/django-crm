@@ -65,7 +65,20 @@ into a transcript — redact as `[REDACTED]`.
 
 ## Git operation logs
 
-`logs/git/commits.md` — one entry per meaningful commit:
+`logs/git/commits.md` and `logs/git/branches.md` originally recorded one
+entry per meaningful commit and one line per branch
+created/merged/deleted, in the formats below. In practice, from Phase 4
+unit 2 onward, `logs/claude/phase-<n>-<slug>.md` — one file per unit,
+covering objective, files changed, commands run, test results, decisions,
+errors, lessons learned, and git details (branch, PR number, commit/merge
+hash, migration) — has served as the actual per-unit record instead. It
+captures everything these two files tracked plus substantially more
+context, and has been kept consistently for every unit since. Continue
+writing a phase log per unit; `commits.md`/`branches.md` are kept for
+historical reference but are not actively appended to. Both files carry a
+closing note explaining this.
+
+Historical format, `logs/git/commits.md`:
 
 ```
 YYYY-MM-DD
@@ -78,11 +91,13 @@ Reviewer: Human
 Status: READY
 ```
 
-`logs/git/branches.md` — one line per branch created/merged/deleted (Claude
-never deletes a branch without explicit instruction — record who asked).
+Historical format, `logs/git/branches.md` — one line per branch
+created/merged/deleted (Claude never deletes a branch without explicit
+instruction — record who asked).
 
 `logs/git/releases.md` — one entry per tagged release (once releases start,
-in a later phase).
+in a later phase). Unlike the other two, this one is still current — no
+releases have started yet.
 
 ## Failure log
 

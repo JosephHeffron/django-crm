@@ -34,24 +34,33 @@ django-crm/
 │   ├── wsgi.py
 │   └── asgi.py
 ├── apps/
-│   ├── core/                # cross-cutting: health checks, base templates,
-│   │                         #   shared utilities, error pages
+│   ├── core/                # cross-cutting: health check, dashboard, search,
+│   │                         #   base template, error pages
 │   ├── users/                # authentication, permissions, user profile
 │   └── crm/                  # domain: companies, contacts, leads, deals,
-│                              #   activities, tasks, search, dashboard
+│                              #   activities, tasks
 ├── templates/                # project-level template overrides/base layout
-├── static/                   # project-level CSS/JS
+├── static/                   # project-level CSS (no JS build step)
 ├── media/                    # user-uploaded files (gitignored)
-├── containers/
-│   ├── django/Containerfile
-│   └── caddy/Caddyfile
-├── compose/
-│   ├── compose.dev.yml
-│   └── compose.prod.yml
-├── systemd/crm.service
-├── scripts/{backup,restore,deploy}.sh
-└── docs/
+├── Containerfile              # production Django image
+├── Caddyfile, Caddyfile.dev   # production / local-staging reverse proxy config
+├── compose.dev.yml, compose.prod.yml
+├── systemd/
+│   ├── crm.service                        # the app stack
+│   └── crm-backup.service, crm-backup.timer  # scheduled backups
+├── scripts/{entrypoint,deploy,backup,restore,test-arm64}.sh
+├── docs/                      # architecture, design, and every phase's own
+│                               #   review/audit document
+└── logs/claude/                # phase-by-phase build log
 ```
+
+`Containerfile`/`Caddyfile`/`compose.*.yml` live at the repository
+root rather than nested under `containers/`/`compose/` subdirectories
+— an earlier version of this sketch showed the nested layout; it was
+deliberately not followed when those files were first added in Phase
+7-8, to avoid unnecessary reorganization churn (see
+`logs/claude/phase-07-django-container.md`). This tree reflects what
+actually exists, not the original plan.
 
 `config/` never contains CRM domain logic — it is wiring only. Each Django
 app under `apps/` owns its own models, views, forms, templates, and tests.

@@ -65,4 +65,3 @@ coverage.xml
 # intentionally NOT covered by this rule)
 *.log
 *.pid
-containers/**/*.local
