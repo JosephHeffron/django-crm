@@ -137,12 +137,15 @@ code was touched, and the verification stack was clean on the first run.
 ## Git
 
 Branch: `chore/final-repository-cleanup`
-Commit: pending
-Merged to `main`: pending
+Commit: `79ace58`
+Merged to `main`: `ce9d94c` (regular merge commit, PR #80 — CI green:
+`test` + `dependency-audit` both pass; Sourcery hit its free-tier
+review-budget limit again, summary/reviewer's guide only, same pattern
+as the last two PRs)
 
 ## Next
 
-None — this is the final unit of the final phase. Once merged, close out
-with a `docs/PROJECT_STATE.md` update, `docs/ROADMAP.md`'s Phase 14
-checkbox, and a project-complete note, per the standard close-out
-procedure.
+None — this was the final unit of the final phase. Closed out with a
+`docs/PROJECT_STATE.md` update and `docs/ROADMAP.md`'s Phase 14
+checkbox, per the standard close-out procedure — this marks the entire
+14-phase roadmap complete.

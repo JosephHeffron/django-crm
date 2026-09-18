@@ -5,11 +5,9 @@ Close Procedure). Do not describe anything as complete unless it was
 actually verified.
 
 > **Last updated 2026-09-17.** Repo is clean (`main` up to date, nothing
-> uncommitted). **Phase 13 (Final production audit) is fully
-> complete.** Phase 14 (Documentation and handoff) — the project's
-> final phase — is in progress: unit 1 (admin + developer guides) is
-> merged; unit 2 (final repository cleanup) is next — see "Next"
-> below.
+> uncommitted). **Phase 14 (Documentation and handoff) is fully
+> complete, and with it, the entire 14-phase roadmap.** See
+> "Project complete" below.
 > Note: the GitHub repo, switched from public to private earlier in the
 > project, is now **public again** — Phase 13 unit 1's audit found
 > branch protection and secret scanning had been silently disabled
@@ -622,19 +620,64 @@ Phase 3 — see Known Issues below.
   quoted install commands match its own header exactly) against the
   actual codebase before writing. 303 tests total (unchanged). Full
   detail in `logs/claude/phase-14-admin-developer-guides.md`.
+- Phase 14 unit 2 — Final repository cleanup (PR #80), the final unit
+  of the final phase: fixed `docs/ARCHITECTURE.md`'s stale nested
+  `containers/`/`compose/` file-layout sketch to match the real
+  root-level layout; brought `CHANGELOG.md` up to date from roughly
+  Phase 5 through Phase 14; wired the long-stubbed `Makefile`
+  `build`/`arm64`/`backup` targets to their real scripts; removed the
+  confirmed-unused `pytest`/`pytest-django` dev dependency, resolving a
+  standing LOW finding from `docs/DEPENDENCY_AUDIT.md`/
+  `docs/PRODUCTION_READINESS.md`; removed a leftover `.gitignore` rule
+  from the original (never-built) nested container layout. **Found**
+  that `logs/git/commits.md`/`logs/git/branches.md` — a
+  `docs/AI_RULES.md`-mandated practice — silently stopped being
+  maintained after Phase 4 unit 1, superseded in practice by the
+  richer `logs/claude/phase-*.md` per-unit log; rather than a
+  low-value retroactive backfill, added closing notes to both files
+  and updated `docs/AI_RULES.md`'s "Git operation logs" section to
+  reflect current, actual practice. 303 tests total (unchanged). Full
+  detail in `logs/claude/phase-14-final-cleanup.md`.
+
+**Phase 14 (Documentation and handoff) is now fully complete — this
+also completes the entire 14-phase roadmap.**
+
+## Project complete
+
+All 14 roadmap phases (`docs/ROADMAP.md`) are done. The application
+covers its full initial release scope (Companies, Contacts, Leads,
+Deals, Activities, Tasks, Search, Dashboard, Users/Permissions — Notes
+was folded into Activities' "note" type rather than built as a
+separate model) and the full production path (containerization, Caddy/
+HTTPS, ARM64 compatibility, systemd deployment, backups/DR, logging,
+health checks, a final production audit, and admin/developer
+documentation).
+
+**Not yet done, deliberately outside this roadmap's scope:**
+- Actual deployment to a physical Raspberry Pi 5 — no hardware acquired
+  yet; everything ARM64-related has been verified only under
+  `qemu-user-static` emulation (see `docs/ARM64_REVIEW.md`/
+  `docs/ARM64_TESTING.md`).
+- The two HIGH findings tracked in `docs/PRODUCTION_READINESS.md` that
+  remain genuinely open: off-host backup storage (needs a concrete
+  destination the user hasn't chosen yet) and a residual manual check
+  of the real `.env` for a stale `DJANGO_SETTINGS_MODULE` line (needs
+  direct access to that file, which policy never grants an AI
+  assistant).
+- Email integration, calendar integration, reporting, file attachments,
+  APIs, and mobile-specific functionality — explicitly deferred past
+  initial release per `docs/ROADMAP.md`'s "Initial release scope".
 
 ## Currently working on
 
-Phase 14 unit 2 — final repository cleanup (not yet started).
+Nothing — the roadmap is complete. Future work would be a new,
+explicitly-scoped initiative (e.g. actual Pi deployment, or a
+post-release feature), not a continuation of this roadmap.
 
 ## Next
 
-1. Phase 14 unit 2 — final repository cleanup: known stale references
-   (`docs/ARCHITECTURE.md`'s original nested `containers/`/`compose/`
-   file-layout sketch no longer matches the real root-level layout;
-   `CHANGELOG.md` stops at roughly Phase 5, missing Phases 6-13
-   entirely) plus a general consistency pass. Phase 14 — the final
-   phase — will be complete once this merges.
+None currently queued. See "Project complete" above for what's
+deliberately out of scope and would need its own decision to start.
 
 ## Known issues
 

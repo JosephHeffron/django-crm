@@ -52,8 +52,12 @@ begins. See `CLAUDE.md` for the workflow this repository follows.
 - [x] **Phase 13 — Final production audit.** Full architecture/security/ARM64
       audit (`docs/PRODUCTION_READINESS.md`), remediation of critical/high
       findings, a clean-environment end-to-end test.
-- [ ] **Phase 14 — Documentation and handoff.** `docs/ADMIN_GUIDE.md`,
-      `docs/DEVELOPER_GUIDE.md`, final repository cleanup.
+- [x] **Phase 14 — Documentation and handoff.** `docs/ADMIN_GUIDE.md`,
+      `docs/DEVELOPER_GUIDE.md`, final repository cleanup. Done in 2
+      units — full detail in `logs/claude/phase-14-*.md`.
+
+**This completes the 14-phase roadmap and the project's initial release
+scope (see below).**
 
 ## Initial release scope
 
