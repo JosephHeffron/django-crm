@@ -81,12 +81,17 @@ a phase's own work demonstrates the simpler approach is actually
 insufficient.
 
 - [ ] **Phase 15 — Backup hardening.** Off-host backup storage (closes
-      `docs/PRODUCTION_READINESS.md`'s one open HIGH finding) and
-      encrypted backup archives. Deliberately scoped to a cloud/
-      software-only destination (e.g. `restic`/`rclone` pushing the
-      existing backup archive to Backblaze B2 or similar) rather than a
-      second local drive, so this doesn't wait on hardware the user
-      doesn't have yet.
+      the open backup-storage HIGH finding in
+      `docs/PRODUCTION_READINESS.md` — a separate HIGH finding, a
+      possibly-stale production `.env` setting, remains outside this
+      phase's scope, since resolving it needs direct access to the
+      real `.env` file, which policy never grants) and encrypted backup
+      archives. Deliberately scoped to a cloud/software-only
+      destination — `restic` (client-side encryption by default) or an
+      `rclone crypt` remote, not a plain `rclone` copy, which would
+      upload `.env`/database credentials to the destination
+      unencrypted — rather than a second local drive, so this doesn't
+      wait on hardware the user doesn't have yet.
 - [ ] **Phase 16 — Browser-verified security review.** Revisit the CSP
       (Content-Security-Policy) header deferred in
       `docs/PRODUCTION_CONFIG_REVIEW.md`, which needs a real-browser
