@@ -311,3 +311,18 @@ Tests: 181 passed (up from 161); test + dependency-audit passed on PR
 Migration: none
 Reviewer: Human (+ sourcery-ai bot review, no findings)
 Status: READY
+
+---
+
+From Phase 4 unit 2 onward, this per-commit log was superseded in
+practice by `logs/claude/phase-*.md` — a phase-log per unit that
+records the same information this file tracked (branch, commit hash,
+merge hash, test count, migration, reviewer approval) plus
+substantially more (exact commands run, real bugs found and how they
+were fixed, decisions made and why, lessons learned). That richer
+record has been kept consistently and rigorously for every phase
+since, including this project's very last phase. Noted here — during
+Phase 14 unit 2's final repository cleanup — so a future reader isn't
+left wondering why this file stops rather than assuming the practice
+was silently abandoned. See `docs/AI_RULES.md`'s "Git operation logs"
+section, updated the same day, for the current, actual practice.

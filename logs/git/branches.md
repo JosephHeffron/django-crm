@@ -71,3 +71,14 @@ Format: `YYYY-MM-DD | created|merged|deleted | <branch> | requested by`
 2026-09-11 | created | feature/activity-timeline | Claude, user approved
 2026-09-11 | merged (PR #29, squash) | feature/activity-timeline | user approved
 2026-09-11 | deleted (remote, on merge; local, by Claude after sync) | feature/activity-timeline | user approved
+
+---
+
+From Phase 4 unit 2 onward, this per-branch log was superseded in
+practice by `logs/claude/phase-*.md`, which records each unit's branch
+name, PR number, and merge outcome alongside substantially more detail.
+That richer record has been kept consistently for every phase since.
+Noted here — during Phase 14 unit 2's final repository cleanup — for
+the same reason given in `logs/git/commits.md`'s matching note. See
+`docs/AI_RULES.md`'s "Git operation logs" section for the current,
+actual practice.

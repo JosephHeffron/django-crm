@@ -20,9 +20,10 @@ pip install -r requirements.txt -r requirements-dev.txt
 pre-commit install
 ```
 
-`requirements-dev.txt` adds linting (`ruff`), testing (`pytest`/
-`pytest-django`), and security scanning (`bandit`, `pip-audit`) on top of
-the runtime dependencies. `pre-commit install` wires up the hooks in
+`requirements-dev.txt` adds linting (`ruff`) and security scanning
+(`bandit`, `pip-audit`) on top of the runtime dependencies — tests run via
+`manage.py test`, Django's own built-in runner, not a separate `pytest`
+dependency. `pre-commit install` wires up the hooks in
 `.pre-commit-config.yaml` so lint/format/basic secret checks run before
 every commit. Or use `make setup` to do the venv + install in one step.
 
