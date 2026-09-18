@@ -71,18 +71,22 @@ explicitly deferred until this scope is working reliably on the Raspberry Pi.
 The initial release scope above is done. The phases below pick up the
 functionality it deliberately deferred, plus hardening work identified
 along the way (`docs/PRODUCTION_READINESS.md`'s still-open findings).
-Not yet started, not yet ordered by priority beyond the sequence below,
-and — per `CLAUDE.md`'s architectural complexity rule — none of them
-justify a new infrastructure dependency (Celery, Redis, a JS framework,
-etc.) unless a phase's own work demonstrates the simpler approach is
-actually insufficient.
+Not yet started. Ordered so that Phase 22 (the one item genuinely
+blocked on hardware the user doesn't have yet — a physical Raspberry Pi
+5) sits last and gates nothing before it; Phases 15-21 are all
+software-only and can proceed regardless of hardware acquisition. Per
+`CLAUDE.md`'s architectural complexity rule, none of them justify a new
+infrastructure dependency (Celery, Redis, a JS framework, etc.) unless
+a phase's own work demonstrates the simpler approach is actually
+insufficient.
 
-- [ ] **Phase 15 — Backup hardening and real hardware validation.**
-      Off-host backup storage (closes `docs/PRODUCTION_READINESS.md`'s
-      one open HIGH finding), encrypted backup archives, and an actual
-      deployment test on physical Raspberry Pi 5 hardware (everything
-      ARM64 so far has only been verified under `qemu-user-static`
-      emulation).
+- [ ] **Phase 15 — Backup hardening.** Off-host backup storage (closes
+      `docs/PRODUCTION_READINESS.md`'s one open HIGH finding) and
+      encrypted backup archives. Deliberately scoped to a cloud/
+      software-only destination (e.g. `restic`/`rclone` pushing the
+      existing backup archive to Backblaze B2 or similar) rather than a
+      second local drive, so this doesn't wait on hardware the user
+      doesn't have yet.
 - [ ] **Phase 16 — Browser-verified security review.** Revisit the CSP
       (Content-Security-Policy) header deferred in
       `docs/PRODUCTION_CONFIG_REVIEW.md`, which needs a real-browser
@@ -109,6 +113,14 @@ actually insufficient.
       for login (e.g. `django-otp`) — a reasonable, well-scoped
       dependency addition given this is a public-facing admin-style
       tool.
+- [ ] **Phase 22 — Real Raspberry Pi hardware validation.** Blocked —
+      no physical Raspberry Pi 5 acquired yet. Everything ARM64-related
+      so far has only been verified under `qemu-user-static` emulation
+      (`docs/ARM64_REVIEW.md`/`docs/ARM64_TESTING.md`), which proves
+      ABI compatibility but not real-world performance (SD card I/O,
+      thermal throttling, gunicorn worker tuning). Deliberately placed
+      last and not a prerequisite for Phases 15-21 — none of that work
+      depends on physical hardware.
 
 **Deliberately not planned, and not a default even after the above:** a
 REST API (only justified by a concrete integration need — a mobile
