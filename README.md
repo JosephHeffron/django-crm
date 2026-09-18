@@ -1,10 +1,48 @@
 # Django CRM
 
-Self-hosted CRM built as a Django monolith with server-rendered templates
-and PostgreSQL. See `CLAUDE.md` for the development contract (including AI
+A free, open-source, self-hosted CRM (customer relationship management)
+system built as a Django monolith with server-rendered templates and
+PostgreSQL — no SPA framework, no SaaS subscription, no vendor lock-in.
+Designed to run on your own hardware (built for and deployed to a
+Raspberry Pi 5 via Podman and Caddy) as a lightweight, privacy-friendly
+alternative to commercial CRM software for a small business, freelancer,
+or homelab.
+
+See `CLAUDE.md` for the development contract (including AI
 operating rules — `docs/AI_RULES.md` has the detailed procedures), and
 `docs/ARCHITECTURE.md` / `docs/ROADMAP.md` for the system design and phased
 build-out plan. `docs/PROJECT_STATE.md` has the current status snapshot.
+
+## Features
+
+- **Companies & Contacts** — searchable, filterable records with linked
+  deal and activity history.
+- **Leads** — capture leads and convert them into Contacts/Companies/
+  Deals through a guided conversion workflow.
+- **Deals** — a sales pipeline with stage tracking, probability, and
+  value.
+- **Tasks** — assignable to-dos with due dates and priorities, "my
+  tasks"/"overdue" views, and one-click completion.
+- **Activity timeline** — calls, meetings, emails, and notes logged
+  against any Company, Contact, Lead, or Deal.
+- **Global search** across Companies, Contacts, Leads, Deals, and Tasks.
+- **Operational dashboard** — pipeline breakdown by stage, pending
+  tasks, recent activity.
+- **Audit history** — who changed what, and when, on every core record.
+- **Role-based permissions** — a "Staff" group gates create/edit/
+  deactivate actions; superusers bypass automatically.
+- **Production-ready self-hosted deployment** — rootless Podman
+  containers, a Caddy reverse proxy with automatic HTTPS, systemd
+  service management, scheduled PostgreSQL backups with a tested
+  disaster-recovery procedure, and verified ARM64/Raspberry Pi
+  compatibility.
+
+## Documentation
+
+- `docs/USER_GUIDE.md` — how to use the CRM day to day (Companies,
+  Contacts, Leads, Deals, Activities, Tasks, search, dashboard).
+- `docs/ADMIN_GUIDE.md` — deploying and operating it in production.
+- `docs/DEVELOPER_GUIDE.md` — orientation for contributing to the code.
 
 ## Development setup
 
