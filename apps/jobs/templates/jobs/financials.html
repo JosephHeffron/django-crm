@@ -1,0 +1,174 @@
+{% extends "base.html" %}
+{% load crm_format %}
+
+{% block title %}Financials{% endblock %}
+
+{% block content %}
+  <div class="page-header">
+    <div>
+      <h1>Financials</h1>
+      <p class="page-subtitle">{{ period.label }}{% if period.preset != "custom" %} · {{ period.first|date:"M j, Y" }}{% if period.last != period.first %} – {{ period.last|date:"M j, Y" }}{% endif %}{% endif %}</p>
+    </div>
+  </div>
+
+  <div class="cal-toolbar">
+    <nav class="tabs" aria-label="Period">
+      {% for key, label, current in presets %}
+        <a class="tab" href="?range={{ key }}"{% if current %} aria-current="page"{% endif %}>{{ label }}</a>
+      {% endfor %}
+    </nav>
+    <form method="get" class="filter-form cal-filter">
+      <input type="hidden" name="range" value="custom">
+      <label for="id_start" class="sr-only">From</label>
+      <input type="date" id="id_start" name="start" value="{% if period.preset == 'custom' %}{{ period.first|date:'Y-m-d' }}{% endif %}" required>
+      <label for="id_end" class="sr-only">To</label>
+      <input type="date" id="id_end" name="end" value="{% if period.preset == 'custom' %}{{ period.last|date:'Y-m-d' }}{% endif %}" required>
+      <button type="submit" class="btn-sm">Show range</button>
+    </form>
+  </div>
+
+  {% if period_error %}
+    <ul class="messages" role="status"><li class="message warning">{{ period_error }} Showing this month instead.</li></ul>
+  {% endif %}
+
+  <div class="stat-grid">
+    <div class="stat-card">
+      <div class="stat-label">Revenue</div>
+      <div class="stat-value">{{ summary.revenue|money }}</div>
+      <div class="stat-meta">{{ summary.invoice_count }} invoice{{ summary.invoice_count|pluralize }}{% if summary.average_invoice %}, avg {{ summary.average_invoice|money }}{% endif %}</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Collected</div>
+      <div class="stat-value">{{ summary.collected|money }}</div>
+      <div class="stat-meta">Payments received</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Expenses</div>
+      <div class="stat-value">{{ summary.expenses|money }}</div>
+      <div class="stat-meta">Recorded costs</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Net</div>
+      <div class="stat-value{% if summary.net < 0 %} is-negative{% endif %}">{{ summary.net|money }}</div>
+      <div class="stat-meta">Revenue − expenses</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Jobs completed</div>
+      <div class="stat-value">{{ summary.jobs_completed }}</div>
+      <div class="stat-meta">In this period</div>
+    </div>
+  </div>
+
+  <section class="card">
+    <h2 class="card-title" id="trend-title">Revenue and expenses</h2>
+    {% if chart %}
+      <div class="chart-legend" aria-hidden="true">
+        <span><span class="legend-swatch legend-revenue"></span>Revenue</span>
+        <span><span class="legend-swatch legend-expenses"></span>Expenses</span>
+        <span class="muted">per {{ chart.kind }}</span>
+      </div>
+      <svg class="chart" viewBox="0 0 {{ chart.width }} {{ chart.height }}" role="img" aria-labelledby="trend-title" preserveAspectRatio="none">
+        <line class="chart-axis" x1="0" x2="{{ chart.width }}" y1="{{ chart.height }}" y2="{{ chart.height }}"/>
+        {% for bar in chart.bars %}
+          <rect class="bar-revenue" x="{{ bar.revenue_x }}" y="{{ bar.revenue_y }}" width="{{ bar.width }}" height="{{ bar.revenue_h }}"><title>{{ bar.label }}: revenue {{ bar.revenue|money }}</title></rect>
+          <rect class="bar-expenses" x="{{ bar.expenses_x }}" y="{{ bar.expenses_y }}" width="{{ bar.width }}" height="{{ bar.expenses_h }}"><title>{{ bar.label }}: expenses {{ bar.expenses|money }}</title></rect>
+        {% endfor %}
+      </svg>
+      <div class="chart-axis-labels" aria-hidden="true">
+        {% for label in chart.axis_labels %}<span>{{ label }}</span>{% endfor %}
+      </div>
+      <details class="chart-table">
+        <summary>Show as a table</summary>
+        <div class="table-responsive">
+          <table class="data-table">
+            <thead><tr><th>{{ chart.kind|capfirst }} of</th><th class="text-right">Revenue</th><th class="text-right">Expenses</th></tr></thead>
+            <tbody>
+              {% for bar in chart.bars %}
+                <tr><td>{{ bar.start|date:"M j, Y" }}</td><td class="text-right">{{ bar.revenue|money }}</td><td class="text-right">{{ bar.expenses|money }}</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </details>
+    {% else %}
+      <p class="muted">Pick a longer period to see a trend.</p>
+    {% endif %}
+  </section>
+
+  <div class="grid-2 section-gap">
+    <section class="card">
+      <h2 class="card-title">Revenue by service</h2>
+      {% if by_service %}
+        <ul class="share-list">
+          {% for row in by_service %}
+            <li class="tone-{{ row.service_type__tone }}">
+              <div class="share-row"><span>{{ row.service_type__name }}</span><span>{{ row.total|money }} <span class="muted">({{ row.share }}%)</span></span></div>
+              <progress max="100" value="{{ row.share }}" aria-label="{{ row.service_type__name }}: {{ row.share }}% of revenue">{{ row.share }}%</progress>
+            </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p class="muted">No revenue in this period.</p>
+      {% endif %}
+    </section>
+
+    <section class="card">
+      <h2 class="card-title">Revenue by sales rep</h2>
+      {% if by_rep %}
+        <ul class="share-list">
+          {% for row in by_rep %}
+            <li>
+              <div class="share-row"><span>{{ row.name }} <span class="muted">· {{ row.jobs }} job{{ row.jobs|pluralize }}</span></span><span>{{ row.total|money }} <span class="muted">({{ row.share }}%)</span></span></div>
+              <progress max="100" value="{{ row.share }}" aria-label="{{ row.name }}: {{ row.share }}% of revenue">{{ row.share }}%</progress>
+            </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p class="muted">No revenue in this period.</p>
+      {% endif %}
+    </section>
+  </div>
+
+  <div class="grid-2 section-gap">
+    <section class="card">
+      <h2 class="card-title">Expenses by category</h2>
+      {% if by_category %}
+        <ul class="share-list">
+          {% for row in by_category %}
+            <li class="share-expense">
+              <div class="share-row"><span>{{ row.label }}</span><span>{{ row.total|money }} <span class="muted">({{ row.share }}%)</span></span></div>
+              <progress max="100" value="{{ row.share }}" aria-label="{{ row.label }}: {{ row.share }}% of expenses">{{ row.share }}%</progress>
+            </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p class="muted">No expenses recorded in this period.</p>
+      {% endif %}
+    </section>
+
+    <section class="card" id="outstanding">
+      <h2 class="card-title">Outstanding today</h2>
+      <p><strong>{{ outstanding.total|money }}</strong> <span class="muted">across {{ outstanding.count }} unpaid invoice{{ outstanding.count|pluralize }}</span></p>
+      <dl class="aging">
+        {% for bucket in aging %}
+          <dt>{{ bucket.label }}</dt>
+          <dd{% if bucket.key != "current" and bucket.total %} class="is-late"{% endif %}>{{ bucket.total|money }}</dd>
+        {% endfor %}
+      </dl>
+      {% if oldest_unpaid %}
+        <h3>Oldest unpaid</h3>
+        <ul class="list-plain">
+          {% for invoice in oldest_unpaid %}
+            {% with status=invoice|payment_status:today %}
+              <li>
+                <a href="{% url 'jobs:job_detail' invoice.job_id %}">{{ invoice.number }}</a> · {{ invoice.contact }}
+                <span class="muted">— {{ invoice.balance|money }} due {{ invoice.due_on|date:"M j" }}</span>
+                {% include "jobs/_status_badge.html" with status=status label=status|status_label %}
+              </li>
+            {% endwith %}
+          {% endfor %}
+        </ul>
+      {% endif %}
+    </section>
+  </div>
+{% endblock %}

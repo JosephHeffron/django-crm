@@ -18,6 +18,7 @@ from apps.users.roles import (
     user_role,
 )
 
+from . import reports
 from .access import invoices_for, jobs_for, quotes_for
 from .calendar import DEFAULT_VIEW, VIEWS, calendar_days, calendar_range
 from .forms import ServiceTypeForm
@@ -156,6 +157,42 @@ class QuoteDetailView(SalesRoleRequiredMixin, DetailView):
         context = super().get_context_data(**kwargs)
         context["line_items"] = self.object.line_items.select_related("service_type")
         context["jobs"] = self.object.jobs.select_related("primary_service_type")
+        return context
+
+
+class FinancialsView(OwnerRequiredMixin, TemplateView):
+    """Owner-only money page: revenue, collected, expenses and net for a
+    period; revenue by service and rep; expenses by category; what's
+    still owed and how late. Definitions live in apps/jobs/reports.py."""
+
+    template_name = "jobs/financials.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        params = self.request.GET
+        today = timezone.localdate()
+        period, error = reports.report_period(
+            params.get("range", "month"),
+            _parse_day(params.get("start")),
+            _parse_day(params.get("end")),
+            today,
+        )
+        summary = reports.summary(period)
+        kind, buckets = reports.trend(period)
+        context.update(
+            period=period,
+            period_error=error,
+            presets=[(key, label, key == period.preset) for key, label in reports.PRESETS.items()],
+            today=today,
+            summary=summary,
+            by_service=reports.revenue_by_service(period, summary["revenue"]),
+            by_rep=reports.revenue_by_rep(period, summary["revenue"]),
+            by_category=reports.expenses_by_category(period, summary["expenses"]),
+            aging=reports.aging(today),
+            outstanding=reports.outstanding(),
+            oldest_unpaid=reports.oldest_unpaid(),
+            chart=reports.chart_bars(kind, buckets) if len(buckets) > 1 else None,
+        )
         return context
 
 

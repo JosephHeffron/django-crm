@@ -6,7 +6,7 @@ from django.urls import reverse
 
 from apps.core.navigation import NAV_ITEMS
 from apps.crm.tests._helpers import grant_role
-from apps.users.roles import Role
+from apps.users.roles import OWNER_ONLY, Role
 
 User = get_user_model()
 PASSWORD = "correct-horse-battery"
@@ -94,10 +94,11 @@ class NavigationMatchesAccessForEveryRoleTests(TestCase):
         self.assertEqual(len(self._check(Role.OWNER)), len(NAV_ITEMS))
 
     def test_sales_rep(self):
-        # Everything but the Owner-only service catalog.
+        # Everything but the Owner-only pages (Financials, Services).
+        owner_only = {reverse(i.url_name) for i in NAV_ITEMS if i.roles == OWNER_ONLY}
+        self.assertEqual(owner_only, {reverse("jobs:financials"), reverse("jobs:service_list")})
         self.assertEqual(
-            self._check(Role.SALES_REP),
-            {reverse(i.url_name) for i in NAV_ITEMS} - {reverse("jobs:service_list")},
+            self._check(Role.SALES_REP), {reverse(i.url_name) for i in NAV_ITEMS} - owner_only
         )
 
     def test_cleaner(self):
