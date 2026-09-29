@@ -30,6 +30,11 @@ neither prior review's tooling could provide.
   CSP policy.
 - `docs/ROADMAP.md` — Phase 16's checkbox (checked in the close-out
   commit, per established pattern, not this one).
+- `static/css/error.css` — new. `templates/500.html`'s CSS, moved out
+  of an inline `<style>` block (Sourcery review fix, see below).
+- `templates/500.html` — links the external stylesheet instead.
+- `apps/core/tests/test_error_pages.py` — new regression test
+  (`test_500_template_has_no_inline_style`) asserting this stays fixed.
 
 ## Commands
 
@@ -94,8 +99,10 @@ Result: PASS.
 
 ## Tests
 
-`python manage.py test` — 303 passed, 0 failures (unchanged — this
-phase added no new Django views/models, only settings).
+`python manage.py test` — 304 passed, 0 failures (303 unchanged from
+before this phase, plus 1 new regression test —
+`test_500_template_has_no_inline_style` — added after the Sourcery
+review below).
 
 ## Decisions
 
@@ -124,6 +131,26 @@ phase added no new Django views/models, only settings).
   a real browser's console"), not a lesser substitute — this
   distinction is worth remembering for any future finding phrased as
   "needs a real browser."
+
+## Sourcery review (PR #88)
+
+One real finding, fixed before merge: this project's own custom
+`templates/500.html` had a genuinely inline `<style>` block with no
+nonce — my own earlier audit of this project's templates had grepped
+for `<script` but never `<style>`, missing it entirely. Worse, a
+nonce-based fix wasn't viable at all here: Django's default
+`handler500` (`django.views.defaults.server_error`) renders `500.html`
+with no context (`Context: None`, confirmed directly — calling
+`loader.get_template("500.html").render()` with no arguments, exactly
+as that view does), so `{% csp_nonce_attr %}` would render nothing
+regardless of the CSP context processor being installed. Fixed by
+moving the CSS to `static/css/error.css` and linking it as an external
+stylesheet — same-origin, so `style-src 'self'` permits it with no
+nonce needed. Re-verified live: added a temporary route (never
+committed) that deliberately raises an exception, triggered a real 500
+under full CSP enforcement, and confirmed via the browser's own
+`getComputedStyle` (not just a 200 status) that the stylesheet
+genuinely applied, plus zero CSP violations on that response.
 
 ## Errors
 

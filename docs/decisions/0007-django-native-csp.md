@@ -132,6 +132,28 @@ header with a real per-request nonce:
 Content-Security-Policy: default-src 'none'; script-src 'self' 'nonce-<...>'; style-src 'self' 'nonce-<...>'; img-src 'self'; font-src 'self'; connect-src 'self'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'; object-src 'none'
 ```
 
+**A real gap this same verification caught**: this project's own custom
+`templates/500.html` had a genuinely inline `<style>` block, un-nonced
+— Sourcery's review of the first version of this change (PR #88) caught
+it; my own earlier check of this project's templates had only grepped
+for `<script`, not `<style>`. Worse, a nonce-based fix wasn't even
+viable here: `django.views.defaults.server_error` (Django's default
+`handler500`) renders `500.html` with no context at all (`Context:
+None`, per that view's own docstring — confirmed by calling
+`loader.get_template("500.html").render()` directly, no request
+argument, the same way that view does), so `{% csp_nonce_attr %}`
+would have rendered nothing regardless. Fixed by moving the CSS to a
+static file (`static/css/error.css`) and linking it as an external,
+same-origin stylesheet instead — `style-src 'self'` permits that with
+no nonce needed, sidestepping the missing-context problem entirely
+rather than writing a custom `handler500` just to fix one CSS rule.
+Re-verified live: deliberately triggered a real 500 (a temporary test
+route raising an exception, never committed) under full CSP
+enforcement, confirmed via the browser's own computed style
+(`getComputedStyle(document.body).maxWidth` reporting the expected
+`512px`, i.e. `32rem`) that the stylesheet genuinely applied, not just
+loaded with a 200 — and confirmed zero CSP violations on that response.
+
 ## Reason
 
 Closes `docs/SECURITY_REVIEW.md` #6 and `docs/PRODUCTION_CONFIG_REVIEW.md`

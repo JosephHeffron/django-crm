@@ -40,3 +40,15 @@ class ServerErrorPageTests(TestCase):
     def test_500_template_renders_without_request_context(self):
         rendered = render_to_string("500.html")
         self.assertIn("Something went wrong", rendered)
+
+    def test_500_template_has_no_inline_style(self):
+        # Phase 16 (CSP): this template used to have an inline <style>
+        # block. Django's handler500 renders it with no request
+        # context (see the test above), so a CSP nonce was never a
+        # viable fix — this asserts the regression stays fixed: the
+        # stylesheet must stay external (same-origin, no nonce
+        # needed), not silently drift back to an inline block that a
+        # strict style-src would then block in production.
+        rendered = render_to_string("500.html")
+        self.assertNotIn("<style", rendered)
+        self.assertIn('<link rel="stylesheet" href="/static/css/error.css">', rendered)
