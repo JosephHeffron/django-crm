@@ -69,6 +69,22 @@ if [ -f "$REPO_DIR/.env" ]; then
 	. "$REPO_DIR/.env"
 	set +a
 fi
+RESTIC_TAG="${RESTIC_TAG:-django-crm}"
+
+# A local restic repository given as a relative path would otherwise
+# resolve against whatever directory happens to be current when restic
+# runs — this script cd's into $BACKUPS_DIR before calling `restic
+# backup` (below), while scripts/restore_offhost.sh runs from
+# $REPO_DIR, so the same relative path would silently mean two
+# different repositories between backup and restore. Anchoring it to
+# $REPO_DIR here (identically in both scripts) keeps them pointed at
+# the same repository regardless. Left untouched for an already-
+# absolute path or a backend URL (contains ":" — b2:bucket:path,
+# s3:..., sftp:..., etc.).
+case "$RESTIC_REPOSITORY" in
+/* | *:* | "") ;;
+*) RESTIC_REPOSITORY="$REPO_DIR/$RESTIC_REPOSITORY" ;;
+esac
 
 TIMESTAMP="$(date -u +%Y-%m-%dT%H-%M-%SZ)"
 DEST="$BACKUPS_DIR/$TIMESTAMP"
@@ -157,20 +173,28 @@ if [ -n "$RESTIC_REPOSITORY" ]; then
 	# Idempotent init: restic errors on `snapshots` against a repository
 	# that hasn't been initialized yet (first run only); every run
 	# after that finds it already initialized and skips straight to
-	# backup.
-	restic snapshots >/dev/null 2>&1 || restic init
+	# backup. The trailing `|| restic snapshots` tolerates a race
+	# between two concurrent first-ever backups (e.g. a manual run
+	# overlapping the scheduled timer): if the other process already
+	# initialized the repository in between, this process's own `restic
+	# init` fails, but the repository is genuinely usable now, so
+	# re-checking `snapshots` (rather than treating init's failure as
+	# fatal, which `set -e` otherwise would) reflects that correctly.
+	restic snapshots >/dev/null 2>&1 || restic init >/dev/null 2>&1 || restic snapshots >/dev/null 2>&1
 	# cd into BACKUPS_DIR first and reference the timestamp as a
 	# relative path — so the path restic stores (and later restores)
 	# is just "<timestamp>", not this host's own absolute filesystem
 	# path, which would otherwise have to match exactly for
 	# scripts/restore_offhost.sh's restore step to land the files back
 	# under backups/ directly.
-	( cd "$BACKUPS_DIR" && restic backup "$TIMESTAMP" --tag django-crm --host django-crm )
+	( cd "$BACKUPS_DIR" && restic backup "$TIMESTAMP" --tag "$RESTIC_TAG" --host "$RESTIC_TAG" )
 	echo "--- applying off-host retention (keep last $BACKUP_RETENTION_COUNT snapshots) ---"
-	# --tag scopes forget to snapshots this script created, in case the
-	# repository is ever shared with anything else — never prune based
-	# on the full, unscoped snapshot list.
-	restic forget --tag django-crm --keep-last "$BACKUP_RETENTION_COUNT" --prune
+	# --tag scopes forget to snapshots this script created (RESTIC_TAG,
+	# default "django-crm") — never prune based on the full, unscoped
+	# snapshot list. Override RESTIC_TAG if this repository is ever
+	# shared with another deployment, so retention/restore selection
+	# can't cross between them.
+	restic forget --tag "$RESTIC_TAG" --keep-last "$BACKUP_RETENTION_COUNT" --prune
 	echo "=== off-host push complete ==="
 else
 	echo "--- RESTIC_REPOSITORY not set in .env — skipping off-host push (local-only backup) ---"

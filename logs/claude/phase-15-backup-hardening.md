@@ -134,6 +134,37 @@ phase touched no Django application code).
   backend credentials), so this proves the mechanism genuinely works
   without requiring real cloud credentials to do so.
 
+## Sourcery review (PR #86)
+
+Three real findings, all fixed before merge:
+
+1. **Relative local `RESTIC_REPOSITORY` resolves against different
+   working directories in the two scripts** — `backup.sh` calls
+   `restic` from inside `$BACKUPS_DIR`, `restore_offhost.sh` from
+   `$REPO_DIR`; a relative path would silently mean two different
+   repositories. My own live drill never caught this because it always
+   used an absolute path. Fixed by anchoring any relative,
+   non-URL `RESTIC_REPOSITORY` to `$REPO_DIR` identically in both
+   scripts (a `case` statement checking for a leading `/` or a `:`,
+   which also correctly leaves backend URLs like `b2:bucket:path`
+   untouched). Verified in isolation: the same relative input resolves
+   to the same absolute path regardless of which script's `$REPO_DIR`
+   context it runs in.
+2. **Hard-coded `django-crm` tag** would let two deployments sharing
+   one restic repository prune or restore each other's snapshots.
+   Fixed with a new `RESTIC_TAG` variable (default `django-crm`,
+   documented in `.env.example`), used consistently for `--tag`/
+   `--host` in `backup.sh` and `--tag` in `restore_offhost.sh`.
+3. **TOCTOU race in the idempotent-init check** — two concurrent
+   first-ever backups could both see `restic snapshots` fail, both
+   attempt `restic init`, and the loser's failure would abort the
+   whole script under `set -e` despite the repository being genuinely
+   usable by then. Fixed by tolerating `restic init`'s failure and
+   re-checking `restic snapshots` once more before treating it as
+   fatal. Verified directly: initialized a repository, then reran the
+   fixed check pattern against the now-already-initialized repository
+   and confirmed it exits 0 rather than aborting.
+
 ## Errors
 
 None requiring a fix — the two hiccups during live testing were both

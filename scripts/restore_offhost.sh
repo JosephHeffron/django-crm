@@ -31,6 +31,19 @@ if [ -f "$REPO_DIR/.env" ]; then
 	. "$REPO_DIR/.env"
 	set +a
 fi
+RESTIC_TAG="${RESTIC_TAG:-django-crm}"
+
+# Must match scripts/backup.sh's own handling exactly — a relative
+# local repository path resolves against whatever directory restic
+# happens to run from, and that script cd's into $BACKUPS_DIR before
+# calling restic while this script runs from $REPO_DIR. Anchoring a
+# relative path to $REPO_DIR here (same as backup.sh) keeps both
+# scripts pointed at the same repository. Left untouched for an
+# already-absolute path or a backend URL (contains ":").
+case "$RESTIC_REPOSITORY" in
+/* | *:* | "") ;;
+*) RESTIC_REPOSITORY="$REPO_DIR/$RESTIC_REPOSITORY" ;;
+esac
 
 [ -n "$RESTIC_REPOSITORY" ] || {
 	echo "ERROR: RESTIC_REPOSITORY is not set in .env — nothing to restore from." >&2
@@ -41,7 +54,7 @@ fi
 SNAPSHOT="${1:-latest}"
 
 echo "--- snapshots available in $RESTIC_REPOSITORY ---"
-restic snapshots --tag django-crm
+restic snapshots --tag "$RESTIC_TAG"
 
 mkdir -p "$BACKUPS_DIR"
 
@@ -50,7 +63,7 @@ echo "--- restoring snapshot $SNAPSHOT into $BACKUPS_DIR ---"
 # $BACKUPS_DIR (it cd's there first) — so restoring directly into
 # $BACKUPS_DIR recreates backups/<timestamp>/... in place, ready for
 # scripts/restore.sh, with no extra directory-hunting needed here.
-restic restore "$SNAPSHOT" --tag django-crm --target "$BACKUPS_DIR"
+restic restore "$SNAPSHOT" --tag "$RESTIC_TAG" --target "$BACKUPS_DIR"
 
 echo
 echo "=== restored $SNAPSHOT from off-host into $BACKUPS_DIR ==="
