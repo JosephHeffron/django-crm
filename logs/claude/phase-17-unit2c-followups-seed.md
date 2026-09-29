@@ -25,7 +25,7 @@ realistic data, so unit 3's pages have real content.
 - `apps/crm/forms.py` — `TaskForm.clean_contact()`: clearing a
   follow-up's customer is a form error.
 - `apps/core/management/commands/seed_demo.py` (new).
-- Tests: `apps/crm/tests/test_followups.py` (15),
+- Tests: `apps/crm/tests/test_followups.py` (14),
   `apps/core/tests/test_seed_demo.py` (6).
 
 ## Follow-up rules
