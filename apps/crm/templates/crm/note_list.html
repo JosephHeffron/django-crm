@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+
+{% block title %}Notes{% endblock %}
+
+{% block content %}
+  {% include "crm/_hub_tabs.html" %}
+
+  <form method="get" class="filter-form">
+    <label for="id_q" class="sr-only">Search notes</label>
+    <input type="search" id="id_q" name="q" value="{{ query }}" placeholder="Search notes">
+    <label for="id_about" class="sr-only">About</label>
+    <select id="id_about" name="about">
+      {% for value, label in about_choices %}
+        <option value="{{ value }}"{% if about == value %} selected{% endif %}>{{ label }}</option>
+      {% endfor %}
+    </select>
+    <button type="submit">Filter</button>
+  </form>
+
+  {% if notes %}
+    <ul class="timeline card">
+      {% for note in notes %}
+        <li class="timeline-entry">
+          <div class="timeline-meta">
+            {% if note.pinned %}<span class="badge badge-info">Pinned</span>{% endif %}
+            <strong>{{ note.author.get_full_name|default:note.author }}</strong>
+            <span>{{ note.created_at|date:"M j, Y" }}</span>
+            {% if note.contact %}<span>about <a href="{{ note.contact.get_absolute_url }}">{{ note.contact }}</a></span>{% endif %}
+            {% if note.job %}<span>on <a href="{{ note.job.get_absolute_url }}">{{ note.job.number }} · {{ note.job.primary_service_type.name }}</a></span>{% endif %}
+          </div>
+          <div class="timeline-description note-body">{{ note.body|linebreaksbr }}</div>
+        </li>
+      {% endfor %}
+    </ul>
+    {% include "partials/_pagination.html" %}
+  {% else %}
+    {% include "partials/_empty_state.html" with icon="inbox" title="No notes" text="No notes match these filters." %}
+  {% endif %}
+{% endblock %}

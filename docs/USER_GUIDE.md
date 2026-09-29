@@ -72,9 +72,10 @@ jobs, and invoices keep the prices they were written with.
 
 ## Search
 
-The search box in the top nav (`?q=...`) searches Companies, Contacts,
-Leads, Deals, and Tasks by name/title-like fields at once and shows
-matches grouped by type. It does not search Activities (they don't have
+The search box in the top nav (`?q=...`) searches Companies, Contacts
+(name, email, or phone), Leads, Deals, and Tasks at once and shows
+matches grouped by type. Type a job or quote number — `J-1502`,
+`q1067` — to jump straight to it. It does not search Activities (they don't have
 their own detail page — see below).
 
 ## Companies and Contacts
@@ -83,10 +84,21 @@ their own detail page — see below).
 filterable by Active/Inactive. A Company's detail page shows its linked
 Contacts, Deals, activity timeline, and an edit history section.
 
-**Contacts** (`Contacts`): searchable by first name, last name, or
-email; filterable by Active/Inactive and by Company. A Contact's detail
-page shows its linked Company, Deals, Tasks, activity timeline, and
-history.
+**Contacts** (`Contacts`): your customers and leads. Tabs switch
+between All, Leads, and Customers; search by name, email, or phone; and
+filter by tag, company, or active/inactive. The list shows each
+contact's last completed job and last contact, and can be sorted by
+**Longest since contact** — the people most overdue for a call come
+first. On a phone each contact is a card.
+
+A contact's page shows their phone (tap to call), email, preferred way
+to be reached, where they came from, properties (tap an address for
+directions), upcoming jobs, tasks, and a **Timeline** of everything
+that's happened — jobs, quotes, notes, logged calls and texts, and team
+messages that mention them (a direct message only shows to the people
+in that conversation). **Edit** sets whether they're a lead or a
+customer, the lead source, and tags. Adding and changing service
+addresses arrives with the quote builder in Phase 18.
 
 Both use **Add** to create, **Edit** to update, and **Deactivate**
 instead of delete — deactivating just sets a record inactive (it stops
@@ -146,9 +158,25 @@ but Activities themselves are immutable by design).
 
 ## Tasks
 
-**Tasks** (`Tasks`) are assignable to-dos, optionally linked to a
-Contact and/or Deal, with a due date, priority (Low/Medium/High), and
-status (Pending/Completed/Cancelled). Useful list filters:
+**Tasks** is a hub with five tabs:
+
+- **Tasks** — assignable to-dos (below).
+- **Follow-ups** — customers due for repeat service: nobody has done
+  that service or been in touch within its interval (set per service on
+  the Services page). Each shows who to call and their number; **Mark
+  done** logs the check-in, which restarts that customer's clock.
+  **Done** and **Dismissed** show past ones; **Only mine** narrows to
+  yours. The tab's badge counts follow-ups due today or earlier.
+- **Quotes** — open quotes (draft or sent) by default, or filter by
+  status; **Only mine** shows quotes you prepared.
+- **Plans** — business goals with checklist progress. Editing plans
+  and ticking off steps arrives in Phase 19.
+- **Notes** — team notes, pinned first; filter to general notes or
+  ones about a customer or a job, or search them.
+
+Tasks themselves are assignable to-dos, optionally linked to a
+Contact, with a due date, priority (Low/Medium/High), and status
+(Pending/Completed/Cancelled). Useful list filters:
 
 - `?mine=1` — only tasks assigned to you.
 - `?overdue=1` — pending tasks past their due date.

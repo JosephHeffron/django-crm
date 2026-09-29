@@ -23,14 +23,30 @@ class ContactForm(forms.ModelForm):
         fields = [
             "first_name",
             "last_name",
+            "status",
             "email",
             "phone",
+            "preferred_contact_method",
+            "lead_source",
+            "tags",
             "title",
             "company",
             "notes",
             "is_active",
             "owner",
         ]
+        labels = {"status": "Stage"}
+        widgets = {"tags": forms.CheckboxSelectMultiple}
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Optional so posts that predate the field keep working: a
+        # missing stage keeps the contact's current one (Customer for a
+        # new contact, the model default).
+        self.fields["status"].required = False
+
+    def clean_status(self):
+        return self.cleaned_data.get("status") or self.instance.status
 
 
 class LeadForm(forms.ModelForm):

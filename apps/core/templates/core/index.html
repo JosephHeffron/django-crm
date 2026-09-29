@@ -57,7 +57,7 @@
         <div class="stat-value">{{ open_quotes.count }}</div>
         <div class="stat-meta">{{ open_quotes.total|default:0|money }} in drafts and sent</div>
       </div>
-      <a class="stat-card" href="{% url 'crm:task_list' %}?status=pending{% if not is_owner %}&mine=1{% endif %}">
+      <a class="stat-card" href="{% url 'crm:task_followups' %}{% if not is_owner %}?mine=1{% endif %}">
         <div class="stat-label">Follow-ups due</div>
         <div class="stat-value">{{ follow_ups_due }}</div>
         <div class="stat-meta">{% if follow_ups_overdue %}{{ follow_ups_overdue }} overdue{% else %}None overdue{% endif %}</div>

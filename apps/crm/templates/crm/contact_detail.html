@@ -4,61 +4,131 @@
 
 {% block content %}
   <p><a href="{% url 'crm:contact_list' %}">← Contacts</a></p>
-  <h1>{{ contact.first_name }} {{ contact.last_name }}</h1>
-  <p>{% if contact.is_active %}Active{% else %}Inactive{% endif %}</p>
+  <div class="page-header">
+    <div>
+      <h1>{{ contact.first_name }} {{ contact.last_name }}</h1>
+      <div class="cluster">
+        {% if contact.status == "lead" %}<span class="badge badge-warning">Lead</span>{% else %}<span class="badge badge-success">Customer</span>{% endif %}
+        {% if not contact.is_active %}<span class="badge">Inactive</span>{% endif %}
+        {% for tag in contact_tags %}<span class="badge">{{ tag.name }}</span>{% endfor %}
+      </div>
+    </div>
+    <div class="page-actions">
+      <a class="btn btn-secondary" href="{% url 'crm:contact_update' contact.pk %}">Edit</a>
+      <a class="btn btn-secondary" href="{{ log_activity_url }}">Log activity</a>
+      <a class="btn btn-secondary" href="{% url 'crm:task_create' %}?contact={{ contact.pk }}">Add task</a>
+      {% if contact.is_active %}<a class="btn btn-secondary" href="{% url 'crm:contact_deactivate' contact.pk %}">Deactivate</a>{% endif %}
+    </div>
+  </div>
 
-  <dl>
-    <dt>Company</dt>
-    <dd>
-      {% if contact.company %}
-        <a href="{{ contact.company.get_absolute_url }}">{{ contact.company.name }}</a>
+  <div class="stat-grid">
+    <div class="stat-card"><div class="stat-label">Jobs completed</div><div class="stat-value">{{ jobs_completed }}</div></div>
+    <div class="stat-card"><div class="stat-label">Last job</div><div class="stat-value stat-value-sm">{{ contact.last_job_at|date:"M j, Y"|default:"—" }}</div></div>
+    <div class="stat-card"><div class="stat-label">Last contact</div><div class="stat-value stat-value-sm">{{ contact.last_touch_at|date:"M j, Y"|default:"—" }}</div></div>
+    <div class="stat-card"><div class="stat-label">Open quotes</div><div class="stat-value">{{ open_quotes }}</div></div>
+  </div>
+
+  <div class="grid-2">
+    <section class="card">
+      <h2 class="card-title">Contact</h2>
+      <dl>
+        <dt>Phone</dt>
+        <dd>{% if contact.phone %}<a href="tel:{{ contact.phone }}">{{ contact.phone }}</a>{% else %}—{% endif %}</dd>
+        <dt>Email</dt>
+        <dd>{% if contact.email %}<a href="mailto:{{ contact.email }}">{{ contact.email }}</a>{% else %}—{% endif %}</dd>
+        <dt>Prefers</dt>
+        <dd>{{ contact.get_preferred_contact_method_display|default:"—" }}</dd>
+        <dt>Source</dt>
+        <dd>{{ contact.get_lead_source_display|default:"—" }}</dd>
+        <dt>Company</dt>
+        <dd>{% if contact.company %}<a href="{{ contact.company.get_absolute_url }}">{{ contact.company.name }}</a>{% else %}—{% endif %}</dd>
+        {% if contact.title %}<dt>Title</dt><dd>{{ contact.title }}</dd>{% endif %}
+        <dt>Owner</dt>
+        <dd>{{ contact.owner.get_full_name|default:contact.owner|default:"Unassigned" }}</dd>
+        <dt>Notes</dt>
+        <dd>{{ contact.notes|default:"—"|linebreaksbr }}</dd>
+      </dl>
+    </section>
+
+    <section class="card">
+      <h2 class="card-title">Properties</h2>
+      {% if properties %}
+        <ul class="list-plain">
+          {% for property in properties %}
+            <li>
+              <strong>{{ property.label|default:"Property" }}</strong>{% if property.is_primary %} <span class="badge badge-info">Primary</span>{% endif %}
+              <div><a href="https://www.google.com/maps/search/?api=1&amp;query={{ property|urlencode }}" rel="noopener noreferrer" target="_blank">{{ property }}</a></div>
+              {% if property.notes %}<div class="muted">{{ property.notes }}</div>{% endif %}
+            </li>
+          {% endfor %}
+        </ul>
       {% else %}
-        —
+        <p class="muted">No service address yet.</p>
       {% endif %}
-    </dd>
-    <dt>Title</dt>
-    <dd>{{ contact.title|default:"—" }}</dd>
-    <dt>Email</dt>
-    <dd>{{ contact.email|default:"—" }}</dd>
-    <dt>Phone</dt>
-    <dd>{{ contact.phone|default:"—" }}</dd>
-    <dt>Owner</dt>
-    <dd>{{ contact.owner|default:"Unassigned" }}</dd>
-    <dt>Notes</dt>
-    <dd>{{ contact.notes|default:"—"|linebreaksbr }}</dd>
-  </dl>
+    </section>
+  </div>
 
-  <p>
-    <a href="{% url 'crm:contact_update' contact.pk %}">Edit</a>
-    {% if contact.is_active %}
-      &middot;
-      <a href="{% url 'crm:contact_deactivate' contact.pk %}">Deactivate</a>
-    {% endif %}
-  </p>
+  <div class="grid-2 section-gap">
+    <section class="card">
+      <h2 class="card-title">Upcoming jobs</h2>
+      {% if upcoming_jobs %}
+        <ul class="agenda">
+          {% for job in upcoming_jobs %}{% include "jobs/_job_item.html" with show_date=True %}{% endfor %}
+        </ul>
+      {% else %}
+        <p class="muted">Nothing scheduled.</p>
+      {% endif %}
+    </section>
 
-  <h2>Deals</h2>
+    <section class="card">
+      <h2 class="card-title">Tasks</h2>
+      {% if tasks %}
+        <ul class="list-plain">
+          {% for task in tasks %}
+            <li>
+              <a href="{{ task.get_absolute_url }}">{{ task.title }}</a>
+              <span class="muted">— {{ task.get_status_display }}{% if task.due_date %}, due {{ task.due_date|date:"M j" }}{% endif %}</span>
+              {% if task.is_overdue %}<span class="badge badge-danger">Overdue</span>{% endif %}
+            </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p class="muted">No tasks yet.</p>
+      {% endif %}
+    </section>
+  </div>
+
   {% if deals %}
-    <ul>
-      {% for deal in deals %}
-        <li><a href="{{ deal.get_absolute_url }}">{{ deal.title }}</a> — {{ deal.get_stage_display }}</li>
-      {% endfor %}
-    </ul>
-  {% else %}
-    <p>No deals yet.</p>
+    <section class="card section-gap">
+      <h2 class="card-title">Deals (before quotes)</h2>
+      <ul class="list-plain">
+        {% for deal in deals %}
+          <li><a href="{{ deal.get_absolute_url }}">{{ deal.title }}</a> — {{ deal.get_stage_display }}</li>
+        {% endfor %}
+      </ul>
+    </section>
   {% endif %}
 
-  <h2>Tasks</h2>
-  {% if tasks %}
-    <ul>
-      {% for task in tasks %}
-        <li><a href="{{ task.get_absolute_url }}">{{ task.title }}</a> — {{ task.get_status_display }}</li>
-      {% endfor %}
-    </ul>
-  {% else %}
-    <p>No tasks yet.</p>
-  {% endif %}
-
-  {% include "crm/_activity_timeline.html" %}
+  <section class="card section-gap">
+    <h2 class="card-title">Timeline</h2>
+    {% if timeline %}
+      <ul class="timeline">
+        {% for entry in timeline %}
+          <li class="timeline-entry timeline-{{ entry.kind }}">
+            <div class="timeline-meta">
+              <strong>{{ entry.label }}</strong>
+              <span>{{ entry.when|date:"M j, Y, g:i A" }}</span>
+              {% if entry.by %}<span>{{ entry.by }}</span>{% endif %}
+            </div>
+            <div class="timeline-subject">{% if entry.url %}<a href="{{ entry.url }}">{{ entry.title }}</a>{% else %}{{ entry.title|linebreaksbr }}{% endif %}</div>
+            {% if entry.detail %}<div class="timeline-description">{{ entry.detail|linebreaksbr }}</div>{% endif %}
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p class="muted">Nothing yet.</p>
+    {% endif %}
+  </section>
 
   {% include "crm/_audit_history.html" %}
 {% endblock %}

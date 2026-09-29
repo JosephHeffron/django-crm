@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+
+{% block title %}Plans{% endblock %}
+
+{% block content %}
+  {% include "crm/_hub_tabs.html" %}
+
+  <nav class="cluster filter-form" aria-label="Show">
+    <a class="btn btn-sm {% if show != 'active' %}btn-secondary{% endif %}" href="{% url 'crm:plan_list' %}"{% if show == "active" %} aria-current="page"{% endif %}>Active</a>
+    <a class="btn btn-sm {% if show != 'done' %}btn-secondary{% endif %}" href="{% url 'crm:plan_list' %}?show=done"{% if show == "done" %} aria-current="page"{% endif %}>Done</a>
+  </nav>
+
+  {% if plans %}
+    <div class="plan-grid">
+      {% for plan in plans %}
+        <a class="card plan-card" href="{{ plan.get_absolute_url }}">
+          <div class="cluster">
+            <strong>{{ plan.title }}</strong>
+            <span class="badge{% if plan.status == 'in_progress' %} badge-info{% elif plan.status == 'on_hold' %} badge-warning{% elif plan.status == 'done' %} badge-success{% endif %}">{{ plan.get_status_display }}</span>
+          </div>
+          <div class="muted">{{ plan.owner.get_full_name|default:plan.owner }}{% if plan.due_date %} · due {{ plan.due_date|date:"M j, Y" }}{% endif %}</div>
+          {% if plan.item_count %}
+            <progress max="{{ plan.item_count }}" value="{{ plan.done_count }}" aria-label="Checklist progress">{{ plan.done_count }} of {{ plan.item_count }}</progress>
+            <div class="muted">{{ plan.done_count }} of {{ plan.item_count }} steps done</div>
+          {% endif %}
+        </a>
+      {% endfor %}
+    </div>
+    {% include "partials/_pagination.html" %}
+  {% else %}
+    {% include "partials/_empty_state.html" with icon="star" title="No plans" text="Business plans and goals will show up here." %}
+  {% endif %}
+{% endblock %}

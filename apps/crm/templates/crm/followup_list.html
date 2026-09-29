@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+
+{% block title %}Follow-ups{% endblock %}
+
+{% block content %}
+  {% include "crm/_hub_tabs.html" %}
+
+  <p class="muted">Customers due for repeat service — nobody has done a job or been in touch within that service's interval.</p>
+
+  <div class="filter-form">
+    <nav class="cluster" aria-label="Show">
+      {% for value, label in show_choices %}
+        <a class="btn btn-sm {% if show != value %}btn-secondary{% endif %}" href="{% querystring show=value page=None %}"{% if show == value %} aria-current="page"{% endif %}>{{ label }}</a>
+      {% endfor %}
+    </nav>
+    {% if mine %}
+      <a href="{% querystring mine=None page=None %}">Show everyone's</a>
+    {% else %}
+      <a href="{% querystring mine=1 page=None %}">Only mine</a>
+    {% endif %}
+  </div>
+
+  {% if follow_ups %}
+    <ul class="agenda card">
+      {% for task in follow_ups %}
+        <li class="agenda-item {{ task.service_type.tone_class }}">
+          <div class="agenda-time">
+            {% if show == "open" %}
+              <span>Due {{ task.due_date|date:"M j" }}</span>
+            {% elif show == "done" %}
+              <span>Done {{ task.completed_at|date:"M j" }}</span>
+            {% else %}
+              <span>{{ task.updated_at|date:"M j" }}</span>
+            {% endif %}
+          </div>
+          <div class="agenda-body">
+            <a class="agenda-title" href="{{ task.contact.get_absolute_url }}">{{ task.contact }}</a>
+            <div class="agenda-meta">{{ task.service_type.name }} · {{ task.assigned_to.get_full_name|default:task.assigned_to }}</div>
+            {% if task.contact.phone %}<div class="agenda-meta"><a href="tel:{{ task.contact.phone }}">{{ task.contact.phone }}</a></div>{% endif %}
+            {% if task.description %}<div class="agenda-meta">{{ task.description }}</div>{% endif %}
+            {% if show == "open" %}
+              <form method="post" action="{% url 'crm:task_complete' task.pk %}" class="inline-form">
+                {% csrf_token %}
+                <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                <button type="submit" class="btn-sm">Mark done</button>
+                <a class="btn btn-sm btn-secondary" href="{{ task.get_absolute_url }}">Details</a>
+              </form>
+            {% endif %}
+          </div>
+          {% if task.is_overdue %}<span class="badge badge-danger">Overdue</span>{% endif %}
+        </li>
+      {% endfor %}
+    </ul>
+    {% include "partials/_pagination.html" %}
+  {% else %}
+    {% include "partials/_empty_state.html" with icon="check" title="Nothing here" text="No follow-ups to show." %}
+  {% endif %}
+{% endblock %}

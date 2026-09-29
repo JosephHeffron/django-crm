@@ -37,7 +37,12 @@ NAV_ITEMS = (
     ),
     NavItem("Contacts", "crm:contact_list", "users", SALES_ROLES, ("crm:contact_",), primary=True),
     NavItem(
-        "Tasks", "crm:task_list", "check", SALES_ROLES, ("crm:task_", "jobs:quote_"), primary=True
+        "Tasks",
+        "crm:task_list",
+        "check",
+        SALES_ROLES,
+        ("crm:task_", "crm:plan_", "crm:note_", "jobs:quote_"),
+        primary=True,
     ),
     NavItem("Companies", "crm:company_list", "building", SALES_ROLES, ("crm:company_",)),
     NavItem("Activities", "crm:activity_list", "activity", SALES_ROLES, ("crm:activity_",)),

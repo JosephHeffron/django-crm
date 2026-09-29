@@ -1,5 +1,6 @@
 import json
 import logging
+import re
 from datetime import timedelta
 
 from django.conf import settings
@@ -91,13 +92,13 @@ class DashboardView(LoginRequiredMixin, TemplateView):
 
         # Owner sees the whole business; a Sales Rep sees their own pipeline.
         is_owner = role == Role.OWNER
-        open_quotes = quotes_for(user).filter(status__in=[Quote.Status.DRAFT, Quote.Status.SENT])
+        open_quotes = quotes_for(user).filter(status__in=Quote.OPEN_STATUSES)
         follow_ups = Task.objects.filter(kind=Task.Kind.FOLLOW_UP, status=Task.Status.PENDING)
         visit_start, visit_end = day_bounds(today, today + timedelta(days=VISIT_DAYS - 1))
         visits = quotes_for(user).filter(
             site_visit_at__gte=visit_start,
             site_visit_at__lt=visit_end,
-            status__in=[Quote.Status.DRAFT, Quote.Status.SENT],
+            status__in=Quote.OPEN_STATUSES,
         )
         if not is_owner:
             open_quotes = open_quotes.filter(prepared_by=user)
@@ -153,6 +154,7 @@ def _search(query):
             Q(first_name__icontains=query)
             | Q(last_name__icontains=query)
             | Q(email__icontains=query)
+            | Q(phone__icontains=query)
         )
         .select_related("company")
         .order_by("last_name", "first_name", "pk")[:SEARCH_RESULTS_PER_MODEL],
@@ -165,7 +167,22 @@ def _search(query):
         "tasks": Task.objects.filter(title__icontains=query)
         .select_related("assigned_to")
         .order_by("due_date", "pk")[:SEARCH_RESULTS_PER_MODEL],
+        **_documents_by_number(query),
     }
+
+
+# "J-1502", "q1067", "Q 1067": document numbers are 1000 + the primary key.
+DOCUMENT_NUMBER = re.compile(r"^\s*([jq])[-\s]?(\d{1,9})\s*$", re.IGNORECASE)
+
+
+def _documents_by_number(query):
+    match = DOCUMENT_NUMBER.match(query)
+    if not match:
+        return {"jobs": [], "quotes": []}
+    prefix, pk = match.group(1).upper(), int(match.group(2)) - 1000
+    model = Job if prefix == "J" else Quote
+    found = list(model.objects.filter(pk=pk).select_related("contact"))
+    return {"jobs": found if prefix == "J" else [], "quotes": found if prefix == "Q" else []}
 
 
 class HealthCheckView(View):
