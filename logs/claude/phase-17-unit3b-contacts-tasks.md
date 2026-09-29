@@ -62,7 +62,8 @@ Messages.
 ## Verification
 
 $ `manage.py test` — 457 tests, OK (22 net new test methods across
-  contact pages, the hub, and search).
+  contact pages, the hub, and search); 459 after the self-review's
+  two regression tests.
 $ `ruff` / `ruff format --check` / `bandit` (CI flags) /
   `makemigrations --check` — clean.
 $ Playwright on the seeded dev database: demo Owner and Sales Rep get
@@ -108,8 +109,8 @@ numbers in search (match nothing), and query counts on the list pages
 ## Git
 
 Branch: `feature/pages-contacts-tasks`
-Commit: pending
-Merged to `main`: pending
+Commits: `14fec57` (feature), `84127ea` (self-review fixes)
+Merged to `main`: PR #100, merge commit `81a17b1`
 
 ## Next
 
