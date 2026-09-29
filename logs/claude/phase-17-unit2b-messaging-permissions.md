@@ -92,6 +92,23 @@ $ `ruff check` / `ruff format --check` / `bandit` / `pip-audit` —
 - **Money and the catalog stay Owner-only** at the model-permission
   layer too, not just hidden in the UI.
 
+## Review (PR #94) — self-review, Sourcery unavailable
+
+Sourcery didn't review this PR: its free tier also has a **weekly
+budget of 250,000 diff characters**, which unit 2's first PRs used up
+(it resets ~6.5 days later). A deliberate self-review found two issues:
+
+1. `Channel.contact` was `SET_NULL` while a DB check requires SMS
+   channels to have a contact — deleting such a contact would have
+   failed on the check constraint with a confusing error. Now
+   `PROTECT`, which says what actually happens; regression-tested. (An
+   ORM-level change only, so the unmerged migration was edited in place
+   with no schema difference.)
+2. `docs/PERMISSIONS.md` described view-level row rules ("own
+   membership", "a Cleaner can change only jobs they're assigned to")
+   as if enforced today; only the scoping helpers exist yet. Reworded to
+   say which phase builds the views that must use them.
+
 ## Errors
 
 None in the code. One process note: the unit split meant re-applying

@@ -23,11 +23,14 @@ class Channel(models.Model):
     slug = models.SlugField(max_length=100, unique=True)
     kind = models.CharField(max_length=15, choices=Kind.choices, default=Kind.PUBLIC)
     topic = models.CharField(max_length=255, blank=True)
+    # PROTECT, not SET_NULL: an SMS channel must name its contact (DB
+    # check below), so nulling it could never succeed anyway — PROTECT
+    # says so directly instead of failing on the check constraint.
     contact = models.ForeignKey(
         "crm.Contact",
         null=True,
         blank=True,
-        on_delete=models.SET_NULL,
+        on_delete=models.PROTECT,
         related_name="sms_channels",
     )
     is_archived = models.BooleanField(default=False)

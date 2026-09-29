@@ -104,14 +104,19 @@ reversible). Summary:
 | Photos | add/change/delete | add | add |
 | Invoices, payments, expenses | add/change (+ delete lines/expenses) | — | — |
 | Properties, tags, notes, business plans, checklist items | add/change/delete | add/change (tags: add) | add note |
-| Messages, channel memberships | full | add message, own membership | add message, own membership |
+| Messages, channel memberships | full | add message; add/change membership | add message; add/change membership |
 
 These say *what kind* of write is possible. *Which rows* a user may
-touch is a separate, row-level rule enforced in views via
-`apps/jobs/access.py` (e.g. a Cleaner can change only jobs they're
-assigned to; only the Owner sees invoices) — out-of-scope rows return
-404, per ADR 0008. `apps/jobs/tests/test_access.py` and
-`test_migrations.py::FieldServicePermissionSeedTests` cover both.
+touch is a separate, row-level rule: the scoping helpers in
+`apps/jobs/access.py` (a Cleaner sees only jobs they're assigned to and
+those customers; only the Owner sees invoices) exist and are tested now,
+and every field-service view built on them must use them — read views
+in Phase 17 unit 3, write views (e.g. a Cleaner updating only their own
+jobs, a user changing only their own channel read marker) in Phases
+18-21. Out-of-scope rows return 404, per ADR 0008.
+`apps/jobs/tests/test_access.py` and
+`test_migrations.py::FieldServicePermissionSeedTests` cover what exists
+today.
 
 ## Seeding the role groups
 

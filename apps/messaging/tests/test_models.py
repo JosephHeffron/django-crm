@@ -54,3 +54,13 @@ class MessageModelTests(TestCase):
         ChannelMembership.objects.create(channel=self.general, user=self.user)
         with self.assertRaises(IntegrityError), transaction.atomic():
             ChannelMembership.objects.create(channel=self.general, user=self.user)
+
+    def test_contact_with_an_sms_channel_is_protected_from_deletion(self):
+        from django.db.models import ProtectedError
+
+        customer = Contact.objects.create(first_name="Pat", last_name="C", created_by=self.user)
+        Channel.objects.create(
+            name="Pat C", slug="sms-pat", kind=Channel.Kind.CUSTOMER_SMS, contact=customer
+        )
+        with self.assertRaises(ProtectedError):
+            customer.delete()
