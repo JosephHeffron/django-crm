@@ -71,7 +71,8 @@ explicitly deferred until this scope is working reliably on the Raspberry Pi.
 The initial release scope above is done. The phases below pick up the
 functionality it deliberately deferred, plus hardening work identified
 along the way (`docs/PRODUCTION_READINESS.md`'s still-open findings).
-Not yet started. Ordered so that Phase 22 (the one item genuinely
+Phase 15 is complete; Phase 16 onward not yet started. Ordered so that
+Phase 22 (the one item genuinely
 blocked on hardware the user doesn't have yet — a physical Raspberry Pi
 5) sits last and gates nothing before it; Phases 15-21 are all
 software-only and can proceed regardless of hardware acquisition. Per
