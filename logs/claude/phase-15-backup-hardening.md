@@ -198,9 +198,13 @@ test-environment artifacts, not bugs in the delivered scripts:
 
 ## Git
 
-Branch: `feature/offhost-backups` (pending)
-Commit: pending
-Merged to `main`: pending
+Branch: `feature/offhost-backups`
+Commit: `bd798a9` (implementation), `8a6bde0` (Sourcery-review fixes —
+relative-path resolution, configurable retention tag, init-race
+tolerance)
+Merged to `main`: `c781964` (regular merge commit, PR #86 — CI green:
+`test` + `dependency-audit` both pass; Sourcery review this time
+returned 3 real findings, all fixed and reverified before merge)
 
 ## Next
 
