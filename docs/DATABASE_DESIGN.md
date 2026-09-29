@@ -383,6 +383,9 @@ still open.
 ## Field-service domain (Phase 17)
 
 Designed before implementation (Phase 17 unit 1), implemented in unit 2.
+Where implementation refined the design, the entries below describe what
+was built; the refinements are listed under "Changes from the unit 1
+design" at the end of this section.
 Rationale and alternatives: `docs/decisions/0009-field-service-domain-model.md`;
 access rules: `docs/decisions/0008-roles-and-row-level-scoping.md`.
 `?` marks a nullable field. All money is `DecimalField(max_digits=12,
@@ -407,8 +410,9 @@ Channel 1──* ChannelMembership *──1 User;  Channel 1──* Message
 
 ### Changes to existing models (`apps.crm`)
 
-- **Contact** + `status` (lead/customer/inactive, default customer),
-  `lead_source` (referral/website/yard_sign/door_to_door/repeat/other),
+- **Contact** + `status` (lead/customer, default customer — deactivation
+  stays on `is_active`),
+  `lead_source` (referral/website/yard_sign/door_to_door/cold_call/event/repeat/other),
   `preferred_contact_method` (call/text/email), `tags` M2M Tag.
   `is_active` is kept (deactivation workflow unchanged).
 - **Task** + `kind` (general/follow_up), `service_type?`, `quote?`,
@@ -436,12 +440,14 @@ Channel 1──* ChannelMembership *──1 User;  Channel 1──* Message
   followup_interval_months? (null = never auto-follow-up), tone (1-10,
   maps to a CSS class — dynamic colors can't be inline styles under the
   production CSP), is_active, position.
-- **Quote**: number (unique), contact (PROTECT), property?, status
+- **Quote**: `number` (derived: `Q-{1000+pk}`, not stored), contact
+  (PROTECT), service_property?, status
   (draft/sent/accepted/declined/expired), prepared_by (user),
   site_visit_at? (estimate appointment shown on the calendar), sent_at?,
   expires_on?, accepted_at?, notes. **QuoteLineItem**: quote (CASCADE),
   service_type (PROTECT), description, quantity, unit_price, position.
-- **Job**: number (unique), contact (PROTECT), property?, quote?
+- **Job**: `number` (derived: `J-{1000+pk}`), contact (PROTECT),
+  service_property?, quote?
   (SET_NULL), sales_rep? (revenue credit), primary_service_type
   (calendar color), status (scheduled/in_progress/completed/cancelled),
   scheduled_start, scheduled_end, completed_at?, notes,
@@ -451,8 +457,10 @@ Channel 1──* ChannelMembership *──1 User;  Channel 1──* Message
 - **Photo**: uuid (unique, used in the gated URL), job? / quote?
   (CheckConstraint: exactly one), kind (before/after/reference), image
   (`media/private/…`), uploaded_by, created_at.
-- **Invoice**: number (unique), job (PROTECT), contact (PROTECT),
-  issued_on, due_on, status (draft/sent/partially_paid/paid/void).
+- **Invoice**: `number` (derived: `INV-{1000+pk}`), job (PROTECT),
+  contact (PROTECT), issued_on, due_on, status (draft/sent/void —
+  paid / partially paid / overdue are derived from payments and dates,
+  never stored).
   **InvoiceLineItem** (as quote lines). **Payment**: invoice (PROTECT),
   amount (> 0), received_on, method (cash/check/card/transfer/other),
   recorded_by.
@@ -474,3 +482,25 @@ Channel 1──* ChannelMembership *──1 User;  Channel 1──* Message
 - Financials, follow-up eligibility, and profile stats: see
   `docs/decisions/0009-field-service-domain-model.md` and the Phase 17
   plan; all computed with ORM aggregation over the models above.
+
+### Changes from the unit 1 design (made during unit 2)
+
+- **`Contact.status` has no "inactive" value** — `is_active` already
+  represents deactivation; two fields that could disagree about the
+  same thing would be a bug waiting to happen.
+- **The FK to Property is `service_property`**, not `property`: a field
+  named `property` shadows Python's built-in `@property` decorator in
+  the model class body (a real `TypeError` hit while writing it).
+- **Document numbers are derived from the primary key**, not stored —
+  no "next number" race and no uniqueness to maintain by hand.
+- **Invoice payment state is derived.** Only draft/sent/void are
+  stored; `payment_status()` computes paid / partially paid / overdue /
+  unpaid from payments and the due date.
+- **Totals and balances use `Subquery` annotations, not JOINs**
+  (`with_totals()`, `with_balances()`), so annotating line-item and
+  payment sums on the same queryset can't multiply rows into each
+  other — covered by a test with two lines and two payments.
+- **Reference data ships as migrations**, not demo data: the ten
+  default services (with follow-up intervals) in `jobs/0002`, the
+  `#general` / `#crew` / `#sales` channels in `messaging/0002`.
+
