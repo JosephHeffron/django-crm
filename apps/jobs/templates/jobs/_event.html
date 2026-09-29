@@ -1,0 +1,6 @@
+{% comment %}A compact calendar chip (week and month views).{% endcomment %}
+<a class="event {{ event.tone_class }}{% if event.status == 'completed' %} is-done{% endif %}" href="{{ event.url }}">
+  <span class="event-time">{{ event.start|time:"g:i A" }}</span>
+  <span class="event-title">{{ event.title }}</span>
+  <span class="event-sub">{{ event.subtitle }}</span>
+</a>

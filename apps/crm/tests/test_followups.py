@@ -123,6 +123,7 @@ class CompletingAFollowUpTests(TestCase):
         self.assertEqual((self.task.status, self.task.completed_by), ("completed", self.rep))
         touch = Activity.objects.get(contact=self.customer)
         self.assertEqual(touch.activity_type, Activity.ActivityType.FOLLOW_UP)
+        self.assertEqual(touch.subject, "Checked in about gutter cleaning")
         self.assertEqual(generate_follow_ups(timezone.localdate()), [])
 
     def test_edit_form_completion_logs_once_and_reopening_clears_completed_by(self):

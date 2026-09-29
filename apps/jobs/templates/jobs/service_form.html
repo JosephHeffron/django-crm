@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+
+{% block title %}Edit {{ service.name }}{% endblock %}
+
+{% block content %}
+  <div class="page-header">
+    <div>
+      <h1>Edit {{ service.name }}</h1>
+      <p class="page-subtitle">Price changes apply to new quotes only — existing quotes, jobs, and invoices keep their prices.</p>
+    </div>
+  </div>
+
+  <form method="post" class="card">
+    {% csrf_token %}
+    {{ form.as_p }}
+    <div class="cluster">
+      <button type="submit">Save</button>
+      <a class="btn btn-secondary" href="{% url 'jobs:service_list' %}">Cancel</a>
+    </div>
+  </form>
+{% endblock %}

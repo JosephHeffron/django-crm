@@ -16,10 +16,11 @@ land on the **Dashboard**.
 What you can see depends on your **role**, which the owner assigns:
 
 - **Owner** — everything.
-- **Sales Rep** — customers (contacts, companies), tasks, search, and
-  the business dashboard.
-- **Cleaner** — your own schedule and jobs (these pages are arriving
-  with the field-service update; for now the dashboard is your home).
+- **Sales Rep** — the calendar, jobs, quotes, customers (contacts,
+  companies), tasks, and search. No revenue figures.
+- **Cleaner** — your own schedule: the dashboard and calendar show only
+  the jobs you're assigned to, and a job page shows the customer's name,
+  phone, and address and the work to do (no prices).
 
 If your dashboard says **"No role assigned yet"**, or you get a
 "permission denied" (403) page, your account doesn't have the role that
@@ -32,20 +33,42 @@ native app.
 
 ## Dashboard
 
-The Dashboard (the page you land on after login, and the "Dashboard"
-nav link) is a plain at-a-glance summary, refreshed on every page load:
+The page you land on after logging in. It's different for each role:
 
-- Active company and contact counts.
-- Open lead count (everything not yet marked "Converted").
-- Open deal count and total value.
-- Your pipeline broken down by stage (Prospecting → Qualification →
-  Proposal → Negotiation → Closed won/Closed lost), each with a count
-  and total value.
-- Your own pending tasks.
-- A recent-activity feed across the whole CRM.
+- **Owner** — revenue invoiced today and this week (sent invoices; a
+  draft isn't billed yet), the unpaid balance still owed, open quotes,
+  follow-ups due, unread team messages, today's schedule, site visits in
+  the next seven days, your tasks, and recent activity.
+- **Sales Rep** — the same minus the money figures, with quotes,
+  follow-ups, and site visits limited to your own.
+- **Cleaner** — your jobs today and coming up, jobs completed and hours
+  logged this week, and unread messages.
 
-There's no charting or configuration here by design — it's server-side
-aggregates, not a BI dashboard.
+## Calendar and jobs
+
+**Calendar** shows jobs by **Day**, **Week** (the default, starting
+Monday), or **Month**, colored by service, with **Prev** / **Today** /
+**Next** to move around. Owners and Sales Reps also see quote site
+visits (dashed, gray) and can pick one crew member to see just their
+schedule. On a phone the month view shows how many jobs each day has —
+tap a date for the day's details.
+
+Tap a job for its page: when and where, the customer's phone (tap to
+call) and address (tap for directions), the crew and hours, the work,
+and notes. Owners and Sales Reps also see prices and the quote it came
+from; the Owner also sees its invoices and whether they're paid.
+
+A **quote** page (from the calendar or dashboard) shows its status,
+line items and total, the site visit, and any jobs booked from it.
+Creating and editing quotes and jobs arrives in Phase 18.
+
+## Services (Owner)
+
+**Services** in the menu is the price list: each service's default
+price and unit, how many months after a job the customer gets a
+follow-up (blank = never), its calendar color, and whether you still
+offer it. Changing a price only affects new quotes — existing quotes,
+jobs, and invoices keep the prices they were written with.
 
 ## Search
 
@@ -72,6 +95,10 @@ nothing referencing it breaks). There is no delete button anywhere in
 the UI for Companies or Contacts, deliberately.
 
 ## Leads
+
+*Leads and Deals have moved:* every lead is now a Contact with the
+status "Lead", and every deal is a Quote. They're no longer in the
+menu; the old pages below still open by URL until Phase 18 removes them.
 
 **Leads** (`Leads`) is where new prospects start. A Lead has a status —
 New, Contacted, Qualified, Unqualified, or Converted — and you can

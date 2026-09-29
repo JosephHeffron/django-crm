@@ -457,6 +457,11 @@ hr {
   margin-top: var(--space-4);
 }
 
+/* Side-by-side cards are spaced by the grid gap, not stacking margin. */
+.grid-2 > .card + .card {
+  margin-top: 0;
+}
+
 .card-title {
   margin: 0 0 var(--space-3);
   font-size: var(--text-lg);
@@ -980,4 +985,328 @@ dd {
   margin: var(--space-8) auto;
   padding: 0 var(--space-4);
   text-align: center;
+}
+
+/* ---------- Agenda lists (dashboard, day view) ---------- */
+
+.section-gap {
+  margin-top: var(--space-4);
+}
+
+.list-plain {
+  list-style: none;
+  margin: 0 0 var(--space-3);
+  padding: 0;
+}
+
+.list-plain > li {
+  padding: var(--space-2) 0;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.list-plain > li:last-child {
+  border-bottom: none;
+}
+
+.agenda {
+  list-style: none;
+  margin: 0 0 var(--space-3);
+  padding: 0;
+}
+
+/* Phones: time | details, with the status badge under the time.
+   Wider: the badge gets its own column on the right. */
+.agenda-item {
+  display: grid;
+  grid-template-columns: 4.75rem minmax(0, 1fr);
+  align-items: start;
+  gap: var(--space-1) var(--space-3);
+  padding: var(--space-3);
+  border-left: 4px solid var(--tone-accent, var(--color-border-strong));
+  border-bottom: 1px solid var(--color-border);
+}
+
+.agenda-item:last-child {
+  border-bottom: none;
+}
+
+.agenda-item > .badge {
+  grid-column: 1;
+  justify-self: start;
+}
+
+@media (min-width: 768px) {
+  .agenda-item {
+    grid-template-columns: 5.5rem minmax(0, 1fr) auto;
+  }
+
+  .agenda-item > .badge {
+    grid-column: 3;
+    grid-row: 1;
+  }
+}
+
+.agenda-time {
+  display: flex;
+  flex-direction: column;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+}
+
+.agenda-body {
+  min-width: 0;
+}
+
+.agenda-title {
+  font-weight: var(--weight-semibold);
+  overflow-wrap: anywhere;
+}
+
+.agenda-meta {
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+}
+
+.tone-swatch {
+  display: inline-block;
+  width: 0.75rem;
+  height: 0.75rem;
+  margin-right: var(--space-2);
+  border-radius: var(--radius-full);
+  background: var(--tone-accent);
+  vertical-align: middle;
+}
+
+/* ---------- Calendar ---------- */
+
+.cal-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+}
+
+.cal-toolbar .tabs {
+  margin-bottom: 0;
+}
+
+.cal-filter {
+  margin: 0;
+}
+
+/* Site visits: dashed, neutral — appointments, not crew work. */
+.event-visit {
+  --tone-bg: var(--color-surface-2);
+  --tone-fg: var(--color-text);
+  --tone-accent: var(--color-text-muted);
+}
+
+.event {
+  display: block;
+  margin-top: var(--space-1);
+  padding: var(--space-1) var(--space-2);
+  border-left: 3px solid var(--tone-accent);
+  border-radius: var(--radius-sm);
+  background: var(--tone-bg);
+  color: var(--tone-fg);
+  font-size: var(--text-xs);
+  line-height: 1.35;
+  text-decoration: none;
+  overflow-wrap: anywhere;
+}
+
+.event:hover {
+  color: var(--tone-fg);
+  text-decoration: underline;
+}
+
+.event.event-visit {
+  border-left-style: dashed;
+}
+
+.event.is-done {
+  opacity: 0.75;
+}
+
+.event-time,
+.event-title {
+  font-weight: var(--weight-semibold);
+}
+
+.event-time {
+  margin-right: var(--space-1);
+}
+
+.event-sub {
+  display: block;
+}
+
+.cal-none {
+  margin: var(--space-1) 0 0;
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+}
+
+/* Week: stacked days on phones, seven columns from tablet width up. */
+.cal-week {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.cal-day {
+  min-width: 0;
+  padding: var(--space-2);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+}
+
+.cal-day.is-today {
+  border-color: var(--color-link);
+  box-shadow: inset 0 3px 0 var(--color-link);
+}
+
+.cal-day-head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  color: var(--color-text-muted);
+  text-decoration: none;
+}
+
+.cal-day-num {
+  font-size: var(--text-lg);
+  color: var(--color-text);
+}
+
+@media (min-width: 768px) {
+  .cal-week {
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+  }
+
+  .cal-day {
+    min-height: 12rem;
+  }
+
+  .cal-day-head {
+    flex-direction: column;
+    gap: 0;
+  }
+}
+
+/* Month: a 7-column grid. On phones each cell shows its date and a
+   count; the day view (one tap) has the details. */
+.cal-month {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  background: var(--color-surface);
+}
+
+.cal-row {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+}
+
+.cal-weekdays {
+  background: var(--color-surface-2);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semibold);
+  color: var(--color-text-muted);
+  text-align: center;
+}
+
+.cal-weekdays > div {
+  padding: var(--space-2) 0;
+}
+
+.cal-weekdays abbr {
+  text-decoration: none;
+}
+
+.cal-cell {
+  position: relative;
+  min-width: 0;
+  min-height: 3.5rem;
+  padding: var(--space-1);
+  border-top: 1px solid var(--color-border);
+  border-left: 1px solid var(--color-border);
+}
+
+.cal-cell:first-child {
+  border-left: none;
+}
+
+.cal-cell.is-outside {
+  background: var(--color-surface-2);
+}
+
+.cal-cell.is-outside .cal-date {
+  color: var(--color-text-muted);
+}
+
+.cal-date {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.75rem;
+  min-height: 1.75rem;
+  border-radius: var(--radius-full);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  color: var(--color-text);
+  text-decoration: none;
+}
+
+.cal-cell.is-today .cal-date {
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+}
+
+.cal-more {
+  display: block;
+  margin-top: var(--space-1);
+  font-size: var(--text-xs);
+}
+
+.cal-count {
+  position: absolute;
+  right: var(--space-1);
+  bottom: var(--space-1);
+  min-width: 1.25rem;
+  padding: 0 var(--space-1);
+  border-radius: var(--radius-full);
+  background: var(--color-primary-soft);
+  color: var(--color-primary-soft-text);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semibold);
+  text-align: center;
+}
+
+.cal-month .event,
+.cal-more {
+  display: none;
+}
+
+@media (min-width: 768px) {
+  .cal-cell {
+    min-height: 7rem;
+  }
+
+  .cal-month .event,
+  .cal-more {
+    display: block;
+  }
+
+  .cal-month .event-sub {
+    display: none;
+  }
+
+  .cal-count {
+    display: none;
+  }
 }

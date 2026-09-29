@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% load crm_format %}
+
+{% block title %}{{ quote.number }}{% endblock %}
+
+{% block content %}
+  <div class="page-header">
+    <div>
+      <h1>Quote {{ quote.number }}</h1>
+      <p class="page-subtitle"><a href="{{ quote.contact.get_absolute_url }}">{{ quote.contact }}</a> · prepared by {{ quote.prepared_by.get_full_name|default:quote.prepared_by.get_username }}</p>
+    </div>
+    {% include "jobs/_status_badge.html" with status=quote.status label=quote.get_status_display %}
+  </div>
+
+  <div class="grid-2">
+    <section class="card">
+      <h2 class="card-title">Details</h2>
+      <dl>
+        <dt>Total</dt>
+        <dd>{{ quote.total|money }}</dd>
+        {% if quote.service_property %}
+          <dt>Property</dt>
+          <dd>{{ quote.service_property }}</dd>
+        {% endif %}
+        <dt>Created</dt>
+        <dd>{{ quote.created_at|date:"M j, Y" }}</dd>
+        {% if quote.sent_at %}<dt>Sent</dt><dd>{{ quote.sent_at|date:"M j, Y" }}</dd>{% endif %}
+        {% if quote.accepted_at %}<dt>Accepted</dt><dd>{{ quote.accepted_at|date:"M j, Y" }}</dd>{% endif %}
+        {% if quote.expires_on %}<dt>Expires</dt><dd>{{ quote.expires_on|date:"M j, Y" }}</dd>{% endif %}
+      </dl>
+    </section>
+
+    <section class="card">
+      <h2 class="card-title">Site visit</h2>
+      {% if quote.site_visit_at %}
+        <p>{{ quote.site_visit_at|date:"l, F j" }} at {{ quote.site_visit_at|time:"g:i A" }}</p>
+        <p><a href="{% url 'jobs:calendar' %}?view=day&amp;date={{ quote.site_visit_at|date:'Y-m-d' }}">See that day</a></p>
+      {% else %}
+        <p class="muted">No site visit scheduled.</p>
+      {% endif %}
+    </section>
+  </div>
+
+  <section class="card section-gap">
+    <h2 class="card-title">Line items</h2>
+    <div class="table-responsive">
+      <table class="data-table">
+        <thead>
+          <tr><th>Service</th><th class="text-right">Qty</th><th class="text-right">Price</th><th class="text-right">Total</th></tr>
+        </thead>
+        <tbody>
+          {% for line in line_items %}
+            <tr>
+              <td>{{ line.service_type.name }}{% if line.description %}<div class="muted">{{ line.description }}</div>{% endif %}</td>
+              <td class="text-right">{{ line.quantity|floatformat:"-2" }}</td>
+              <td class="text-right">{{ line.unit_price|money }}</td>
+              <td class="text-right">{{ line.line_total|money }}</td>
+            </tr>
+          {% empty %}
+            <tr><td colspan="4" class="muted">No line items yet.</td></tr>
+          {% endfor %}
+        </tbody>
+        <tfoot>
+          <tr><th colspan="3" class="text-right">Total</th><th class="text-right">{{ quote.total|money }}</th></tr>
+        </tfoot>
+      </table>
+    </div>
+    {% if quote.notes %}<p>{{ quote.notes|linebreaksbr }}</p>{% endif %}
+  </section>
+
+  {% if jobs %}
+    <section class="card section-gap">
+      <h2 class="card-title">Jobs from this quote</h2>
+      <ul class="list-plain">
+        {% for job in jobs %}
+          <li>
+            <a href="{{ job.get_absolute_url }}">{{ job.number }} · {{ job.primary_service_type.name }}</a>
+            <span class="muted">— {{ job.scheduled_start|date:"M j, Y" }}</span>
+            {% include "jobs/_status_badge.html" with status=job.status label=job.get_status_display %}
+          </li>
+        {% endfor %}
+      </ul>
+    </section>
+  {% endif %}
+{% endblock %}

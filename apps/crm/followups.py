@@ -143,7 +143,10 @@ def record_completion(task, user):
     if task.kind == Task.Kind.FOLLOW_UP and task.contact_id:
         Activity.objects.create(
             activity_type=Activity.ActivityType.FOLLOW_UP,
-            subject=f"Follow-up completed: {task.title}",
+            # The timeline already shows the type and the contact.
+            subject=f"Checked in about {task.service_type.name.lower()}"
+            if task.service_type_id
+            else task.title,
             contact_id=task.contact_id,
             created_by=user,
         )
