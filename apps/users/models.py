@@ -1,3 +1,6 @@
+import uuid
+from pathlib import PurePath
+
 from django.conf import settings
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
@@ -6,6 +9,15 @@ from django.db import models
 # classes, not stored hex values, because the production CSP forbids
 # inline style attributes.
 TONE_VALIDATORS = [MinValueValidator(1), MaxValueValidator(10)]
+
+
+def avatar_upload_to(instance, filename):
+    # Random name, never the uploaded filename (same reasoning as job
+    # photos in apps/jobs/models.py).
+    suffix = PurePath(filename).suffix.lower()
+    if suffix not in {".jpg", ".jpeg", ".png", ".webp"}:
+        suffix = ".jpg"
+    return f"private/avatars/{uuid.uuid4().hex}{suffix}"
 
 
 class UserProfile(models.Model):
@@ -18,6 +30,9 @@ class UserProfile(models.Model):
     )
     title = models.CharField(max_length=100, blank=True)
     phone = models.CharField(max_length=30, blank=True)
+    # Under media/private/ — served only through a login-gated view
+    # (Phase 18), never directly by Caddy.
+    photo = models.ImageField(upload_to=avatar_upload_to, blank=True)
     calendar_tone = models.PositiveSmallIntegerField(default=1, validators=TONE_VALIDATORS)
 
     def __str__(self):

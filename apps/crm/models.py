@@ -40,9 +40,52 @@ class Company(models.Model):
         return reverse("crm:company_detail", kwargs={"pk": self.pk})
 
 
+class Tag(models.Model):
+    name = models.CharField(max_length=50, unique=True)
+
+    class Meta:
+        ordering = ["name"]
+
+    def __str__(self):
+        return self.name
+
+
 class Contact(models.Model):
+    # Lifecycle stage only. Deactivation stays on is_active (existing
+    # workflow), so there is no separate "inactive" status to disagree
+    # with it (docs/DATABASE_DESIGN.md, Phase 17 section).
+    class Status(models.TextChoices):
+        LEAD = "lead", "Lead"
+        CUSTOMER = "customer", "Customer"
+
+    class LeadSource(models.TextChoices):
+        REFERRAL = "referral", "Referral"
+        WEBSITE = "website", "Website"
+        YARD_SIGN = "yard_sign", "Yard sign"
+        DOOR_TO_DOOR = "door_to_door", "Door to door"
+        COLD_CALL = "cold_call", "Cold call"
+        EVENT = "event", "Event"
+        REPEAT = "repeat", "Repeat customer"
+        OTHER = "other", "Other"
+
+    class ContactMethod(models.TextChoices):
+        CALL = "call", "Call"
+        TEXT = "text", "Text"
+        EMAIL = "email", "Email"
+
     first_name = models.CharField(max_length=100)
     last_name = models.CharField(max_length=100)
+    status = models.CharField(
+        max_length=10, choices=Status.choices, default=Status.CUSTOMER, db_index=True
+    )
+    lead_source = models.CharField(max_length=20, choices=LeadSource.choices, blank=True)
+    preferred_contact_method = models.CharField(
+        max_length=10, choices=ContactMethod.choices, blank=True
+    )
+    tags = models.ManyToManyField(Tag, blank=True, related_name="contacts")
+    # Set only by the Phase 17 Lead → Contact data migration, so the
+    # fold can be verified and reversed; dropped with Lead in Phase 18.
+    legacy_lead_id = models.PositiveIntegerField(null=True, blank=True, editable=False)
     email = models.EmailField(blank=True, db_index=True)
     phone = models.CharField(max_length=30, blank=True)
     title = models.CharField(max_length=150, blank=True)
@@ -78,10 +121,39 @@ class Contact(models.Model):
         ]
 
     def __str__(self):
-        return f"{self.first_name} {self.last_name}"
+        return f"{self.first_name} {self.last_name}".strip()
 
     def get_absolute_url(self):
         return reverse("crm:contact_detail", kwargs={"pk": self.pk})
+
+
+class Property(models.Model):
+    """A service address. A contact can have several (a home plus a
+    rental, say); at most one is primary."""
+
+    contact = models.ForeignKey(Contact, on_delete=models.CASCADE, related_name="properties")
+    label = models.CharField(max_length=100, blank=True, help_text="e.g. Home, Rental")
+    street = models.CharField(max_length=255)
+    city = models.CharField(max_length=100)
+    state = models.CharField(max_length=50)
+    postal_code = models.CharField(max_length=20)
+    notes = models.TextField(blank=True, help_text="Gate code, dog in yard, access notes…")
+    is_primary = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name_plural = "properties"
+        ordering = ["-is_primary", "street"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["contact"],
+                condition=models.Q(is_primary=True),
+                name="one_primary_property_per_contact",
+            )
+        ]
+
+    def __str__(self):
+        return f"{self.street}, {self.city}, {self.state} {self.postal_code}"
 
 
 class Lead(models.Model):
@@ -240,6 +312,12 @@ class Deal(models.Model):
 
 
 class Task(models.Model):
+    class Kind(models.TextChoices):
+        GENERAL = "general", "General"
+        # Generated when a customer is due for a repeat service
+        # (apps/crm/followups.py); completing one logs a contact touch.
+        FOLLOW_UP = "follow_up", "Follow-up"
+
     class Priority(models.TextChoices):
         LOW = "low", "Low"
         MEDIUM = "medium", "Medium"
@@ -250,6 +328,9 @@ class Task(models.Model):
         COMPLETED = "completed", "Completed"
         CANCELLED = "cancelled", "Cancelled"
 
+    kind = models.CharField(
+        max_length=10, choices=Kind.choices, default=Kind.GENERAL, db_index=True
+    )
     title = models.CharField(max_length=255)
     description = models.TextField(blank=True)
     assigned_to = models.ForeignKey(
@@ -271,12 +352,32 @@ class Task(models.Model):
         on_delete=models.SET_NULL,
         related_name="tasks",
     )
+    service_type = models.ForeignKey(
+        "jobs.ServiceType",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="tasks",
+    )
+    quote = models.ForeignKey(
+        "jobs.Quote", null=True, blank=True, on_delete=models.SET_NULL, related_name="tasks"
+    )
+    job = models.ForeignKey(
+        "jobs.Job", null=True, blank=True, on_delete=models.SET_NULL, related_name="tasks"
+    )
     due_date = models.DateField(null=True, blank=True)
     priority = models.CharField(max_length=10, choices=Priority.choices, default=Priority.MEDIUM)
     status = models.CharField(
         max_length=10, choices=Status.choices, default=Status.PENDING, db_index=True
     )
     completed_at = models.DateTimeField(null=True, blank=True)
+    completed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="completed_tasks",
+    )
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.PROTECT,
@@ -291,6 +392,21 @@ class Task(models.Model):
             models.Index(fields=["status"]),
             models.Index(fields=["due_date"]),
             models.Index(fields=["assigned_to"]),
+        ]
+        constraints = [
+            # A follow-up is always about a specific customer and service.
+            models.CheckConstraint(
+                condition=~models.Q(kind="follow_up")
+                | (models.Q(contact__isnull=False) & models.Q(service_type__isnull=False)),
+                name="follow_up_has_contact_and_service",
+            ),
+            # The generator is idempotent, and this makes it impossible
+            # to double up even if two runs overlap.
+            models.UniqueConstraint(
+                fields=["contact", "service_type"],
+                condition=models.Q(kind="follow_up", status="pending"),
+                name="one_open_follow_up_per_contact_service",
+            ),
         ]
 
     @property
@@ -355,6 +471,11 @@ class Activity(models.Model):
         MEETING = "meeting", "Meeting"
         EMAIL = "email", "Email"
         NOTE = "note", "Note"
+        TEXT = "text", "Text message"
+        VISIT = "visit", "Site visit"
+        # Logged automatically when a follow-up task is completed —
+        # resets that contact's follow-up clock.
+        FOLLOW_UP = "follow_up", "Follow-up"
 
     activity_type = models.CharField(max_length=10, choices=ActivityType.choices, db_index=True)
     subject = models.CharField(max_length=255)
@@ -414,3 +535,75 @@ class Activity(models.Model):
         if self.pk is not None:
             raise ValueError("Activity records are immutable and cannot be updated after creation.")
         super().save(*args, **kwargs)
+
+
+class Note(models.Model):
+    """A free-form note — general (no links) or about a contact or job."""
+
+    author = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="notes"
+    )
+    body = models.TextField()
+    contact = models.ForeignKey(
+        Contact, null=True, blank=True, on_delete=models.CASCADE, related_name="note_set"
+    )
+    job = models.ForeignKey(
+        "jobs.Job", null=True, blank=True, on_delete=models.CASCADE, related_name="note_set"
+    )
+    pinned = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-pinned", "-created_at"]
+
+    def __str__(self):
+        return self.body[:60]
+
+
+class BusinessPlan(models.Model):
+    """A goal or initiative (e.g. "Launch gutter-guard upsell"), with an
+    owner, a due date, and a checklist."""
+
+    class Status(models.TextChoices):
+        NOT_STARTED = "not_started", "Not started"
+        IN_PROGRESS = "in_progress", "In progress"
+        ON_HOLD = "on_hold", "On hold"
+        DONE = "done", "Done"
+
+    title = models.CharField(max_length=255)
+    description = models.TextField(blank=True)
+    owner = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="business_plans"
+    )
+    due_date = models.DateField(null=True, blank=True)
+    status = models.CharField(
+        max_length=15, choices=Status.choices, default=Status.NOT_STARTED, db_index=True
+    )
+    priority = models.CharField(
+        max_length=10, choices=Task.Priority.choices, default=Task.Priority.MEDIUM
+    )
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="created_business_plans"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["due_date", "pk"]
+
+    def __str__(self):
+        return self.title
+
+
+class PlanChecklistItem(models.Model):
+    plan = models.ForeignKey(BusinessPlan, on_delete=models.CASCADE, related_name="items")
+    text = models.CharField(max_length=255)
+    is_done = models.BooleanField(default=False)
+    position = models.PositiveSmallIntegerField(default=0)
+
+    class Meta:
+        ordering = ["position", "pk"]
+
+    def __str__(self):
+        return self.text

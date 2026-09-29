@@ -255,3 +255,20 @@ class SuperuserIsTreatedAsOwnerTests(TestCase):
         lead = Lead.objects.create(name="Jane Prospect", created_by=self.user)
         response = self.client.get(reverse("crm:lead_convert", args=[lead.pk]))
         self.assertEqual(response.status_code, 200)
+
+
+class LegacyAdminIsReadOnlyTests(TestCase):
+    """Lead and Deal were folded into Contact/Quote (jobs/0003); the
+    admin keeps them visible but allows no add, change, or delete."""
+
+    def test_no_add_change_or_delete(self):
+        from django.contrib import admin
+        from django.test import RequestFactory
+
+        request = RequestFactory().get("/")
+        request.user = User.objects.create_superuser("root", "r@example.com", "pw")
+        for model in (Lead, Deal):
+            model_admin = admin.site._registry[model]
+            self.assertFalse(model_admin.has_add_permission(request))
+            self.assertFalse(model_admin.has_change_permission(request))
+            self.assertFalse(model_admin.has_delete_permission(request))
