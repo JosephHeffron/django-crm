@@ -71,7 +71,7 @@ explicitly deferred until this scope is working reliably on the Raspberry Pi.
 The initial release scope above is done. The phases below pick up the
 functionality it deliberately deferred, plus hardening work identified
 along the way (`docs/PRODUCTION_READINESS.md`'s still-open findings).
-Phase 15 is complete; Phase 16 onward not yet started. Ordered so that
+Phases 15-16 are complete; Phase 17 onward not yet started. Ordered so that
 Phase 22 (the one item genuinely
 blocked on hardware the user doesn't have yet — a physical Raspberry Pi
 5) sits last and gates nothing before it; Phases 15-21 are all
@@ -95,10 +95,13 @@ insufficient.
       wait on hardware the user doesn't have yet. Done — the user
       chose Backblaze B2; full detail in
       `logs/claude/phase-15-backup-hardening.md`.
-- [ ] **Phase 16 — Browser-verified security review.** Revisit the CSP
+- [x] **Phase 16 — Browser-verified security review.** Revisit the CSP
       (Content-Security-Policy) header deferred in
       `docs/PRODUCTION_CONFIG_REVIEW.md`, which needs a real-browser
-      check against Django admin's inline scripts to do safely.
+      check against Django admin's inline scripts to do safely. Done —
+      a headless-Chromium check found zero violations against admin
+      and, after a Sourcery-caught fix, the production 500 page too;
+      full detail in `logs/claude/phase-16-csp.md`.
 - [ ] **Phase 17 — Data portability and bulk operations.** CSV import/
       export for Companies/Contacts/Deals, bulk actions on list views,
       saved/custom list filters, tags/labels, duplicate detection on

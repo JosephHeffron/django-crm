@@ -8,22 +8,24 @@ actually verified.
 > uncommitted). The original 14-phase roadmap is fully complete (see
 > "Project complete" below). The post-release roadmap
 > (`docs/ROADMAP.md`'s "Phase 15+") is now underway: **Phase 15
-> (Backup hardening)'s off-host, encrypted backup mechanism — `restic`,
-> the user's chosen destination being Backblaze B2 — is implemented
-> and live-verified.** No real B2 account/bucket/key exists yet on any
-> actual deployment, so no production backups are actually stored
-> off-host yet — that's the deploying operator's own remaining setup
-> step (`docs/ADMIN_GUIDE.md`), not further code. Phase 16
-> (browser-verified CSP review) is next.
+> (Backup hardening)'s off-host, encrypted backup mechanism** — `restic`,
+> the user's chosen destination being Backblaze B2 — **is implemented
+> and live-verified** (real B2 account/bucket/key creation remains the
+> deploying operator's own step, not further code). **Phase 16
+> (browser-verified CSP review) is also complete** — a headless-Chromium
+> check found zero violations, including after a real Sourcery-caught
+> bug (an un-nonced inline style on the production 500 page) was fixed.
+> Phase 17 (data portability and bulk operations) is next.
 > Note: the GitHub repo, switched from public to private earlier in the
 > project, is now **public again** — Phase 13 unit 1's audit found
 > branch protection and secret scanning had been silently disabled
 > while private (both are gated behind GitHub Pro on the free plan);
 > the user chose to go public again rather than pay for Pro, and both
 > protections are restored. Sourcery's automated review is available
-> again as a result (though it's hit its own free-tier review-budget
-> limit on the last couple of PRs — a summary/reviewer's guide only, no
-> line-level findings).
+> again as a result — after hitting its free-tier review-budget limit
+> on a couple of PRs around Phase 14, it has delivered real, substantive
+> findings on every PR since (Phases 15-16), several of them genuine
+> bugs this project's own testing hadn't caught.
 
 ## Project version
 
@@ -33,9 +35,9 @@ actually verified.
 
 The original 14-phase roadmap (Phases 0-14) is fully complete — see
 "Project complete," below, for the summary, and "Completed" for full
-phase-by-phase detail. The post-release roadmap is now underway: Phase
-15 (backup hardening) is complete; Phase 16 (browser-verified CSP
-review) is next — see "Post-release roadmap progress," below, for
+phase-by-phase detail. The post-release roadmap is now underway:
+Phases 15-16 are complete; Phase 17 (data portability and bulk
+operations) is next — see "Post-release roadmap progress," below, for
 current status. This section deliberately stays short and points at
 those two rather than duplicating them, so it can't drift out of sync
 with them the way an earlier version of this section once did (it
@@ -681,18 +683,40 @@ roadmap completed:
   finding #1 and MEDIUM finding #2. 303 tests total (unchanged — no
   Django application code touched). Full detail in
   `logs/claude/phase-15-backup-hardening.md`.
-- Phases 16-22: not yet started.
+- **Phase 16 — Browser-verified security review: DONE.** Django's own
+  built-in CSP middleware (`django.middleware.csp`, present since
+  Django 6.1 — this project's actual installed version, discovered
+  while starting this phase, not assumed from either prior finding
+  that deferred it) plus a strict production-only `SECURE_CSP` policy
+  (`default-src 'none'`, no `'unsafe-inline'` anywhere). Verified with
+  a headless Chromium instance (Playwright, installed into an isolated
+  throwaway venv for this session only) driven against a real
+  `manage.py runserver` under production settings: admin login,
+  changelist, an add form's date/related-object widgets, and a
+  related-object popup all loaded with **zero CSP violations**.
+  Sourcery's review then caught a real bug this project's own template
+  audit had missed — `templates/500.html`'s inline `<style>` block, for
+  which a nonce-based fix wasn't even viable (Django's `handler500`
+  renders that template with no request context at all) — fixed by
+  moving the CSS to an external stylesheet, re-verified by deliberately
+  triggering a real 500 under full CSP enforcement and confirming via
+  the browser's own computed style that it still rendered correctly.
+  Closes `docs/SECURITY_REVIEW.md` #6 / `docs/PRODUCTION_CONFIG_REVIEW.md`
+  #2. 304 tests total (+1 regression test). Full detail in
+  `logs/claude/phase-16-csp.md`.
+- Phases 17-22: not yet started.
 
 ## Currently working on
 
-Nothing queued — Phase 15 just closed out. Phase 16 (browser-verified
-CSP review) is next whenever work resumes.
+Nothing queued — Phase 16 just closed out. Phase 17 (data portability
+and bulk operations) is next whenever work resumes.
 
 ## Next
 
-1. Phase 16 — browser-verified security review: revisit the CSP header
-   deferred in `docs/PRODUCTION_CONFIG_REVIEW.md`, which needs a real
-   browser to verify it doesn't break Django admin's inline scripts.
+1. Phase 17 — data portability and bulk operations: CSV import/export
+   for Companies/Contacts/Deals, bulk actions on list views, saved/
+   custom list filters, tags/labels, duplicate detection on Company/
+   Contact create.
 
 ## Known issues
 

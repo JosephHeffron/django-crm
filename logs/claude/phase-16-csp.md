@@ -185,9 +185,11 @@ genuinely applied, plus zero CSP violations on that response.
 
 ## Git
 
-Branch: `feature/csp-django-native` (pending)
-Commit: pending
-Merged to `main`: pending
+Branch: `feature/csp-django-native`
+Commit: `9b2be71` (implementation), `ae6e120` (Sourcery-review fix —
+the un-nonced inline `<style>` in `templates/500.html`)
+Merged to `main`: `f79c3bf` (regular merge commit, PR #88 — CI green:
+`test` + `dependency-audit` both pass)
 
 ## Next
 
