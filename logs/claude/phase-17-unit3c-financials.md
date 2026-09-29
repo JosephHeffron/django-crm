@@ -66,11 +66,20 @@ $ Playwright on the seeded dev database: demo Owner 200 on six
   outweigh seeded invoices) — a demo-data matter, not a calculation
   one; totals are covered by exact-fixture tests.
 
+## Review
+
+Sourcery skipped PR #102 (weekly budget exhausted), so a self-review of
+`reports.py`, the view, and the template: one query per figure; the
+same "sent" filter for revenue and invoice counts; week/month buckets
+align with periods that start mid-week; an all-zero period draws empty
+bars without dividing by zero; parameters validated and Owner-only.
+No defects.
+
 ## Git
 
 Branch: `feature/financials`
-Commit: pending
-Merged to `main`: pending
+Commit: `61f6fc4`
+Merged to `main`: PR #102, merge commit `f2d2801`
 
 ## Next
 

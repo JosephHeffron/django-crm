@@ -15,7 +15,7 @@ actually verified.
 > (browser-verified CSP review) is also complete** — a headless-Chromium
 > check found zero violations, including after a real Sourcery-caught
 > bug (an un-nonced inline style on the production 500 page) was fixed.
-> Phase 17 (field-service foundation) is in progress — units 1, 2, 3a, and 3b done; 3c remains.
+> Phase 17 (field-service foundation) is in progress — units 1, 2, 3a, 3b, and 3c done; 3d remains.
 > Note: the GitHub repo, switched from public to private earlier in the
 > project, is now **public again** — Phase 13 unit 1's audit found
 > branch protection and secret scanning had been silently disabled
@@ -40,7 +40,7 @@ The original 14-phase roadmap (Phases 0-14) is fully complete — see
 "Project complete," below, for the summary, and "Completed" for full
 phase-by-phase detail. The post-release roadmap is now underway:
 Phases 15-16 are complete; Phase 17 (field-service foundation) is in
-progress (units 1, 2, 3a, and 3b done) — see "Post-release roadmap progress,"
+progress (units 1, 2, 3a, 3b, and 3c done) — see "Post-release roadmap progress,"
 below, for current status. This section deliberately stays short and points at
 those two rather than duplicating them, so it can't drift out of sync
 with them the way an earlier version of this section once did (it
@@ -708,7 +708,7 @@ roadmap completed:
   #2. 304 tests total (+1 regression test). Full detail in
   `logs/claude/phase-16-csp.md`.
 - **Phase 17 — Field-service foundation (in progress — units 1,
-  2, 3a, and 3b done; 3c remains).** The roadmap pivoted here to the owner's exterior
+  2, 3a, 3b, and 3c done; 3d remains).** The roadmap pivoted here to the owner's exterior
   home-services business (ADRs 0008/0009; plan approved 2026-09-28).
   **Unit 1 (PR #90) — done:** Owner / Sales Rep / Cleaner roles
   enforced server-side (replacing the Phase 6 "Staff" group; no-role
@@ -775,18 +775,25 @@ roadmap completed:
   on a contact page, and a same-named-company move missing from the
   audit log. 459 tests. Full detail in
   `logs/claude/phase-17-unit3b-contacts-tasks.md`.
+  **Unit 3c (PR #102) — done:** the Owner's Financials page —
+  revenue, collected, expenses, and net for preset or custom periods;
+  a revenue-vs-expenses chart; revenue by service and by sales rep;
+  expenses by category; outstanding balances aged by lateness. All
+  database aggregates, with the definitions in one place
+  (`apps/jobs/reports.py`). Browser-verified, zero CSP violations;
+  self-reviewed (Sourcery budget exhausted), no defects. 468 tests.
+  Full detail in `logs/claude/phase-17-unit3c-financials.md`.
 - Phases 18-25: not yet started (re-sequenced in `docs/ROADMAP.md`).
 
 ## Currently working on
 
-Nothing in flight — Phase 17 unit 3b just closed out.
+Nothing in flight — Phase 17 unit 3c just closed out.
 
 ## Next
 
-1. Phase 17 unit 3c — Financials (Owner: revenue, collected,
-   outstanding with aging, expenses, net; by service and by rep; SVG
-   charts), Profile with stats, and Messages (channel membership per
-   role). That completes Phase 17.
+1. Phase 17 unit 3d — Profile with stats (own; the Owner can view the
+   team's) and Messages (channels, direct messages, posting by plain
+   form, channel membership per role). That completes Phase 17.
 
 ## Known issues
 
