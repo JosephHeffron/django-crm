@@ -1,0 +1,47 @@
+{% load static %}<div class="sidebar-header">
+  <a class="brand" href="{% url 'core:index' %}">
+    <img class="brand-mark" src="{% static 'pwa/icons/icon.svg' %}" alt="" width="28" height="28">
+    <span>{{ brand_name }}</span>
+  </a>
+  <a href="#main" class="icon-button sidebar-close" data-nav-close role="button" aria-label="Close menu">
+    <svg class="icon" aria-hidden="true"><use href="#icon-x"/></svg>
+  </a>
+</div>
+
+<ul class="nav-list">
+  {% for item in nav.items %}
+    <li>
+      <a class="nav-link" href="{{ item.url }}"{% if item.active %} aria-current="page"{% endif %}>
+        <svg class="icon" aria-hidden="true"><use href="#icon-{{ item.icon }}"/></svg>
+        <span>{{ item.label }}</span>
+      </a>
+    </li>
+  {% endfor %}
+</ul>
+
+<div class="sidebar-footer">
+  <div class="user-card">
+    <span class="avatar" aria-hidden="true">{{ nav.initials }}</span>
+    <div>
+      <div class="user-card-name">{{ nav.display_name }}</div>
+      <div class="user-card-role">{{ nav.role_label }}</div>
+    </div>
+  </div>
+  <ul class="nav-list">
+    <li>
+      <a class="nav-link" href="{% url 'users:password_change' %}">
+        <svg class="icon" aria-hidden="true"><use href="#icon-key"/></svg>
+        <span>Change password</span>
+      </a>
+    </li>
+    <li>
+      <form method="post" action="{% url 'users:logout' %}" class="logout-form">
+        {% csrf_token %}
+        <button type="submit" class="nav-link nav-button">
+          <svg class="icon" aria-hidden="true"><use href="#icon-logout"/></svg>
+          <span>Log out</span>
+        </button>
+      </form>
+    </li>
+  </ul>
+</div>

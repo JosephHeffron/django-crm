@@ -13,11 +13,22 @@ the first account; every account after that is created via `/admin/` by
 a superuser — there is no public sign-up page). After logging in you
 land on the **Dashboard**.
 
-If you ever get a "permission denied" (403) page trying to create, edit,
-deactivate, or complete something, it means your account hasn't been
-added to the **Staff** group yet — ask your administrator. Everyone who
-can log in can *see* every record; only Staff members (and superusers)
-can change anything. See `docs/PERMISSIONS.md` for the full model.
+What you can see depends on your **role**, which the owner assigns:
+
+- **Owner** — everything.
+- **Sales Rep** — customers (contacts, companies), tasks, search, and
+  the business dashboard.
+- **Cleaner** — your own schedule and jobs (these pages are arriving
+  with the field-service update; for now the dashboard is your home).
+
+If your dashboard says **"No role assigned yet"**, or you get a
+"permission denied" (403) page, your account doesn't have the role that
+page needs — ask the owner. See `docs/PERMISSIONS.md` for the full
+model.
+
+On a phone, the app can be installed to your home screen (your
+browser's "Add to Home Screen" / "Install app" option) and opens like a
+native app.
 
 ## Dashboard
 
@@ -47,8 +58,7 @@ their own detail page — see below).
 
 **Companies** (`Companies` in the nav): list is searchable by name and
 filterable by Active/Inactive. A Company's detail page shows its linked
-Contacts, Deals, activity timeline, and (if you're Staff) an edit history
-section.
+Contacts, Deals, activity timeline, and an edit history section.
 
 **Contacts** (`Contacts`): searchable by first name, last name, or
 email; filterable by Active/Inactive and by Company. A Contact's detail

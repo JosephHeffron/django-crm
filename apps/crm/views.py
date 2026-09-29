@@ -1,5 +1,5 @@
 from django.contrib import messages
-from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
+from django.contrib.auth.mixins import PermissionRequiredMixin
 from django.contrib.contenttypes.models import ContentType
 from django.db.models import Q
 from django.shortcuts import get_object_or_404, redirect, render
@@ -8,6 +8,8 @@ from django.utils import timezone
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.views import View
 from django.views.generic import CreateView, DetailView, ListView, UpdateView
+
+from apps.users.roles import SalesRoleRequiredMixin
 
 from .forms import (
     ActivityForm,
@@ -106,7 +108,7 @@ def _audit_log_for(obj):
     ).select_related("user")
 
 
-class CompanyListView(LoginRequiredMixin, ListView):
+class CompanyListView(SalesRoleRequiredMixin, ListView):
     model = Company
     template_name = "crm/company_list.html"
     context_object_name = "companies"
@@ -133,7 +135,7 @@ class CompanyListView(LoginRequiredMixin, ListView):
         return context
 
 
-class CompanyDetailView(LoginRequiredMixin, DetailView):
+class CompanyDetailView(SalesRoleRequiredMixin, DetailView):
     model = Company
     template_name = "crm/company_detail.html"
     context_object_name = "company"
@@ -148,7 +150,7 @@ class CompanyDetailView(LoginRequiredMixin, DetailView):
         return context
 
 
-class CompanyCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView):
+class CompanyCreateView(SalesRoleRequiredMixin, PermissionRequiredMixin, CreateView):
     model = Company
     form_class = CompanyForm
     template_name = "crm/company_form.html"
@@ -162,7 +164,7 @@ class CompanyCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView)
         return response
 
 
-class CompanyUpdateView(LoginRequiredMixin, PermissionRequiredMixin, UpdateView):
+class CompanyUpdateView(SalesRoleRequiredMixin, PermissionRequiredMixin, UpdateView):
     model = Company
     form_class = CompanyForm
     template_name = "crm/company_form.html"
@@ -178,7 +180,7 @@ class CompanyUpdateView(LoginRequiredMixin, PermissionRequiredMixin, UpdateView)
         return response
 
 
-class CompanyDeactivateView(LoginRequiredMixin, PermissionRequiredMixin, DetailView):
+class CompanyDeactivateView(SalesRoleRequiredMixin, PermissionRequiredMixin, DetailView):
     """GET shows a confirmation page; POST deactivates (is_active=False).
 
     Not a DeleteView: docs/DATABASE_DESIGN.md documents `is_active` as
@@ -212,7 +214,7 @@ class CompanyDeactivateView(LoginRequiredMixin, PermissionRequiredMixin, DetailV
         return redirect(company.get_absolute_url())
 
 
-class ContactListView(LoginRequiredMixin, ListView):
+class ContactListView(SalesRoleRequiredMixin, ListView):
     model = Contact
     template_name = "crm/contact_list.html"
     context_object_name = "contacts"
@@ -254,7 +256,7 @@ class ContactListView(LoginRequiredMixin, ListView):
         return context
 
 
-class ContactDetailView(LoginRequiredMixin, DetailView):
+class ContactDetailView(SalesRoleRequiredMixin, DetailView):
     model = Contact
     template_name = "crm/contact_detail.html"
     context_object_name = "contact"
@@ -269,7 +271,7 @@ class ContactDetailView(LoginRequiredMixin, DetailView):
         return context
 
 
-class ContactCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView):
+class ContactCreateView(SalesRoleRequiredMixin, PermissionRequiredMixin, CreateView):
     model = Contact
     form_class = ContactForm
     template_name = "crm/contact_form.html"
@@ -283,7 +285,7 @@ class ContactCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView)
         return response
 
 
-class ContactUpdateView(LoginRequiredMixin, PermissionRequiredMixin, UpdateView):
+class ContactUpdateView(SalesRoleRequiredMixin, PermissionRequiredMixin, UpdateView):
     model = Contact
     form_class = ContactForm
     template_name = "crm/contact_form.html"
@@ -299,7 +301,7 @@ class ContactUpdateView(LoginRequiredMixin, PermissionRequiredMixin, UpdateView)
         return response
 
 
-class ContactDeactivateView(LoginRequiredMixin, PermissionRequiredMixin, DetailView):
+class ContactDeactivateView(SalesRoleRequiredMixin, PermissionRequiredMixin, DetailView):
     """Same pattern as CompanyDeactivateView — is_active=False, never a
     hard delete. See that view's docstring for the reasoning."""
 
@@ -323,7 +325,7 @@ class ContactDeactivateView(LoginRequiredMixin, PermissionRequiredMixin, DetailV
         return redirect(contact.get_absolute_url())
 
 
-class LeadListView(LoginRequiredMixin, ListView):
+class LeadListView(SalesRoleRequiredMixin, ListView):
     model = Lead
     template_name = "crm/lead_list.html"
     context_object_name = "leads"
@@ -353,7 +355,7 @@ class LeadListView(LoginRequiredMixin, ListView):
         return context
 
 
-class LeadDetailView(LoginRequiredMixin, DetailView):
+class LeadDetailView(SalesRoleRequiredMixin, DetailView):
     model = Lead
     template_name = "crm/lead_detail.html"
     context_object_name = "lead"
@@ -366,7 +368,7 @@ class LeadDetailView(LoginRequiredMixin, DetailView):
         return context
 
 
-class LeadCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView):
+class LeadCreateView(SalesRoleRequiredMixin, PermissionRequiredMixin, CreateView):
     model = Lead
     form_class = LeadForm
     template_name = "crm/lead_form.html"
@@ -380,7 +382,7 @@ class LeadCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView):
         return response
 
 
-class LeadUpdateView(LoginRequiredMixin, PermissionRequiredMixin, UpdateView):
+class LeadUpdateView(SalesRoleRequiredMixin, PermissionRequiredMixin, UpdateView):
     model = Lead
     form_class = LeadForm
     template_name = "crm/lead_form.html"
@@ -396,7 +398,7 @@ class LeadUpdateView(LoginRequiredMixin, PermissionRequiredMixin, UpdateView):
         return response
 
 
-class LeadConvertView(LoginRequiredMixin, PermissionRequiredMixin, View):
+class LeadConvertView(SalesRoleRequiredMixin, PermissionRequiredMixin, View):
     """GET shows a conversion form pre-filled from the Lead; POST
     creates/links a Company, always creates a Contact, optionally opens
     a Deal, then marks the Lead converted — the workflow documented in
@@ -504,7 +506,7 @@ class LeadConvertView(LoginRequiredMixin, PermissionRequiredMixin, View):
         return redirect(lead.get_absolute_url())
 
 
-class DealListView(LoginRequiredMixin, ListView):
+class DealListView(SalesRoleRequiredMixin, ListView):
     model = Deal
     template_name = "crm/deal_list.html"
     context_object_name = "deals"
@@ -535,7 +537,7 @@ class DealListView(LoginRequiredMixin, ListView):
         return context
 
 
-class DealDetailView(LoginRequiredMixin, DetailView):
+class DealDetailView(SalesRoleRequiredMixin, DetailView):
     model = Deal
     template_name = "crm/deal_detail.html"
     context_object_name = "deal"
@@ -549,7 +551,7 @@ class DealDetailView(LoginRequiredMixin, DetailView):
         return context
 
 
-class DealCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView):
+class DealCreateView(SalesRoleRequiredMixin, PermissionRequiredMixin, CreateView):
     model = Deal
     form_class = DealForm
     template_name = "crm/deal_form.html"
@@ -564,7 +566,7 @@ class DealCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView):
         return response
 
 
-class DealUpdateView(LoginRequiredMixin, PermissionRequiredMixin, UpdateView):
+class DealUpdateView(SalesRoleRequiredMixin, PermissionRequiredMixin, UpdateView):
     model = Deal
     form_class = DealForm
     template_name = "crm/deal_form.html"
@@ -581,7 +583,7 @@ class DealUpdateView(LoginRequiredMixin, PermissionRequiredMixin, UpdateView):
         return response
 
 
-class ActivityListView(LoginRequiredMixin, ListView):
+class ActivityListView(SalesRoleRequiredMixin, ListView):
     model = Activity
     template_name = "crm/activity_list.html"
     context_object_name = "activities"
@@ -605,7 +607,7 @@ class ActivityListView(LoginRequiredMixin, ListView):
         return context
 
 
-class ActivityCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView):
+class ActivityCreateView(SalesRoleRequiredMixin, PermissionRequiredMixin, CreateView):
     """No ActivityUpdateView exists, deliberately — Activity.save()
     itself rejects updates (docs/DATABASE_DESIGN.md, immutable history).
     No ActivityDetailView either: an Activity's "detail page" is the
@@ -662,7 +664,7 @@ class ActivityCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView
         return reverse("crm:activity_list")
 
 
-class TaskListView(LoginRequiredMixin, ListView):
+class TaskListView(SalesRoleRequiredMixin, ListView):
     model = Task
     template_name = "crm/task_list.html"
     context_object_name = "tasks"
@@ -700,13 +702,13 @@ class TaskListView(LoginRequiredMixin, ListView):
         return context
 
 
-class TaskDetailView(LoginRequiredMixin, DetailView):
+class TaskDetailView(SalesRoleRequiredMixin, DetailView):
     model = Task
     template_name = "crm/task_detail.html"
     context_object_name = "task"
 
 
-class TaskCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView):
+class TaskCreateView(SalesRoleRequiredMixin, PermissionRequiredMixin, CreateView):
     model = Task
     form_class = TaskForm
     template_name = "crm/task_form.html"
@@ -729,7 +731,7 @@ class TaskCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView):
         return response
 
 
-class TaskUpdateView(LoginRequiredMixin, PermissionRequiredMixin, UpdateView):
+class TaskUpdateView(SalesRoleRequiredMixin, PermissionRequiredMixin, UpdateView):
     model = Task
     form_class = TaskForm
     template_name = "crm/task_form.html"
@@ -742,7 +744,7 @@ class TaskUpdateView(LoginRequiredMixin, PermissionRequiredMixin, UpdateView):
         return response
 
 
-class TaskCompleteView(LoginRequiredMixin, PermissionRequiredMixin, View):
+class TaskCompleteView(SalesRoleRequiredMixin, PermissionRequiredMixin, View):
     """One-click completion from the list or detail page, without going
     through the full edit form — the dedicated "completion workflow"
     the roadmap calls for, separate from ordinary editing. POST only.

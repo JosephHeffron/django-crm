@@ -3,7 +3,18 @@
 {% block title %}Dashboard{% endblock %}
 
 {% block content %}
-  <h1>Dashboard</h1>
+  <div class="page-header">
+    <div>
+      <h1>Dashboard</h1>
+      <p class="page-subtitle">Welcome back, {{ nav.display_name }}.</p>
+    </div>
+  </div>
+
+  {% if role is None %}
+    {% include "partials/_empty_state.html" with icon="lock" title="No role assigned yet" text="Your account doesn't have a role, so there's nothing to show. Ask the owner to make you an Owner, Sales Rep, or Cleaner." %}
+  {% elif role == "Cleaner" %}
+    {% include "partials/_empty_state.html" with icon="calendar" title="Your schedule" text="Your assigned jobs will show up here." %}
+  {% else %}
 
   <ul class="dashboard-stats">
     <li><a href="{% url 'crm:company_list' %}?status=active">{{ company_count }} active companies</a></li>
@@ -66,5 +77,6 @@
     </ul>
   {% else %}
     <p>No activity yet.</p>
+  {% endif %}
   {% endif %}
 {% endblock %}

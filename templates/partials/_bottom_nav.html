@@ -1,0 +1,12 @@
+<nav class="bottom-bar" aria-label="Quick navigation">
+  {% for item in nav.bottom_items %}
+    <a class="bottom-link" href="{{ item.url }}"{% if item.active %} aria-current="page"{% endif %}>
+      <svg class="icon" aria-hidden="true"><use href="#icon-{{ item.icon }}"/></svg>
+      <span>{{ item.label }}</span>
+    </a>
+  {% endfor %}
+  <a class="bottom-link" href="#sidebar" data-nav-toggle role="button" aria-controls="sidebar" aria-expanded="false">
+    <svg class="icon" aria-hidden="true"><use href="#icon-menu"/></svg>
+    <span>Menu</span>
+  </a>
+</nav>

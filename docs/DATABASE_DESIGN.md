@@ -379,3 +379,98 @@ still open.
   company"
   view that the current Contact/Deal-only relations can't answer without
   an extra join.
+
+## Field-service domain (Phase 17)
+
+Designed before implementation (Phase 17 unit 1), implemented in unit 2.
+Rationale and alternatives: `docs/decisions/0009-field-service-domain-model.md`;
+access rules: `docs/decisions/0008-roles-and-row-level-scoping.md`.
+`?` marks a nullable field. All money is `DecimalField(max_digits=12,
+decimal_places=2)`, USD, no sales tax (Phases 17-20).
+
+### Textual ERD
+
+```
+User 1──1 UserProfile
+Contact 1──* Property        Contact *──* Tag
+Contact 1──* Quote 1──* QuoteLineItem *──1 ServiceType
+Quote 0..1──* Job 1──* JobLineItem *──1 ServiceType
+Job 1──* JobAssignment *──1 User (crew)
+Job/Quote 1──* Photo
+Job 1──* Invoice 1──* InvoiceLineItem;  Invoice 1──* Payment
+Contact 1──* Activity (existing, contact-touch log)
+Task *──0..1 Contact / ServiceType / Quote / Job
+BusinessPlan 1──* PlanChecklistItem
+Note *──0..1 Contact / Job
+Channel 1──* ChannelMembership *──1 User;  Channel 1──* Message
+```
+
+### Changes to existing models (`apps.crm`)
+
+- **Contact** + `status` (lead/customer/inactive, default customer),
+  `lead_source` (referral/website/yard_sign/door_to_door/repeat/other),
+  `preferred_contact_method` (call/text/email), `tags` M2M Tag.
+  `is_active` is kept (deactivation workflow unchanged).
+- **Task** + `kind` (general/follow_up), `service_type?`, `quote?`,
+  `job?`, `completed_by?`. `UniqueConstraint(contact, service_type,
+  condition=kind=follow_up & status=pending)` — at most one open
+  follow-up per contact per service. `deal` FK retained until Phase 18.
+- **Activity** + types `text`, `visit`, `follow_up` (still immutable).
+- **Lead / Deal** — data-migrated into Contact / Quote, then hidden and
+  read-only; dropped in Phase 18.
+
+### New models
+
+- **UserProfile** (`apps.users`): user 1:1, title, phone, photo?,
+  calendar_tone (1-10).
+- **Property**: contact FK (CASCADE — an address has no meaning without
+  its contact), label, street, city, state, postal_code, notes,
+  is_primary.
+- **Tag**: name (unique), slug.
+- **Note**: author, body, contact?, job?, pinned, created/updated.
+- **BusinessPlan**: title, description, owner (user), due_date?, status
+  (not_started/in_progress/done/on_hold), priority.
+  **PlanChecklistItem**: plan FK (CASCADE), text, is_done, position.
+- **ServiceType** (`apps.jobs`): name (unique), slug, description,
+  default_price, pricing_unit (flat/hour/window/linear_ft/sq_ft/item),
+  followup_interval_months? (null = never auto-follow-up), tone (1-10,
+  maps to a CSS class — dynamic colors can't be inline styles under the
+  production CSP), is_active, position.
+- **Quote**: number (unique), contact (PROTECT), property?, status
+  (draft/sent/accepted/declined/expired), prepared_by (user),
+  site_visit_at? (estimate appointment shown on the calendar), sent_at?,
+  expires_on?, accepted_at?, notes. **QuoteLineItem**: quote (CASCADE),
+  service_type (PROTECT), description, quantity, unit_price, position.
+- **Job**: number (unique), contact (PROTECT), property?, quote?
+  (SET_NULL), sales_rep? (revenue credit), primary_service_type
+  (calendar color), status (scheduled/in_progress/completed/cancelled),
+  scheduled_start, scheduled_end, completed_at?, notes,
+  customer_rating? (1-5, CheckConstraint). **JobLineItem** (as quote
+  lines). **JobAssignment**: job (CASCADE), user (PROTECT),
+  hours_worked?; unique (job, user).
+- **Photo**: uuid (unique, used in the gated URL), job? / quote?
+  (CheckConstraint: exactly one), kind (before/after/reference), image
+  (`media/private/…`), uploaded_by, created_at.
+- **Invoice**: number (unique), job (PROTECT), contact (PROTECT),
+  issued_on, due_on, status (draft/sent/partially_paid/paid/void).
+  **InvoiceLineItem** (as quote lines). **Payment**: invoice (PROTECT),
+  amount (> 0), received_on, method (cash/check/card/transfer/other),
+  recorded_by.
+- **Expense**: date, amount, category, description, recorded_by.
+- **Channel** (`apps.messaging`): name, slug (unique), kind
+  (public/direct; `customer_sms` reserved), contact? (reserved for SMS),
+  is_archived. **ChannelMembership**: channel, user, last_read_message?;
+  unique (channel, user). **Message**: channel (CASCADE), author_user?,
+  author_contact? (CheckConstraint: at least one), body, transport
+  (internal/sms), direction (internal/inbound/outbound), external_id,
+  delivery_status, ref_job? / ref_contact? / ref_quote? (SET_NULL),
+  created_at.
+
+### Derived values (computed, never stored)
+
+- Quote/job/invoice totals: Σ quantity × unit_price over line items.
+- Contact last job date: max `Job.completed_at`; last contact date: max
+  `Activity.created_at` — both `Subquery` annotations.
+- Financials, follow-up eligibility, and profile stats: see
+  `docs/decisions/0009-field-service-domain-model.md` and the Phase 17
+  plan; all computed with ORM aggregation over the models above.

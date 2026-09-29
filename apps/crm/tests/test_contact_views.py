@@ -3,7 +3,7 @@ from django.test import TestCase
 from django.urls import reverse
 
 from apps.crm.models import Company, Contact, Deal, Task
-from apps.crm.tests._helpers import grant_staff
+from apps.crm.tests._helpers import grant_role
 
 User = get_user_model()
 
@@ -11,7 +11,7 @@ User = get_user_model()
 class ContactListViewTests(TestCase):
     def setUp(self):
         self.user = User.objects.create_user("alice", password="correct-horse-battery")
-        grant_staff(self.user)
+        grant_role(self.user)
         self.client.login(username="alice", password="correct-horse-battery")
 
     def test_anonymous_user_is_redirected(self):
@@ -134,7 +134,7 @@ class ContactListViewTests(TestCase):
 class ContactDetailViewTests(TestCase):
     def setUp(self):
         self.user = User.objects.create_user("alice", password="correct-horse-battery")
-        grant_staff(self.user)
+        grant_role(self.user)
         self.client.login(username="alice", password="correct-horse-battery")
         self.contact = Contact.objects.create(
             first_name="Ada", last_name="Lovelace", created_by=self.user
@@ -177,7 +177,7 @@ class ContactDetailViewTests(TestCase):
 class ContactCreateViewTests(TestCase):
     def setUp(self):
         self.user = User.objects.create_user("alice", password="correct-horse-battery")
-        grant_staff(self.user)
+        grant_role(self.user)
         self.client.login(username="alice", password="correct-horse-battery")
 
     def test_anonymous_user_is_redirected(self):
@@ -224,7 +224,7 @@ class ContactCreateViewTests(TestCase):
 class ContactUpdateViewTests(TestCase):
     def setUp(self):
         self.user = User.objects.create_user("alice", password="correct-horse-battery")
-        grant_staff(self.user)
+        grant_role(self.user)
         self.client.login(username="alice", password="correct-horse-battery")
         self.contact = Contact.objects.create(
             first_name="Ada", last_name="Lovelace", created_by=self.user
@@ -260,7 +260,7 @@ class ContactUpdateViewTests(TestCase):
 class ContactDeactivateViewTests(TestCase):
     def setUp(self):
         self.user = User.objects.create_user("alice", password="correct-horse-battery")
-        grant_staff(self.user)
+        grant_role(self.user)
         self.client.login(username="alice", password="correct-horse-battery")
         self.contact = Contact.objects.create(
             first_name="Ada", last_name="Lovelace", created_by=self.user
