@@ -130,6 +130,12 @@ and support rollback.
   unless a specific gap is found and documented.
 - `DEBUG=False`, a real `ALLOWED_HOSTS`, and secure cookie/session settings
   are mandatory in production configuration.
+- A strict Content-Security-Policy (production only — see
+  `docs/decisions/0007-django-native-csp.md`) via Django's own built-in
+  CSP middleware (`django.middleware.csp`, Django 6.1+): `default-src
+  'none'`, with `script-src`/`style-src` permitting only same-origin
+  and per-request nonces, and no external fonts/images/CDNs anywhere in
+  the app.
 
 ## Backup strategy
 

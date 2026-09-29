@@ -112,12 +112,14 @@ application-level dependency.
 
 ### 6. No Content-Security-Policy header
 
-Not set anywhere; Django has no first-class built-in for this (would
-need `django-csp` or hand-rolled middleware). **Deferred**: this is a
-better fit for the reverse-proxy layer (Caddy, Phase 8) than an added
-Django dependency, and with zero third-party JavaScript or inline
-scripts anywhere in the app today, the risk this would mitigate is
-already small.
+~~Not set anywhere; Django has no first-class built-in for this (would
+need `django-csp` or hand-rolled middleware).~~ **FIXED, Phase 16** —
+Django 6.1 (this project's actual installed version) turned out to
+ship first-class CSP support after all; see
+`docs/decisions/0007-django-native-csp.md` for the implementation and
+a real-browser live verification against Django admin specifically
+(zero violations, zero console errors, confirmed via headless
+Chromium, not assumed).
 
 ### 7. No custom `AUTH_USER_MODEL`
 

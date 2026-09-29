@@ -119,15 +119,17 @@ HTTP-status-only checks) cannot do. `curl` can confirm a page returns
 and broke a widget (a date picker, a related-object popup) with no
 HTTP-visible symptom.
 
-**Status: still deferred**, not fixed — same conclusion as
-`docs/SECURITY_REVIEW.md`, updated reasoning: the blocker is no longer
-"which layer should own this" (Caddy, clearly, now that it exists) but
-"this needs verification in an actual browser against the admin
-interface specifically," which isn't something this review can
-honestly claim to have done with the tools available in this
-environment. Revisit when a real browser check is possible, rather
-than shipping a CSP based on an assumption about Django admin's inline
-script tags.
+**Status: FIXED, Phase 16** — the real browser check this finding said
+was missing became possible (a headless Chromium instance, not
+interactive computer-use tooling, but a genuine browser engine exposing
+a real console) and found zero CSP violations against Django admin's
+login, changelist, add-form widgets, and a related-object popup. Also
+discovered along the way: this project's actual installed Django
+version (6.1.1) ships first-class native CSP support, changing "which
+layer should own this" from Caddy (this finding's original assumption)
+to Django's own middleware — see
+`docs/decisions/0007-django-native-csp.md` for the full design and
+verification detail.
 
 ### 3. Caddy's container runs as root (the official image's default)
 
@@ -220,11 +222,12 @@ change to `Caddyfile` itself right now.
 One real HIGH finding, found and fixed in this unit: `.env.example`'s
 `DJANGO_SETTINGS_MODULE` line could have silently put a real production
 deployment into `DEBUG=True` — confirmed live against the actual built
-image, both broken and then fixed. Two MEDIUM items remain genuinely
-deferred with reasoning (CSP needs a real-browser check this
-environment can't perform; Caddy-as-root is a documented, substantially
-mitigated trade-off, not a silent gap). Two LOW items are purely
-informational for a future real deployment. Everything else in the
-assembled stack — proxy header trust, Host-header/ALLOWED_HOSTS
-matching, secret handling, non-root Django, admin-API exposure, volume
-scoping — was checked directly (not assumed) and confirmed solid.
+image, both broken and then fixed. Of the two MEDIUM items, CSP is now
+**fixed** (Phase 16, once a real-browser check became possible — see
+`docs/decisions/0007-django-native-csp.md`); Caddy-as-root remains a
+documented, substantially mitigated trade-off, not a silent gap. Two
+LOW items are purely informational for a future real deployment.
+Everything else in the assembled stack — proxy header trust,
+Host-header/ALLOWED_HOSTS matching, secret handling, non-root Django,
+admin-API exposure, volume scoping — was checked directly (not
+assumed) and confirmed solid.
