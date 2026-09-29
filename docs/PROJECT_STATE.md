@@ -707,8 +707,8 @@ roadmap completed:
   Closes `docs/SECURITY_REVIEW.md` #6 / `docs/PRODUCTION_CONFIG_REVIEW.md`
   #2. 304 tests total (+1 regression test). Full detail in
   `logs/claude/phase-16-csp.md`.
-- **Phase 17 — Field-service foundation (in progress — unit 1 and
-  unit 2a of 2a/2b/2c done; unit 3 remains).** The roadmap pivoted here to the owner's exterior
+- **Phase 17 — Field-service foundation (in progress — units 1 and
+  2a done; 2b, 2c, then unit 3 remain).** The roadmap pivoted here to the owner's exterior
   home-services business (ADRs 0008/0009; plan approved 2026-09-28).
   **Unit 1 (PR #90) — done:** Owner / Sales Rep / Cleaner roles
   enforced server-side (replacing the Phase 6 "Staff" group; no-role
