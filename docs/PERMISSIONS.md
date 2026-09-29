@@ -90,6 +90,34 @@ Notes on the less obvious rows:
 - **`view_<model>` permissions are never checked** — visibility is
   decided by role (above), not by these auto-created permissions.
 
+## Field-service permissions (Phase 17 unit 2)
+
+`apps/users/migrations/0004_field_service_permissions.py` adds model
+permissions for the new models on top of the table above (additive and
+reversible). Summary:
+
+| | Owner | Sales Rep | Cleaner |
+|---|---|---|---|
+| Service catalog | add/change | — | — |
+| Quotes + line items | add/change (+ delete lines) | add/change (+ delete lines) | — |
+| Jobs, job lines, crew assignments | add/change (+ delete lines/assignments) | add/change (+ delete lines/assignments) | change job, change assignment |
+| Photos | add/change/delete | add | add |
+| Invoices, payments, expenses | add/change (+ delete lines/expenses) | — | — |
+| Properties, tags, notes, business plans, checklist items | add/change/delete | add/change (tags: add) | add note |
+| Messages, channel memberships | full | add message; add/change membership | add message; add/change membership |
+
+These say *what kind* of write is possible. *Which rows* a user may
+touch is a separate, row-level rule: the scoping helpers in
+`apps/jobs/access.py` (a Cleaner sees only jobs they're assigned to and
+those customers; only the Owner sees invoices) exist and are tested now,
+and every field-service view built on them must use them — read views
+in Phase 17 unit 3, write views (e.g. a Cleaner updating only their own
+jobs, a user changing only their own channel read marker) in Phases
+18-21. Out-of-scope rows return 404, per ADR 0008.
+`apps/jobs/tests/test_access.py` and
+`test_migrations.py::FieldServicePermissionSeedTests` cover what exists
+today.
+
 ## Seeding the role groups
 
 `apps/users/migrations/0002_roles.py` creates `Owner`, `Sales Rep`, and

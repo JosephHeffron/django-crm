@@ -7,6 +7,7 @@ from datetime import date
 from decimal import Decimal
 
 from django.apps import apps as global_apps
+from django.contrib.auth.models import Group
 from django.db import IntegrityError, connection, transaction
 from django.test import TestCase
 from django.utils import timezone
@@ -253,3 +254,40 @@ class FoldLeadsAndDealsTests(TestCase):
         self._fold()
         person.refresh_from_db()
         self.assertEqual(person.status, Contact.Status.LEAD)
+
+
+class FieldServicePermissionSeedTests(TestCase):
+    def _codenames(self, group):
+        return set(Group.objects.get(name=group).permissions.values_list("codename", flat=True))
+
+    def test_only_owner_can_write_money_and_the_catalog(self):
+        owner, rep, crew = (self._codenames(g) for g in ("Owner", "Sales Rep", "Cleaner"))
+        for codename in ("add_invoice", "add_payment", "add_expense", "change_servicetype"):
+            self.assertIn(codename, owner)
+            self.assertNotIn(codename, rep)
+            self.assertNotIn(codename, crew)
+
+    def test_sales_rep_can_build_quotes_and_schedule_jobs(self):
+        rep = self._codenames("Sales Rep")
+        for codename in (
+            "add_quote",
+            "change_quote",
+            "add_quotelineitem",
+            "add_job",
+            "add_jobassignment",
+        ):
+            self.assertIn(codename, rep)
+
+    def test_cleaner_gets_exactly_the_field_permissions(self):
+        self.assertEqual(
+            self._codenames("Cleaner"),
+            {
+                "add_note",
+                "change_job",
+                "change_jobassignment",
+                "add_photo",
+                "add_message",
+                "add_channelmembership",
+                "change_channelmembership",
+            },
+        )
