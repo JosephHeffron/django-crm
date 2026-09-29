@@ -1,7 +1,7 @@
 from django.contrib import messages
 from django.contrib.auth.mixins import PermissionRequiredMixin
 from django.contrib.contenttypes.models import ContentType
-from django.db.models import Q
+from django.db.models import Count, F, Q
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
@@ -9,6 +9,7 @@ from django.utils.http import url_has_allowed_host_and_scheme
 from django.views import View
 from django.views.generic import CreateView, DetailView, ListView, UpdateView
 
+from apps.jobs.models import Job, Quote
 from apps.users.roles import SalesRoleRequiredMixin
 
 from .followups import record_completion
@@ -21,7 +22,20 @@ from .forms import (
     LeadForm,
     TaskForm,
 )
-from .models import Activity, AuditLogEntry, Company, Contact, Deal, Lead, Task
+from .hub import TasksHubMixin
+from .models import (
+    Activity,
+    AuditLogEntry,
+    BusinessPlan,
+    Company,
+    Contact,
+    Deal,
+    Lead,
+    Note,
+    Tag,
+    Task,
+)
+from .timeline import contact_timeline, upcoming_jobs, with_last_dates
 
 
 def _split_lead_name(name):
@@ -107,10 +121,13 @@ def _diff_changed_fields(previous, current, changed_fields):
     for field in changed_fields:
         old_value = getattr(previous, field, None)
         new_value = getattr(current, field, None)
-        changes[field] = [
-            None if old_value is None else str(old_value),
-            None if new_value is None else str(new_value),
-        ]
+        old_text = None if old_value is None else str(old_value)
+        new_text = None if new_value is None else str(new_value)
+        # The form can flag a field whose saved value didn't actually
+        # change (e.g. an omitted optional field that falls back to its
+        # current value) — that isn't a change worth recording.
+        if old_text != new_text:
+            changes[field] = [old_text, new_text]
     return changes
 
 
@@ -226,6 +243,14 @@ class CompanyDeactivateView(SalesRoleRequiredMixin, PermissionRequiredMixin, Det
         return redirect(company.get_absolute_url())
 
 
+CONTACT_SORTS = {
+    "name": ("Name", ("last_name", "first_name", "pk")),
+    "recent_job": ("Most recent job", (F("last_job_at").desc(nulls_last=True), "pk")),
+    # Longest without a touch first: who's due a call.
+    "last_contact": ("Longest since contact", (F("last_touch_at").asc(nulls_first=True), "pk")),
+}
+
+
 class ContactListView(SalesRoleRequiredMixin, ListView):
     model = Contact
     template_name = "crm/contact_list.html"
@@ -233,38 +258,54 @@ class ContactListView(SalesRoleRequiredMixin, ListView):
     paginate_by = 25
 
     def get_queryset(self):
-        queryset = super().get_queryset().select_related("company")
-        query = self.request.GET.get("q", "").strip()
+        params = self.request.GET
+        queryset = with_last_dates(
+            super().get_queryset().select_related("company", "owner").prefetch_related("tags")
+        )
+        query = params.get("q", "").strip()
         if query:
             queryset = queryset.filter(
                 Q(first_name__icontains=query)
                 | Q(last_name__icontains=query)
                 | Q(email__icontains=query)
+                | Q(phone__icontains=query)
             )
 
-        status = self.request.GET.get("status")
+        status = params.get("status")
         if status == "active":
             queryset = queryset.filter(is_active=True)
         elif status == "inactive":
             queryset = queryset.filter(is_active=False)
 
-        company_id = self.request.GET.get("company")
-        if company_id:
-            try:
-                company_id = int(company_id)
-            except ValueError:
-                pass
-            else:
-                queryset = queryset.filter(company_id=company_id)
+        if params.get("stage") in Contact.Status.values:
+            queryset = queryset.filter(status=params["stage"])
 
-        return queryset
+        company_id = _int_or_none(params.get("company"))
+        if company_id is not None:
+            queryset = queryset.filter(company_id=company_id)
+
+        tag_id = _int_or_none(params.get("tag"))
+        if tag_id is not None:
+            queryset = queryset.filter(
+                pk__in=Contact.tags.through.objects.filter(tag_id=tag_id).values("contact_id")
+            )
+
+        _, ordering = CONTACT_SORTS.get(params.get("sort"), CONTACT_SORTS["name"])
+        return queryset.order_by(*ordering)
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context["query"] = self.request.GET.get("q", "")
-        context["status"] = self.request.GET.get("status", "")
-        context["company_id"] = self.request.GET.get("company", "")
+        params = self.request.GET
+        context["query"] = params.get("q", "")
+        context["status"] = params.get("status", "")
+        context["stage"] = params.get("stage", "")
+        context["company_id"] = params.get("company", "")
+        context["tag_id"] = params.get("tag", "")
+        context["sort"] = params.get("sort") if params.get("sort") in CONTACT_SORTS else "name"
         context["companies"] = Company.objects.order_by("name")
+        context["tags"] = Tag.objects.order_by("name")
+        context["stage_choices"] = Contact.Status.choices
+        context["sort_choices"] = [(key, label) for key, (label, _) in CONTACT_SORTS.items()]
         return context
 
 
@@ -273,13 +314,26 @@ class ContactDetailView(SalesRoleRequiredMixin, DetailView):
     template_name = "crm/contact_detail.html"
     context_object_name = "contact"
 
+    def get_queryset(self):
+        return with_last_dates(Contact.objects.select_related("company", "owner"))
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context["deals"] = self.object.deals.all()
-        context["tasks"] = self.object.tasks.all()
-        context["activities"] = self.object.activities.all()
-        context["log_activity_url"] = _log_activity_url("contact", self.object)
-        context["audit_log"] = _audit_log_for(self.object)
+        contact = self.object
+        context["properties"] = contact.properties.all()
+        context["contact_tags"] = contact.tags.order_by("name")
+        context["upcoming_jobs"] = upcoming_jobs(contact)
+        context["jobs_completed"] = contact.jobs.filter(status=Job.Status.COMPLETED).count()
+        context["open_quotes"] = contact.quotes.filter(status__in=Quote.OPEN_STATUSES).count()
+        context["timeline"] = contact_timeline(contact, self.request.user)
+        # Deals were folded into quotes (Phase 17); any still linked here
+        # are shown until Phase 18 removes the Deal model.
+        context["deals"] = contact.deals.all()
+        context["tasks"] = contact.tasks.select_related("assigned_to", "service_type").order_by(
+            "status", F("due_date").asc(nulls_last=True), "pk"
+        )
+        context["log_activity_url"] = _log_activity_url("contact", contact)
+        context["audit_log"] = _audit_log_for(contact)
         return context
 
 
@@ -305,12 +359,23 @@ class ContactUpdateView(SalesRoleRequiredMixin, PermissionRequiredMixin, UpdateV
 
     def form_valid(self, form):
         previous = Contact.objects.get(pk=self.object.pk)
+        # Tags are many-to-many: str() of the manager says nothing, and
+        # after the save the old instance's manager already reads the
+        # new tags — so record the names before saving.
+        previous_tags = _tag_names(previous)
         response = super().form_valid(form)
-        changes = _diff_changed_fields(previous, self.object, form.changed_data)
+        changed = [field for field in form.changed_data if field != "tags"]
+        changes = _diff_changed_fields(previous, self.object, changed)
+        if "tags" in form.changed_data:
+            changes["tags"] = [previous_tags, _tag_names(self.object)]
         if changes:
             _record_audit_log(self.request.user, self.object, AuditLogEntry.Action.UPDATED, changes)
         messages.success(self.request, f"Updated contact “{self.object}”.")
         return response
+
+
+def _tag_names(contact):
+    return ", ".join(sorted(contact.tags.values_list("name", flat=True)))
 
 
 class ContactDeactivateView(SalesRoleRequiredMixin, PermissionRequiredMixin, DetailView):
@@ -676,7 +741,8 @@ class ActivityCreateView(SalesRoleRequiredMixin, PermissionRequiredMixin, Create
         return reverse("crm:activity_list")
 
 
-class TaskListView(SalesRoleRequiredMixin, ListView):
+class TaskListView(TasksHubMixin, SalesRoleRequiredMixin, ListView):
+    hub_tab = "tasks"
     model = Task
     template_name = "crm/task_list.html"
     context_object_name = "tasks"
@@ -684,6 +750,10 @@ class TaskListView(SalesRoleRequiredMixin, ListView):
 
     def get_queryset(self):
         queryset = super().get_queryset().select_related("assigned_to", "contact", "deal")
+
+        kind = self.request.GET.get("kind")
+        if kind in Task.Kind.values:
+            queryset = queryset.filter(kind=kind)
 
         status = self.request.GET.get("status")
         if status in Task.Status.values:
@@ -711,6 +781,120 @@ class TaskListView(SalesRoleRequiredMixin, ListView):
         context["overdue"] = self.request.GET.get("overdue") == "1"
         context["status_choices"] = Task.Status.choices
         context["priority_choices"] = Task.Priority.choices
+        context["kind"] = self.request.GET.get("kind", "")
+        context["kind_choices"] = Task.Kind.choices
+        return context
+
+
+FOLLOW_UP_VIEWS = {
+    # key: (label, status, ordering)
+    "open": ("Open", Task.Status.PENDING, (F("due_date").asc(nulls_last=True), "pk")),
+    "done": ("Done", Task.Status.COMPLETED, ("-completed_at", "-pk")),
+    "dismissed": ("Dismissed", Task.Status.CANCELLED, ("-updated_at", "-pk")),
+}
+
+
+class FollowUpListView(TasksHubMixin, SalesRoleRequiredMixin, ListView):
+    """Repeat-service follow-ups (apps/crm/followups.py): who's due,
+    for what, with one-tap complete."""
+
+    hub_tab = "followups"
+    template_name = "crm/followup_list.html"
+    context_object_name = "follow_ups"
+    paginate_by = 25
+
+    def get_queryset(self):
+        params = self.request.GET
+        _, status, ordering = FOLLOW_UP_VIEWS.get(params.get("show"), FOLLOW_UP_VIEWS["open"])
+        queryset = Task.objects.filter(kind=Task.Kind.FOLLOW_UP, status=status).select_related(
+            "contact", "service_type", "assigned_to"
+        )
+        if params.get("mine") == "1":
+            queryset = queryset.filter(assigned_to=self.request.user)
+        return queryset.order_by(*ordering)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        show = self.request.GET.get("show")
+        context["show"] = show if show in FOLLOW_UP_VIEWS else "open"
+        context["show_choices"] = [(key, label) for key, (label, _, _) in FOLLOW_UP_VIEWS.items()]
+        context["mine"] = self.request.GET.get("mine") == "1"
+        context["today"] = timezone.localdate()
+        return context
+
+
+class PlanListView(TasksHubMixin, SalesRoleRequiredMixin, ListView):
+    hub_tab = "plans"
+    template_name = "crm/plan_list.html"
+    context_object_name = "plans"
+    paginate_by = 25
+
+    def get_queryset(self):
+        queryset = BusinessPlan.objects.select_related("owner").annotate(
+            item_count=Count("items"), done_count=Count("items", filter=Q(items__is_done=True))
+        )
+        if self.request.GET.get("show") == "done":
+            queryset = queryset.filter(status=BusinessPlan.Status.DONE)
+        else:
+            queryset = queryset.exclude(status=BusinessPlan.Status.DONE)
+        return queryset.order_by(F("due_date").asc(nulls_last=True), "pk")
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["show"] = "done" if self.request.GET.get("show") == "done" else "active"
+        return context
+
+
+class PlanDetailView(TasksHubMixin, SalesRoleRequiredMixin, DetailView):
+    hub_tab = "plans"
+    model = BusinessPlan
+    template_name = "crm/plan_detail.html"
+    context_object_name = "plan"
+
+    def get_queryset(self):
+        return BusinessPlan.objects.select_related("owner")
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        items = list(self.object.items.all())
+        context["items"] = items
+        context["done_count"] = sum(item.is_done for item in items)
+        return context
+
+
+NOTE_FILTERS = {
+    "": ("All", {}),
+    "general": ("General", {"contact__isnull": True, "job__isnull": True}),
+    "contact": ("About a customer", {"contact__isnull": False}),
+    "job": ("About a job", {"job__isnull": False}),
+}
+
+
+class NoteListView(TasksHubMixin, SalesRoleRequiredMixin, ListView):
+    """Notes, pinned first. Adding and editing notes lands in Phase 19."""
+
+    hub_tab = "notes"
+    template_name = "crm/note_list.html"
+    context_object_name = "notes"
+    paginate_by = 25
+
+    def get_queryset(self):
+        params = self.request.GET
+        _, filters = NOTE_FILTERS.get(params.get("about", ""), NOTE_FILTERS[""])
+        queryset = Note.objects.filter(**filters).select_related(
+            "author", "contact", "job", "job__primary_service_type"
+        )
+        query = params.get("q", "").strip()
+        if query:
+            queryset = queryset.filter(body__icontains=query)
+        return queryset.order_by("-pinned", "-created_at", "-pk")
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        about = self.request.GET.get("about", "")
+        context["about"] = about if about in NOTE_FILTERS else ""
+        context["about_choices"] = [(key, label) for key, (label, _) in NOTE_FILTERS.items()]
+        context["query"] = self.request.GET.get("q", "")
         return context
 
 

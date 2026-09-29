@@ -144,6 +144,7 @@ class Quote(TotalMixin, models.Model):
         DECLINED = "declined", "Declined"
         EXPIRED = "expired", "Expired"
 
+    OPEN_STATUSES = (Status.DRAFT, Status.SENT)
     DECIDED_STATUSES = (Status.ACCEPTED, Status.DECLINED, Status.EXPIRED)
 
     contact = models.ForeignKey("crm.Contact", on_delete=models.PROTECT, related_name="quotes")

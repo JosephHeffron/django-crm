@@ -6,6 +6,7 @@ from django.utils import timezone
 from django.utils.dateparse import parse_date
 from django.views.generic import DetailView, ListView, TemplateView, UpdateView
 
+from apps.crm.hub import TasksHubMixin
 from apps.users.roles import (
     ALL_ROLES,
     OWNER_ONLY,
@@ -20,7 +21,7 @@ from apps.users.roles import (
 from .access import invoices_for, jobs_for, quotes_for
 from .calendar import DEFAULT_VIEW, VIEWS, calendar_days, calendar_range
 from .forms import ServiceTypeForm
-from .models import ServiceType
+from .models import Quote, ServiceType
 
 User = get_user_model()
 
@@ -101,6 +102,42 @@ class JobDetailView(RoleRequiredMixin, DetailView):
             today=timezone.localdate(),
             is_owner=role in OWNER_ONLY,
         )
+        return context
+
+
+QUOTE_FILTERS = {"open": Quote.OPEN_STATUSES, **{v: (v,) for v in Quote.Status.values}}
+
+
+class QuoteListView(TasksHubMixin, SalesRoleRequiredMixin, ListView):
+    """Quotes in the Tasks hub — open (draft or sent) by default."""
+
+    hub_tab = "quotes"
+    template_name = "jobs/quote_list.html"
+    context_object_name = "quotes"
+    paginate_by = 25
+
+    def get_queryset(self):
+        params = self.request.GET
+        queryset = (
+            quotes_for(self.request.user).with_totals().select_related("contact", "prepared_by")
+        )
+        status = self._status()
+        if status != "all":
+            queryset = queryset.filter(status__in=QUOTE_FILTERS[status])
+        if params.get("mine") == "1":
+            queryset = queryset.filter(prepared_by=self.request.user)
+        return queryset.order_by("-created_at", "-pk")
+
+    def _status(self):
+        """The status filter; anything unrecognized means "open"."""
+        status = self.request.GET.get("status", "open")
+        return status if status in QUOTE_FILTERS or status == "all" else "open"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["status"] = self._status()
+        context["status_choices"] = [("open", "Open"), *Quote.Status.choices, ("all", "All")]
+        context["mine"] = self.request.GET.get("mine") == "1"
         return context
 
 

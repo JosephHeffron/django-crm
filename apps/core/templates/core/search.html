@@ -7,12 +7,30 @@
 
   <form method="get" class="filter-form">
     <label for="id_q" class="sr-only">Search query</label>
-    <input type="text" id="id_q" name="q" value="{{ query }}" placeholder="Search companies, contacts, leads, deals, tasks" autofocus>
+    <input type="text" id="id_q" name="q" value="{{ query }}" placeholder="Name, email, phone, or a job/quote number like J-1502" autofocus>
     <button type="submit">Search</button>
   </form>
 
   {% if query %}
     {% if has_results %}
+      {% if results.jobs %}
+        <h2>Jobs</h2>
+        <ul>
+          {% for job in results.jobs %}
+            <li><a href="{{ job.get_absolute_url }}">{{ job.number }}</a> &mdash; {{ job.contact }}</li>
+          {% endfor %}
+        </ul>
+      {% endif %}
+
+      {% if results.quotes %}
+        <h2>Quotes</h2>
+        <ul>
+          {% for quote in results.quotes %}
+            <li><a href="{{ quote.get_absolute_url }}">{{ quote.number }}</a> &mdash; {{ quote.contact }}</li>
+          {% endfor %}
+        </ul>
+      {% endif %}
+
       {% if results.companies %}
         <h2>Companies</h2>
         <ul>

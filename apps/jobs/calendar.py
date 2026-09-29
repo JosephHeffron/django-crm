@@ -126,7 +126,7 @@ def _visit_events(user, start, end):
         .filter(
             site_visit_at__gte=start,
             site_visit_at__lt=end,
-            status__in=[Quote.Status.DRAFT, Quote.Status.SENT],
+            status__in=Quote.OPEN_STATUSES,
         )
         .select_related("contact")
         .order_by("site_visit_at", "pk")

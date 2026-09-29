@@ -595,6 +595,9 @@ class BusinessPlan(models.Model):
     def __str__(self):
         return self.title
 
+    def get_absolute_url(self):
+        return reverse("crm:plan_detail", kwargs={"pk": self.pk})
+
 
 class PlanChecklistItem(models.Model):
     plan = models.ForeignKey(BusinessPlan, on_delete=models.CASCADE, related_name="items")

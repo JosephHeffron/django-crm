@@ -3,11 +3,15 @@
 {% block title %}{% if object %}Edit {{ object }}{% else %}Add contact{% endif %}{% endblock %}
 
 {% block content %}
-  <h1>{% if object %}Edit {{ object }}{% else %}Add contact{% endif %}</h1>
-  <form method="post">
+  <div class="page-header">
+    <h1>{% if object %}Edit {{ object }}{% else %}Add contact{% endif %}</h1>
+  </div>
+  <form method="post" class="card">
     {% csrf_token %}
     {{ form.as_p }}
-    <button type="submit">Save</button>
-    <a href="{% if object %}{{ object.get_absolute_url }}{% else %}{% url 'crm:contact_list' %}{% endif %}">Cancel</a>
+    <div class="cluster">
+      <button type="submit">Save</button>
+      <a class="btn btn-secondary" href="{% if object %}{{ object.get_absolute_url }}{% else %}{% url 'crm:contact_list' %}{% endif %}">Cancel</a>
+    </div>
   </form>
 {% endblock %}

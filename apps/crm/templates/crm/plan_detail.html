@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+
+{% block title %}{{ plan.title }}{% endblock %}
+
+{% block content %}
+  {% include "crm/_hub_tabs.html" %}
+
+  <p><a href="{% url 'crm:plan_list' %}">← Plans</a></p>
+  <section class="card">
+    <h2 class="card-title">{{ plan.title }}</h2>
+    <div class="cluster">
+      <span class="badge">{{ plan.get_status_display }}</span>
+      <span class="badge">{{ plan.get_priority_display }} priority</span>
+      <span class="muted">{{ plan.owner.get_full_name|default:plan.owner }}{% if plan.due_date %} · due {{ plan.due_date|date:"M j, Y" }}{% endif %}</span>
+    </div>
+    {% if plan.description %}<p>{{ plan.description|linebreaksbr }}</p>{% endif %}
+
+    <h3>Checklist</h3>
+    {% if items %}
+      <progress max="{{ items|length }}" value="{{ done_count }}" aria-label="Checklist progress">{{ done_count }} of {{ items|length }}</progress>
+      <p class="muted">{{ done_count }} of {{ items|length }} done</p>
+      <ul class="checklist">
+        {% for item in items %}
+          <li class="{% if item.is_done %}is-done{% endif %}">
+            <span aria-hidden="true">{% if item.is_done %}☑{% else %}☐{% endif %}</span>
+            <span>{{ item.text }}</span>
+            <span class="sr-only">{% if item.is_done %}(done){% else %}(not done){% endif %}</span>
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p class="muted">No checklist yet.</p>
+    {% endif %}
+    <p class="muted">Editing plans and ticking off steps arrives in Phase 19.</p>
+  </section>
+{% endblock %}

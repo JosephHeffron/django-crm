@@ -121,6 +121,10 @@ today.
 
 ## Field-service pages (Phase 17 unit 3)
 
+A contact's timeline includes team messages that mention them only from
+channels the viewer can read (public channels and ones they're a
+member of), so a direct message never leaks onto a contact page.
+
 | Page | Owner | Sales Rep | Cleaner |
 |---|---|---|---|
 | Dashboard (`/`) | whole business, with revenue and outstanding balance | own open quotes, follow-ups, site visits; no money figures | own jobs today and coming up, own hours |
@@ -128,6 +132,8 @@ today.
 | Job (`/jobs/<id>/`) | yes, with prices and invoices | yes, with prices | only if assigned (else 404); customer name, phone, address, work — no prices |
 | Quote (`/quotes/<id>/`) | yes | yes | 403 |
 | Services (`/settings/services/`) | view and edit | 403 | 403 |
+| Contacts (`/contacts/`, a contact's page) | yes | yes | 403 |
+| Tasks hub (`/tasks/`: tasks, follow-ups, quotes, plans, notes) | yes | yes | 403 |
 
 Leads and Deals are no longer in the menu (folded into Contacts and
 Quotes, ADR 0009); their old pages stay reachable by URL, with the same

@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% load crm_format %}
+
+{% block title %}Quotes{% endblock %}
+
+{% block content %}
+  {% include "crm/_hub_tabs.html" %}
+
+  <form method="get" class="filter-form">
+    <label for="id_status" class="sr-only">Status</label>
+    <select id="id_status" name="status">
+      {% for value, label in status_choices %}
+        <option value="{{ value }}"{% if status == value %} selected{% endif %}>{{ label }}</option>
+      {% endfor %}
+    </select>
+    <label class="checkbox-label"><input type="checkbox" name="mine" value="1"{% if mine %} checked{% endif %}> Only mine</label>
+    <button type="submit">Filter</button>
+  </form>
+
+  {% if quotes %}
+    <div class="table-responsive card card-flush">
+      <table class="data-table stack-mobile">
+        <thead>
+          <tr><th>Quote</th><th>Customer</th><th>Status</th><th class="text-right">Total</th><th>Site visit</th><th>Prepared by</th></tr>
+        </thead>
+        <tbody>
+          {% for quote in quotes %}
+            <tr>
+              <td data-label="Quote"><a href="{{ quote.get_absolute_url }}">{{ quote.number }}</a></td>
+              <td data-label="Customer"><a href="{{ quote.contact.get_absolute_url }}">{{ quote.contact }}</a></td>
+              <td data-label="Status">{% include "jobs/_status_badge.html" with status=quote.status label=quote.get_status_display %}</td>
+              <td data-label="Total" class="text-right">{{ quote.total|money }}</td>
+              <td data-label="Site visit">{% if quote.site_visit_at %}{{ quote.site_visit_at|date:"M j, g:i A" }}{% else %}—{% endif %}</td>
+              <td data-label="Prepared by">{{ quote.prepared_by.get_full_name|default:quote.prepared_by }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% include "partials/_pagination.html" %}
+  {% else %}
+    {% include "partials/_empty_state.html" with icon="inbox" title="No quotes" text="No quotes match these filters." %}
+  {% endif %}
+{% endblock %}

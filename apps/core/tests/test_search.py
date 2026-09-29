@@ -88,3 +88,30 @@ class SearchViewTests(TestCase):
         # own) — searching shouldn't surface an "Activities" section.
         response = self.client.get(reverse("core:search"), {"q": "anything"})
         self.assertNotContains(response, "<h2>Activities</h2>", html=True)
+
+
+class FieldServiceSearchTests(TestCase):
+    def setUp(self):
+        from apps.jobs.tests import _factories as f
+
+        self.f = f
+        self.user = grant_role(User.objects.create_user("alice", password="correct-horse-battery"))
+        self.client.login(username="alice", password="correct-horse-battery")
+        self.contact = f.contact(self.user, "Pat", "Gutters", phone="(585) 555-0199")
+
+    def search(self, q):
+        return self.client.get(reverse("core:search"), {"q": q})
+
+    def test_finds_a_contact_by_phone(self):
+        self.assertContains(self.search("555-0199"), "Pat Gutters")
+
+    def test_finds_jobs_and_quotes_by_number_in_any_common_spelling(self):
+        job = self.f.job(self.contact, self.user)
+        quote = self.f.quote(self.contact, self.user)
+        for query in (job.number, job.number.lower(), job.number.replace("-", " ")):
+            results = self.search(query).context["results"]
+            self.assertEqual((results["jobs"], results["quotes"]), ([job], []), query)
+        self.assertContains(self.search(quote.number.replace("-", "")), quote.get_absolute_url())
+
+    def test_unknown_number_finds_nothing(self):
+        self.assertContains(self.search("J-999999"), "No results found")
