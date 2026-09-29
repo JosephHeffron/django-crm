@@ -11,6 +11,7 @@ from django.views.generic import CreateView, DetailView, ListView, UpdateView
 
 from apps.users.roles import SalesRoleRequiredMixin
 
+from .followups import record_completion
 from .forms import (
     ActivityForm,
     CompanyForm,
@@ -68,6 +69,17 @@ def _sync_task_completed_at(task):
             task.completed_at = timezone.now()
     else:
         task.completed_at = None
+        task.completed_by = None
+
+
+def _apply_task_completion(task, user, was_completed):
+    """completed_at bookkeeping plus, on a transition *into* completed,
+    record_completion() — who did it, and for a follow-up the contact
+    touch that resets its clock (apps/crm/followups.py). Re-saving an
+    already-completed task must not log a second touch."""
+    _sync_task_completed_at(task)
+    if task.status == Task.Status.COMPLETED and not was_completed:
+        record_completion(task, user)
 
 
 def _record_audit_log(user, obj, action, changes=None):
@@ -725,7 +737,7 @@ class TaskCreateView(SalesRoleRequiredMixin, PermissionRequiredMixin, CreateView
 
     def form_valid(self, form):
         form.instance.created_by = self.request.user
-        _sync_task_completed_at(form.instance)
+        _apply_task_completion(form.instance, self.request.user, was_completed=False)
         response = super().form_valid(form)
         messages.success(self.request, f"Created task “{self.object.title}”.")
         return response
@@ -738,7 +750,10 @@ class TaskUpdateView(SalesRoleRequiredMixin, PermissionRequiredMixin, UpdateView
     permission_required = "crm.change_task"
 
     def form_valid(self, form):
-        _sync_task_completed_at(form.instance)
+        was_completed = Task.objects.filter(
+            pk=form.instance.pk, status=Task.Status.COMPLETED
+        ).exists()
+        _apply_task_completion(form.instance, self.request.user, was_completed)
         response = super().form_valid(form)
         messages.success(self.request, f"Updated task “{self.object.title}”.")
         return response
@@ -766,8 +781,8 @@ class TaskCompleteView(SalesRoleRequiredMixin, PermissionRequiredMixin, View):
             return redirect(task.get_absolute_url())
 
         task.status = Task.Status.COMPLETED
-        _sync_task_completed_at(task)
-        task.save(update_fields=["status", "completed_at", "updated_at"])
+        _apply_task_completion(task, request.user, was_completed=False)
+        task.save(update_fields=["status", "completed_at", "completed_by", "updated_at"])
         messages.success(request, f"Completed “{task.title}”.")
 
         next_url = request.POST.get("next")
