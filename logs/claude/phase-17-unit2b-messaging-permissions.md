@@ -78,7 +78,7 @@ $ `ruff check` / `ruff format --check` / `bandit` / `pip-audit` —
 
 ## Tests
 
-`python manage.py test` — 387 passed (378 + 9 new).
+`python manage.py test` — 388 passed (378 + 10 new, one from the self-review).
 
 ## Decisions
 
@@ -124,8 +124,11 @@ against its backup first avoided overwriting 2a's merged review fixes.
 ## Git
 
 Branch: `feature/field-service-messaging`
-Commit: pending
-Merged to `main`: pending
+Commit: `ab4528c` (implementation), `aa8e4dd` (self-review fixes — SMS
+channel contact PROTECT, permission-doc wording)
+Merged to `main`: `1be6dac` (PR #94 — CI green; Sourcery's weekly budget
+exhausted so self-reviewed; its static scan re-raised the same SQLAlchemy
+false positive as #92, explained and resolved)
 
 ## Next
 
