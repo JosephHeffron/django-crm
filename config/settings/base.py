@@ -28,6 +28,7 @@ INSTALLED_APPS = [
     "apps.users",
     "apps.crm",
     "apps.jobs",
+    "apps.messaging",
 ]
 
 MIDDLEWARE = [

@@ -47,13 +47,22 @@ def _login(client, username, role=None):
 
 class RoleSeedTests(TestCase):
     def test_owner_and_sales_rep_hold_the_former_staff_permissions(self):
+        # users/0004 adds field-service permissions on top (see
+        # apps/jobs/tests/test_migrations.py::FieldServicePermissionSeedTests);
+        # these must remain.
         for name in ("Owner", "Sales Rep"):
             group = Group.objects.get(name=name)
-            codenames = sorted(p.codename for p in group.permissions.all())
-            self.assertEqual(codenames, SALES_PERMISSION_CODENAMES, name)
+            codenames = set(group.permissions.values_list("codename", flat=True))
+            self.assertTrue(set(SALES_PERMISSION_CODENAMES) <= codenames, name)
 
-    def test_cleaner_has_no_crm_write_permissions(self):
-        self.assertFalse(Group.objects.get(name="Cleaner").permissions.exists())
+    def test_cleaner_cannot_write_customer_records(self):
+        customer_models = ["company", "contact", "lead", "deal", "task", "activity"]
+        codenames = set(
+            Group.objects.get(name="Cleaner").permissions.values_list("codename", flat=True)
+        )
+        for model in customer_models:
+            self.assertNotIn(f"add_{model}", codenames)
+            self.assertNotIn(f"change_{model}", codenames)
 
     def test_staff_group_is_retired(self):
         self.assertFalse(Group.objects.filter(name="Staff").exists())
