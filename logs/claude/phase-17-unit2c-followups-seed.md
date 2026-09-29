@@ -25,7 +25,7 @@ realistic data, so unit 3's pages have real content.
 - `apps/crm/forms.py` — `TaskForm.clean_contact()`: clearing a
   follow-up's customer is a form error.
 - `apps/core/management/commands/seed_demo.py` (new).
-- Tests: `apps/crm/tests/test_followups.py` (15),
+- Tests: `apps/crm/tests/test_followups.py` (14),
   `apps/core/tests/test_seed_demo.py` (6).
 
 ## Follow-up rules
@@ -126,8 +126,8 @@ commit on the PR:
 ## Git
 
 Branch: `feature/follow-ups-and-seed`
-Commit: pending
-Merged to `main`: pending
+Commits: `a74c1b5` (feature), `5d26648` (self-review fixes)
+Merged to `main`: PR #96, merge commit `488ed7d`
 
 ## Next
 

@@ -15,7 +15,7 @@ actually verified.
 > (browser-verified CSP review) is also complete** — a headless-Chromium
 > check found zero violations, including after a real Sourcery-caught
 > bug (an un-nonced inline style on the production 500 page) was fixed.
-> Phase 17 (field-service foundation) is in progress — units 1, 2a, and 2b done.
+> Phase 17 (field-service foundation) is in progress — units 1 and 2 done; unit 3 remains.
 > Note: the GitHub repo, switched from public to private earlier in the
 > project, is now **public again** — Phase 13 unit 1's audit found
 > branch protection and secret scanning had been silently disabled
@@ -40,7 +40,7 @@ The original 14-phase roadmap (Phases 0-14) is fully complete — see
 "Project complete," below, for the summary, and "Completed" for full
 phase-by-phase detail. The post-release roadmap is now underway:
 Phases 15-16 are complete; Phase 17 (field-service foundation) is in
-progress (units 1, 2a, and 2b done) — see "Post-release roadmap progress,"
+progress (units 1 and 2 done) — see "Post-release roadmap progress,"
 below, for current status. This section deliberately stays short and points at
 those two rather than duplicating them, so it can't drift out of sync
 with them the way an earlier version of this section once did (it
@@ -707,8 +707,8 @@ roadmap completed:
   Closes `docs/SECURITY_REVIEW.md` #6 / `docs/PRODUCTION_CONFIG_REVIEW.md`
   #2. 304 tests total (+1 regression test). Full detail in
   `logs/claude/phase-16-csp.md`.
-- **Phase 17 — Field-service foundation (in progress — units 1, 2a,
-  and 2b done; 2c, then unit 3 remain).** The roadmap pivoted here to the owner's exterior
+- **Phase 17 — Field-service foundation (in progress — units 1
+  and 2 done; unit 3 remains).** The roadmap pivoted here to the owner's exterior
   home-services business (ADRs 0008/0009; plan approved 2026-09-28).
   **Unit 1 (PR #90) — done:** Owner / Sales Rep / Cleaner roles
   enforced server-side (replacing the Phase 6 "Staff" group; no-role
@@ -741,19 +741,30 @@ roadmap completed:
   found and fixed an SMS-channel contact FK that should be PROTECT, and
   permission docs that overstated what views enforce yet. 388 tests.
   Full detail in `logs/claude/phase-17-unit2b-messaging-permissions.md`.
+  **Unit 2c (PR #96) — done:** the repeat-service follow-up engine
+  (`generate_followups`: due when neither a job for a service nor any
+  contact touch happened within its interval; idempotent, dismissals
+  respected, completion logs the touch that resets the clock) and
+  `seed_demo` (a realistic year of demo data owned by `demo_` users;
+  `--reset` removes exactly that). Fixed a 500 when a follow-up's
+  customer was cleared in the task form. Sourcery's budget was still
+  exhausted; the self-review found and fixed seeded messages not
+  linking to the customers they name, and over-broad follow-up
+  lookups. 408 tests. Full detail in
+  `logs/claude/phase-17-unit2c-followups-seed.md`.
 - Phases 18-25: not yet started (re-sequenced in `docs/ROADMAP.md`).
 
 ## Currently working on
 
-Nothing in flight — Phase 17 unit 2b just closed out.
+Nothing in flight — Phase 17 unit 2c just closed out.
 
 ## Next
 
-1. Phase 17 unit 2c — follow-up generator (per-service intervals,
-   idempotent) and `seed_demo` (realistic demo data for every page).
-2. Phase 17 unit 3 — every page (Dashboard, Financials, Calendar,
+1. Phase 17 unit 3 — every page (Dashboard, Financials, Calendar,
    Contacts, Tasks hub, Profile, Messages) as functional skeletons on
-   seeded data.
+   the seeded data, verified per role at phone and desktop widths and
+   under production CSP. Starts with `seed_demo --reset` on the dev
+   database to pick up the message-linking fix.
 
 ## Known issues
 
