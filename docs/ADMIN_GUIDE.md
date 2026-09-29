@@ -94,11 +94,17 @@ somehow left it in a bad state):
 systemctl --user restart crm.service
 ```
 
-**Grant a user write access** (create/edit/deactivate CRM records):
-add them to the "Staff" group via the Django admin
-(`https://your-domain/admin/`) — see `docs/PERMISSIONS.md`. Every
-signed-in user can already *view* every record; only write actions are
-gated by group membership. Superusers bypass this automatically.
+**Give a user a role:** in the Django admin
+(`https://your-domain/admin/`), open the user and add them to exactly
+one of the groups **Owner**, **Sales Rep**, or **Cleaner** — see
+`docs/PERMISSIONS.md`. A new account with no group can log in but sees
+nothing beyond a "no role assigned" notice, by design. Superusers are
+always treated as Owner.
+
+**Branding:** set `CRM_BRAND_NAME` (and optionally
+`CRM_BRAND_SHORT_NAME`, shown under the home-screen icon, ~12
+characters) in `.env`; the business timezone is `CRM_TIME_ZONE`
+(default `America/New_York`). Restart the stack to apply.
 
 ## Deploying an update
 

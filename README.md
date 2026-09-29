@@ -29,8 +29,9 @@ build-out plan. `docs/PROJECT_STATE.md` has the current status snapshot.
 - **Operational dashboard** — pipeline breakdown by stage, pending
   tasks, recent activity.
 - **Audit history** — who changed what, and when, on every core record.
-- **Role-based permissions** — a "Staff" group gates create/edit/
-  deactivate actions; superusers bypass automatically.
+- **Role-based access** — Owner, Sales Rep, and Cleaner roles enforced
+  server-side; crews only see their own work, and an account with no
+  role sees nothing until one is assigned.
 - **Production-ready self-hosted deployment** — rootless Podman
   containers, a Caddy reverse proxy with automatic HTTPS, systemd
   service management, scheduled PostgreSQL backups with a tested

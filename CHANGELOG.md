@@ -88,3 +88,16 @@ for meaningful changes — not for every small fix or documentation tweak.
   backup/restore scripts' handling of the local/staging compose file.
 - Administrator and developer guides (`docs/ADMIN_GUIDE.md`,
   `docs/DEVELOPER_GUIDE.md`).
+- Mobile-first app shell (sidebar / drawer / phone bottom bar) on a
+  tokenized design system with light and dark themes, and an
+  installable PWA baseline (manifest, service worker, offline page) —
+  Phase 17 unit 1.
+
+### Changed
+- Access control is now role-based: Owner, Sales Rep, and Cleaner
+  groups, enforced server-side, replace the Phase 6 "Staff" group and
+  its implicit read-only tier. Existing Staff members become Sales
+  Reps; users with no role are denied customer pages
+  (`docs/decisions/0008-roles-and-row-level-scoping.md`).
+- Default timezone is now the business's local time
+  (`America/New_York`, configurable via `CRM_TIME_ZONE`).
