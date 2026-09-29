@@ -2,7 +2,7 @@
   {% for item in nav.bottom_items %}
     <a class="bottom-link" href="{{ item.url }}"{% if item.active %} aria-current="page"{% endif %}>
       <svg class="icon" aria-hidden="true"><use href="#icon-{{ item.icon }}"/></svg>
-      <span>{{ item.label }}</span>
+      <span>{{ item.label }}</span>{% if item.badge %} <span class="nav-badge">{% if item.badge > 99 %}99+{% else %}{{ item.badge }}{% endif %}<span class="sr-only"> unread</span></span>{% endif %}
     </a>
   {% endfor %}
   <a class="bottom-link" href="#sidebar" data-nav-toggle role="button" aria-controls="sidebar" aria-expanded="false">

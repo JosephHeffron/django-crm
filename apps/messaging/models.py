@@ -19,9 +19,16 @@ class Channel(models.Model):
         # Reserved for Phase 24 (customer texting); not used yet.
         CUSTOMER_SMS = "customer_sms", "Customer SMS"
 
+    class Audience(models.TextChoices):
+        # Who may read and post in a public channel (ADR 0008 roles).
+        # Direct and SMS channels go by membership instead.
+        EVERYONE = "everyone", "Everyone"
+        SALES = "sales", "Owner and sales reps"
+
     name = models.CharField(max_length=100)
     slug = models.SlugField(max_length=100, unique=True)
     kind = models.CharField(max_length=15, choices=Kind.choices, default=Kind.PUBLIC)
+    audience = models.CharField(max_length=10, choices=Audience.choices, default=Audience.EVERYONE)
     topic = models.CharField(max_length=255, blank=True)
     # PROTECT, not SET_NULL: an SMS channel must name its contact (DB
     # check below), so nulling it could never succeed anyway — PROTECT

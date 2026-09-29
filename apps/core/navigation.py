@@ -7,7 +7,7 @@ from dataclasses import dataclass
 
 from django.urls import reverse
 
-from apps.users.roles import ALL_ROLES, OWNER_ONLY, SALES_ROLES, user_role
+from apps.users.roles import ALL_ROLES, OWNER_ONLY, SALES_ROLES, Role, user_role
 
 # Phone bottom bar: this many primary items, plus a "Menu" button that
 # opens the full drawer (which also holds the account links).
@@ -22,27 +22,41 @@ class NavItem:
     roles: frozenset
     # View-name prefixes that mark this item as the current section.
     active_prefixes: tuple
-    primary: bool = False
+    # Roles that get this item in the phone bottom bar.
+    primary_roles: frozenset = frozenset()
+    # Key into the badges build_navigation() is given (e.g. unread count).
+    badge: str = ""
 
+
+CLEANER_ONLY = frozenset({Role.CLEANER})
 
 NAV_ITEMS = (
-    NavItem("Dashboard", "core:index", "home", ALL_ROLES, ("core:index",), primary=True),
+    NavItem("Dashboard", "core:index", "home", ALL_ROLES, ("core:index",), ALL_ROLES),
     NavItem(
         "Calendar",
         "jobs:calendar",
         "calendar",
         ALL_ROLES,
         ("jobs:calendar", "jobs:job_"),
-        primary=True,
+        ALL_ROLES,
     ),
-    NavItem("Contacts", "crm:contact_list", "users", SALES_ROLES, ("crm:contact_",), primary=True),
+    NavItem("Contacts", "crm:contact_list", "users", SALES_ROLES, ("crm:contact_",), SALES_ROLES),
     NavItem(
         "Tasks",
         "crm:task_list",
         "check",
         SALES_ROLES,
         ("crm:task_", "crm:plan_", "crm:note_", "jobs:quote_"),
-        primary=True,
+        SALES_ROLES,
+    ),
+    NavItem(
+        "Messages",
+        "messaging:home",
+        "message",
+        ALL_ROLES,
+        ("messaging:",),
+        CLEANER_ONLY,
+        badge="unread_messages",
     ),
     NavItem("Financials", "jobs:financials", "dollar", OWNER_ONLY, ("jobs:financials",)),
     NavItem("Companies", "crm:company_list", "building", SALES_ROLES, ("crm:company_",)),
@@ -50,6 +64,7 @@ NAV_ITEMS = (
     # Leads and Deals were folded into Contacts and Quotes (ADR 0009);
     # their old pages stay reachable by URL until Phase 18 removes them.
     NavItem("Services", "jobs:service_list", "settings", OWNER_ONLY, ("jobs:service_",)),
+    NavItem("Profile", "people:profile", "user", ALL_ROLES, ("people:",), CLEANER_ONLY),
 )
 
 
@@ -59,15 +74,17 @@ def _visible(item, role):
     return item.url_name == "core:index" or role in item.roles
 
 
-def build_navigation(user, view_name):
+def build_navigation(user, view_name, badges=None):
     role = user_role(user)
+    badges = badges or {}
     items = [
         {
             "label": item.label,
             "url": reverse(item.url_name),
             "icon": item.icon,
             "active": any(view_name.startswith(p) for p in item.active_prefixes),
-            "primary": item.primary,
+            "primary": role in item.primary_roles,
+            "badge": badges.get(item.badge) if item.badge else None,
         }
         for item in NAV_ITEMS
         if _visible(item, role)

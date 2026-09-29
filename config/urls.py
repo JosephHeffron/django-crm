@@ -23,5 +23,7 @@ urlpatterns = [
     path("accounts/", include("apps.users.urls")),
     path("", include("apps.crm.urls")),
     path("", include("apps.jobs.urls")),
+    path("", include("apps.messaging.urls")),
+    path("", include("apps.users.profile_urls")),
     path("", include("apps.core.urls")),
 ]

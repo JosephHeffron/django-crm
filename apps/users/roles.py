@@ -9,6 +9,7 @@ against the same role sets, so a nav link and its page can't disagree.
 
 from enum import StrEnum
 
+from django.contrib.auth import get_user_model
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.exceptions import PermissionDenied
 
@@ -45,6 +46,25 @@ def user_role(user):
         role = next((r for r in Role if r.value in names), None)
     setattr(user, _ROLE_CACHE_ATTR, role)
     return role
+
+
+def roles_for(users):
+    """{user.pk: Role or None} for many users in one query — the same
+    rules as user_role(), for lists like the team page."""
+    users = list(users)
+    names = {}
+    for user_id, name in (
+        get_user_model()
+        .groups.through.objects.filter(user_id__in=[u.pk for u in users])
+        .values_list("user_id", "group__name")
+    ):
+        names.setdefault(user_id, set()).add(name)
+    return {
+        u.pk: Role.OWNER
+        if u.is_superuser
+        else next((r for r in Role if r.value in names.get(u.pk, ())), None)
+        for u in users
+    }
 
 
 def clear_role_cache(user):

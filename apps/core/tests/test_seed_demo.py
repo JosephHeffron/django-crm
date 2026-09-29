@@ -8,8 +8,10 @@ from django.test import TestCase, override_settings
 
 from apps.core.management.commands.seed_demo import DEMO_PREFIX, DEMO_USERS
 from apps.crm.models import Contact, Task
+from apps.crm.tests._helpers import grant_role
 from apps.jobs.models import Invoice, Job, Quote, ServiceType
 from apps.messaging.models import Channel, ChannelMembership, Message
+from apps.messaging.services import direct_channel
 from apps.users.roles import Role, user_role
 
 User = get_user_model()
@@ -27,7 +29,7 @@ def seed(*args):
 class SeedDemoTests(TestCase):
     def setUp(self):
         # Pre-existing, non-demo data that seeding and resetting must not touch.
-        self.real_user = User.objects.create_user("realowner", password="x")
+        self.real_user = grant_role(User.objects.create_user("realowner", password="x"), Role.OWNER)
         self.real_contact = Contact.objects.create(
             first_name="My", last_name="Customer", created_by=self.real_user
         )
@@ -54,6 +56,24 @@ class SeedDemoTests(TestCase):
         self.assertTrue(Task.objects.filter(kind=Task.Kind.FOLLOW_UP).exists())
         self.assertEqual(Message.objects.filter(channel__slug="crew").count(), 12)
         self.assertEqual(Channel.objects.filter(kind=Channel.Kind.DIRECT).count(), 2)
+        # Opening a seeded DM in the app finds it rather than starting another.
+        direct_channel(
+            User.objects.get(username="demo_casey"), User.objects.get(username="demo_jordan")
+        )
+        self.assertEqual(Channel.objects.filter(kind=Channel.Kind.DIRECT).count(), 2)
+        # Posting order and timestamps agree.
+        times = list(
+            Message.objects.filter(channel__slug="crew")
+            .order_by("pk")
+            .values_list("created_at", flat=True)
+        )
+        self.assertEqual(times, sorted(times))
+        # #sales is sales-only, so no cleaner is a member.
+        self.assertFalse(
+            ChannelMembership.objects.filter(
+                channel__slug="sales", user__username="demo_casey"
+            ).exists()
+        )
         # A message that names a customer links to them (contact timeline).
         for message in Message.objects.filter(channel__slug="sales", ref_contact__isnull=True):
             self.assertFalse(

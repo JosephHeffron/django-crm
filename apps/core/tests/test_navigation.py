@@ -35,7 +35,17 @@ class NavigationForSalesRepTests(TestCase):
     def test_nav_lists_every_crm_section(self):
         labels = [label for _, label, _ in _sidebar_links(self.client.get("/").content.decode())]
         self.assertEqual(
-            labels, ["Dashboard", "Calendar", "Contacts", "Tasks", "Companies", "Activities"]
+            labels,
+            [
+                "Dashboard",
+                "Calendar",
+                "Contacts",
+                "Tasks",
+                "Messages",
+                "Companies",
+                "Activities",
+                "Profile",
+            ],
         )
 
     def test_each_nav_url_is_reachable_and_login_required(self):
@@ -103,7 +113,11 @@ class NavigationMatchesAccessForEveryRoleTests(TestCase):
 
     def test_cleaner(self):
         self.assertEqual(
-            self._check(Role.CLEANER), {reverse("core:index"), reverse("jobs:calendar")}
+            self._check(Role.CLEANER),
+            {
+                reverse(n)
+                for n in ("core:index", "jobs:calendar", "messaging:home", "people:profile")
+            },
         )
 
     def test_no_role(self):
@@ -135,6 +149,16 @@ class ShellTests(TestCase):
         self.assertEqual(
             re.findall(r"<span>([^<]+)</span>", bar),
             ["Dashboard", "Calendar", "Contacts", "Tasks", "Menu"],
+        )
+
+    def test_cleaners_bottom_bar_is_their_own_day(self):
+        grant_role(User.objects.create_user("crew", password=PASSWORD), Role.CLEANER)
+        self.client.login(username="crew", password=PASSWORD)
+        html = self.client.get("/").content.decode()
+        bar = html.split('<nav class="bottom-bar"', 1)[1].split("</nav>", 1)[0]
+        self.assertEqual(
+            re.findall(r"<span>([^<]+)</span>", bar),
+            ["Dashboard", "Calendar", "Messages", "Profile", "Menu"],
         )
 
     def test_brand_name_in_title(self):
