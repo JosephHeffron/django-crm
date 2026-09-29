@@ -92,11 +92,26 @@ $ The same pass under production settings (strict CSP) — zero
 - The parallel test runner crashed on an unpicklable failure traceback;
   the serial run showed the two outdated assertions above.
 
+## Review
+
+Sourcery skipped PR #98 (weekly budget exhausted), so a self-review of
+the full diff: role scoping (every query through `apps/jobs/access.py`;
+crew filter ignored for cleaners; out-of-scope job → 404), cleaner
+privacy (no prices, invoices, quote link, or sales rep), query counts
+(crew prefetched; money figures are single aggregates), escaping, and
+date windows (half-open, DST-safe). No defects. Two small items carried
+to later units:
+
+- The "Follow-ups due" card links to the pending task list, which also
+  holds general tasks — 3b points it at the Tasks hub's follow-ups tab.
+- `seed_demo` adds cleaners to #sales, so their unread count includes
+  sales chatter — 3c decides channel membership per role.
+
 ## Git
 
 Branch: `feature/pages-dashboard-calendar`
-Commit: pending
-Merged to `main`: pending
+Commit: `9ffc3e7`
+Merged to `main`: PR #98, merge commit `5a0c16a`
 
 ## Next
 
