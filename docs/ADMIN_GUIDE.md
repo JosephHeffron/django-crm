@@ -142,13 +142,48 @@ Produces `backups/<timestamp>/` containing a PostgreSQL dump, the
 `docs/ARCHITECTURE.md`'s "Backup strategy". Keeps the last 7 backups
 by default (`BACKUP_RETENTION_COUNT` to change this).
 
-**Known gap, not yet closed** (`docs/BACKUP_DR_AUDIT.md` #1):
-backups currently live on the same host/SD-card as the application
-data they protect. A disk failure — a real, common Raspberry Pi
-failure mode — would take out both at once. Copying `backups/` to a
-second location on a regular basis is the single most valuable thing
-left to do before trusting this deployment with real production data;
-see that document for the full reasoning.
+### Off-host backup storage (recommended before trusting this with real data)
+
+By default, backups live on the same host/SD-card as the application
+data they protect — a disk failure (a real, common Raspberry Pi
+failure mode) would take out both at once. Set this up to close that
+gap (`docs/BACKUP_DR_AUDIT.md`'s formerly-open finding #1,
+`docs/decisions/0006-offhost-backups-restic.md`):
+
+1. Install `restic` on the host (not in any container):
+   ```
+   sudo dnf install restic      # Fedora
+   sudo apt install restic      # Debian/Raspberry Pi OS
+   ```
+2. Create a [Backblaze B2](https://www.backblaze.com/cloud-storage)
+   account and bucket, then an **application key scoped to that one
+   bucket only** (B2's "Application Keys" page — not the account's
+   master key).
+3. Add to `.env` (see `.env.example`'s own comments for the full
+   explanation):
+   ```
+   RESTIC_REPOSITORY=b2:your-bucket-name:django-crm
+   RESTIC_PASSWORD=<a long random value — generate with `openssl rand -base64 32`>
+   B2_ACCOUNT_ID=<the application key's ID>
+   B2_ACCOUNT_KEY=<the application key itself>
+   ```
+   **Store a copy of `RESTIC_PASSWORD` somewhere other than this
+   host** (a password manager, printed and kept safely) — restic has
+   no password recovery, and a copy that only lives on the host being
+   protected defeats the point.
+4. Run `./scripts/backup.sh` — it now pushes to the off-host
+   repository automatically after the local backup completes (visible
+   in its output: `--- pushing ... off-host via restic ---`). Every
+   future backup, including the daily timer-triggered one, does this
+   automatically from here on; no further setup needed.
+
+If a disaster destroys the local `backups/` directory itself (not just
+the running containers/volumes — the actual scenario off-host storage
+exists for), recover it first:
+```
+./scripts/restore_offhost.sh            # pulls the latest snapshot back into backups/
+./scripts/restore.sh <timestamp> --yes  # then proceeds exactly as below
+```
 
 ## Disaster recovery
 
@@ -177,8 +212,11 @@ merge anything relevant yourself.
 
 ## Known limitations (read before depending on this in production)
 
-- **No off-host backup storage yet** — see "Backups," above. The
-  single highest-priority operational gap.
+- **Off-host backup storage requires setup** — the mechanism is built
+  and verified (see "Backups," above), but nothing is pushed off-host
+  until you've created a real Backblaze B2 account/bucket/key and set
+  the `RESTIC_*`/`B2_*` variables in `.env` yourself. Until then, this
+  deployment has local-only backups, same as before Phase 15.
 - **No physical Raspberry Pi hardware has been used yet.** Every
   ARM64 build and disaster-recovery drill in this project's history
   was verified via `qemu-user-static` emulation on a development
@@ -190,9 +228,6 @@ merge anything relevant yourself.
   read that document for the full list of what's still open and why,
   rather than this guide trying to keep its own separate copy in
   sync.
-- **`.env` backups are unencrypted at rest** (`docs/BACKUP_DR_AUDIT.md`
-  #2) — acceptable while backups stay on the same trusted host;
-  revisit once off-host storage is added.
 - **No Content-Security-Policy header** — deferred pending a real
   browser to verify it doesn't break Django admin's own inline
   scripts; see `docs/PRODUCTION_CONFIG_REVIEW.md`.
