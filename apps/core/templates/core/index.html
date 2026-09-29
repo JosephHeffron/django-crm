@@ -17,21 +17,21 @@
 
   <div class="stat-grid">
     {% if is_owner %}
-      <div class="stat-card">
+      <a class="stat-card" href="{% url 'jobs:financials' %}?range=day">
         <div class="stat-label">Revenue today</div>
         <div class="stat-value">{{ revenue_today|money }}</div>
         <div class="stat-meta">Invoiced</div>
-      </div>
-      <div class="stat-card">
+      </a>
+      <a class="stat-card" href="{% url 'jobs:financials' %}?range=week">
         <div class="stat-label">Revenue this week</div>
         <div class="stat-value">{{ revenue_week|money }}</div>
         <div class="stat-meta">Since Monday</div>
-      </div>
-      <div class="stat-card">
+      </a>
+      <a class="stat-card" href="{% url 'jobs:financials' %}#outstanding">
         <div class="stat-label">Outstanding</div>
         <div class="stat-value">{{ outstanding.total|money }}</div>
         <div class="stat-meta">{{ outstanding.count }} unpaid invoice{{ outstanding.count|pluralize }}</div>
-      </div>
+      </a>
     {% else %}
       <a class="stat-card" href="{% url 'jobs:calendar' %}?view=day">
         <div class="stat-label">Jobs today</div>

@@ -1422,10 +1422,29 @@ dd {
   color: var(--color-text);
 }
 
+/* Styled explicitly: with only accent-color, browsers pick the track
+   color themselves and a pale tone can get a dark, "full"-looking track. */
 progress {
+  --bar-color: var(--tone-accent, var(--color-primary));
   width: 100%;
   height: 0.5rem;
-  accent-color: var(--color-primary);
+  border: none;
+  border-radius: var(--radius-full);
+  background: var(--color-surface-2);
+  appearance: none;
+  overflow: hidden;
+}
+
+progress::-webkit-progress-bar {
+  background: var(--color-surface-2);
+}
+
+progress::-webkit-progress-value {
+  background: var(--bar-color);
+}
+
+progress::-moz-progress-bar {
+  background: var(--bar-color);
 }
 
 .checklist {
@@ -1448,4 +1467,110 @@ progress {
 
 .note-body {
   color: var(--color-text);
+}
+
+/* ---------- Financials ---------- */
+
+.stat-value.is-negative {
+  color: var(--color-danger);
+}
+
+.chart {
+  display: block;
+  width: 100%;
+  height: 14rem;
+}
+
+.chart-axis {
+  stroke: var(--color-border-strong);
+  stroke-width: 1;
+}
+
+.bar-revenue {
+  fill: var(--color-primary);
+}
+
+.bar-expenses {
+  fill: var(--color-warning);
+}
+
+.chart-axis-labels {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-2);
+  margin-top: var(--space-1);
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+}
+
+.chart-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+  margin-bottom: var(--space-2);
+  font-size: var(--text-sm);
+}
+
+.legend-swatch {
+  display: inline-block;
+  width: 0.75rem;
+  height: 0.75rem;
+  margin-right: var(--space-1);
+  border-radius: var(--radius-sm);
+  vertical-align: middle;
+}
+
+.legend-revenue {
+  background: var(--color-primary);
+}
+
+.legend-expenses {
+  background: var(--color-warning);
+}
+
+.chart-table {
+  margin-top: var(--space-3);
+}
+
+.chart-table summary {
+  cursor: pointer;
+  color: var(--color-link);
+}
+
+.share-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.share-list > li {
+  padding: var(--space-2) 0;
+}
+
+.share-row {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-3);
+  font-size: var(--text-sm);
+}
+
+.share-expense progress {
+  --bar-color: var(--color-warning);
+}
+
+.aging {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: var(--space-1) var(--space-3);
+}
+
+.aging dd {
+  margin: 0;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.aging dd.is-late {
+  color: var(--color-danger);
+  font-weight: var(--weight-semibold);
 }

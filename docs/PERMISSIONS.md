@@ -131,6 +131,7 @@ member of), so a direct message never leaks onto a contact page.
 | Calendar (`/calendar/`) | all jobs + site visits, crew filter | all jobs + site visits, crew filter | own assigned jobs only (crew filter ignored) |
 | Job (`/jobs/<id>/`) | yes, with prices and invoices | yes, with prices | only if assigned (else 404); customer name, phone, address, work — no prices |
 | Quote (`/quotes/<id>/`) | yes | yes | 403 |
+| Financials (`/financials/`) | yes | 403 | 403 |
 | Services (`/settings/services/`) | view and edit | 403 | 403 |
 | Contacts (`/contacts/`, a contact's page) | yes | yes | 403 |
 | Tasks hub (`/tasks/`: tasks, follow-ups, quotes, plans, notes) | yes | yes | 403 |

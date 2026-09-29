@@ -44,6 +44,7 @@ NAV_ITEMS = (
         ("crm:task_", "crm:plan_", "crm:note_", "jobs:quote_"),
         primary=True,
     ),
+    NavItem("Financials", "jobs:financials", "dollar", OWNER_ONLY, ("jobs:financials",)),
     NavItem("Companies", "crm:company_list", "building", SALES_ROLES, ("crm:company_",)),
     NavItem("Activities", "crm:activity_list", "activity", SALES_ROLES, ("crm:activity_",)),
     # Leads and Deals were folded into Contacts and Quotes (ADR 0009);

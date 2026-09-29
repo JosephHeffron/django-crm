@@ -62,6 +62,27 @@ A **quote** page (from the calendar or dashboard) shows its status,
 line items and total, the site visit, and any jobs booked from it.
 Creating and editing quotes and jobs arrives in Phase 18.
 
+## Financials (Owner)
+
+**Financials** shows the money side for **Today**, **This week**,
+**This month** (the default), **Year to date**, or any date range up to
+five years:
+
+- **Revenue** — what you invoiced (sent invoices, by the date issued;
+  drafts aren't billed yet and voided invoices don't count), with the
+  number of invoices and the average.
+- **Collected** — payments received in the period.
+- **Expenses** and **Net** (revenue minus expenses — a quick owner's
+  view, not your accountant's profit and loss).
+- **Jobs completed**.
+- A chart of revenue and expenses per day, week, or month (tap **Show
+  as a table** for the numbers), and revenue split by service and by
+  sales rep, and expenses by category.
+- **Outstanding today** — what customers still owe, grouped by how late
+  it is, and the oldest unpaid invoices (tap one to open its job).
+
+The revenue and outstanding cards on your dashboard open this page.
+
 ## Services (Owner)
 
 **Services** in the menu is the price list: each service's default
