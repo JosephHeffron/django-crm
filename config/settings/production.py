@@ -74,4 +74,8 @@ SECURE_CSP = {
     "frame-ancestors": [CSP.NONE],
     "base-uri": [CSP.NONE],
     "object-src": [CSP.NONE],
+    # PWA (Phase 17): default-src 'none' would otherwise block both the
+    # web app manifest and the service worker registration.
+    "manifest-src": [CSP.SELF],
+    "worker-src": [CSP.SELF],
 }

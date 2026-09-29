@@ -3,7 +3,7 @@ from django.test import TestCase
 from django.urls import reverse
 
 from apps.crm.models import Activity, AuditLogEntry, Company, Contact, Deal, Lead
-from apps.crm.tests._helpers import grant_staff
+from apps.crm.tests._helpers import grant_role
 
 User = get_user_model()
 
@@ -11,7 +11,7 @@ User = get_user_model()
 class AuditLogEntryModelTests(TestCase):
     def setUp(self):
         self.user = User.objects.create_user("alice", password="correct-horse-battery")
-        grant_staff(self.user)
+        grant_role(self.user)
         self.company = Company.objects.create(name="Acme Corp", created_by=self.user)
 
     def test_record_resolves_via_generic_foreign_key(self):
@@ -44,7 +44,7 @@ class AuditLogEntryModelTests(TestCase):
 class CompanyAuditLogTests(TestCase):
     def setUp(self):
         self.user = User.objects.create_user("alice", password="correct-horse-battery")
-        grant_staff(self.user)
+        grant_role(self.user)
         self.client.login(username="alice", password="correct-horse-battery")
 
     def test_create_logs_a_created_entry_with_no_changes(self):
@@ -135,7 +135,7 @@ class CompanyAuditLogTests(TestCase):
 class ContactAuditLogTests(TestCase):
     def setUp(self):
         self.user = User.objects.create_user("alice", password="correct-horse-battery")
-        grant_staff(self.user)
+        grant_role(self.user)
         self.client.login(username="alice", password="correct-horse-battery")
 
     def test_create_logs_a_created_entry(self):
@@ -190,7 +190,7 @@ class ContactAuditLogTests(TestCase):
 class LeadAndConversionAuditLogTests(TestCase):
     def setUp(self):
         self.user = User.objects.create_user("alice", password="correct-horse-battery")
-        grant_staff(self.user)
+        grant_role(self.user)
         self.client.login(username="alice", password="correct-horse-battery")
 
     def test_lead_create_logs_a_created_entry(self):
@@ -272,7 +272,7 @@ class LeadAndConversionAuditLogTests(TestCase):
 class DealAuditLogTests(TestCase):
     def setUp(self):
         self.user = User.objects.create_user("alice", password="correct-horse-battery")
-        grant_staff(self.user)
+        grant_role(self.user)
         self.client.login(username="alice", password="correct-horse-battery")
         self.company = Company.objects.create(name="Acme Corp", created_by=self.user)
 
@@ -323,7 +323,7 @@ class TaskAndActivityAreNotAuditedTests(TestCase):
 
     def setUp(self):
         self.user = User.objects.create_user("alice", password="correct-horse-battery")
-        grant_staff(self.user)
+        grant_role(self.user)
         self.client.login(username="alice", password="correct-horse-battery")
         self.company = Company.objects.create(name="Acme Corp", created_by=self.user)
 

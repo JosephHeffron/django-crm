@@ -6,13 +6,14 @@ from django.urls import reverse
 from django.utils import timezone
 
 from apps.crm.models import Activity, Company, Contact, Deal, Lead, Task
+from apps.crm.tests._helpers import grant_role
 
 User = get_user_model()
 
 
 class DashboardStatsTests(TestCase):
     def setUp(self):
-        self.user = User.objects.create_user("alice", password="correct-horse-battery")
+        self.user = grant_role(User.objects.create_user("alice", password="correct-horse-battery"))
         self.client.login(username="alice", password="correct-horse-battery")
 
     def test_counts_active_companies_and_contacts_only(self):
@@ -71,7 +72,7 @@ class DashboardStatsTests(TestCase):
 
 class DashboardPipelineByStageTests(TestCase):
     def setUp(self):
-        self.user = User.objects.create_user("alice", password="correct-horse-battery")
+        self.user = grant_role(User.objects.create_user("alice", password="correct-horse-battery"))
         self.client.login(username="alice", password="correct-horse-battery")
         self.company = Company.objects.create(name="Acme", created_by=self.user)
 
@@ -120,7 +121,7 @@ class DashboardPipelineByStageTests(TestCase):
 
 class DashboardMyTasksTests(TestCase):
     def setUp(self):
-        self.user = User.objects.create_user("alice", password="correct-horse-battery")
+        self.user = grant_role(User.objects.create_user("alice", password="correct-horse-battery"))
         self.other_user = User.objects.create_user("bob", password="correct-horse-battery")
         self.client.login(username="alice", password="correct-horse-battery")
 
@@ -162,7 +163,7 @@ class DashboardMyTasksTests(TestCase):
 
 class DashboardRecentActivityTests(TestCase):
     def setUp(self):
-        self.user = User.objects.create_user("alice", password="correct-horse-battery")
+        self.user = grant_role(User.objects.create_user("alice", password="correct-horse-battery"))
         self.client.login(username="alice", password="correct-horse-battery")
         self.company = Company.objects.create(name="Acme", created_by=self.user)
 

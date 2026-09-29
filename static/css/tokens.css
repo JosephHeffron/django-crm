@@ -1,0 +1,150 @@
+/* Design tokens. Every color, size, and radius used by base.css comes
+   from here. Colors are chosen for WCAG AA contrast (checked by
+   scripts in the Phase 17 verification). The production CSP forbids
+   inline style attributes, so anything dynamic (service colors) is a
+   class — .tone-1 … .tone-10 — never a style="" value. */
+
+:root {
+  color-scheme: light dark;
+
+  /* Surfaces & text */
+  --color-bg: #f5f6f8;
+  --color-surface: #ffffff;
+  --color-surface-2: #eef0f3;
+  --color-border: #d6dae0;
+  --color-border-strong: #b8bec7;
+  --color-text: #1a1f26;
+  --color-text-muted: #545d69;
+  --color-overlay: rgb(15 20 25 / 45%);
+
+  /* Brand & status */
+  --color-primary: #1b5cb4;
+  --color-primary-hover: #154a92;
+  --color-primary-soft: #e2ecfa;
+  --color-primary-soft-text: #154a92;
+  --color-on-primary: #ffffff;
+  /* Link/accent text is separate from the button fill: in dark mode
+     text on a dark surface must be light, while a button under white
+     text must stay dark. */
+  --color-link: #1b5cb4;
+  --color-link-hover: #154a92;
+  --color-success: #1a7f37;
+  --color-success-soft: #dcf5e3;
+  --color-success-soft-text: #11622a;
+  --color-warning: #9a6700;
+  --color-warning-soft: #fdf2c7;
+  --color-warning-soft-text: #7a4f00;
+  --color-danger: #c62531;
+  --color-danger-soft: #fde6e6;
+  --color-danger-soft-text: #9c1621;
+  --focus-ring: 0 0 0 3px rgb(27 92 180 / 45%);
+
+  /* Service tones: soft background, readable text, solid accent */
+  --tone-1-bg: #e2ecfa; --tone-1-fg: #154a92; --tone-1-accent: #1b5cb4;
+  --tone-2-bg: #dcf5e3; --tone-2-fg: #11622a; --tone-2-accent: #1f8a41;
+  --tone-3-bg: #fdf2c7; --tone-3-fg: #6e4700; --tone-3-accent: #b98100;
+  --tone-4-bg: #fde6e6; --tone-4-fg: #9c1621; --tone-4-accent: #d13440;
+  --tone-5-bg: #efe6fb; --tone-5-fg: #5b2a9e; --tone-5-accent: #7c45c9;
+  --tone-6-bg: #d9f3f2; --tone-6-fg: #0c5c58; --tone-6-accent: #138a84;
+  --tone-7-bg: #fde9d9; --tone-7-fg: #8a3b06; --tone-7-accent: #d4640f;
+  --tone-8-bg: #fbe4f0; --tone-8-fg: #8f1d58; --tone-8-accent: #c23a82;
+  --tone-9-bg: #e7eaee; --tone-9-fg: #3a4450; --tone-9-accent: #66717f;
+  --tone-10-bg: #ecf3d6; --tone-10-fg: #4a5d0e; --tone-10-accent: #6d8a13;
+
+  /* Type */
+  --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+  --text-xs: 0.75rem;
+  --text-sm: 0.875rem;
+  --text-base: 1rem;
+  --text-lg: 1.125rem;
+  --text-xl: 1.25rem;
+  --text-2xl: 1.5rem;
+  --text-3xl: 1.875rem;
+  --weight-medium: 500;
+  --weight-semibold: 600;
+  --weight-bold: 700;
+
+  /* Space, shape, depth */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.5rem;
+  --space-6: 2rem;
+  --space-7: 2.5rem;
+  --space-8: 3rem;
+  --radius-sm: 4px;
+  --radius: 8px;
+  --radius-lg: 12px;
+  --radius-full: 999px;
+  --shadow-sm: 0 1px 2px rgb(15 20 25 / 8%);
+  --shadow: 0 2px 8px rgb(15 20 25 / 10%);
+  --shadow-lg: 0 10px 30px rgb(15 20 25 / 18%);
+
+  /* Layout. Breakpoints (CSS vars can't be used in media queries):
+     phone < 768px · tablet 768–1023px · desktop ≥ 1024px */
+  --sidebar-width: 15rem;
+  --topbar-height: 3.5rem;
+  --bottombar-height: 4rem;
+  --content-max: 72rem;
+  --tap-target: 44px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-bg: #0e1116;
+    --color-surface: #161b22;
+    --color-surface-2: #1f2630;
+    --color-border: #303843;
+    --color-border-strong: #45505d;
+    --color-text: #e6edf3;
+    --color-text-muted: #a3adba;
+    --color-overlay: rgb(0 0 0 / 60%);
+
+    --color-primary: #2a64c4;
+    --color-primary-hover: #1f55ad;
+    --color-primary-soft: #1a2b44;
+    --color-primary-soft-text: #a8c9f5;
+    --color-on-primary: #ffffff;
+    --color-link: #7cb0f2;
+    --color-link-hover: #a8c9f5;
+    --color-success: #3fb95f;
+    --color-success-soft: #13301d;
+    --color-success-soft-text: #8ddca0;
+    --color-warning: #d9a21b;
+    --color-warning-soft: #33280b;
+    --color-warning-soft-text: #f1cd6b;
+    --color-danger: #f0616b;
+    --color-danger-soft: #3a1618;
+    --color-danger-soft-text: #f7a6ab;
+    --focus-ring: 0 0 0 3px rgb(91 149 230 / 55%);
+
+    --tone-1-bg: #1a2b44; --tone-1-fg: #a8c9f5; --tone-1-accent: #5b95e6;
+    --tone-2-bg: #13301d; --tone-2-fg: #8ddca0; --tone-2-accent: #3fb95f;
+    --tone-3-bg: #33280b; --tone-3-fg: #f1cd6b; --tone-3-accent: #d9a21b;
+    --tone-4-bg: #3a1618; --tone-4-fg: #f7a6ab; --tone-4-accent: #f0616b;
+    --tone-5-bg: #2a1d40; --tone-5-fg: #cfb3f5; --tone-5-accent: #a47ae6;
+    --tone-6-bg: #0f302e; --tone-6-fg: #8fdcd6; --tone-6-accent: #2fb5ac;
+    --tone-7-bg: #36200e; --tone-7-fg: #f6be8f; --tone-7-accent: #ee8a3c;
+    --tone-8-bg: #3a1729; --tone-8-fg: #f3a9cf; --tone-8-accent: #e064a4;
+    --tone-9-bg: #262d36; --tone-9-fg: #c3cbd5; --tone-9-accent: #8a96a5;
+    --tone-10-bg: #26300e; --tone-10-fg: #c6dc86; --tone-10-accent: #97b83a;
+
+    --shadow-sm: 0 1px 2px rgb(0 0 0 / 40%);
+    --shadow: 0 2px 8px rgb(0 0 0 / 45%);
+    --shadow-lg: 0 10px 30px rgb(0 0 0 / 55%);
+  }
+}
+
+/* Tone classes expose one tone as generic --tone-* variables that any
+   component (badge, calendar event, chart bar) can consume. */
+.tone-1 { --tone-bg: var(--tone-1-bg); --tone-fg: var(--tone-1-fg); --tone-accent: var(--tone-1-accent); }
+.tone-2 { --tone-bg: var(--tone-2-bg); --tone-fg: var(--tone-2-fg); --tone-accent: var(--tone-2-accent); }
+.tone-3 { --tone-bg: var(--tone-3-bg); --tone-fg: var(--tone-3-fg); --tone-accent: var(--tone-3-accent); }
+.tone-4 { --tone-bg: var(--tone-4-bg); --tone-fg: var(--tone-4-fg); --tone-accent: var(--tone-4-accent); }
+.tone-5 { --tone-bg: var(--tone-5-bg); --tone-fg: var(--tone-5-fg); --tone-accent: var(--tone-5-accent); }
+.tone-6 { --tone-bg: var(--tone-6-bg); --tone-fg: var(--tone-6-fg); --tone-accent: var(--tone-6-accent); }
+.tone-7 { --tone-bg: var(--tone-7-bg); --tone-fg: var(--tone-7-fg); --tone-accent: var(--tone-7-accent); }
+.tone-8 { --tone-bg: var(--tone-8-bg); --tone-fg: var(--tone-8-fg); --tone-accent: var(--tone-8-accent); }
+.tone-9 { --tone-bg: var(--tone-9-bg); --tone-fg: var(--tone-9-fg); --tone-accent: var(--tone-9-accent); }
+.tone-10 { --tone-bg: var(--tone-10-bg); --tone-fg: var(--tone-10-fg); --tone-accent: var(--tone-10-accent); }

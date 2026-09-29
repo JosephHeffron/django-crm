@@ -3,13 +3,14 @@ from django.test import TestCase
 from django.urls import reverse
 
 from apps.crm.models import Company, Contact, Deal, Lead, Task
+from apps.crm.tests._helpers import grant_role
 
 User = get_user_model()
 
 
 class SearchViewTests(TestCase):
     def setUp(self):
-        self.user = User.objects.create_user("alice", password="correct-horse-battery")
+        self.user = grant_role(User.objects.create_user("alice", password="correct-horse-battery"))
         self.client.login(username="alice", password="correct-horse-battery")
 
     def test_anonymous_user_is_redirected(self):

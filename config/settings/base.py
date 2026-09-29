@@ -69,6 +69,8 @@ TEMPLATES = [
                 # policy against, and a strict CSP would silently block
                 # it in a real browser with no HTTP-visible symptom.
                 "django.template.context_processors.csp",
+                # Brand name + role-filtered navigation (ADR 0008).
+                "apps.core.context_processors.app_shell",
             ],
         },
     },
@@ -107,7 +109,15 @@ AUTH_PASSWORD_VALIDATORS = [
 CSRF_COOKIE_HTTPONLY = True
 
 LANGUAGE_CODE = "en-us"
-TIME_ZONE = "UTC"
+# The business's local timezone — "today's jobs", daily revenue, and
+# follow-up due dates are all local-day concepts. Stored datetimes stay
+# UTC (USE_TZ below); this only governs display and date boundaries.
+TIME_ZONE = os.environ.get("CRM_TIME_ZONE", "America/New_York")
+
+# Shown in the app header, page titles, and the PWA manifest. The short
+# name is what a phone shows under the home-screen icon (~12 chars max).
+CRM_BRAND_NAME = os.environ.get("CRM_BRAND_NAME", "Exterior CRM")
+CRM_BRAND_SHORT_NAME = os.environ.get("CRM_BRAND_SHORT_NAME", CRM_BRAND_NAME[:12])
 USE_I18N = True
 USE_TZ = True
 

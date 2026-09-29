@@ -1,0 +1,20 @@
+/* Loaded only inside <noscript>: without nav.js the off-canvas drawer
+   can't open, so the sidebar becomes an ordinary block in the page and
+   the "Menu" links (href="#sidebar") simply jump to it. */
+
+.app-shell {
+  display: block;
+}
+
+.sidebar {
+  position: static;
+  width: auto;
+  transform: none;
+  visibility: visible;
+  border-right: none;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.sidebar-close {
+  display: none;
+}

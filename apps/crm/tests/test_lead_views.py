@@ -3,7 +3,7 @@ from django.test import TestCase
 from django.urls import reverse
 
 from apps.crm.models import Company, Contact, Deal, Lead
-from apps.crm.tests._helpers import grant_staff
+from apps.crm.tests._helpers import grant_role
 
 User = get_user_model()
 
@@ -11,7 +11,7 @@ User = get_user_model()
 class LeadListViewTests(TestCase):
     def setUp(self):
         self.user = User.objects.create_user("alice", password="correct-horse-battery")
-        grant_staff(self.user)
+        grant_role(self.user)
         self.client.login(username="alice", password="correct-horse-battery")
 
     def test_anonymous_user_is_redirected(self):
@@ -61,7 +61,7 @@ class LeadListViewTests(TestCase):
 class LeadDetailViewTests(TestCase):
     def setUp(self):
         self.user = User.objects.create_user("alice", password="correct-horse-battery")
-        grant_staff(self.user)
+        grant_role(self.user)
         self.client.login(username="alice", password="correct-horse-battery")
         self.lead = Lead.objects.create(name="Jane Prospect", created_by=self.user)
 
@@ -92,7 +92,7 @@ class LeadDetailViewTests(TestCase):
 class LeadCreateViewTests(TestCase):
     def setUp(self):
         self.user = User.objects.create_user("alice", password="correct-horse-battery")
-        grant_staff(self.user)
+        grant_role(self.user)
         self.client.login(username="alice", password="correct-horse-battery")
 
     def test_anonymous_user_is_redirected(self):
@@ -128,7 +128,7 @@ class LeadCreateViewTests(TestCase):
 class LeadUpdateViewTests(TestCase):
     def setUp(self):
         self.user = User.objects.create_user("alice", password="correct-horse-battery")
-        grant_staff(self.user)
+        grant_role(self.user)
         self.client.login(username="alice", password="correct-horse-battery")
         self.lead = Lead.objects.create(name="Jane Prospect", created_by=self.user)
 
@@ -151,7 +151,7 @@ class LeadUpdateViewTests(TestCase):
 class LeadConvertViewTests(TestCase):
     def setUp(self):
         self.user = User.objects.create_user("alice", password="correct-horse-battery")
-        grant_staff(self.user)
+        grant_role(self.user)
         self.client.login(username="alice", password="correct-horse-battery")
         self.lead = Lead.objects.create(
             name="Jane Prospect",

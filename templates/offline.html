@@ -1,0 +1,29 @@
+{% load static %}<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Offline · {{ brand_name }}</title>
+  <link rel="icon" href="{% static 'pwa/icons/icon.svg' %}" type="image/svg+xml">
+  <link rel="stylesheet" href="{% static 'css/tokens.css' %}">
+  <link rel="stylesheet" href="{% static 'css/base.css' %}">
+</head>
+<body>
+  {% include "partials/_icons.html" %}
+  {% comment %}
+    Standalone (no base.html): the service worker caches this page and
+    shows it with no network, so it must not depend on a logged-in user
+    or anything rendered per-request.
+  {% endcomment %}
+  <main class="auth-layout">
+    <div class="auth-card">
+      <div class="empty-state">
+        <svg class="icon" aria-hidden="true"><use href="#icon-wifi-off"/></svg>
+        <p class="empty-state-title">You're offline</p>
+        <p>{{ brand_name }} needs a connection to load this page. Check your signal and try again.</p>
+        <a class="btn" href="/">Try again</a>
+      </div>
+    </div>
+  </main>
+</body>
+</html>

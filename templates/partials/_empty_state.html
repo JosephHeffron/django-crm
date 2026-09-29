@@ -1,0 +1,9 @@
+{% comment %}
+  Usage: {% include "partials/_empty_state.html" with icon="inbox" title="No jobs yet" text="…" action_url=… action_label=… %}
+{% endcomment %}
+<div class="empty-state">
+  <svg class="icon" aria-hidden="true"><use href="#icon-{{ icon|default:'inbox' }}"/></svg>
+  <p class="empty-state-title">{{ title }}</p>
+  {% if text %}<p>{{ text }}</p>{% endif %}
+  {% if action_url %}<a class="btn" href="{{ action_url }}">{{ action_label }}</a>{% endif %}
+</div>

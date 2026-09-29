@@ -3,7 +3,7 @@ from django.test import TestCase
 from django.urls import NoReverseMatch, reverse
 
 from apps.crm.models import Activity, Company, Contact, Deal, Lead
-from apps.crm.tests._helpers import grant_staff
+from apps.crm.tests._helpers import grant_role
 
 User = get_user_model()
 
@@ -11,7 +11,7 @@ User = get_user_model()
 class ActivityListViewTests(TestCase):
     def setUp(self):
         self.user = User.objects.create_user("alice", password="correct-horse-battery")
-        grant_staff(self.user)
+        grant_role(self.user)
         self.client.login(username="alice", password="correct-horse-battery")
         self.company = Company.objects.create(name="Acme Corp", created_by=self.user)
 
@@ -68,7 +68,7 @@ class ActivityListViewTests(TestCase):
 class ActivityCreateViewTests(TestCase):
     def setUp(self):
         self.user = User.objects.create_user("alice", password="correct-horse-battery")
-        grant_staff(self.user)
+        grant_role(self.user)
         self.client.login(username="alice", password="correct-horse-battery")
         self.company = Company.objects.create(name="Acme Corp", created_by=self.user)
         self.contact = Contact.objects.create(
@@ -167,7 +167,7 @@ class ActivityTimelineOnDetailPagesTests(TestCase):
 
     def setUp(self):
         self.user = User.objects.create_user("alice", password="correct-horse-battery")
-        grant_staff(self.user)
+        grant_role(self.user)
         self.client.login(username="alice", password="correct-horse-battery")
         self.company = Company.objects.create(name="Acme Corp", created_by=self.user)
         self.contact = Contact.objects.create(

@@ -1,13 +1,20 @@
+import json
 import logging
 
+from django.conf import settings
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db import connection
 from django.db.models import Count, Q, Sum
 from django.http import JsonResponse
+from django.shortcuts import render
+from django.urls import reverse
 from django.views import View
 from django.views.generic import TemplateView
 
 from apps.crm.models import Activity, Company, Contact, Deal, Lead, Task
+from apps.users.roles import SALES_ROLES, SalesRoleRequiredMixin, user_role
+
+from . import pwa
 
 logger = logging.getLogger(__name__)
 
@@ -36,6 +43,14 @@ class DashboardView(LoginRequiredMixin, TemplateView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
+        role = user_role(self.request.user)
+        context["role"] = role
+        # Every logged-in user lands here, but only Owner/Sales Rep may
+        # see business-wide customer data (ADR 0008). Cleaners and
+        # users with no role get a scoped page instead — the full
+        # role-aware dashboard lands in Phase 17 unit 3.
+        if role not in SALES_ROLES:
+            return context
 
         context["company_count"] = Company.objects.filter(is_active=True).count()
         context["contact_count"] = Contact.objects.filter(is_active=True).count()
@@ -149,7 +164,43 @@ class HealthCheckView(View):
         return JsonResponse({"status": "ok", "database": "ok"})
 
 
-class SearchView(LoginRequiredMixin, TemplateView):
+class ManifestView(View):
+    """Web app manifest (installable PWA). Public — browsers fetch it
+    without credentials — and contains nothing sensitive."""
+
+    def get(self, request, *args, **kwargs):
+        return JsonResponse(pwa.manifest(), content_type="application/manifest+json")
+
+
+class ServiceWorkerView(View):
+    """Serves the service worker from the site root so its scope covers
+    the whole app (a worker under /static/ could only control /static/).
+    no-cache makes the browser revalidate it on every update check."""
+
+    def get(self, request, *args, **kwargs):
+        response = render(
+            request,
+            "core/sw.js",
+            {
+                "version": pwa.asset_version(),
+                "offline_url": reverse("core:offline"),
+                "precache_json": json.dumps(pwa.precache_urls()),
+                "network_first_assets": settings.DEBUG,
+            },
+            content_type="application/javascript",
+        )
+        response["Cache-Control"] = "no-cache"
+        return response
+
+
+class OfflineView(TemplateView):
+    """What the service worker shows when a page can't be loaded — no
+    user data, so it's safe to cache and to show logged out."""
+
+    template_name = "offline.html"
+
+
+class SearchView(SalesRoleRequiredMixin, TemplateView):
     template_name = "core/search.html"
 
     def get_context_data(self, **kwargs):
