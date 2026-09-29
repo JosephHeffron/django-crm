@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load crm_format %}
 
 {% block title %}Dashboard{% endblock %}
 
@@ -6,77 +7,159 @@
   <div class="page-header">
     <div>
       <h1>Dashboard</h1>
-      <p class="page-subtitle">Welcome back, {{ nav.display_name }}.</p>
+      <p class="page-subtitle">Welcome back, {{ nav.display_name }}.{% if today %} {{ today|date:"l, F j" }}.{% endif %}</p>
     </div>
   </div>
 
   {% if role is None %}
     {% include "partials/_empty_state.html" with icon="lock" title="No role assigned yet" text="Your account doesn't have a role, so there's nothing to show. Ask the owner to make you an Owner, Sales Rep, or Cleaner." %}
-  {% elif role == "Cleaner" %}
-    {% include "partials/_empty_state.html" with icon="calendar" title="Your schedule" text="Your assigned jobs will show up here." %}
   {% else %}
 
-  <ul class="dashboard-stats">
-    <li><a href="{% url 'crm:company_list' %}?status=active">{{ company_count }} active companies</a></li>
-    <li><a href="{% url 'crm:contact_list' %}?status=active">{{ contact_count }} active contacts</a></li>
-    <li><a href="{% url 'crm:lead_list' %}">{{ open_lead_count }} open leads</a></li>
-    <li><a href="{% url 'crm:deal_list' %}?open=1">{{ open_deal_count }} open deals ({{ open_deal_value }})</a></li>
-    <li><a href="{% url 'crm:task_list' %}?status=pending">{{ pending_task_count }} pending tasks</a></li>
-  </ul>
+  <div class="stat-grid">
+    {% if is_owner %}
+      <div class="stat-card">
+        <div class="stat-label">Revenue today</div>
+        <div class="stat-value">{{ revenue_today|money }}</div>
+        <div class="stat-meta">Invoiced</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Revenue this week</div>
+        <div class="stat-value">{{ revenue_week|money }}</div>
+        <div class="stat-meta">Since Monday</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Outstanding</div>
+        <div class="stat-value">{{ outstanding.total|money }}</div>
+        <div class="stat-meta">{{ outstanding.count }} unpaid invoice{{ outstanding.count|pluralize }}</div>
+      </div>
+    {% else %}
+      <a class="stat-card" href="{% url 'jobs:calendar' %}?view=day">
+        <div class="stat-label">Jobs today</div>
+        <div class="stat-value">{{ todays_job_count }}</div>
+        <div class="stat-meta">{% if role == "Cleaner" %}Assigned to you{% else %}Whole team{% endif %}</div>
+      </a>
+    {% endif %}
 
-  <h2>Pipeline by stage</h2>
-  <div class="table-responsive">
-  <table class="data-table">
-    <thead>
-      <tr>
-        <th>Stage</th>
-        <th>Deals</th>
-        <th>Value</th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for stage in deals_by_stage %}
-        <tr>
-          <td>{{ stage.label }}</td>
-          <td>{{ stage.count }}</td>
-          <td>{{ stage.total_value }}</td>
-        </tr>
-      {% endfor %}
-    </tbody>
-  </table>
+    {% if role == "Cleaner" %}
+      <div class="stat-card">
+        <div class="stat-label">Done this week</div>
+        <div class="stat-value">{{ jobs_done_this_week }}</div>
+        <div class="stat-meta">Completed jobs</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Hours this week</div>
+        <div class="stat-value">{{ hours_this_week|floatformat:"-1" }}</div>
+        <div class="stat-meta">Logged on completed jobs</div>
+      </div>
+    {% else %}
+      <div class="stat-card">
+        <div class="stat-label">{% if is_owner %}Open quotes{% else %}Your open quotes{% endif %}</div>
+        <div class="stat-value">{{ open_quotes.count }}</div>
+        <div class="stat-meta">{{ open_quotes.total|default:0|money }} in drafts and sent</div>
+      </div>
+      <a class="stat-card" href="{% url 'crm:task_list' %}?status=pending{% if not is_owner %}&mine=1{% endif %}">
+        <div class="stat-label">Follow-ups due</div>
+        <div class="stat-value">{{ follow_ups_due }}</div>
+        <div class="stat-meta">{% if follow_ups_overdue %}{{ follow_ups_overdue }} overdue{% else %}None overdue{% endif %}</div>
+      </a>
+    {% endif %}
+
+    <div class="stat-card">
+      <div class="stat-label">Unread messages</div>
+      <div class="stat-value">{{ unread_messages }}</div>
+      <div class="stat-meta">Team chat</div>
+    </div>
   </div>
 
-  <h2>Your tasks</h2>
-  {% if my_tasks %}
-    <ul>
-      {% for task in my_tasks %}
-        <li>
-          <a href="{{ task.get_absolute_url }}">{{ task.title }}</a>
-          &mdash; {{ task.due_date|default:"no due date" }}{% if task.is_overdue %} (overdue){% endif %}
-        </li>
-      {% endfor %}
-    </ul>
-  {% else %}
-    <p>No pending tasks assigned to you.</p>
-  {% endif %}
-  <p><a href="{% url 'crm:task_list' %}?mine=1">View all my tasks</a></p>
+  <div class="grid-2">
+    <section class="card">
+      <h2 class="card-title">Today's schedule</h2>
+      {% if todays_jobs %}
+        <ul class="agenda">
+          {% for job in todays_jobs %}{% include "jobs/_job_item.html" %}{% endfor %}
+        </ul>
+      {% else %}
+        <p class="muted">No jobs scheduled today.</p>
+      {% endif %}
+      <p><a href="{% url 'jobs:calendar' %}">Open the calendar</a></p>
+    </section>
 
-  <h2>Recent activity</h2>
-  {% if recent_activities %}
-    <ul class="timeline">
-      {% for activity in recent_activities %}
-        <li class="timeline-entry">
-          <div class="timeline-meta">
-            <strong>{{ activity.get_activity_type_display }}</strong>
-            <span>{{ activity.created_at }}</span>
-            <span>{{ activity.created_by }}</span>
-          </div>
-          <div class="timeline-subject">{{ activity.subject }}</div>
-        </li>
-      {% endfor %}
-    </ul>
-  {% else %}
-    <p>No activity yet.</p>
+    {% if role == "Cleaner" %}
+      <section class="card">
+        <h2 class="card-title">Coming up</h2>
+        {% if upcoming_jobs %}
+          <ul class="agenda">
+            {% for job in upcoming_jobs %}{% include "jobs/_job_item.html" with show_date=True %}{% endfor %}
+          </ul>
+        {% else %}
+          <p class="muted">Nothing else scheduled for you yet.</p>
+        {% endif %}
+      </section>
+    {% else %}
+      <section class="card">
+        <h2 class="card-title">Site visits this week</h2>
+        {% if site_visits %}
+          <ul class="agenda">
+            {% for quote in site_visits %}
+              <li class="agenda-item event-visit">
+                <div class="agenda-time">
+                  <span>{{ quote.site_visit_at|date:"D, M j" }}</span>
+                  <span>{{ quote.site_visit_at|time:"g:i A" }}</span>
+                </div>
+                <div class="agenda-body">
+                  <a class="agenda-title" href="{{ quote.get_absolute_url }}">{{ quote.contact }} · {{ quote.number }}</a>
+                  {% if quote.service_property %}<div class="agenda-meta">{{ quote.service_property.street }}, {{ quote.service_property.city }}</div>{% endif %}
+                </div>
+              </li>
+            {% endfor %}
+          </ul>
+        {% else %}
+          <p class="muted">No site visits in the next seven days.</p>
+        {% endif %}
+      </section>
+    {% endif %}
+  </div>
+
+  {% if role != "Cleaner" %}
+  <div class="grid-2 section-gap">
+    <section class="card">
+      <h2 class="card-title">Your tasks</h2>
+      {% if my_tasks %}
+        <ul class="list-plain">
+          {% for task in my_tasks %}
+            <li>
+              <a href="{{ task.get_absolute_url }}">{{ task.title }}</a>
+              <span class="muted">— {% if task.due_date %}due {{ task.due_date|date:"M j" }}{% else %}no due date{% endif %}</span>
+              {% if task.is_overdue %}<span class="badge badge-danger">Overdue</span>{% endif %}
+            </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p class="muted">No pending tasks assigned to you.</p>
+      {% endif %}
+      <p><a href="{% url 'crm:task_list' %}?mine=1">View all my tasks</a></p>
+    </section>
+
+    <section class="card">
+      <h2 class="card-title">Recent activity</h2>
+      {% if recent_activities %}
+        <ul class="timeline">
+          {% for activity in recent_activities %}
+            <li class="timeline-entry">
+              <div class="timeline-meta">
+                <strong>{{ activity.get_activity_type_display }}</strong>
+                <span>{{ activity.created_at|date:"M j, g:i A" }}</span>
+                <span>{{ activity.created_by }}</span>
+              </div>
+              <div class="timeline-subject">{% if activity.contact %}<a href="{{ activity.contact.get_absolute_url }}">{{ activity.contact }}</a>: {% endif %}{{ activity.subject }}</div>
+            </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p class="muted">No activity yet.</p>
+      {% endif %}
+    </section>
+  </div>
   {% endif %}
   {% endif %}
 {% endblock %}

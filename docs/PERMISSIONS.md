@@ -23,8 +23,8 @@ Roles are Django Groups, created by
 | Role | Who | Can use |
 |---|---|---|
 | **Owner** | the business owner (any superuser is always Owner) | everything |
-| **Sales Rep** | sales staff | dashboard, contacts, companies, tasks, search (and, as they land: quotes, calendar, messaging, own profile — not Financials) |
-| **Cleaner** | field crew | dashboard (own schedule), and as they land: own jobs, calendar filtered to own assignments, messaging, own profile |
+| **Sales Rep** | sales staff | dashboard (own quotes and follow-ups, no money figures), calendar, jobs, quotes, contacts, companies, tasks, search (and, as they land: messaging, own profile — not Financials or the service catalog) |
+| **Cleaner** | field crew | dashboard (own schedule and hours), calendar and job pages for their own assignments only (no prices), and as they land: messaging, own profile |
 | *(no role)* | an account nobody has assigned yet | the dashboard only, which says so — **fail closed** |
 
 Enforcement:
@@ -34,7 +34,7 @@ Enforcement:
   wrong role → **403**.
 - Row-level scoping (e.g. a cleaner's own jobs) uses queryset helpers;
   an object outside the user's scope returns **404**, so its existence
-  isn't revealed. (Arrives with the job models in Phase 17 unit 2.)
+  isn't revealed (`apps/jobs/access.py`).
 - Navigation (`apps/core/navigation.py`) is declared against the same
   role sets as the views, and
   `apps/core/tests/test_navigation.py::NavigationMatchesAccessForEveryRoleTests`
@@ -62,6 +62,7 @@ Enforcement:
 | `TaskUpdateView` | edit | `crm.change_task` |
 | `TaskCompleteView` | complete | `crm.change_task` |
 | `ActivityCreateView` | log | `crm.add_activity` |
+| `ServiceUpdateView` | edit the service catalog | Owner role **and** `jobs.change_servicetype` |
 
 Notes on the less obvious rows:
 
@@ -117,6 +118,20 @@ jobs, a user changing only their own channel read marker) in Phases
 `apps/jobs/tests/test_access.py` and
 `test_migrations.py::FieldServicePermissionSeedTests` cover what exists
 today.
+
+## Field-service pages (Phase 17 unit 3)
+
+| Page | Owner | Sales Rep | Cleaner |
+|---|---|---|---|
+| Dashboard (`/`) | whole business, with revenue and outstanding balance | own open quotes, follow-ups, site visits; no money figures | own jobs today and coming up, own hours |
+| Calendar (`/calendar/`) | all jobs + site visits, crew filter | all jobs + site visits, crew filter | own assigned jobs only (crew filter ignored) |
+| Job (`/jobs/<id>/`) | yes, with prices and invoices | yes, with prices | only if assigned (else 404); customer name, phone, address, work — no prices |
+| Quote (`/quotes/<id>/`) | yes | yes | 403 |
+| Services (`/settings/services/`) | view and edit | 403 | 403 |
+
+Leads and Deals are no longer in the menu (folded into Contacts and
+Quotes, ADR 0009); their old pages stay reachable by URL, with the same
+Owner/Sales Rep access, until Phase 18 removes them.
 
 ## Seeding the role groups
 

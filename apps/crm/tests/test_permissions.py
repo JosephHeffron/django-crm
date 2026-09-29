@@ -175,8 +175,9 @@ class CleanerIsDeniedCustomerPagesTests(TestCase):
     def test_dashboard_shows_the_cleaner_view(self):
         response = self.client.get(reverse("core:index"))
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "Your schedule")
-        self.assertNotContains(response, "Pipeline by stage")
+        self.assertContains(response, "Coming up")
+        self.assertNotContains(response, "Recent activity")
+        self.assertNotContains(response, "Site visits")
 
 
 class SalesAndOwnerRolesCanUseCrmTests(TestCase):
@@ -193,7 +194,9 @@ class SalesAndOwnerRolesCanUseCrmTests(TestCase):
 
     def test_sales_rep_sees_the_business_dashboard(self):
         _login(self.client, "rep", Role.SALES_REP)
-        self.assertContains(self.client.get(reverse("core:index")), "Pipeline by stage")
+        response = self.client.get(reverse("core:index"))
+        self.assertContains(response, "Site visits this week")
+        self.assertContains(response, "Recent activity")
 
 
 class WritePermissionsStillEnforcedWithinARoleTests(TestCase):

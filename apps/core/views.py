@@ -1,18 +1,25 @@
 import json
 import logging
+from datetime import timedelta
 
 from django.conf import settings
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db import connection
-from django.db.models import Count, Q, Sum
+from django.db.models import Count, F, Q, Sum
 from django.http import JsonResponse
 from django.shortcuts import render
 from django.urls import reverse
+from django.utils import timezone
 from django.views import View
 from django.views.generic import TemplateView
 
 from apps.crm.models import Activity, Company, Contact, Deal, Lead, Task
-from apps.users.roles import SALES_ROLES, SalesRoleRequiredMixin, user_role
+from apps.jobs.access import jobs_for, quotes_for
+from apps.jobs.calendar import day_bounds
+from apps.jobs.models import Job, JobAssignment, Quote
+from apps.jobs.reports import invoiced_revenue, outstanding
+from apps.messaging.services import unread_count
+from apps.users.roles import Role, SalesRoleRequiredMixin, user_role
 
 from . import pwa
 
@@ -30,70 +37,95 @@ SEARCH_RESULTS_PER_MODEL = 20
 # at-a-glance summary, not a full record browser.
 DASHBOARD_LIST_LIMIT = 10
 
+# Upcoming site visits: today and the next six days.
+VISIT_DAYS = 7
+
 
 class DashboardView(LoginRequiredMixin, TemplateView):
-    """Operational at-a-glance summary — quick counts, open pipeline by
-    stage, the signed-in user's own pending tasks, and recent activity
-    across the CRM. Deliberately no charting library or JS dashboard
-    framework (CLAUDE.md's "do not overengineer" rule) — every number
-    here is a plain Django ORM aggregate, rendered server-side.
+    """Role-aware at-a-glance page (ADR 0008): today's jobs and unread
+    messages for everyone; quotes, follow-ups, site visits, tasks and
+    recent activity for sales roles; revenue for the Owner; a cleaner's
+    own schedule and hours. Every figure is a plain ORM aggregate,
+    scoped through apps/jobs/access.py.
     """
 
     template_name = "core/index.html"
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        role = user_role(self.request.user)
+        user = self.request.user
+        role = user_role(user)
         context["role"] = role
-        # Every logged-in user lands here, but only Owner/Sales Rep may
-        # see business-wide customer data (ADR 0008). Cleaners and
-        # users with no role get a scoped page instead — the full
-        # role-aware dashboard lands in Phase 17 unit 3.
-        if role not in SALES_ROLES:
+        if role is None:
             return context
 
-        context["company_count"] = Company.objects.filter(is_active=True).count()
-        context["contact_count"] = Contact.objects.filter(is_active=True).count()
-        # "Open" leads: not yet converted — a converted Lead's own
-        # workflow is done (docs/DATABASE_DESIGN.md's Lifecycle
-        # section), so it's no longer something to act on.
-        context["open_lead_count"] = Lead.objects.exclude(status=Lead.Status.CONVERTED).count()
-        context["pending_task_count"] = Task.objects.filter(status=Task.Status.PENDING).count()
+        today = timezone.localdate()
+        week_start = today - timedelta(days=today.weekday())
+        day_start, day_end = day_bounds(today, today)
+        jobs = jobs_for(user).exclude(status=Job.Status.CANCELLED)
+        context["today"] = today
+        todays_jobs = jobs.filter(scheduled_start__gte=day_start, scheduled_start__lt=day_end)
+        context["todays_job_count"] = todays_jobs.count()
+        context["todays_jobs"] = (
+            todays_jobs.select_related("contact", "service_property", "primary_service_type")
+            .prefetch_related("crew")
+            .order_by("scheduled_start", "pk")[:DASHBOARD_LIST_LIMIT]
+        )
+        context["unread_messages"] = unread_count(user)
 
-        open_deals = Deal.objects.exclude(stage__in=Deal.CLOSED_STAGES)
-        context["open_deal_count"] = open_deals.count()
-        context["open_deal_value"] = open_deals.aggregate(total=Sum("value"))["total"] or 0
-
-        stage_counts = {
-            row["stage"]: row
-            for row in Deal.objects.values("stage").annotate(
-                count=Count("id"), total_value=Sum("value")
+        if role == Role.CLEANER:
+            context["upcoming_jobs"] = (
+                jobs.filter(scheduled_start__gte=day_end, status=Job.Status.SCHEDULED)
+                .select_related("contact", "service_property", "primary_service_type")
+                .prefetch_related("crew")
+                .order_by("scheduled_start", "pk")[:DASHBOARD_LIST_LIMIT]
             )
-        }
-        # Iterate Deal.Stage.choices (not the raw annotated queryset)
-        # so the breakdown follows the pipeline's natural order —
-        # Meta.ordering doesn't apply to .values().annotate(), and an
-        # alphabetical fallback would scramble prospecting → ... →
-        # closed_lost into a meaningless sequence.
-        context["deals_by_stage"] = [
-            {
-                "label": label,
-                "count": stage_counts.get(value, {}).get("count", 0),
-                "total_value": stage_counts.get(value, {}).get("total_value") or 0,
-            }
-            for value, label in Deal.Stage.choices
-        ]
+            week = JobAssignment.objects.filter(
+                user=user,
+                job__status=Job.Status.COMPLETED,
+                job__completed_at__gte=day_bounds(week_start, today)[0],
+            )
+            context["jobs_done_this_week"] = week.count()
+            context["hours_this_week"] = week.aggregate(total=Sum("hours_worked"))["total"] or 0
+            return context
+
+        # Owner sees the whole business; a Sales Rep sees their own pipeline.
+        is_owner = role == Role.OWNER
+        open_quotes = quotes_for(user).filter(status__in=[Quote.Status.DRAFT, Quote.Status.SENT])
+        follow_ups = Task.objects.filter(kind=Task.Kind.FOLLOW_UP, status=Task.Status.PENDING)
+        visit_start, visit_end = day_bounds(today, today + timedelta(days=VISIT_DAYS - 1))
+        visits = quotes_for(user).filter(
+            site_visit_at__gte=visit_start,
+            site_visit_at__lt=visit_end,
+            status__in=[Quote.Status.DRAFT, Quote.Status.SENT],
+        )
+        if not is_owner:
+            open_quotes = open_quotes.filter(prepared_by=user)
+            follow_ups = follow_ups.filter(assigned_to=user)
+            visits = visits.filter(prepared_by=user)
+
+        context["is_owner"] = is_owner
+        context["open_quotes"] = open_quotes.with_totals().aggregate(
+            count=Count("pk"), total=Sum("total_amount")
+        )
+        context["follow_ups_due"] = follow_ups.filter(due_date__lte=today).count()
+        context["follow_ups_overdue"] = follow_ups.filter(due_date__lt=today).count()
+        context["site_visits"] = visits.select_related("contact", "service_property").order_by(
+            "site_visit_at", "pk"
+        )[:DASHBOARD_LIST_LIMIT]
+        if is_owner:
+            context["revenue_today"] = invoiced_revenue(today, today)
+            context["revenue_week"] = invoiced_revenue(week_start, today)
+            context["outstanding"] = outstanding()
 
         context["my_tasks"] = (
-            Task.objects.filter(assigned_to=self.request.user, status=Task.Status.PENDING)
-            .select_related("contact", "deal")
-            .order_by("due_date", "pk")[:DASHBOARD_LIST_LIMIT]
+            Task.objects.filter(assigned_to=user, status=Task.Status.PENDING)
+            .select_related("contact", "service_type")
+            .order_by(F("due_date").asc(nulls_last=True), "pk")[:DASHBOARD_LIST_LIMIT]
         )
-
         context["recent_activities"] = Activity.objects.select_related(
-            "created_by", "company", "contact", "lead", "deal"
+            "created_by", "company", "contact"
         )[:DASHBOARD_LIST_LIMIT]
-
         return context
 
 

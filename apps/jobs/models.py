@@ -16,6 +16,7 @@ from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 from django.db.models import DecimalField, F, OuterRef, Q, Subquery, Sum, Value
 from django.db.models.functions import Coalesce
+from django.urls import reverse
 
 MONEY = {"max_digits": 12, "decimal_places": 2}
 TOTAL_FIELD = DecimalField(max_digits=14, decimal_places=2)
@@ -181,6 +182,9 @@ class Quote(TotalMixin, models.Model):
         # the "next" number, and nothing to keep unique by hand.
         return f"Q-{1000 + self.pk}" if self.pk else "Q-(unsaved)"
 
+    def get_absolute_url(self):
+        return reverse("jobs:quote_detail", kwargs={"pk": self.pk})
+
 
 class QuoteLineItem(LineItem):
     quote = models.ForeignKey(Quote, on_delete=models.CASCADE, related_name="line_items")
@@ -260,6 +264,9 @@ class Job(TotalMixin, models.Model):
     @property
     def number(self):
         return f"J-{1000 + self.pk}" if self.pk else "J-(unsaved)"
+
+    def get_absolute_url(self):
+        return reverse("jobs:job_detail", kwargs={"pk": self.pk})
 
 
 class JobLineItem(LineItem):

@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% load crm_format %}
+
+{% block title %}Services{% endblock %}
+
+{% block content %}
+  <div class="page-header">
+    <div>
+      <h1>Services</h1>
+      <p class="page-subtitle">Default prices, follow-up intervals, and calendar colors.</p>
+    </div>
+  </div>
+
+  <div class="table-responsive card">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Service</th>
+          <th class="text-right">Default price</th>
+          <th>Follow up every</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for service in services %}
+          <tr>
+            <td>
+              <span class="tone-swatch {{ service.tone_class }}" aria-hidden="true"></span>
+              <a href="{% url 'jobs:service_update' service.pk %}">{{ service.name }}</a>
+            </td>
+            <td class="text-right">{{ service.default_price|money }} <span class="muted">{{ service.get_pricing_unit_display|lower }}</span></td>
+            <td>{% if service.followup_interval_months %}{{ service.followup_interval_months }} month{{ service.followup_interval_months|pluralize }}{% else %}<span class="muted">Never</span>{% endif %}</td>
+            <td>{% if service.is_active %}<span class="badge badge-success">Offered</span>{% else %}<span class="badge">Retired</span>{% endif %}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+{% endblock %}

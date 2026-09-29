@@ -7,7 +7,7 @@ from dataclasses import dataclass
 
 from django.urls import reverse
 
-from apps.users.roles import ALL_ROLES, SALES_ROLES, user_role
+from apps.users.roles import ALL_ROLES, OWNER_ONLY, SALES_ROLES, user_role
 
 # Phone bottom bar: this many primary items, plus a "Menu" button that
 # opens the full drawer (which also holds the account links).
@@ -27,12 +27,23 @@ class NavItem:
 
 NAV_ITEMS = (
     NavItem("Dashboard", "core:index", "home", ALL_ROLES, ("core:index",), primary=True),
+    NavItem(
+        "Calendar",
+        "jobs:calendar",
+        "calendar",
+        ALL_ROLES,
+        ("jobs:calendar", "jobs:job_"),
+        primary=True,
+    ),
     NavItem("Contacts", "crm:contact_list", "users", SALES_ROLES, ("crm:contact_",), primary=True),
-    NavItem("Tasks", "crm:task_list", "check", SALES_ROLES, ("crm:task_",), primary=True),
+    NavItem(
+        "Tasks", "crm:task_list", "check", SALES_ROLES, ("crm:task_", "jobs:quote_"), primary=True
+    ),
     NavItem("Companies", "crm:company_list", "building", SALES_ROLES, ("crm:company_",)),
-    NavItem("Leads", "crm:lead_list", "star", SALES_ROLES, ("crm:lead_",)),
-    NavItem("Deals", "crm:deal_list", "briefcase", SALES_ROLES, ("crm:deal_",)),
     NavItem("Activities", "crm:activity_list", "activity", SALES_ROLES, ("crm:activity_",)),
+    # Leads and Deals were folded into Contacts and Quotes (ADR 0009);
+    # their old pages stay reachable by URL until Phase 18 removes them.
+    NavItem("Services", "jobs:service_list", "settings", OWNER_ONLY, ("jobs:service_",)),
 )
 
 

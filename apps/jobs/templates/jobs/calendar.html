@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+
+{% block title %}Calendar{% endblock %}
+
+{% block content %}
+  <div class="page-header">
+    <div>
+      <h1>Calendar</h1>
+      <p class="page-subtitle">{{ cal.title }}</p>
+    </div>
+  </div>
+
+  <div class="cal-toolbar">
+    <div class="cluster">
+      <a class="btn btn-secondary btn-sm" href="{{ previous_url }}" aria-label="Previous {{ cal.view }}">‹ Prev</a>
+      <a class="btn btn-secondary btn-sm" href="{{ today_url }}">Today</a>
+      <a class="btn btn-secondary btn-sm" href="{{ next_url }}" aria-label="Next {{ cal.view }}">Next ›</a>
+    </div>
+    <nav class="tabs cal-views" aria-label="Calendar view">
+      {% for label, url, current in view_links %}
+        <a class="tab" href="{{ url }}"{% if current %} aria-current="page"{% endif %}>{{ label }}</a>
+      {% endfor %}
+    </nav>
+    {% if crew_members %}
+      <form method="get" class="filter-form cal-filter">
+        <input type="hidden" name="view" value="{{ cal.view }}">
+        <input type="hidden" name="date" value="{{ cal.anchor|date:'Y-m-d' }}">
+        <label for="id_crew" class="sr-only">Crew member</label>
+        <select id="id_crew" name="crew">
+          <option value="">Everyone</option>
+          {% for member in crew_members %}
+            <option value="{{ member.pk }}"{% if member.pk == crew_id %} selected{% endif %}>{{ member.get_full_name|default:member.get_username }}</option>
+          {% endfor %}
+        </select>
+        <button type="submit" class="btn-sm">Show</button>
+      </form>
+    {% endif %}
+  </div>
+
+  {% if cal.view == "day" %}
+    {% with day=days.0 %}
+      {% if day.events %}
+        <ul class="agenda card">
+          {% for event in day.events %}
+            <li class="agenda-item {{ event.tone_class }}">
+              <div class="agenda-time">
+                <span>{{ event.start|time:"g:i A" }}</span>
+                {% if event.end %}<span class="muted">– {{ event.end|time:"g:i A" }}</span>{% endif %}
+              </div>
+              <div class="agenda-body">
+                <a class="agenda-title" href="{{ event.url }}">{{ event.title }} · {{ event.subtitle }}</a>
+                {% if event.crew %}<div class="agenda-meta">Crew: {{ event.crew|join:", " }}</div>{% endif %}
+              </div>
+              {% if event.status %}{% include "jobs/_status_badge.html" with status=event.status label=event.status_label %}{% endif %}
+            </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        {% include "partials/_empty_state.html" with icon="calendar" title="Nothing scheduled" text="No jobs or site visits on this day." %}
+      {% endif %}
+    {% endwith %}
+
+  {% elif cal.view == "week" %}
+    <div class="cal-week">
+      {% for day in days %}
+        <section class="cal-day{% if day.is_today %} is-today{% endif %}" aria-label="{{ day.date|date:'l, F j' }}">
+          <a class="cal-day-head" href="{{ day.url }}">
+            <span>{{ day.date|date:"D" }}</span>
+            <span class="cal-day-num">{{ day.date|date:"j" }}</span>
+          </a>
+          {% for event in day.events %}
+            {% include "jobs/_event.html" %}
+          {% empty %}
+            <p class="cal-none">No jobs</p>
+          {% endfor %}
+        </section>
+      {% endfor %}
+    </div>
+
+  {% else %}
+    <div class="cal-month" role="table" aria-label="{{ cal.title }}">
+      <div class="cal-row cal-weekdays" role="row">
+        {% for day in weeks.0 %}<div role="columnheader"><abbr title="{{ day.date|date:'l' }}">{{ day.date|date:"D" }}</abbr></div>{% endfor %}
+      </div>
+      {% for week in weeks %}
+        <div class="cal-row" role="row">
+          {% for day in week %}
+            <div class="cal-cell{% if day.is_today %} is-today{% endif %}{% if not day.in_month %} is-outside{% endif %}" role="cell">
+              <a class="cal-date" href="{{ day.url }}" aria-label="{{ day.date|date:'l, F j' }}: {{ day.events|length }} event{{ day.events|length|pluralize }}">{{ day.date|date:"j" }}</a>
+              {% for event in day.events|slice:":3" %}
+                {% include "jobs/_event.html" %}
+              {% endfor %}
+              {% if day.events|length > 3 %}
+                <a class="cal-more" href="{{ day.url }}">+{{ day.events|length|add:"-3" }} more</a>
+              {% endif %}
+              {% if day.events %}<span class="cal-count" aria-hidden="true">{{ day.events|length }}</span>{% endif %}
+            </div>
+          {% endfor %}
+        </div>
+      {% endfor %}
+    </div>
+  {% endif %}
+
+  {% if not has_events and cal.view != "day" %}
+    <p class="muted section-gap">Nothing scheduled in this {{ cal.view }}.</p>
+  {% endif %}
+{% endblock %}

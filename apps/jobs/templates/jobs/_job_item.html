@@ -1,0 +1,13 @@
+{% comment %}One job in an agenda list. Usage: {% include "jobs/_job_item.html" with job=job show_date=False %}{% endcomment %}
+<li class="agenda-item {{ job.primary_service_type.tone_class }}">
+  <div class="agenda-time">
+    {% if show_date %}<span>{{ job.scheduled_start|date:"D, M j" }}</span>{% endif %}
+    <span>{{ job.scheduled_start|time:"g:i A" }}</span>
+  </div>
+  <div class="agenda-body">
+    <a class="agenda-title" href="{{ job.get_absolute_url }}">{{ job.primary_service_type.name }} · {{ job.contact }}</a>
+    {% if job.service_property %}<div class="agenda-meta">{{ job.service_property.street }}, {{ job.service_property.city }}</div>{% endif %}
+    {% with crew=job.crew.all %}{% if crew %}<div class="agenda-meta">Crew: {% for member in crew %}{{ member.get_full_name|default:member.get_username }}{% if not forloop.last %}, {% endif %}{% endfor %}</div>{% endif %}{% endwith %}
+  </div>
+  {% include "jobs/_status_badge.html" with status=job.status label=job.get_status_display %}
+</li>

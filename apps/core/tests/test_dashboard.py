@@ -1,170 +1,215 @@
 import datetime
+from datetime import timedelta
+from decimal import Decimal
 
-from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.urls import reverse
 from django.utils import timezone
 
-from apps.crm.models import Activity, Company, Contact, Deal, Lead, Task
+from apps.crm.models import Activity, Company, Task
 from apps.crm.tests._helpers import grant_role
+from apps.jobs.models import Invoice, Job, Payment, Quote
+from apps.jobs.tests import _factories as f
+from apps.users.roles import Role
 
-User = get_user_model()
+PASSWORD = "correct-horse-battery"
 
 
-class DashboardStatsTests(TestCase):
+def at_today(hour, days=0):
+    day = timezone.localdate() + timedelta(days=days)
+    return timezone.make_aware(datetime.datetime.combine(day, datetime.time(hour)))
+
+
+class DashboardTestCase(TestCase):
+    role = Role.SALES_REP
+
     def setUp(self):
-        self.user = grant_role(User.objects.create_user("alice", password="correct-horse-battery"))
-        self.client.login(username="alice", password="correct-horse-battery")
+        self.user = grant_role(f.user("alice"), self.role)
+        self.client.login(username="alice", password=PASSWORD)
 
-    def test_counts_active_companies_and_contacts_only(self):
-        Company.objects.create(name="Active Co", created_by=self.user, is_active=True)
-        Company.objects.create(name="Inactive Co", created_by=self.user, is_active=False)
-        Contact.objects.create(first_name="A", last_name="B", created_by=self.user, is_active=True)
-        Contact.objects.create(first_name="C", last_name="D", created_by=self.user, is_active=False)
+    def get(self):
+        return self.client.get(reverse("core:index"))
 
+
+class NoRoleDashboardTests(TestCase):
+    def test_no_role_sees_only_the_notice(self):
+        f.user("nobody")
+        self.client.login(username="nobody", password=PASSWORD)
         response = self.client.get(reverse("core:index"))
-        self.assertEqual(response.context["company_count"], 1)
-        self.assertEqual(response.context["contact_count"], 1)
-
-    def test_open_lead_count_excludes_converted(self):
-        Lead.objects.create(name="New", created_by=self.user, status=Lead.Status.NEW)
-        Lead.objects.create(name="Qualified", created_by=self.user, status=Lead.Status.QUALIFIED)
-        Lead.objects.create(name="Done", created_by=self.user, status=Lead.Status.CONVERTED)
-
-        response = self.client.get(reverse("core:index"))
-        self.assertEqual(response.context["open_lead_count"], 2)
-
-    def test_open_deal_count_and_value_exclude_closed_deals(self):
-        company = Company.objects.create(name="Acme", created_by=self.user)
-        Deal.objects.create(
-            title="Open 1", company=company, created_by=self.user, stage="prospecting", value=1000
-        )
-        Deal.objects.create(
-            title="Open 2", company=company, created_by=self.user, stage="proposal", value=2000
-        )
-        Deal.objects.create(
-            title="Closed", company=company, created_by=self.user, stage="closed_won", value=5000
-        )
-
-        response = self.client.get(reverse("core:index"))
-        self.assertEqual(response.context["open_deal_count"], 2)
-        self.assertEqual(response.context["open_deal_value"], 3000)
-
-    def test_open_deal_value_is_zero_not_none_when_no_open_deals(self):
-        response = self.client.get(reverse("core:index"))
-        self.assertEqual(response.context["open_deal_value"], 0)
-
-    def test_pending_task_count_excludes_completed_and_cancelled(self):
-        Task.objects.create(title="Pending", assigned_to=self.user, created_by=self.user)
-        Task.objects.create(
-            title="Done", assigned_to=self.user, created_by=self.user, status=Task.Status.COMPLETED
-        )
-        Task.objects.create(
-            title="Cancelled",
-            assigned_to=self.user,
-            created_by=self.user,
-            status=Task.Status.CANCELLED,
-        )
-
-        response = self.client.get(reverse("core:index"))
-        self.assertEqual(response.context["pending_task_count"], 1)
+        self.assertContains(response, "No role assigned yet")
+        self.assertNotIn("todays_jobs", response.context)
 
 
-class DashboardPipelineByStageTests(TestCase):
-    def setUp(self):
-        self.user = grant_role(User.objects.create_user("alice", password="correct-horse-battery"))
-        self.client.login(username="alice", password="correct-horse-battery")
-        self.company = Company.objects.create(name="Acme", created_by=self.user)
+class OwnerDashboardTests(DashboardTestCase):
+    role = Role.OWNER
 
-    def test_stage_breakdown_follows_pipeline_order_not_alphabetical(self):
-        # Deliberately create these out of pipeline order so an
-        # alphabetical fallback (the default for .values().annotate())
-        # would be caught by this test.
-        Deal.objects.create(
-            title="D1", company=self.company, created_by=self.user, stage="closed_won", value=100
-        )
-        Deal.objects.create(
-            title="D2", company=self.company, created_by=self.user, stage="prospecting", value=200
-        )
-        response = self.client.get(reverse("core:index"))
-        labels = [stage["label"] for stage in response.context["deals_by_stage"]]
+    def test_revenue_counts_sent_invoices_by_issue_date(self):
+        customer = f.contact(self.user)
+        job = f.job(customer, self.user)
+        today = timezone.localdate()
+        monday = today - timedelta(days=today.weekday())
+        f.invoice(job, lines=[(Decimal("2"), Decimal("100"))], issued=today)
+        f.invoice(job, lines=[(Decimal("1"), Decimal("50"))], issued=monday)
+        f.invoice(job, issued=today, status=Invoice.Status.DRAFT)  # not billed yet
+        f.invoice(job, issued=today, status=Invoice.Status.VOID)  # never owed
+        f.invoice(job, issued=monday - timedelta(days=1))  # last week
+
+        context = self.get().context
         self.assertEqual(
-            labels,
-            [
-                "Prospecting",
-                "Qualification",
-                "Proposal",
-                "Negotiation",
-                "Closed won",
-                "Closed lost",
-            ],
+            context["revenue_today"], Decimal("250") if today == monday else Decimal("200")
         )
+        self.assertEqual(context["revenue_week"], Decimal("250"))
 
-    def test_stage_with_no_deals_shows_zero_count_and_value(self):
-        response = self.client.get(reverse("core:index"))
-        for stage in response.context["deals_by_stage"]:
-            self.assertEqual(stage["count"], 0)
-            self.assertEqual(stage["total_value"], 0)
-
-    def test_stage_counts_and_values_are_correct(self):
-        Deal.objects.create(
-            title="D1", company=self.company, created_by=self.user, stage="proposal", value=100
+    def test_outstanding_is_the_unpaid_balance_of_sent_invoices(self):
+        job = f.job(f.contact(self.user), self.user)
+        partly = f.invoice(job, lines=[(Decimal("1"), Decimal("300"))])
+        Payment.objects.create(
+            invoice=partly,
+            amount=Decimal("100"),
+            received_on=partly.issued_on,
+            recorded_by=self.user,
         )
-        Deal.objects.create(
-            title="D2", company=self.company, created_by=self.user, stage="proposal", value=250
+        paid = f.invoice(job, lines=[(Decimal("1"), Decimal("80"))])
+        Payment.objects.create(
+            invoice=paid, amount=Decimal("80"), received_on=paid.issued_on, recorded_by=self.user
         )
-        response = self.client.get(reverse("core:index"))
-        proposal = next(s for s in response.context["deals_by_stage"] if s["label"] == "Proposal")
-        self.assertEqual(proposal["count"], 2)
-        self.assertEqual(proposal["total_value"], 350)
+        f.invoice(job, status=Invoice.Status.DRAFT)
+
+        outstanding = self.get().context["outstanding"]
+        self.assertEqual((outstanding["total"], outstanding["count"]), (Decimal("200"), 1))
+
+    def test_owner_sees_every_open_quote_and_follow_up(self):
+        rep = grant_role(f.user("rep"), Role.SALES_REP)
+        customer = f.contact(self.user)
+        f.quote(customer, rep, status=Quote.Status.SENT)
+        f.quote(customer, self.user, status=Quote.Status.DRAFT)
+        f.quote(customer, rep, status=Quote.Status.ACCEPTED)  # not open
+        Task.objects.create(
+            title="Follow up",
+            kind=Task.Kind.FOLLOW_UP,
+            contact=customer,
+            service_type=f.service(),
+            assigned_to=rep,
+            created_by=rep,
+            due_date=timezone.localdate() - timedelta(days=2),
+        )
+        context = self.get().context
+        self.assertEqual(context["open_quotes"]["count"], 2)
+        self.assertEqual(context["open_quotes"]["total"], Decimal("200"))
+        self.assertEqual((context["follow_ups_due"], context["follow_ups_overdue"]), (1, 1))
 
 
-class DashboardMyTasksTests(TestCase):
-    def setUp(self):
-        self.user = grant_role(User.objects.create_user("alice", password="correct-horse-battery"))
-        self.other_user = User.objects.create_user("bob", password="correct-horse-battery")
-        self.client.login(username="alice", password="correct-horse-battery")
+class SalesRepDashboardTests(DashboardTestCase):
+    def test_no_money_figures_for_a_sales_rep(self):
+        response = self.get()
+        self.assertNotIn("revenue_today", response.context)
+        self.assertNotContains(response, "Revenue")
+        self.assertNotContains(response, "Outstanding")
 
+    def test_quotes_follow_ups_and_visits_are_the_reps_own(self):
+        other = grant_role(f.user("other"), Role.SALES_REP)
+        customer = f.contact(self.user)
+        mine = f.quote(customer, self.user, status=Quote.Status.SENT, site_visit_at=at_today(15, 2))
+        f.quote(customer, other, status=Quote.Status.SENT, site_visit_at=at_today(15, 2))
+        f.quote(customer, self.user, status=Quote.Status.SENT, site_visit_at=at_today(15, 9))
+        for assignee in (self.user, other):
+            Task.objects.create(
+                title="Follow up",
+                kind=Task.Kind.FOLLOW_UP,
+                contact=f.contact(self.user, first=assignee.username),
+                service_type=f.service(),
+                assigned_to=assignee,
+                created_by=assignee,
+                due_date=timezone.localdate(),
+            )
+        context = self.get().context
+        self.assertEqual(context["open_quotes"]["count"], 2)
+        self.assertEqual(list(context["site_visits"]), [mine])  # 9 days out is excluded
+        self.assertEqual((context["follow_ups_due"], context["follow_ups_overdue"]), (1, 0))
+
+    def test_todays_schedule_lists_todays_jobs_in_time_order(self):
+        customer = f.contact(self.user)
+        late = f.job(customer, self.user, start=at_today(14))
+        early = f.job(customer, self.user, start=at_today(8))
+        f.job(customer, self.user, start=at_today(9, days=1))
+        f.job(customer, self.user, start=at_today(10), status=Job.Status.CANCELLED)
+        context = self.get().context
+        self.assertEqual(list(context["todays_jobs"]), [early, late])
+        self.assertEqual(context["todays_job_count"], 2)
+
+
+class CleanerDashboardTests(DashboardTestCase):
+    role = Role.CLEANER
+
+    def test_only_own_jobs_and_no_business_data(self):
+        owner = f.user("boss")
+        customer = f.contact(owner)
+        mine = f.job(customer, owner, start=at_today(9))
+        f.assign(mine, self.user)
+        f.job(customer, owner, start=at_today(11))  # someone else's
+        tomorrow = f.job(customer, owner, start=at_today(9, days=1))
+        f.assign(tomorrow, self.user)
+
+        response = self.get()
+        self.assertEqual(list(response.context["todays_jobs"]), [mine])
+        self.assertEqual(list(response.context["upcoming_jobs"]), [tomorrow])
+        self.assertNotIn("open_quotes", response.context)
+        self.assertNotIn("recent_activities", response.context)
+        self.assertNotContains(response, "Recent activity")
+
+    def test_hours_and_jobs_done_this_week(self):
+        owner = f.user("boss")
+        customer = f.contact(owner)
+        done = f.job(customer, owner, status=Job.Status.COMPLETED)
+        Job.objects.filter(pk=done.pk).update(completed_at=timezone.now())
+        f.assign(done, self.user, hours=Decimal("2.5"))
+        old = f.job(customer, owner, status=Job.Status.COMPLETED)
+        Job.objects.filter(pk=old.pk).update(completed_at=timezone.now() - timedelta(days=8))
+        f.assign(old, self.user, hours=Decimal("4"))
+
+        context = self.get().context
+        self.assertEqual(context["jobs_done_this_week"], 1)
+        self.assertEqual(context["hours_this_week"], Decimal("2.5"))
+
+
+class DashboardMyTasksTests(DashboardTestCase):
     def test_shows_only_my_pending_tasks(self):
+        other = f.user("bob")
         mine = Task.objects.create(title="Mine", assigned_to=self.user, created_by=self.user)
-        Task.objects.create(title="Not mine", assigned_to=self.other_user, created_by=self.user)
+        Task.objects.create(title="Not mine", assigned_to=other, created_by=self.user)
         Task.objects.create(
             title="Mine but done",
             assigned_to=self.user,
             created_by=self.user,
             status=Task.Status.COMPLETED,
         )
+        self.assertEqual(list(self.get().context["my_tasks"]), [mine])
 
-        response = self.client.get(reverse("core:index"))
-        tasks = list(response.context["my_tasks"])
-        self.assertEqual(tasks, [mine])
-
-    def test_overdue_task_is_marked_in_the_template(self):
-        yesterday = timezone.localdate() - datetime.timedelta(days=1)
+    def test_overdue_task_is_marked(self):
         Task.objects.create(
-            title="Late task", assigned_to=self.user, created_by=self.user, due_date=yesterday
+            title="Late task",
+            assigned_to=self.user,
+            created_by=self.user,
+            due_date=timezone.localdate() - timedelta(days=1),
         )
-        response = self.client.get(reverse("core:index"))
+        response = self.get()
         self.assertContains(response, "Late task")
-        self.assertContains(response, "(overdue)")
+        self.assertContains(response, "Overdue")
 
     def test_empty_state_message(self):
-        response = self.client.get(reverse("core:index"))
-        self.assertContains(response, "No pending tasks assigned to you")
+        self.assertContains(self.get(), "No pending tasks assigned to you")
 
     def test_my_tasks_capped_at_dashboard_limit(self):
         from apps.core.views import DASHBOARD_LIST_LIMIT
 
         for i in range(DASHBOARD_LIST_LIMIT + 5):
             Task.objects.create(title=f"Task {i}", assigned_to=self.user, created_by=self.user)
-        response = self.client.get(reverse("core:index"))
-        self.assertEqual(len(response.context["my_tasks"]), DASHBOARD_LIST_LIMIT)
+        self.assertEqual(len(self.get().context["my_tasks"]), DASHBOARD_LIST_LIMIT)
 
 
-class DashboardRecentActivityTests(TestCase):
+class DashboardRecentActivityTests(DashboardTestCase):
     def setUp(self):
-        self.user = grant_role(User.objects.create_user("alice", password="correct-horse-battery"))
-        self.client.login(username="alice", password="correct-horse-battery")
+        super().setUp()
         self.company = Company.objects.create(name="Acme", created_by=self.user)
 
     def test_shows_recent_activity(self):
@@ -174,12 +219,10 @@ class DashboardRecentActivityTests(TestCase):
             company=self.company,
             created_by=self.user,
         )
-        response = self.client.get(reverse("core:index"))
-        self.assertContains(response, "A note")
+        self.assertContains(self.get(), "A note")
 
     def test_empty_state_message(self):
-        response = self.client.get(reverse("core:index"))
-        self.assertContains(response, "No activity yet")
+        self.assertContains(self.get(), "No activity yet")
 
     def test_recent_activity_capped_at_dashboard_limit(self):
         from apps.core.views import DASHBOARD_LIST_LIMIT
@@ -191,5 +234,4 @@ class DashboardRecentActivityTests(TestCase):
                 company=self.company,
                 created_by=self.user,
             )
-        response = self.client.get(reverse("core:index"))
-        self.assertEqual(len(response.context["recent_activities"]), DASHBOARD_LIST_LIMIT)
+        self.assertEqual(len(self.get().context["recent_activities"]), DASHBOARD_LIST_LIMIT)

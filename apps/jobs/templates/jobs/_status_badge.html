@@ -1,0 +1,2 @@
+{% comment %}Usage: {% include "jobs/_status_badge.html" with status=job.status label=job.get_status_display %}{% endcomment %}
+<span class="badge{% if status == 'scheduled' or status == 'sent' %} badge-info{% elif status == 'in_progress' or status == 'draft' %} badge-warning{% elif status == 'completed' or status == 'accepted' or status == 'paid' %} badge-success{% elif status == 'overdue' or status == 'declined' %} badge-danger{% endif %}">{{ label }}</span>
