@@ -707,12 +707,13 @@ class DemoSeeder:
         for index in range(count):
             contact = self.rng.choice(self.customers)
             job = self.rng.choice(jobs) if jobs else None
-            body = self.rng.choice(templates).format(contact=contact, job=job.number if job else "")
+            template = self.rng.choice(templates)
+            names_contact = "{contact}" in template
             message = Message.objects.create(
                 channel=channel,
                 author_user=authors[index % len(authors)],
-                body=body,
-                ref_contact=contact if "{contact}" in body or self.rng.random() < 0.2 else None,
+                body=template.format(contact=contact, job=job.number if job else ""),
+                ref_contact=contact if names_contact or self.rng.random() < 0.2 else None,
                 ref_job=job if channel.slug == "crew" and self.rng.random() < 0.4 else None,
             )
             Message.objects.filter(pk=message.pk).update(

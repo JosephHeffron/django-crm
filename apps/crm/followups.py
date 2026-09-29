@@ -57,6 +57,7 @@ def due_follow_ups(today, contact_ids=None):
     if not services:
         return []
 
+    only = {"contact_id__in": contact_ids} if contact_ids is not None else {}
     last_service = (
         JobLineItem.objects.filter(
             job__status="completed",
@@ -70,14 +71,14 @@ def due_follow_ups(today, contact_ids=None):
         .annotate(last=Max("job__completed_at"))
     )
     last_touch = dict(
-        Activity.objects.filter(contact__isnull=False)
+        Activity.objects.filter(contact__isnull=False, **only)
         .values("contact_id")
         .annotate(last=Max("created_at"))
         .values_list("contact_id", "last")
     )
     latest_follow_up = {
         (row["contact_id"], row["service_type_id"]): row["last"]
-        for row in Task.objects.filter(kind=Task.Kind.FOLLOW_UP)
+        for row in Task.objects.filter(kind=Task.Kind.FOLLOW_UP, **only)
         .values("contact_id", "service_type_id")
         .annotate(last=Max("created_at"))
     }

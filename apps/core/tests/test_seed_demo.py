@@ -54,6 +54,11 @@ class SeedDemoTests(TestCase):
         self.assertTrue(Task.objects.filter(kind=Task.Kind.FOLLOW_UP).exists())
         self.assertEqual(Message.objects.filter(channel__slug="crew").count(), 12)
         self.assertEqual(Channel.objects.filter(kind=Channel.Kind.DIRECT).count(), 2)
+        # A message that names a customer links to them (contact timeline).
+        for message in Message.objects.filter(channel__slug="sales", ref_contact__isnull=True):
+            self.assertFalse(
+                any(str(c) in message.body for c in Contact.objects.all()), message.body
+            )
         # Real accounts can read the demo chat…
         self.assertTrue(ChannelMembership.objects.filter(user=self.real_user).exists())
 

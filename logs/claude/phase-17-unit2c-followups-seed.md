@@ -108,6 +108,21 @@ $ `seed_demo` against the **real dev database** (additive; the user's
   missed all six. Made seeded history sparser and older, and the split
   deterministic.
 
+## Review
+
+Sourcery skipped PR #96 (weekly budget exhausted), so a deliberate
+self-review of the full diff instead. Two findings, fixed in a follow-up
+commit on the PR:
+
+- **seed_demo:** `post_thread` checked `"{contact}" in body` *after*
+  formatting, so it was never true — messages naming a customer were
+  linked to them (`ref_contact`) only by the 20% random roll. Now checks
+  the template; regression test asserts no unlinked sales message names
+  a contact (fails on the old code).
+- **followups:** `contact_ids` limited only the job query; the touch and
+  prior-follow-up aggregates still scanned every contact. Now filtered
+  too (same results, less work).
+
 ## Git
 
 Branch: `feature/follow-ups-and-seed`
