@@ -90,7 +90,7 @@ $ `ruff check` / `ruff format --check` / `bandit` / `pip-audit` /
 
 ## Tests
 
-`python manage.py test` — 370 passed (333 before + 37 new).
+`python manage.py test` — 378 passed (333 before + 45 new, 8 of them added for the Sourcery review).
 
 ## Decisions
 
@@ -112,6 +112,41 @@ $ `ruff check` / `ruff format --check` / `bandit` / `pip-audit` /
 - **Uploaded files never keep the uploader's filename** (UUID/random
   names under `media/private/`) — filenames like `smith_house.jpg`
   leak customer details.
+
+## Sourcery review (PR #92)
+
+Seven threads; five real, all in the fold migration or legacy admin:
+
+1. **Negative legacy `Deal.value` would abort the migration** (quote
+   lines have a non-negative DB check; `Deal.value` never did). Now
+   folds as 0 with the original value recorded in the quote's notes.
+2. **The fold changed pre-existing rows without undoing them.** The
+   status upgrade was already limited in practice (pre-existing
+   contacts all default to "customer"), now made explicit — only
+   fold-created contacts are ever upgraded. The lead-source backfill on
+   converted leads' contacts was genuinely not reversed; `unfold` now
+   restores it where the value is still what the fold wrote.
+3. **Placeholders were identified by their note text** — mutable, and
+   matchable by an unrelated contact. Now marked with
+   `legacy_lead_id = 0` (real lead ids start at 1; the field is
+   non-editable), no schema change needed.
+4. **Later work on folded quotes.** Jobs, photos, and messages on a
+   folded quote were already protected — `unfold` deletes by primary
+   key, so PostgreSQL's FK constraints refuse — but `unfold` nulled
+   *every* task on a folded quote, including ones created after the
+   fold. It now moves back only tasks still pointing at their original
+   deal. Tag cleanup was dropped for the same reason (the fold never
+   adds tags). Each refusal is now tested.
+5. **Legacy Lead/Deal admin still allowed delete** — now read-only in
+   full.
+6-7. **"SQL injection" (opengrep's SQLAlchemy rule)** — false
+   positive: no SQLAlchemy; IDs are bound parameters; the table name
+   is Django model metadata passed through `schema_editor.quote_name`.
+   Explained on the threads.
+
+Re-verified on a throwaway database (fold with a negative-value won
+company-only deal and a converted lead → full reverse → re-forward).
+378 tests.
 
 ## Errors
 

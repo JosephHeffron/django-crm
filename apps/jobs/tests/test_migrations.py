@@ -27,6 +27,19 @@ class FoldLeadsAndDealsTests(TestCase):
     def _fold(self):
         fold_migration.fold(global_apps, None)
 
+    def _unfold(self):
+        with connection.schema_editor() as schema_editor:
+            fold_migration.unfold(global_apps, schema_editor)
+
+    def assertUnfoldRefused(self):
+        # Django's PostgreSQL FKs are DEFERRABLE INITIALLY DEFERRED: in a
+        # real migration the violation fires at commit. The test's
+        # wrapping transaction never commits, so check immediately.
+        with self.assertRaises(IntegrityError), transaction.atomic():
+            with connection.cursor() as cursor:
+                cursor.execute("SET CONSTRAINTS ALL IMMEDIATE")
+            self._unfold()
+
     def test_open_lead_becomes_a_lead_contact(self):
         lead = Lead.objects.create(
             name="Jane Q Public",
@@ -102,12 +115,14 @@ class FoldLeadsAndDealsTests(TestCase):
         task.refresh_from_db()
         self.assertEqual(task.quote, quote)
 
-    def test_won_deal_is_accepted_and_makes_the_contact_a_customer(self):
-        person = f.contact(self.owner, "Won", "Deal", status=Contact.Status.LEAD)
+    def test_won_deal_is_accepted_and_its_fold_created_contact_becomes_a_customer(self):
+        # A won company-only deal with no company contacts gets a
+        # placeholder (created as a lead); winning upgrades it.
+        solo = Company.objects.create(name="Won Co", created_by=self.owner)
         closed = timezone.now()
         deal = Deal.objects.create(
             title="Gutters",
-            contact=person,
+            company=solo,
             value=Decimal("175"),
             stage=Deal.Stage.CLOSED_WON,
             closed_at=closed,
@@ -116,8 +131,7 @@ class FoldLeadsAndDealsTests(TestCase):
         self._fold()
         quote = Quote.objects.get(legacy_deal_id=deal.pk)
         self.assertEqual((quote.status, quote.accepted_at), (Quote.Status.ACCEPTED, closed))
-        person.refresh_from_db()
-        self.assertEqual(person.status, Contact.Status.CUSTOMER)
+        self.assertEqual(quote.contact.status, Contact.Status.CUSTOMER)
 
     def test_company_only_deal_uses_first_company_contact_else_a_placeholder(self):
         first = f.contact(self.owner, "First", "AtAcme", company=self.acme)
@@ -132,6 +146,7 @@ class FoldLeadsAndDealsTests(TestCase):
         placeholder = Quote.objects.get(legacy_deal_id=lonely_deal.pk).contact
         self.assertEqual((placeholder.first_name, placeholder.company), ("No Contacts LLC", lonely))
         self.assertEqual(placeholder.notes, fold_migration.PLACEHOLDER_NOTE)
+        self.assertEqual(placeholder.legacy_lead_id, fold_migration.PLACEHOLDER_LEAD_ID)
 
     def test_reverse_removes_exactly_what_the_fold_added(self):
         untouched = f.contact(self.owner, "Pre", "Existing")
@@ -143,8 +158,7 @@ class FoldLeadsAndDealsTests(TestCase):
         )
         self._fold()
 
-        with connection.schema_editor() as schema_editor:
-            fold_migration.unfold(global_apps, schema_editor)
+        self._unfold()
 
         self.assertEqual(list(Contact.objects.all()), [untouched])
         self.assertFalse(Quote.objects.exists())
@@ -156,17 +170,86 @@ class FoldLeadsAndDealsTests(TestCase):
     def test_reverse_refuses_when_later_work_depends_on_folded_data(self):
         # unfold deletes by primary key (not through Django's collector,
         # which breaks in multi-app backwards migrations), so it's
-        # PostgreSQL's FK constraint that stops it from orphaning a job.
+        # PostgreSQL's FK constraints that stop it orphaning later work.
         lead = Lead.objects.create(name="Became Customer", created_by=self.owner)
         self._fold()
         f.job(Contact.objects.get(legacy_lead_id=lead.pk), self.owner)
-
-        with self.assertRaises(IntegrityError), transaction.atomic():
-            # Django's PostgreSQL FKs are DEFERRABLE INITIALLY DEFERRED: in
-            # a real migration the violation fires at commit. The test's
-            # wrapping transaction never commits, so check immediately.
-            with connection.cursor() as cursor:
-                cursor.execute("SET CONSTRAINTS ALL IMMEDIATE")
-            with connection.schema_editor() as schema_editor:
-                fold_migration.unfold(global_apps, schema_editor)
+        self.assertUnfoldRefused()
         self.assertTrue(Contact.objects.filter(legacy_lead_id=lead.pk).exists())
+
+    def _folded_quote(self):
+        person = f.contact(self.owner, "Quote", "Person")
+        deal = Deal.objects.create(title="Windows", contact=person, created_by=self.owner)
+        self._fold()
+        return Quote.objects.get(legacy_deal_id=deal.pk)
+
+    def test_reverse_refused_by_a_job_on_a_folded_quote(self):
+        quote = self._folded_quote()
+        f.job(quote.contact, self.owner, quote=quote)
+        self.assertUnfoldRefused()
+
+    def test_reverse_refused_by_a_photo_on_a_folded_quote(self):
+        from apps.jobs.models import Photo
+
+        quote = self._folded_quote()
+        Photo.objects.create(quote=quote, image="private/photos/x.jpg", uploaded_by=self.owner)
+        self.assertUnfoldRefused()
+
+    def test_reverse_refused_by_a_task_created_on_a_folded_quote_after_the_fold(self):
+        quote = self._folded_quote()
+        Task.objects.create(title="new", quote=quote, assigned_to=self.owner, created_by=self.owner)
+        self.assertUnfoldRefused()
+
+    def test_negative_legacy_deal_value_folds_as_zero_with_a_note(self):
+        person = f.contact(self.owner, "Neg", "Value")
+        deal = Deal.objects.create(
+            title="Refund?", contact=person, value=Decimal("-50.00"), created_by=self.owner
+        )
+        self._fold()
+        quote = Quote.objects.get(legacy_deal_id=deal.pk)
+        self.assertEqual(quote.total, Decimal("0"))
+        self.assertIn("Legacy deal value was -50.00; set to 0.", quote.notes)
+
+    def test_placeholder_identified_by_marker_not_note_text(self):
+        # A pre-existing contact that happens to carry the same note text
+        # must survive the reverse; an edited placeholder must not.
+        lookalike = f.contact(self.owner, "Look", "Alike", notes=fold_migration.PLACEHOLDER_NOTE)
+        lonely = Company.objects.create(name="Edited Co", created_by=self.owner)
+        deal = Deal.objects.create(title="Edited job", company=lonely, created_by=self.owner)
+        self._fold()
+        placeholder = Quote.objects.get(legacy_deal_id=deal.pk).contact
+        Contact.objects.filter(pk=placeholder.pk).update(notes="Changed by a user")
+
+        self._unfold()
+
+        self.assertTrue(Contact.objects.filter(pk=lookalike.pk).exists())
+        self.assertFalse(Contact.objects.filter(pk=placeholder.pk).exists())
+
+    def test_reverse_restores_a_converted_contacts_lead_source(self):
+        existing = f.contact(self.owner, "Was", "Converted")
+        Lead.objects.create(
+            name="Was Converted",
+            source=Lead.Source.WEBSITE,
+            status=Lead.Status.CONVERTED,
+            converted_contact=existing,
+            created_by=self.owner,
+        )
+        self._fold()
+        existing.refresh_from_db()
+        self.assertEqual(existing.lead_source, "website")
+
+        self._unfold()
+
+        existing.refresh_from_db()
+        self.assertEqual(existing.lead_source, "")
+
+    def test_won_deal_never_modifies_a_pre_existing_contacts_status(self):
+        # Pre-existing contacts default to "customer" (crm/0006); only
+        # rows the fold created are upgraded, so nothing to undo here.
+        person = f.contact(self.owner, "Pre", "Existing", status=Contact.Status.LEAD)
+        Deal.objects.create(
+            title="Won", contact=person, stage=Deal.Stage.CLOSED_WON, created_by=self.owner
+        )
+        self._fold()
+        person.refresh_from_db()
+        self.assertEqual(person.status, Contact.Status.LEAD)

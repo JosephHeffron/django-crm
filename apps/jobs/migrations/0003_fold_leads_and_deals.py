@@ -9,9 +9,13 @@
   quote. A company-only deal needs a person to quote: the company's
   first contact, or a placeholder contact named after the company.
 
-Every created row is marked (Contact.legacy_lead_id, Quote.legacy_deal_id,
-or the placeholder note), so the reverse removes exactly what was added.
-Lead and Deal themselves are left untouched and dropped in Phase 18.
+Every row the fold creates is marked with an immutable, non-editable
+field (Contact.legacy_lead_id — the lead's id, or 0 for a placeholder;
+Quote.legacy_deal_id), and the only change to a pre-existing row (a
+converted lead's contact gaining its lead source) is undone by the
+reverse. The reverse refuses — via PostgreSQL's FK constraints — if any
+work done after the fold (a job, photo, message, task, or tag) points at
+a folded row. Lead and Deal themselves are untouched; dropped in Phase 18.
 """
 
 from decimal import Decimal
@@ -27,6 +31,10 @@ STAGE_TO_STATUS = {
     "closed_lost": "declined",
 }
 PLACEHOLDER_NOTE = "Created when a company-only deal was folded into a quote (Phase 17)."
+# legacy_lead_id value marking a placeholder contact created for a
+# company-only deal. Real lead ids start at 1; the field is editable=False,
+# so unlike the note text it can't be changed (or coincidentally matched).
+PLACEHOLDER_LEAD_ID = 0
 
 
 def _split_name(name):
@@ -88,6 +96,7 @@ def _deal_contact_id(apps, deal):
             company=company,
             notes=PLACEHOLDER_NOTE,
             created_by_id=deal.created_by_id,
+            legacy_lead_id=PLACEHOLDER_LEAD_ID,
         )
     return contact.pk
 
@@ -102,6 +111,13 @@ def _fold_deal(apps, deal, service):
     notes = deal.notes
     if deal.expected_close_date:
         notes = f"Expected close: {deal.expected_close_date}\n{notes}".strip()
+    value = deal.value or Decimal("0")
+    if value < 0:
+        # Deal.value was never constrained, but quote lines must not be
+        # negative (DB check) — keep the original in the notes instead of
+        # aborting the whole migration over one bad legacy row.
+        notes = f"Legacy deal value was {value}; set to 0.\n{notes}".strip()
+        value = Decimal("0")
     won = deal.stage == "closed_won"
     quote = Quote.objects.create(
         contact_id=contact_id,
@@ -116,12 +132,17 @@ def _fold_deal(apps, deal, service):
         service_type=service,
         description=deal.title[:255],
         quantity=Decimal("1"),
-        unit_price=deal.value or Decimal("0"),
+        unit_price=value,
     )
     Quote.objects.filter(pk=quote.pk).update(created_at=deal.created_at)
     Task.objects.filter(deal_id=deal.pk).update(quote=quote)
     if won:
-        Contact.objects.filter(pk=contact_id).update(status="customer")
+        # Only contacts the fold itself created (from a lead, or a
+        # placeholder) start as "lead"; pre-existing contacts already
+        # default to "customer" (crm/0006), so they're never modified.
+        Contact.objects.filter(pk=contact_id, legacy_lead_id__isnull=False).update(
+            status="customer"
+        )
 
 
 def fold(apps, schema_editor):
@@ -154,15 +175,19 @@ def _delete_by_pk(schema_editor, model, pks):
 
 
 def unfold(apps, schema_editor):
+    Lead = apps.get_model("crm", "Lead")
     Contact = apps.get_model("crm", "Contact")
     Task = apps.get_model("crm", "Task")
     Quote = apps.get_model("jobs", "Quote")
     QuoteLineItem = apps.get_model("jobs", "QuoteLineItem")
 
-    quote_ids = list(
-        Quote.objects.filter(legacy_deal_id__isnull=False).values_list("pk", flat=True)
-    )
-    Task.objects.filter(quote_id__in=quote_ids).update(quote=None)
+    folded_quotes = Quote.objects.filter(legacy_deal_id__isnull=False)
+    quote_ids = list(folded_quotes.values_list("pk", flat=True))
+    # Move back only the tasks the fold moved (still pointing at their
+    # original deal). A task created on a folded quote after the fold
+    # is later work: left alone, so its FK makes PostgreSQL refuse.
+    for quote_id, deal_id in folded_quotes.values_list("pk", "legacy_deal_id"):
+        Task.objects.filter(quote_id=quote_id, deal_id=deal_id).update(quote=None)
     _delete_by_pk(
         schema_editor,
         QuoteLineItem,
@@ -170,12 +195,19 @@ def unfold(apps, schema_editor):
     )
     _delete_by_pk(schema_editor, Quote, quote_ids)
 
-    folded_contacts = Contact.objects.filter(legacy_lead_id__isnull=False) | Contact.objects.filter(
-        notes=PLACEHOLDER_NOTE
+    _delete_by_pk(
+        schema_editor,
+        Contact,
+        Contact.objects.filter(legacy_lead_id__isnull=False).values_list("pk", flat=True),
     )
-    contact_ids = list(folded_contacts.values_list("pk", flat=True))
-    Contact.tags.through.objects.filter(contact_id__in=contact_ids).delete()
-    _delete_by_pk(schema_editor, Contact, contact_ids)
+
+    # Undo the one change made to pre-existing rows: the lead source a
+    # converted lead's contact gained (only where it still holds exactly
+    # what the fold wrote).
+    for contact_id, source in Lead.objects.filter(converted_contact__isnull=False).values_list(
+        "converted_contact_id", "source"
+    ):
+        Contact.objects.filter(pk=contact_id, lead_source=source).update(lead_source="")
 
 
 class Migration(migrations.Migration):
