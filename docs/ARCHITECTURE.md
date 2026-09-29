@@ -134,10 +134,18 @@ and support rollback.
 ## Backup strategy
 
 PostgreSQL is backed up with scheduled logical dumps (`pg_dump`), stored
-outside the database container, with a retention policy and periodic restore
-testing (see later roadmap phases — Backups, Restore testing). Application
-media files and configuration (`.env`, Caddy certificates/config) are backed
-up alongside the database dump since they are equally required for recovery.
+outside the database container, with a retention policy and a tested
+restore procedure (`scripts/backup.sh`/`scripts/restore.sh`,
+`docs/DISASTER_RECOVERY.md`). Application media files and configuration
+(`.env`, Caddy certificates/config) are backed up alongside the database
+dump since they are equally required for recovery.
+
+Backups are also pushed off-host, encrypted client-side, to a `restic`
+repository (Backblaze B2) whenever `RESTIC_REPOSITORY` is configured —
+see `docs/decisions/0006-offhost-backups-restic.md` and
+`docs/ADMIN_GUIDE.md`'s "Backups" section. This is opt-in, not a hard
+requirement: a deployment with no off-host destination configured yet
+still gets the local backup/restore behavior above, unchanged.
 
 ## ARM64 deployment strategy
 

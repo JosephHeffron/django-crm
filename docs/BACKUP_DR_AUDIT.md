@@ -40,16 +40,24 @@ meant to recover, and `docs/DISASTER_RECOVERY.md`'s entire tested
 procedure becomes unusable — there'd be nothing in `backups/` to
 restore from.
 
-**Status: not fixed, documented as the clearest concrete gap this
-phase leaves** — no off-host storage destination (a second Pi, a NAS
-on the LAN, an object storage bucket) exists yet in this project's
-architecture, and inventing one without a concrete choice already
-made would be exactly the kind of speculative addition CLAUDE.md's
-"do not overengineer" rule asks to avoid. This is the most important
-open item for whoever deploys this to real hardware to close before
-depending on it — copying `backups/` to a second location, by
-whatever means fits that deployment, is a small addition once a
-destination exists to copy to.
+**Status: FIXED (Phase 15) — mechanism implemented and verified,
+production wiring is the deploying operator's own remaining step.**
+`scripts/backup.sh` now pushes each backup to a `restic` repository
+(client-side encrypted) when `RESTIC_REPOSITORY` is configured;
+`scripts/restore_offhost.sh` pulls a snapshot back down for
+`scripts/restore.sh` to complete the restore. See
+`docs/decisions/0006-offhost-backups-restic.md` for the design and
+`docs/DISASTER_RECOVERY.md` for the live-verified drill (a full
+disaster — containers, volumes, AND the local `backups/` directory
+itself all destroyed — recovered purely from a local throwaway restic
+repository standing in for the real destination). The user chose
+Backblaze B2 as the actual destination; creating that real B2 account/
+bucket/application key is outside what this project (or an AI
+assistant working on it) can do — it requires the operator's own
+action, documented in `docs/ADMIN_GUIDE.md`'s "Backups" section. Until
+that's done on a given deployment, `RESTIC_REPOSITORY` stays unset and
+behavior is identical to before this fix (local-only backups) — this
+is not a silent gap, it's an explicit, documented opt-in step.
 
 ## MEDIUM
 
@@ -65,15 +73,16 @@ the Pi (at which point they could read the live `.env` directly
 anyway, so this specifically isn't a *new* exposure — but it is one
 more copy of the same secrets, in more places, for longer).
 
-**Status: not fixed, deferred** — encrypting a single file (e.g.
-`age`/`gpg` with a key kept off-host) is a reasonable, low-effort
-addition, but it's tightly coupled to finding 1: an off-host backup
-destination is the point at which encrypting `.env` specifically
-starts to matter (protecting it in transit/at rest somewhere less
-trusted than the Pi itself), so it makes more sense to solve both
-together once finding 1 has an actual destination to design against,
-rather than encrypt now for a threat model (a trusted single-host
-backup directory) where it adds process without much real benefit.
+**Status: FIXED (Phase 15) as a side effect of finding 1's fix** — the
+off-host copy of every backup, `.env` included, now travels inside a
+`restic` snapshot, encrypted client-side with `RESTIC_PASSWORD` before
+it leaves the host; verified live that the wrong password is flatly
+rejected and the repository's on-disk contents are opaque binary, not
+plaintext. The **local** on-disk copy in
+`backups/<timestamp>/env.backup` remains `chmod 600` only, unchanged —
+that's still the same trusted-single-host threat model finding 1's
+original deferral reasoning described, not a new gap introduced by
+this fix.
 
 ### 3. No automated, ongoing restore verification
 
@@ -145,15 +154,15 @@ against.
 ## Recommendation
 
 The mechanism itself is sound and has been proven to actually work,
-twice, against real failure scenarios — including two real bugs this
-phase's own testing found and fixed (documented in
-`docs/DISASTER_RECOVERY.md`, not repeated here). The one HIGH finding
-(backups living only on the same host/SD-card as the data they
-protect) is the clearest concrete gap: for a Raspberry Pi deployment
-specifically, that's a real, plausible way for this entire backup
-system to fail to help exactly when it's needed most. It's correctly
-left as a documented, prioritized gap rather than a speculative fix,
-since closing it well requires a concrete off-host destination this
-project hasn't chosen yet — but it should be the first thing addressed
-before this deployment is trusted with real production data on real
-hardware.
+three times now, against real failure scenarios — the two real bugs
+this phase's own testing found and fixed, plus Phase 15's off-host
+push/pull mechanism (documented in `docs/DISASTER_RECOVERY.md`/
+`docs/decisions/0006-offhost-backups-restic.md`, not repeated here).
+Both the HIGH and MEDIUM findings originally recorded here are now
+fixed; see each finding's own updated status above. What's left is
+operational, not architectural: an actual Backblaze B2 account/bucket/
+key needs to be created and wired into a given deployment's `.env`
+before that deployment is trusted with real production data on real
+hardware — the mechanism to do so is built and verified, only the
+account creation itself remains, and that's necessarily outside what
+this project can do on the operator's behalf.

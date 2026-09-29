@@ -159,6 +159,46 @@ mid-restore (logged explicitly), and confirmed the restore still
 completed successfully and the target's marker data was present
 afterward — proving the fix, not just that the restore "didn't error."
 
+## Off-host disaster recovery (Phase 15)
+
+`docs/decisions/0006-offhost-backups-restic.md` covers the design.
+This section documents the live drill proving the *actual gap the
+drills above couldn't test*: everything above assumes `backups/`
+itself survives whatever destroyed the containers/volumes — the one
+thing a real SD-card failure wouldn't leave true.
+
+1. Configured `scripts/backup.sh` with `RESTIC_REPOSITORY` pointed at a
+   local throwaway directory standing in for the real destination
+   (Backblaze B2) — the mechanics (encryption, push, retention,
+   restore) are destination-agnostic; only the repository URL and
+   backend credentials differ for a real B2 bucket.
+2. Inserted a distinctive marker record into the database.
+3. Ran `scripts/backup.sh` — confirmed both the local backup and the
+   off-host `restic` push completed, and that `restic snapshots` shows
+   the pushed snapshot.
+4. **Simulated the actual disaster this phase exists for**: tore down
+   every container, removed every volume, AND removed the local
+   `backups/` directory itself — confirmed nothing remained anywhere
+   on the host.
+5. Ran `scripts/restore_offhost.sh` — confirmed it pulled the snapshot
+   back down into a freshly recreated `backups/<timestamp>/`, byte-for-
+   byte the same layout `scripts/backup.sh` originally produced.
+6. Ran `scripts/restore.sh <timestamp> --yes` exactly as documented
+   above, no different from restoring off a local backup.
+7. Confirmed the marker record was present in the restored database —
+   full recovery, starting from literally nothing left on the host.
+8. Separately confirmed the encryption is real, not just obscurity:
+   `restic snapshots` with the wrong `RESTIC_PASSWORD` was flatly
+   rejected (`Fatal: wrong password or no key found`), and the
+   repository's raw files on disk are opaque binary data, not
+   readable tar/JSON content.
+
+Result: **full recovery confirmed starting from zero local state** —
+the specific scenario `docs/BACKUP_DR_AUDIT.md`'s HIGH finding #1 was
+about. Real Backblaze B2 wiring (creating the account/bucket/
+application key) is the deploying operator's own remaining step — see
+`docs/ADMIN_GUIDE.md`.
+
 ## What this doesn't cover (stated plainly)
 
 - **No physical Raspberry Pi exists yet** — this drill ran on the
@@ -167,16 +207,17 @@ afterward — proving the fix, not just that the restore "didn't error."
   `docs/ARM64_TESTING.md`. The mechanics (compose, volumes, `pg_dump`/
   `pg_restore`) are architecture-independent, so this proves the
   *procedure*, not performance or timing on real hardware.
-- **Backups currently live only on the same host** as the application
-  — a full-disk failure, host theft, or SD-card corruption would take
-  the backups down with the application they're meant to protect
-  against exactly that. This is a real, known gap, not a silent one —
-  `docs/BACKUP_DR_AUDIT.md` addresses it directly rather than leaving
-  it implicit.
-- **No automated restore testing** — this drill was run by hand, once,
-  for this unit. It's not (yet) a scheduled, repeatable check the way
-  `scripts/test-arm64.sh` is for ARM64 builds. Also addressed in the
-  audit.
+- **No real Backblaze B2 account exists yet** — the off-host drill
+  above used a local directory as the restic repository, not a real B2
+  bucket. Restic's B2 backend is well-established and doesn't change
+  the mechanics verified here, but the actual network path (upload/
+  download bandwidth and latency to B2 specifically) hasn't been
+  measured. Creating a real account/bucket/application key is outside
+  what this project can do — see `docs/ADMIN_GUIDE.md`.
+- **No automated restore testing** — every drill on this page, local or
+  off-host, was run by hand, once, for its own unit. It's not (yet) a
+  scheduled, repeatable check the way `scripts/test-arm64.sh` is for
+  ARM64 builds. Still an open, deferred item in `docs/BACKUP_DR_AUDIT.md`.
 
 ## Recovery time (informal, this environment only)
 

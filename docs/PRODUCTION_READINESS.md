@@ -149,11 +149,15 @@ duplicate.
 
 ### Still HIGH
 
-- **Backups live only on the same host as the application**
-  (`docs/BACKUP_DR_AUDIT.md` #1) — SD card corruption/failure (a known
-  common Raspberry Pi failure mode) would destroy backups and data in
-  the same event. Blocked on a concrete off-host destination this
-  project hasn't chosen yet.
+- ~~**Backups live only on the same host as the application**~~ —
+  **FIXED, Phase 15** (`docs/BACKUP_DR_AUDIT.md` #1,
+  `docs/decisions/0006-offhost-backups-restic.md`): the user chose
+  Backblaze B2; `scripts/backup.sh`/`scripts/restore_offhost.sh` now
+  implement and live-verify the off-host push/pull mechanism
+  (encrypted client-side via `restic`). Creating the real B2 account/
+  bucket/key on a given deployment remains the operator's own step —
+  not new code this project could write on their behalf, but no
+  longer blocked on an unmade infrastructure choice either.
 - **The real, local `.env` may still contain the stale
   `DJANGO_SETTINGS_MODULE=config.settings.development` line**
   (`docs/PRODUCTION_CONFIG_REVIEW.md` #1) — the bug itself was fixed in
@@ -178,9 +182,11 @@ duplicate.
 - Caddy's container runs as root (the official image's only option) —
   `docs/PRODUCTION_CONFIG_REVIEW.md` #3 — accepted, mitigated by
   rootless Podman's user-namespace isolation.
-- `.env` backups are unencrypted at rest — `docs/BACKUP_DR_AUDIT.md`
-  #2 — deliberately coupled to the off-host-storage HIGH finding
-  above.
+- ~~`.env` backups are unencrypted at rest~~ — **FIXED, Phase 15**
+  (`docs/BACKUP_DR_AUDIT.md` #2), as a side effect of the off-host fix
+  above — the off-host copy is now encrypted client-side by
+  construction; the local on-disk copy is unchanged (still the same
+  trusted-single-host threat model as before).
 - No automated, ongoing restore verification — `docs/BACKUP_DR_AUDIT.md`
   #3 — only proven once, by hand, in Phase 11.
 
@@ -268,12 +274,12 @@ audit, and resolved by the user's own choice to make the repository
 public again, with branch protection restored to its original
 documented settings and secret scanning re-enabled automatically.
 
-Two HIGH items remain genuinely open: off-host backup storage
-(`docs/BACKUP_DR_AUDIT.md` #1) and the residual manual check of the
-real `.env` for a stale settings-module line
-(`docs/PRODUCTION_CONFIG_REVIEW.md` #1). Both were already correctly
-identified by earlier phases as blocked on something outside this
-audit's reach — a concrete off-host destination this project hasn't
-chosen, and direct access to the real `.env`, which project policy
-never grants. Neither is new code this project could write its way out
-of; both are concrete next steps for the user, not silent gaps.
+**Update, Phase 15:** of the two HIGH items this audit originally left
+open, one is now fixed — off-host backup storage
+(`docs/BACKUP_DR_AUDIT.md` #1), once the user chose Backblaze B2 as
+the destination this audit itself couldn't invent. One remains
+genuinely open: the residual manual check of the real `.env` for a
+stale settings-module line (`docs/PRODUCTION_CONFIG_REVIEW.md` #1),
+still blocked on direct access to the real `.env`, which project
+policy never grants. Not new code this project could write its way out
+of — a concrete next step for the user, not a silent gap.
