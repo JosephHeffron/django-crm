@@ -4,7 +4,7 @@ from django.test import TestCase
 from django.urls import reverse
 from django.utils import timezone
 
-from apps.crm.models import Activity, AuditLogEntry, Contact, Note, Property, Tag
+from apps.crm.models import Activity, AuditLogEntry, Company, Contact, Note, Property, Tag, Task
 from apps.crm.tests._helpers import grant_role
 from apps.jobs.models import Job, Quote
 from apps.jobs.tests import _factories as f
@@ -140,6 +140,22 @@ class ContactDetailTests(ContactPageTestCase):
         self.assertContains(response, "Dog in yard")
         self.assertContains(response, 'href="tel:(585) 555-0101"')
 
+    def test_open_tasks_come_first(self):
+        for title, status in (
+            ("Old call", "completed"),
+            ("Call back", "pending"),
+            ("Skip", "cancelled"),
+        ):
+            Task.objects.create(
+                title=title,
+                status=status,
+                contact=self.contact,
+                assigned_to=self.rep,
+                created_by=self.rep,
+            )
+        response, _ = self.timeline()
+        self.assertEqual(response.context["tasks"][0].title, "Call back")
+
     def test_cleaners_cannot_open_contacts(self):
         grant_role(f.user("crew"), Role.CLEANER)
         self.client.login(username="crew", password=PASSWORD)
@@ -160,6 +176,14 @@ class ContactFormTests(ContactPageTestCase):
         self.assertEqual((contact.status, contact.lead_source), ("customer", "referral"))
         entry = AuditLogEntry.objects.filter(object_id=contact.pk).latest("pk")
         self.assertEqual(entry.changes["tags"], ["Gate code", "Gate code, VIP"])
+
+    def test_move_between_same_named_companies_is_audited(self):
+        first = Company.objects.create(name="Lakeside HOA", created_by=self.rep)
+        second = Company.objects.create(name="Lakeside HOA", created_by=self.rep)
+        contact = f.contact(self.rep, "Pat", "Board", company=first)
+        self.post(contact, company=second.pk)
+        entry = AuditLogEntry.objects.filter(object_id=contact.pk).latest("pk")
+        self.assertEqual(entry.changes, {"company": ["Lakeside HOA", "Lakeside HOA"]})
 
     def test_omitting_stage_keeps_the_current_one(self):
         contact = f.contact(self.rep, "Lee", "Lead", status=Contact.Status.LEAD)

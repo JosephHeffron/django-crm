@@ -1,7 +1,7 @@
 from django.contrib import messages
 from django.contrib.auth.mixins import PermissionRequiredMixin
 from django.contrib.contenttypes.models import ContentType
-from django.db.models import Count, F, Q
+from django.db.models import Case, Count, F, Q, When
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
@@ -121,13 +121,15 @@ def _diff_changed_fields(previous, current, changed_fields):
     for field in changed_fields:
         old_value = getattr(previous, field, None)
         new_value = getattr(current, field, None)
-        old_text = None if old_value is None else str(old_value)
-        new_text = None if new_value is None else str(new_value)
         # The form can flag a field whose saved value didn't actually
         # change (e.g. an omitted optional field that falls back to its
-        # current value) — that isn't a change worth recording.
-        if old_text != new_text:
-            changes[field] = [old_text, new_text]
+        # current value) — that isn't a change worth recording. Compare
+        # the values, not their text: two companies can share a name.
+        if old_value != new_value:
+            changes[field] = [
+                None if old_value is None else str(old_value),
+                None if new_value is None else str(new_value),
+            ]
     return changes
 
 
@@ -329,8 +331,11 @@ class ContactDetailView(SalesRoleRequiredMixin, DetailView):
         # Deals were folded into quotes (Phase 17); any still linked here
         # are shown until Phase 18 removes the Deal model.
         context["deals"] = contact.deals.all()
+        # Open tasks first, soonest due first.
         context["tasks"] = contact.tasks.select_related("assigned_to", "service_type").order_by(
-            "status", F("due_date").asc(nulls_last=True), "pk"
+            Case(When(status=Task.Status.PENDING, then=0), default=1),
+            F("due_date").asc(nulls_last=True),
+            "pk",
         )
         context["log_activity_url"] = _log_activity_url("contact", contact)
         context["audit_log"] = _audit_log_for(contact)
