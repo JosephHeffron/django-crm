@@ -168,8 +168,11 @@ consistency matrix, shell rendering, PWA endpoints, production CSP).
 ## Git
 
 Branch: `feature/field-service-shell`
-Commit: pending
-Merged to `main`: pending
+Commit: `d5291cc` (implementation), `2cc1c22` (self-review fix — user/admin
+docs still described the retired Staff group)
+Merged to `main`: `77d2214` (PR #90 — CI green: `test` + `dependency-audit`;
+Sourcery did not review: diff exceeded its 150,000-character limit, so a
+deliberate self-review was done instead)
 
 ## Next
 

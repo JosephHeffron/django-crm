@@ -4,7 +4,7 @@ Update this file at the end of every session (see `CLAUDE.md`'s Session
 Close Procedure). Do not describe anything as complete unless it was
 actually verified.
 
-> **Last updated 2026-09-28.** Repo is clean (`main` up to date, nothing
+> **Last updated 2026-09-29.** Repo is clean (`main` up to date, nothing
 > uncommitted). The original 14-phase roadmap is fully complete (see
 > "Project complete" below). The post-release roadmap
 > (`docs/ROADMAP.md`'s "Phase 15+") is now underway: **Phase 15
@@ -15,7 +15,7 @@ actually verified.
 > (browser-verified CSP review) is also complete** — a headless-Chromium
 > check found zero violations, including after a real Sourcery-caught
 > bug (an un-nonced inline style on the production 500 page) was fixed.
-> Phase 17 (data portability and bulk operations) is next.
+> Phase 17 (field-service foundation) is in progress — unit 1 of 3 done.
 > Note: the GitHub repo, switched from public to private earlier in the
 > project, is now **public again** — Phase 13 unit 1's audit found
 > branch protection and secret scanning had been silently disabled
@@ -23,9 +23,12 @@ actually verified.
 > the user chose to go public again rather than pay for Pro, and both
 > protections are restored. Sourcery's automated review is available
 > again as a result — after hitting its free-tier review-budget limit
-> on a couple of PRs around Phase 14, it has delivered real, substantive
-> findings on every PR since (Phases 15-16), several of them genuine
-> bugs this project's own testing hadn't caught.
+> on a couple of PRs around Phase 14, it delivered real, substantive
+> findings on every PR through Phase 16, several of them genuine bugs
+> this project's own testing hadn't caught. It skipped PR #90 (Phase 17
+> unit 1) entirely — the diff exceeded its 150,000-character limit — so
+> that PR was self-reviewed instead; large units should be split to
+> stay under that limit.
 
 ## Project version
 
@@ -36,9 +39,9 @@ actually verified.
 The original 14-phase roadmap (Phases 0-14) is fully complete — see
 "Project complete," below, for the summary, and "Completed" for full
 phase-by-phase detail. The post-release roadmap is now underway:
-Phases 15-16 are complete; Phase 17 (data portability and bulk
-operations) is next — see "Post-release roadmap progress," below, for
-current status. This section deliberately stays short and points at
+Phases 15-16 are complete; Phase 17 (field-service foundation) is in
+progress, unit 1 of 3 done — see "Post-release roadmap progress,"
+below, for current status. This section deliberately stays short and points at
 those two rather than duplicating them, so it can't drift out of sync
 with them the way an earlier version of this section once did (it
 stopped being updated after Phase 7, while the rest of this file kept
@@ -704,19 +707,38 @@ roadmap completed:
   Closes `docs/SECURITY_REVIEW.md` #6 / `docs/PRODUCTION_CONFIG_REVIEW.md`
   #2. 304 tests total (+1 regression test). Full detail in
   `logs/claude/phase-16-csp.md`.
-- Phases 17-22: not yet started.
+- **Phase 17 — Field-service foundation (in progress, 1 of 3 units
+  done).** The roadmap pivoted here to the owner's exterior
+  home-services business (ADRs 0008/0009; plan approved 2026-09-28).
+  **Unit 1 (PR #90) — done:** Owner / Sales Rep / Cleaner roles
+  enforced server-side (replacing the Phase 6 "Staff" group; no-role
+  users fail closed), nav and views declared against the same role
+  sets with a per-role consistency test, a mobile-first shell (sidebar
+  / drawer / phone bottom bar) on a tokenized light/dark design system
+  meeting WCAG AA, and an installable PWA baseline whose service worker
+  never caches authenticated pages. Verified in a real browser across
+  4 roles × 3 viewports, and under production settings (zero CSP
+  violations, worker active, offline fallback). Sourcery skipped the PR
+  (diff over its size limit); a self-review found stale "Staff"
+  references in the user/admin docs, fixed before merge. 333 tests.
+  Full detail in `logs/claude/phase-17-unit1-shell-roles.md`.
+- Phases 18-25: not yet started (re-sequenced in `docs/ROADMAP.md`).
 
 ## Currently working on
 
-Nothing queued — Phase 16 just closed out. Phase 17 (data portability
-and bulk operations) is next whenever work resumes.
+Nothing in flight — Phase 17 unit 1 just closed out.
 
 ## Next
 
-1. Phase 17 — data portability and bulk operations: CSV import/export
-   for Companies/Contacts/Deals, bulk actions on list views, saved/
-   custom list filters, tags/labels, duplicate detection on Company/
-   Contact create.
+1. Phase 17 unit 2 — data model: `apps.jobs` (service catalog, quotes,
+   jobs, crews, photos, invoices, payments, expenses) and
+   `apps.messaging` (channels, messages — SMS-ready), `apps.crm`
+   extensions (contact status/lead source/tags, properties, notes,
+   business plans, follow-up tasks), Lead → Contact / Deal → Quote data
+   migration, follow-up generator, `seed_demo` command, Pillow.
+2. Phase 17 unit 3 — every page (Dashboard, Financials, Calendar,
+   Contacts, Tasks hub, Profile, Messages) as functional skeletons on
+   seeded data.
 
 ## Known issues
 
