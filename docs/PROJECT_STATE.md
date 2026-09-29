@@ -4,10 +4,17 @@ Update this file at the end of every session (see `CLAUDE.md`'s Session
 Close Procedure). Do not describe anything as complete unless it was
 actually verified.
 
-> **Last updated 2026-09-17.** Repo is clean (`main` up to date, nothing
-> uncommitted). **Phase 14 (Documentation and handoff) is fully
-> complete, and with it, the entire 14-phase roadmap.** See
-> "Project complete" below.
+> **Last updated 2026-09-28.** Repo is clean (`main` up to date, nothing
+> uncommitted). The original 14-phase roadmap is fully complete (see
+> "Project complete" below). The post-release roadmap
+> (`docs/ROADMAP.md`'s "Phase 15+") is now underway: **Phase 15
+> (Backup hardening)'s off-host, encrypted backup mechanism — `restic`,
+> the user's chosen destination being Backblaze B2 — is implemented
+> and live-verified.** No real B2 account/bucket/key exists yet on any
+> actual deployment, so no production backups are actually stored
+> off-host yet — that's the deploying operator's own remaining setup
+> step (`docs/ADMIN_GUIDE.md`), not further code. Phase 16
+> (browser-verified CSP review) is next.
 > Note: the GitHub repo, switched from public to private earlier in the
 > project, is now **public again** — Phase 13 unit 1's audit found
 > branch protection and secret scanning had been silently disabled
@@ -24,33 +31,16 @@ actually verified.
 
 ## Current phase
 
-Phase 2 (CRM database), Phase 3 (CRM interface), and Phase 4
-(Activities, Tasks, audit history) are all complete. Phase 3 shipped in
-5 units: authentication + base shell, full navigation/error
-pages/styling, Companies CRUD, Contacts CRUD, and Leads/Deals workflows
-(including the lead-to-Contact/Company/Deal conversion workflow). The
-two deferred HIGH findings and one MEDIUM finding from
-`docs/DATABASE_REVIEW.md` were resolved before starting Phase 4. Phase
-4 shipped in 3 units: Activity timeline, Tasks (plus a post-merge fix
-for a real `TaskCompleteView` bug), and lightweight audit history for
-Company/Contact/Lead/Deal. Phase 5 (Search, dashboard, usability) is
-complete — Global search, Operational dashboard, and a usability
-review pass that found and fixed a real bug. Phase 6 (Security
-hardening) is now complete — Security audit, Role/permission model,
-and a dependency security audit that also cleared a long-open backlog
-of 6 Dependabot PRs. Phase 7 (Containerization with Podman) is now
-complete — Django production container, and a PostgreSQL container +
-podman-compose configuration that proved its persistence guarantee by
-actually destroying and recreating containers, not just by having a
-`volumes:` section that looked right.
-
-Phase 2's `docs/DATABASE_REVIEW.md` found 2 HIGH findings (Activity's
-`CASCADE` can silently destroy history still relevant to a surviving
-object; `on_delete` guarantees only hold through the Django ORM, not raw
-SQL) plus a MEDIUM finding that Activity immutability isn't actually
-enforced beyond the admin. Per the user's explicit choice, these are
-deferred until before Phase 4 (Activities/Tasks UI) rather than blocking
-Phase 3 — see Known Issues below.
+The original 14-phase roadmap (Phases 0-14) is fully complete — see
+"Project complete," below, for the summary, and "Completed" for full
+phase-by-phase detail. The post-release roadmap is now underway: Phase
+15 (backup hardening) is complete; Phase 16 (browser-verified CSP
+review) is next — see "Post-release roadmap progress," below, for
+current status. This section deliberately stays short and points at
+those two rather than duplicating them, so it can't drift out of sync
+with them the way an earlier version of this section once did (it
+stopped being updated after Phase 7, while the rest of this file kept
+moving — corrected during Phase 15's close-out, PR #87).
 
 ## Completed
 
@@ -653,31 +643,56 @@ HTTPS, ARM64 compatibility, systemd deployment, backups/DR, logging,
 health checks, a final production audit, and admin/developer
 documentation).
 
-**Not yet done, deliberately outside this roadmap's scope:**
+**Not yet done, deliberately outside this original roadmap's scope —
+see "Post-release roadmap" below for what picks these up:**
 - Actual deployment to a physical Raspberry Pi 5 — no hardware acquired
   yet; everything ARM64-related has been verified only under
   `qemu-user-static` emulation (see `docs/ARM64_REVIEW.md`/
-  `docs/ARM64_TESTING.md`).
-- The two HIGH findings tracked in `docs/PRODUCTION_READINESS.md` that
-  remain genuinely open: off-host backup storage (needs a concrete
-  destination the user hasn't chosen yet) and a residual manual check
-  of the real `.env` for a stale `DJANGO_SETTINGS_MODULE` line (needs
-  direct access to that file, which policy never grants an AI
-  assistant).
+  `docs/ARM64_TESTING.md`). Now `docs/ROADMAP.md`'s Phase 22.
+- Of the two HIGH findings tracked in `docs/PRODUCTION_READINESS.md`:
+  off-host backup storage is now **fixed** (Phase 15, below); a
+  residual manual check of the real `.env` for a stale
+  `DJANGO_SETTINGS_MODULE` line remains genuinely open (needs direct
+  access to that file, which policy never grants an AI assistant).
 - Email integration, calendar integration, reporting, file attachments,
   APIs, and mobile-specific functionality — explicitly deferred past
-  initial release per `docs/ROADMAP.md`'s "Initial release scope".
+  initial release per `docs/ROADMAP.md`'s "Initial release scope", now
+  picked up piecemeal by Phases 17-20 of the post-release roadmap.
+
+## Post-release roadmap progress
+
+`docs/ROADMAP.md`'s "Phase 15+" section, added after the original
+roadmap completed:
+
+- **Phase 15 — Backup hardening: mechanism implemented and
+  live-verified; real off-host storage pending operator setup.**
+  `scripts/backup.sh` pushes
+  each backup to a `restic` repository (client-side encrypted) when
+  `RESTIC_REPOSITORY` is configured — opt-in, existing deployments
+  unaffected until they set it. `scripts/restore_offhost.sh` recovers
+  `backups/` itself from that repository when the local directory is
+  gone, not just the running containers/volumes. Live-verified in an
+  isolated clone: a marker record survived containers, volumes, AND
+  the local `backups/` directory all being destroyed, recovered purely
+  from a local repository standing in for the real destination
+  (Backblaze B2, the user's choice — creating the actual account/
+  bucket/key is the user's own remaining step, documented in
+  `docs/ADMIN_GUIDE.md`). Closes `docs/BACKUP_DR_AUDIT.md`'s HIGH
+  finding #1 and MEDIUM finding #2. 303 tests total (unchanged — no
+  Django application code touched). Full detail in
+  `logs/claude/phase-15-backup-hardening.md`.
+- Phases 16-22: not yet started.
 
 ## Currently working on
 
-Nothing — the roadmap is complete. Future work would be a new,
-explicitly-scoped initiative (e.g. actual Pi deployment, or a
-post-release feature), not a continuation of this roadmap.
+Nothing queued — Phase 15 just closed out. Phase 16 (browser-verified
+CSP review) is next whenever work resumes.
 
 ## Next
 
-None currently queued. See "Project complete" above for what's
-deliberately out of scope and would need its own decision to start.
+1. Phase 16 — browser-verified security review: revisit the CSP header
+   deferred in `docs/PRODUCTION_CONFIG_REVIEW.md`, which needs a real
+   browser to verify it doesn't break Django admin's inline scripts.
 
 ## Known issues
 

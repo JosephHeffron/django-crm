@@ -71,7 +71,8 @@ explicitly deferred until this scope is working reliably on the Raspberry Pi.
 The initial release scope above is done. The phases below pick up the
 functionality it deliberately deferred, plus hardening work identified
 along the way (`docs/PRODUCTION_READINESS.md`'s still-open findings).
-Not yet started. Ordered so that Phase 22 (the one item genuinely
+Phase 15 is complete; Phase 16 onward not yet started. Ordered so that
+Phase 22 (the one item genuinely
 blocked on hardware the user doesn't have yet — a physical Raspberry Pi
 5) sits last and gates nothing before it; Phases 15-21 are all
 software-only and can proceed regardless of hardware acquisition. Per
@@ -80,7 +81,7 @@ infrastructure dependency (Celery, Redis, a JS framework, etc.) unless
 a phase's own work demonstrates the simpler approach is actually
 insufficient.
 
-- [ ] **Phase 15 — Backup hardening.** Off-host backup storage (closes
+- [x] **Phase 15 — Backup hardening.** Off-host backup storage (closes
       the open backup-storage HIGH finding in
       `docs/PRODUCTION_READINESS.md` — a separate HIGH finding, a
       possibly-stale production `.env` setting, remains outside this
@@ -91,7 +92,9 @@ insufficient.
       `rclone crypt` remote, not a plain `rclone` copy, which would
       upload `.env`/database credentials to the destination
       unencrypted — rather than a second local drive, so this doesn't
-      wait on hardware the user doesn't have yet.
+      wait on hardware the user doesn't have yet. Done — the user
+      chose Backblaze B2; full detail in
+      `logs/claude/phase-15-backup-hardening.md`.
 - [ ] **Phase 16 — Browser-verified security review.** Revisit the CSP
       (Content-Security-Policy) header deferred in
       `docs/PRODUCTION_CONFIG_REVIEW.md`, which needs a real-browser
