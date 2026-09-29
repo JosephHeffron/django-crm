@@ -158,3 +158,12 @@ class TaskForm(forms.ModelForm):
             "priority",
             "status",
         ]
+
+    def clean_contact(self):
+        # A follow-up must name its customer (DB check
+        # follow_up_has_contact_and_service); catch that here as a form
+        # error instead of letting the save fail with a 500.
+        contact = self.cleaned_data.get("contact")
+        if self.instance.kind == Task.Kind.FOLLOW_UP and contact is None:
+            raise forms.ValidationError("A follow-up needs its customer.")
+        return contact
