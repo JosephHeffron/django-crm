@@ -1,5 +1,7 @@
 import os
 
+from django.utils.csp import CSP
+
 from .base import *
 
 DEBUG = False
@@ -41,3 +43,35 @@ SECURE_HSTS_INCLUDE_SUBDOMAINS = True
 SECURE_HSTS_PRELOAD = True
 SECURE_CONTENT_TYPE_NOSNIFF = True
 X_FRAME_OPTIONS = "DENY"
+
+# Content-Security-Policy (docs/PRODUCTION_CONFIG_REVIEW.md #2,
+# docs/SECURITY_REVIEW.md #6, closed in Phase 16 — see
+# docs/decisions/0007-django-native-csp.md). Deliberately strict, not a
+# starting-point-then-loosen policy: this app has zero third-party
+# JavaScript, zero external resources (fonts/images/CDNs), and zero
+# inline scripts/styles of its own anywhere in templates/ (grep-
+# confirmed). The only genuinely dynamic surface is Django's own admin
+# interface, which — as of Django 6.1 — ships every one of its own
+# script/style tags with {% csp_nonce_attr %} already wired in
+# (verified by reading django.contrib.admin's installed templates
+# directly, not assumed), so CSP.NONCE here is what makes admin's one
+# truly inline <style> block (templates/admin/change_list.html) and
+# every admin JS file actually permitted, not 'unsafe-inline'.
+#
+# Production only, deliberately — Django's own DEBUG=True error page
+# (technical_500.html) has inline <script>/<style> with no nonce
+# support, so enforcing this in dev too would visibly break the
+# traceback page for zero real security benefit (DEBUG is always False
+# in production, where this page never renders).
+SECURE_CSP = {
+    "default-src": [CSP.NONE],
+    "script-src": [CSP.SELF, CSP.NONCE],
+    "style-src": [CSP.SELF, CSP.NONCE],
+    "img-src": [CSP.SELF],
+    "font-src": [CSP.SELF],
+    "connect-src": [CSP.SELF],
+    "form-action": [CSP.SELF],
+    "frame-ancestors": [CSP.NONE],
+    "base-uri": [CSP.NONE],
+    "object-src": [CSP.NONE],
+}

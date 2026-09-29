@@ -1,0 +1,17 @@
+/* templates/500.html only — deliberately its own tiny stylesheet, not
+   base.css, since 500.html is deliberately standalone (no base.html
+   inheritance — Django's own guidance, since a server error can occur
+   before context processors like messages/auth are safe to rely on).
+   Moved out of an inline <style> block (Phase 16, Sourcery review on
+   PR #88): Django's default handler500 renders this template with no
+   request context ("Context: None", per django.views.defaults.
+   server_error's own docstring), so a CSP nonce was never a viable
+   fix here — an external, same-origin stylesheet needs no nonce at
+   all under this project's style-src 'self' policy. */
+body {
+  font-family: system-ui, sans-serif;
+  max-width: 32rem;
+  margin: 4rem auto;
+  padding: 0 1rem;
+  text-align: center;
+}

@@ -175,10 +175,11 @@ duplicate.
   hard-deleting a Company/Contact with any deal history —
   `docs/DATABASE_REVIEW.md` #6, also tracked in
   `docs/DATABASE_DESIGN.md`.
-- No Content-Security-Policy header — `docs/SECURITY_REVIEW.md` #6 /
-  `docs/PRODUCTION_CONFIG_REVIEW.md` #2 (same issue, tracked twice) —
-  still blocked on needing a real browser to verify against Django
-  admin's inline scripts, which this environment doesn't have.
+- ~~No Content-Security-Policy header~~ — **FIXED, Phase 16**
+  (`docs/SECURITY_REVIEW.md` #6 / `docs/PRODUCTION_CONFIG_REVIEW.md`
+  #2, same issue, tracked twice): a real-browser check became possible
+  and found zero violations against Django admin — see
+  `docs/decisions/0007-django-native-csp.md`.
 - Caddy's container runs as root (the official image's only option) —
   `docs/PRODUCTION_CONFIG_REVIEW.md` #3 — accepted, mitigated by
   rootless Podman's user-namespace isolation.

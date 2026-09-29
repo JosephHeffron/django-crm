@@ -31,6 +31,15 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    # Sets request._csp_nonce (lazy — only generated if a template
+    # actually reads it via {% csp_nonce_attr %}) and, on the way out,
+    # the Content-Security-Policy header from SECURE_CSP
+    # (config/settings/production.py; empty/no-op in dev — see that
+    # file for the policy and docs/decisions/0007-django-native-csp.md
+    # for why this project uses Django's own CSP middleware rather than
+    # adding it at the Caddy layer, the plan docs/SECURITY_REVIEW.md/
+    # docs/PRODUCTION_CONFIG_REVIEW.md originally assumed).
+    "django.middleware.csp.ContentSecurityPolicyMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
@@ -51,6 +60,15 @@ TEMPLATES = [
                 "django.template.context_processors.request",
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
+                # Required for {% csp_nonce_attr %} (used throughout
+                # Django's own admin templates) to render a real nonce
+                # rather than nothing — without this, admin's one
+                # genuinely inline <style> block (the changelist
+                # column-width block in templates/admin/change_list.html)
+                # would have no nonce to match SECURE_CSP's style-src
+                # policy against, and a strict CSP would silently block
+                # it in a real browser with no HTTP-visible symptom.
+                "django.template.context_processors.csp",
             ],
         },
     },
