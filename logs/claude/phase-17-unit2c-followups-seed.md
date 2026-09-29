@@ -126,8 +126,8 @@ commit on the PR:
 ## Git
 
 Branch: `feature/follow-ups-and-seed`
-Commit: pending
-Merged to `main`: pending
+Commits: `a74c1b5` (feature), `5d26648` (self-review fixes)
+Merged to `main`: PR #96, merge commit `488ed7d`
 
 ## Next
 
