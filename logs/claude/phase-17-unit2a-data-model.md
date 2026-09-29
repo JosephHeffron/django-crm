@@ -171,8 +171,10 @@ company-only deal and a converted lead → full reverse → re-forward).
 ## Git
 
 Branch: `feature/field-service-models`
-Commit: pending
-Merged to `main`: pending
+Commit: `fa54c3a` (implementation), `c8a8aa6` (Sourcery-review fixes to
+the fold's reversibility and the legacy admin)
+Merged to `main`: `e9ee784` (PR #92 — CI green; Sourcery reviewed it:
+5 real findings fixed, 2 false positives explained and resolved)
 
 ## Next
 

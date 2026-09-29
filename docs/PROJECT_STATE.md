@@ -15,7 +15,7 @@ actually verified.
 > (browser-verified CSP review) is also complete** — a headless-Chromium
 > check found zero violations, including after a real Sourcery-caught
 > bug (an un-nonced inline style on the production 500 page) was fixed.
-> Phase 17 (field-service foundation) is in progress — unit 1 of 3 done.
+> Phase 17 (field-service foundation) is in progress — units 1 and 2a done.
 > Note: the GitHub repo, switched from public to private earlier in the
 > project, is now **public again** — Phase 13 unit 1's audit found
 > branch protection and secret scanning had been silently disabled
@@ -40,7 +40,7 @@ The original 14-phase roadmap (Phases 0-14) is fully complete — see
 "Project complete," below, for the summary, and "Completed" for full
 phase-by-phase detail. The post-release roadmap is now underway:
 Phases 15-16 are complete; Phase 17 (field-service foundation) is in
-progress, unit 1 of 3 done — see "Post-release roadmap progress,"
+progress (units 1 and 2a done) — see "Post-release roadmap progress,"
 below, for current status. This section deliberately stays short and points at
 those two rather than duplicating them, so it can't drift out of sync
 with them the way an earlier version of this section once did (it
@@ -707,8 +707,8 @@ roadmap completed:
   Closes `docs/SECURITY_REVIEW.md` #6 / `docs/PRODUCTION_CONFIG_REVIEW.md`
   #2. 304 tests total (+1 regression test). Full detail in
   `logs/claude/phase-16-csp.md`.
-- **Phase 17 — Field-service foundation (in progress, 1 of 3 units
-  done).** The roadmap pivoted here to the owner's exterior
+- **Phase 17 — Field-service foundation (in progress — units 1 and
+  2a done; 2b, 2c, then unit 3 remain).** The roadmap pivoted here to the owner's exterior
   home-services business (ADRs 0008/0009; plan approved 2026-09-28).
   **Unit 1 (PR #90) — done:** Owner / Sales Rep / Cleaner roles
   enforced server-side (replacing the Phase 6 "Staff" group; no-role
@@ -722,20 +722,27 @@ roadmap completed:
   (diff over its size limit); a self-review found stale "Staff"
   references in the user/admin docs, fixed before merge. 333 tests.
   Full detail in `logs/claude/phase-17-unit1-shell-roles.md`.
+  **Unit 2a (PR #92) — done:** contact lifecycle status, lead source,
+  tags, properties, notes, business plans; follow-up tasks with DB
+  constraints; `apps.jobs` (service catalog seeded with the ten default
+  services, quotes, crew-assigned jobs, photos, invoices, payments,
+  expenses) with Subquery-based totals and per-role row scoping; Leads
+  folded into lead contacts and Deals into quotes; Pillow. Reversing the
+  migrations on a throwaway database found a Django backwards-migration
+  collector failure (fixed); Sourcery then found five reversibility
+  gaps in the fold (fixed, each regression-tested). 378 tests. Full
+  detail in `logs/claude/phase-17-unit2a-data-model.md`.
 - Phases 18-25: not yet started (re-sequenced in `docs/ROADMAP.md`).
 
 ## Currently working on
 
-Nothing in flight — Phase 17 unit 1 just closed out.
+Nothing in flight — Phase 17 unit 2a just closed out.
 
 ## Next
 
-1. Phase 17 unit 2 — data model: `apps.jobs` (service catalog, quotes,
-   jobs, crews, photos, invoices, payments, expenses) and
-   `apps.messaging` (channels, messages — SMS-ready), `apps.crm`
-   extensions (contact status/lead source/tags, properties, notes,
-   business plans, follow-up tasks), Lead → Contact / Deal → Quote data
-   migration, follow-up generator, `seed_demo` command, Pillow.
+1. Phase 17 unit 2b — `apps.messaging` (channels, memberships,
+   messages — SMS-ready) and per-role permissions for the field-service
+   models. Then unit 2c — follow-up generator and `seed_demo`.
 2. Phase 17 unit 3 — every page (Dashboard, Financials, Calendar,
    Contacts, Tasks hub, Profile, Messages) as functional skeletons on
    seeded data.
