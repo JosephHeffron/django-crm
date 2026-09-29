@@ -4,7 +4,7 @@ Update this file at the end of every session (see `CLAUDE.md`'s Session
 Close Procedure). Do not describe anything as complete unless it was
 actually verified.
 
-> **Last updated 2026-09-28.** Repo is clean (`main` up to date, nothing
+> **Last updated 2026-09-29.** Repo is clean (`main` up to date, nothing
 > uncommitted). The original 14-phase roadmap is fully complete (see
 > "Project complete" below). The post-release roadmap
 > (`docs/ROADMAP.md`'s "Phase 15+") is now underway: **Phase 15
@@ -23,9 +23,12 @@ actually verified.
 > the user chose to go public again rather than pay for Pro, and both
 > protections are restored. Sourcery's automated review is available
 > again as a result — after hitting its free-tier review-budget limit
-> on a couple of PRs around Phase 14, it has delivered real, substantive
-> findings on every PR since (Phases 15-16), several of them genuine
-> bugs this project's own testing hadn't caught.
+> on a couple of PRs around Phase 14, it delivered real, substantive
+> findings on every PR through Phase 16, several of them genuine bugs
+> this project's own testing hadn't caught. It skipped PR #90 (Phase 17
+> unit 1) entirely — the diff exceeded its 150,000-character limit — so
+> that PR was self-reviewed instead; large units should be split to
+> stay under that limit.
 
 ## Project version
 
