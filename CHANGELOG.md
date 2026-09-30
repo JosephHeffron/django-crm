@@ -92,6 +92,27 @@ for meaningful changes — not for every small fix or documentation tweak.
   tokenized design system with light and dark themes, and an
   installable PWA baseline (manifest, service worker, offline page) —
   Phase 17 unit 1.
+- Field-service domain (Phase 17 unit 2): a service catalog with
+  per-service prices, follow-up intervals, and calendar colors;
+  properties (service addresses), tags, notes, and business plans;
+  quotes, crew-assigned jobs, invoices, payments, and expenses with
+  computed totals; team messaging built so customer texting can be
+  added later; per-role permissions and row-level scoping.
+- Repeat-service follow-ups: a `generate_followups` command creates a
+  follow-up task when a customer hasn't had a service, or been in
+  touch, within that service's interval; completing one logs the
+  check-in. `seed_demo` fills a development database with a realistic
+  year of demo data.
+- Field-service pages (Phase 17 unit 3): a role-aware dashboard; a
+  day / week / month calendar; job and quote pages; the Owner's
+  service catalog and Financials (revenue, collected, expenses, net,
+  breakdowns by service and rep, outstanding balances aged by
+  lateness, a trend chart); contacts with lead/customer stages,
+  last-job and last-contact dates, and one timeline per customer; a
+  Tasks hub (tasks, follow-ups, quotes, plans, notes); team channels
+  and private direct messages with unread counts; profiles with
+  per-role stats and an Owner team view. Search also finds contacts
+  by phone and jobs/quotes by number.
 
 ### Changed
 - Access control is now role-based: Owner, Sales Rep, and Cleaner
@@ -101,3 +122,10 @@ for meaningful changes — not for every small fix or documentation tweak.
   (`docs/decisions/0008-roles-and-row-level-scoping.md`).
 - Default timezone is now the business's local time
   (`America/New_York`, configurable via `CRM_TIME_ZONE`).
+- Leads are now Contacts with the "Lead" stage and Deals are now
+  Quotes (a reversible data migration). The old Lead and Deal pages
+  are out of the menu but still open by URL until Phase 18 removes
+  them.
+- #sales is readable by the Owner and sales reps only.
+- The audit history no longer records fields whose value didn't
+  actually change, and records tag changes by name.
