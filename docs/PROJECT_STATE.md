@@ -15,7 +15,7 @@ actually verified.
 > (browser-verified CSP review) is also complete** — a headless-Chromium
 > check found zero violations, including after a real Sourcery-caught
 > bug (an un-nonced inline style on the production 500 page) was fixed.
-> Phase 17 (field-service foundation) is in progress — units 1, 2, 3a, 3b, and 3c done; 3d remains.
+> Phase 17 (field-service foundation) is complete; Phase 18 (quotes and jobs workflow) is next.
 > Note: the GitHub repo, switched from public to private earlier in the
 > project, is now **public again** — Phase 13 unit 1's audit found
 > branch protection and secret scanning had been silently disabled
@@ -39,8 +39,8 @@ actually verified.
 The original 14-phase roadmap (Phases 0-14) is fully complete — see
 "Project complete," below, for the summary, and "Completed" for full
 phase-by-phase detail. The post-release roadmap is now underway:
-Phases 15-16 are complete; Phase 17 (field-service foundation) is in
-progress (units 1, 2, 3a, 3b, and 3c done) — see "Post-release roadmap progress,"
+Phases 15-17 are complete; Phase 18 (quotes and jobs workflow) is
+next — see "Post-release roadmap progress,"
 below, for current status. This section deliberately stays short and points at
 those two rather than duplicating them, so it can't drift out of sync
 with them the way an earlier version of this section once did (it
@@ -707,8 +707,7 @@ roadmap completed:
   Closes `docs/SECURITY_REVIEW.md` #6 / `docs/PRODUCTION_CONFIG_REVIEW.md`
   #2. 304 tests total (+1 regression test). Full detail in
   `logs/claude/phase-16-csp.md`.
-- **Phase 17 — Field-service foundation (in progress — units 1,
-  2, 3a, 3b, and 3c done; 3d remains).** The roadmap pivoted here to the owner's exterior
+- **Phase 17 — Field-service foundation (complete).** The roadmap pivoted here to the owner's exterior
   home-services business (ADRs 0008/0009; plan approved 2026-09-28).
   **Unit 1 (PR #90) — done:** Owner / Sales Rep / Cleaner roles
   enforced server-side (replacing the Phase 6 "Staff" group; no-role
@@ -783,17 +782,29 @@ roadmap completed:
   (`apps/jobs/reports.py`). Browser-verified, zero CSP violations;
   self-reviewed (Sourcery budget exhausted), no defects. 468 tests.
   Full detail in `logs/claude/phase-17-unit3c-financials.md`.
+  **Unit 3d (PR #104) — done:** team messaging (#general, #crew, a
+  sales-only #sales via a new channel audience field, private direct
+  messages, posting by form, an unread badge — one visibility rule
+  for every list, count, and page) and profiles (per-role stats over
+  30/90/365 days, self-editing, the Owner's team view); per-role phone
+  bottom bar. Browser-verified, zero CSP violations. Self-reviewed
+  (Sourcery budget exhausted): one defect fixed before merge — a
+  superuser owner couldn't be sent a direct message. 494 tests. Full
+  detail in `logs/claude/phase-17-unit3d-profile-messages.md`.
 - Phases 18-25: not yet started (re-sequenced in `docs/ROADMAP.md`).
 
 ## Currently working on
 
-Nothing in flight — Phase 17 unit 3c just closed out.
+Nothing in flight — Phase 17 is complete and closed out.
 
 ## Next
 
-1. Phase 17 unit 3d — Profile with stats (own; the Owner can view the
-   team's) and Messages (channels, direct messages, posting by plain
-   form, channel membership per role). That completes Phase 17.
+1. Phase 18 — quotes and jobs workflow: quote builder (catalog line
+   items), status transitions, accepted quote → job, scheduling and
+   crew assignment, calendar rescheduling (with a non-drag
+   alternative), before/after photos served through a login-gated
+   view, service-address editing, and removal of the legacy Lead/Deal
+   models and pages. Plan it as several small PRs, like Phase 17.
 
 ## Known issues
 

@@ -71,7 +71,7 @@ explicitly deferred until this scope is working reliably on the Raspberry Pi.
 The initial release scope above is done. The phases below pick up the
 functionality it deliberately deferred, plus hardening work identified
 along the way (`docs/PRODUCTION_READINESS.md`'s still-open findings).
-Phases 15-16 are complete. From Phase 17 the roadmap pivots the CRM to
+Phases 15-17 are complete. From Phase 17 the roadmap pivots the CRM to
 the owner's exterior home-services business (service catalog, quotes,
 crew-scheduled jobs, invoicing, follow-up automation, team messaging,
 mobile-first PWA) — see `docs/decisions/0008-roles-and-row-level-scoping.md`
@@ -106,14 +106,16 @@ insufficient.
       a headless-Chromium check found zero violations against admin
       and, after a Sourcery-caught fix, the production 500 page too;
       full detail in `logs/claude/phase-16-csp.md`.
-- [ ] **Phase 17 — Field-service foundation.** Three units, each its
-      own PR: (1) design system, mobile-first app shell, Owner / Sales
-      Rep / Cleaner roles enforced server-side, PWA baseline; (2) data
-      model (service catalog, properties, quotes, jobs, crews, invoices,
-      messaging), Lead → Contact / Deal → Quote data migration,
-      follow-up generator, `seed_demo` command; (3) every page —
-      Dashboard, Financials, Calendar, Contacts, Tasks hub, Profile,
-      Messages — as functional skeletons on seeded data.
+- [x] **Phase 17 — Field-service foundation.** Three units: (1) design
+      system, mobile-first app shell, Owner / Sales Rep / Cleaner roles
+      enforced server-side, PWA baseline; (2) data model (service
+      catalog, properties, quotes, jobs, crews, invoices, messaging),
+      Lead → Contact / Deal → Quote data migration, follow-up
+      generator, `seed_demo` command; (3) every page — Dashboard,
+      Financials, Calendar, Contacts, Tasks hub, Profile, Messages — on
+      seeded data. Done across PRs #90–#104 (unit 2 and unit 3 each
+      split into smaller PRs to stay reviewable); full detail in
+      `logs/claude/phase-17-*.md`.
 - [ ] **Phase 18 — Quotes and jobs workflow.** Quote builder (catalog
       line items, photos), status transitions, accepted quote → job,
       scheduling and crew assignment, calendar drag-to-reschedule (with

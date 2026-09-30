@@ -63,7 +63,8 @@ the Owner's team view). Completes "every page visible on seeded data".
 
 ## Verification
 
-$ `manage.py test` — 493 tests, OK (25 net new).
+$ `manage.py test` — 493 tests, OK (25 net new); 494 after the
+  self-review's regression test.
 $ `ruff` / `ruff format --check` / `bandit` (CI flags) /
   `makemigrations --check` — clean.
 $ Dev database migrated and re-seeded; migration unapplied and
@@ -110,8 +111,8 @@ DMs involving demo users (documented).
 ## Git
 
 Branch: `feature/profile-messages`
-Commit: pending
-Merged to `main`: pending
+Commits: `dce2220` (feature), `12c411a` (self-review fix)
+Merged to `main`: PR #104, merge commit `2ccc192`
 
 ## Next
 
