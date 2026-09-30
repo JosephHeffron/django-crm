@@ -1,19 +1,8 @@
 from django import forms
 
-from .models import ServiceType
+from apps.users.forms import TONE_CHOICES
 
-TONE_CHOICES = [
-    (1, "Blue"),
-    (2, "Green"),
-    (3, "Yellow"),
-    (4, "Red"),
-    (5, "Purple"),
-    (6, "Teal"),
-    (7, "Orange"),
-    (8, "Pink"),
-    (9, "Gray"),
-    (10, "Olive"),
-]
+from .models import ServiceType
 
 
 class ServiceTypeForm(forms.ModelForm):

@@ -55,12 +55,12 @@ from apps.jobs.models import (
     ServiceType,
 )
 from apps.messaging.models import Channel, ChannelMembership, Message
+from apps.messaging.services import direct_channel, visible_channels
 from apps.users.models import get_profile
 from apps.users.roles import Role
 
 User = get_user_model()
 DEMO_PREFIX = "demo_"
-DM_PREFIX = "dm-demo-"
 
 # username, first, last, role, title, calendar tone
 DEMO_USERS = [
@@ -195,7 +195,12 @@ def remove_demo_data():
     demo_jobs = Job.objects.filter(created_by__in=demo_users)
 
     Message.objects.filter(author_user__in=demo_users).delete()
-    Channel.objects.filter(slug__startswith=DM_PREFIX).delete()
+    # Direct messages with a demo user (including any a real user started
+    # with one) go with the demo.
+    Channel.objects.filter(
+        kind=Channel.Kind.DIRECT,
+        pk__in=ChannelMembership.objects.filter(user__in=demo_users).values("channel_id"),
+    ).delete()
     Payment.objects.filter(invoice__job__in=demo_jobs).delete()
     Invoice.objects.filter(job__in=demo_jobs).delete()
     Task.objects.filter(created_by__in=demo_users).delete()
@@ -686,14 +691,14 @@ class DemoSeeder:
         for slug, (templates, authors) in plan.items():
             channel = Channel.objects.get(slug=slug)
             self.post_thread(channel, templates, authors, jobs, count=12)
-            self.join(channel, people)
-        for a, b in ((self.owner, self.reps[0]), (self.crew[0], self.crew[1])):
-            channel = Channel.objects.create(
-                name=f"{a.first_name} & {b.first_name}",
-                slug=f"{DM_PREFIX}{a.pk}-{b.pk}",
-                kind=Channel.Kind.DIRECT,
-                created_by=a,
+            # Only people who can read it (#sales is Owner and sales reps).
+            self.join(
+                channel, [p for p in people if visible_channels(p).filter(pk=channel.pk).exists()]
             )
+        for a, b in ((self.owner, self.reps[0]), (self.crew[0], self.crew[1])):
+            # The app's own helper, so opening this DM in the app finds
+            # this channel rather than starting a second one.
+            channel = direct_channel(a, b)
             self.post_thread(
                 channel,
                 ["Can you cover {contact} on Friday?", "Yep, I've got it.", "Thanks!"],
@@ -704,6 +709,8 @@ class DemoSeeder:
             self.join(channel, [a, b])
 
     def post_thread(self, channel, templates, authors, jobs, count):
+        # Oldest first, so posting order and timestamps agree.
+        hours_ago = sorted((self.rng.randint(1, 240) for _ in range(count)), reverse=True)
         for index in range(count):
             contact = self.rng.choice(self.customers)
             job = self.rng.choice(jobs) if jobs else None
@@ -717,7 +724,7 @@ class DemoSeeder:
                 ref_job=job if channel.slug == "crew" and self.rng.random() < 0.4 else None,
             )
             Message.objects.filter(pk=message.pk).update(
-                created_at=self.now - timedelta(hours=(count - index) * self.rng.randint(4, 18))
+                created_at=self.now - timedelta(hours=hours_ago[index])
             )
 
     def join(self, channel, users):
@@ -725,6 +732,6 @@ class DemoSeeder:
         for user in users:
             unread = self.rng.randint(0, 4)
             last_read = ordered[-1 - unread] if len(ordered) > unread else None
-            ChannelMembership.objects.get_or_create(
+            ChannelMembership.objects.update_or_create(
                 channel=channel, user=user, defaults={"last_read_message": last_read}
             )

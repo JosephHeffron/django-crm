@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+
+{% block title %}Team{% endblock %}
+
+{% block content %}
+  <p><a href="{% url 'people:profile' %}">← Profile</a></p>
+  <div class="page-header">
+    <div>
+      <h1>Team</h1>
+      <p class="page-subtitle">Everyone with an active account. Roles are set in the admin.</p>
+    </div>
+  </div>
+  <div class="table-responsive card card-flush">
+    <table class="data-table stack-mobile">
+      <thead><tr><th>Name</th><th>Role</th><th>Title</th><th>Phone</th></tr></thead>
+      <tbody>
+        {% for person, role in team %}
+          <tr>
+            <td data-label="Name"><a href="{% url 'people:member' person.username %}">{{ person.get_full_name|default:person.username }}</a></td>
+            <td data-label="Role">{% if role %}{{ role }}{% else %}<span class="badge badge-warning">No role</span>{% endif %}</td>
+            <td data-label="Title">{{ person.profile.title|default:"—" }}</td>
+            <td data-label="Phone">{% if person.profile.phone %}<a href="tel:{{ person.profile.phone }}">{{ person.profile.phone }}</a>{% else %}—{% endif %}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+{% endblock %}

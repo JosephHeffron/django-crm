@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% load crm_format %}
+
+{% block title %}{% if is_self %}Profile{% else %}{{ person.get_full_name|default:person.username }}{% endif %}{% endblock %}
+
+{% block content %}
+  {% if not is_self %}<p><a href="{% url 'people:team' %}">← Team</a></p>{% endif %}
+  <div class="page-header">
+    <div class="cluster">
+      <span class="avatar avatar-lg tone-{{ person_profile.calendar_tone }}" aria-hidden="true">{% if person.first_name and person.last_name %}{{ person.first_name|slice:":1"|upper }}{{ person.last_name|slice:":1"|upper }}{% else %}{{ person.username|slice:":2"|upper }}{% endif %}</span>
+      <div>
+        <h1>{{ person.get_full_name|default:person.username }}</h1>
+        <p class="page-subtitle">{{ person_profile.title|default:person_role|default:"No role" }}{% if person_profile.title and person_role and person_profile.title != person_role.value %} · {{ person_role }}{% endif %}</p>
+      </div>
+    </div>
+    <div class="page-actions">
+      {% if is_self %}
+        <a class="btn btn-secondary" href="{% url 'people:profile_edit' %}">Edit profile</a>
+        <a class="btn btn-secondary" href="{% url 'users:password_change' %}">Change password</a>
+        {% if nav.role == "Owner" %}<a class="btn btn-secondary" href="{% url 'people:team' %}">Team</a>{% endif %}
+      {% else %}
+        <a class="btn btn-secondary" href="{% url 'messaging:direct' person.username %}">Message</a>
+      {% endif %}
+    </div>
+  </div>
+
+  <section class="card">
+    <dl>
+      <dt>Phone</dt>
+      <dd>{% if person_profile.phone %}<a href="tel:{{ person_profile.phone }}">{{ person_profile.phone }}</a>{% else %}—{% endif %}</dd>
+      <dt>Email</dt>
+      <dd>{% if person.email %}<a href="mailto:{{ person.email }}">{{ person.email }}</a>{% else %}—{% endif %}</dd>
+      <dt>Username</dt>
+      <dd>{{ person.username }}</dd>
+    </dl>
+  </section>
+
+  {% if crew or sales %}
+    <nav class="tabs section-gap" aria-label="Stats window">
+      {% for window in windows %}
+        <a class="tab" href="?days={{ window }}"{% if window == days %} aria-current="page"{% endif %}>Last {{ window }} days</a>
+      {% endfor %}
+    </nav>
+  {% endif %}
+
+  {% if crew %}
+    <h2>Field work</h2>
+    <div class="stat-grid">
+      <div class="stat-card"><div class="stat-label">Jobs completed</div><div class="stat-value">{{ crew.jobs_completed }}</div></div>
+      <div class="stat-card"><div class="stat-label">Hours logged</div><div class="stat-value">{{ crew.hours|floatformat:"-1" }}</div><div class="stat-meta">{{ crew.hours_per_week|floatformat:"-1" }} per week</div></div>
+      <div class="stat-card"><div class="stat-label">Average job</div><div class="stat-value">{{ crew.average_job_value|money }}</div></div>
+      <div class="stat-card"><div class="stat-label">Customer rating</div><div class="stat-value">{% if crew.average_rating %}{{ crew.average_rating|floatformat:1 }} / 5{% else %}—{% endif %}</div></div>
+      <div class="stat-card"><div class="stat-label">Upcoming jobs</div><div class="stat-value">{{ crew.upcoming }}</div></div>
+    </div>
+  {% endif %}
+
+  {% if sales %}
+    <h2>Sales</h2>
+    <div class="stat-grid">
+      <div class="stat-card"><div class="stat-label">Quotes sent</div><div class="stat-value">{{ sales.quotes_sent }}</div><div class="stat-meta">{{ sales.open_quotes }} open now</div></div>
+      <div class="stat-card"><div class="stat-label">Close rate</div><div class="stat-value">{% if sales.close_rate is not None %}{{ sales.close_rate }}%{% else %}—{% endif %}</div><div class="stat-meta">{{ sales.won }} won of {{ sales.decided }} decided</div></div>
+      <div class="stat-card"><div class="stat-label">Value won</div><div class="stat-value">{{ sales.value_won|money }}</div><div class="stat-meta">Accepted quotes</div></div>
+      <div class="stat-card"><div class="stat-label">Follow-ups done</div><div class="stat-value">{{ sales.follow_ups_completed }}</div></div>
+    </div>
+  {% endif %}
+{% endblock %}

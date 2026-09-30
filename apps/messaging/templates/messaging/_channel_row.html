@@ -1,0 +1,10 @@
+<li>
+  <a class="channel-row{% if channel.unread %} has-unread{% endif %}" href="{% url 'messaging:channel' channel.slug %}">
+    <span class="channel-name">{{ channel.title }}</span>
+    {% if channel.topic %}<span class="channel-topic">{{ channel.topic }}</span>{% endif %}
+    <span class="channel-meta">
+      {% if channel.last_message_at %}<span class="muted">{{ channel.last_message_at|date:"M j, g:i A" }}</span>{% endif %}
+      {% if channel.unread %}<span class="badge badge-info">{{ channel.unread }} unread</span>{% endif %}
+    </span>
+  </a>
+</li>

@@ -4,19 +4,20 @@ first.
 
 Each source is capped at TIMELINE_LIMIT before merging, so the merged
 list's top TIMELINE_LIMIT is exact without loading unbounded history.
-Messages are limited to channels the viewer may read (public channels
-and ones they belong to): a direct message between two other people
-must not leak onto a contact page.
+Messages are limited to channels the viewer may read
+(apps/messaging/services.visible_channels): a direct message between
+two other people must not leak onto a contact page.
 """
 
 from dataclasses import dataclass
 from datetime import datetime
 
-from django.db.models import OuterRef, Q, Subquery
+from django.db.models import OuterRef, Subquery
 from django.utils import timezone
 
 from apps.jobs.models import Job
-from apps.messaging.models import Channel, Message
+from apps.messaging.models import Message
+from apps.messaging.services import visible_channels
 
 from .models import Activity
 
@@ -32,12 +33,6 @@ class TimelineEntry:
     url: str = ""
     detail: str = ""
     by: str = ""  # who, as a display name
-
-
-def readable_channels(user):
-    return Channel.objects.filter(Q(kind=Channel.Kind.PUBLIC) | Q(memberships__user=user)).values(
-        "pk"
-    )
 
 
 def _person(user):
@@ -97,7 +92,9 @@ def contact_timeline(contact, viewer, limit=TIMELINE_LIMIT):
         for note in contact.note_set.select_related("author").order_by("-created_at")[:limit]
     ]
     messages = (
-        Message.objects.filter(ref_contact=contact, channel_id__in=readable_channels(viewer))
+        Message.objects.filter(
+            ref_contact=contact, channel_id__in=visible_channels(viewer).values("pk")
+        )
         .select_related("channel", "author_user", "author_contact")
         .order_by("-created_at", "-pk")[:limit]
     )

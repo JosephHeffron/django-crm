@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+
+{% block title %}Messages{% endblock %}
+
+{% block content %}
+  <div class="page-header">
+    <div>
+      <h1>Messages</h1>
+      <p class="page-subtitle">Team channels and direct messages.</p>
+    </div>
+  </div>
+
+  <div class="grid-2">
+    <section class="card">
+      <h2 class="card-title">Channels</h2>
+      <ul class="channel-list">
+        {% for channel in public_channels %}
+          {% include "messaging/_channel_row.html" %}
+        {% empty %}
+          <li class="muted">No channels yet.</li>
+        {% endfor %}
+      </ul>
+    </section>
+
+    <section class="card">
+      <h2 class="card-title">Direct messages</h2>
+      {% if direct_channels %}
+        <ul class="channel-list">
+          {% for channel in direct_channels %}{% include "messaging/_channel_row.html" %}{% endfor %}
+        </ul>
+      {% else %}
+        <p class="muted">No direct messages yet.</p>
+      {% endif %}
+      {% if teammates %}
+        <details class="section-gap">
+          <summary>Message someone</summary>
+          <ul class="list-plain">
+            {% for person in teammates %}
+              <li><a href="{% url 'messaging:direct' person.username %}">{{ person.get_full_name|default:person.username }}</a></li>
+            {% endfor %}
+          </ul>
+        </details>
+      {% endif %}
+    </section>
+  </div>
+{% endblock %}

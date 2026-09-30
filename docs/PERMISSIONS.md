@@ -121,6 +121,15 @@ today.
 
 ## Field-service pages (Phase 17 unit 3)
 
+Messages: a public channel's `audience` decides who may read and post
+(everyone, or the Owner and sales reps); a direct channel is readable
+only by its two members — the Owner included. Every list, count, and
+page goes through `apps/messaging/services.visible_channels()`, so the
+unread badge, the channel list, a contact's timeline, and the channel
+URL agree. Posting also requires `messaging.add_message`. Editing your
+own profile needs only a role (self-service, like changing your
+password).
+
 A contact's timeline includes team messages that mention them only from
 channels the viewer can read (public channels and ones they're a
 member of), so a direct message never leaks onto a contact page.
@@ -132,6 +141,9 @@ member of), so a direct message never leaks onto a contact page.
 | Job (`/jobs/<id>/`) | yes, with prices and invoices | yes, with prices | only if assigned (else 404); customer name, phone, address, work — no prices |
 | Quote (`/quotes/<id>/`) | yes | yes | 403 |
 | Financials (`/financials/`) | yes | 403 | 403 |
+| Messages (`/messages/`) | #general, #crew, #sales, own DMs | #general, #crew, #sales, own DMs | #general, #crew, own DMs (#sales → 404) |
+| Profile (`/profile/`, edit) | own | own | own |
+| Team (`/team/`, a teammate's profile) | yes | 403 | 403 |
 | Services (`/settings/services/`) | view and edit | 403 | 403 |
 | Contacts (`/contacts/`, a contact's page) | yes | yes | 403 |
 | Tasks hub (`/tasks/`: tasks, follow-ups, quotes, plans, notes) | yes | yes | 403 |

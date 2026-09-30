@@ -466,8 +466,10 @@ Channel 1──* ChannelMembership *──1 User;  Channel 1──* Message
   recorded_by.
 - **Expense**: date, amount, category, description, recorded_by.
 - **Channel** (`apps.messaging`): name, slug (unique), kind
-  (public/direct; `customer_sms` reserved), contact? (reserved for SMS),
-  is_archived. **ChannelMembership**: channel, user, last_read_message?;
+  (public/direct; `customer_sms` reserved), audience (everyone / sales —
+  who may read a public channel; #sales is sales-only, messaging/0003),
+  contact? (reserved for SMS), is_archived. A direct channel's slug is
+  `dm-<lower pk>-<higher pk>`, one per pair. **ChannelMembership**: channel, user, last_read_message?;
   unique (channel, user). **Message**: channel (CASCADE), author_user?,
   author_contact? (CheckConstraint: at least one), body, transport
   (internal/sms), direction (internal/inbound/outbound), external_id,

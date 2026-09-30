@@ -1574,3 +1574,140 @@ progress::-moz-progress-bar {
   color: var(--color-danger);
   font-weight: var(--weight-semibold);
 }
+
+/* ---------- Unread badge, profile, messages ---------- */
+
+.nav-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.25rem;
+  height: 1.25rem;
+  margin-left: auto;
+  padding: 0 var(--space-1);
+  border-radius: var(--radius-full);
+  background: var(--color-danger);
+  color: #ffffff;
+  font-size: var(--text-xs);
+  font-weight: var(--weight-bold);
+  line-height: 1;
+}
+
+.bottom-link {
+  position: relative;
+}
+
+/* On the phone bar the badge sits on the icon's corner. */
+.bottom-link .nav-badge {
+  position: absolute;
+  top: var(--space-1);
+  left: 50%;
+  margin-left: 0.5rem;
+}
+
+.avatar.avatar-lg {
+  width: 3.5rem;
+  height: 3.5rem;
+  font-size: var(--text-lg);
+}
+
+.avatar[class*="tone-"] {
+  background: var(--tone-bg);
+  color: var(--tone-fg);
+}
+
+.channel-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.channel-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0 var(--space-3);
+  padding: var(--space-3) 0;
+  border-bottom: 1px solid var(--color-border);
+  color: var(--color-text);
+  text-decoration: none;
+}
+
+.channel-list > li:last-child .channel-row {
+  border-bottom: none;
+}
+
+.channel-row:hover .channel-name {
+  text-decoration: underline;
+}
+
+.channel-name {
+  font-weight: var(--weight-semibold);
+  color: var(--color-link);
+}
+
+.channel-row.has-unread .channel-name {
+  font-weight: var(--weight-bold);
+}
+
+.channel-topic {
+  grid-column: 1;
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+}
+
+.channel-meta {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--space-1);
+  font-size: var(--text-xs);
+}
+
+.chat-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.chat-message {
+  padding: var(--space-3) 0;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.chat-message:last-child {
+  border-bottom: none;
+}
+
+.chat-message.is-mine .timeline-meta strong {
+  color: var(--color-link);
+}
+
+.chat-body {
+  overflow-wrap: anywhere;
+}
+
+.chat-refs {
+  margin-top: var(--space-1);
+}
+
+.chat-refs a.badge {
+  text-decoration: none;
+}
+
+.chat-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--space-2);
+}
+
+.chat-form textarea {
+  flex: 1 1 16rem;
+  margin: 0;
+}
+
+.chat-form .errorlist {
+  flex-basis: 100%;
+}

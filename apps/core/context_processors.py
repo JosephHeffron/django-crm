@@ -1,5 +1,8 @@
 from django.conf import settings
 
+from apps.messaging.services import unread_count
+from apps.users.roles import user_role
+
 from .navigation import build_navigation
 
 
@@ -14,5 +17,6 @@ def app_shell(request):
     if user is None or not user.is_authenticated:
         return context
     match = getattr(request, "resolver_match", None)
-    context["nav"] = build_navigation(user, getattr(match, "view_name", "") or "")
+    badges = {"unread_messages": unread_count(user)} if user_role(user) else {}
+    context["nav"] = build_navigation(user, getattr(match, "view_name", "") or "", badges)
     return context

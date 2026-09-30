@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+  <p><a href="{% url 'messaging:home' %}">← Messages</a></p>
+  <div class="page-header">
+    <div>
+      <h1>{{ title }}</h1>
+      {% if channel.topic %}<p class="page-subtitle">{{ channel.topic }}</p>{% endif %}
+    </div>
+  </div>
+
+  <section class="card chat">
+    {% if older_url %}<p><a href="{{ older_url }}">Older messages</a></p>{% endif %}
+    {% if chat_messages %}
+      <ol class="chat-list">
+        {% for message in chat_messages %}
+          <li class="chat-message{% if message.author_user_id == request.user.pk %} is-mine{% endif %}"{% if forloop.last %} id="latest"{% endif %}>
+            <div class="timeline-meta">
+              <strong>{% if message.author_user %}{{ message.author_user.get_full_name|default:message.author_user.username }}{% else %}{{ message.author_contact }}{% endif %}</strong>
+              <span>{{ message.created_at|date:"M j, g:i A" }}</span>
+            </div>
+            <div class="chat-body">{{ message.body|linebreaksbr }}</div>
+            {% if message.show_job_link or message.ref_contact and is_sales or message.ref_quote and is_sales %}
+              <div class="cluster chat-refs">
+                {% if message.show_job_link %}<a class="badge badge-info" href="{{ message.ref_job.get_absolute_url }}">{{ message.ref_job.number }}</a>{% endif %}
+                {% if message.ref_contact and is_sales %}<a class="badge" href="{{ message.ref_contact.get_absolute_url }}">{{ message.ref_contact }}</a>{% endif %}
+                {% if message.ref_quote and is_sales %}<a class="badge" href="{{ message.ref_quote.get_absolute_url }}">{{ message.ref_quote.number }}</a>{% endif %}
+              </div>
+            {% endif %}
+          </li>
+        {% endfor %}
+      </ol>
+    {% else %}
+      <p class="muted">No messages yet — say hello.</p>
+    {% endif %}
+  </section>
+
+  {% if can_post %}
+    <form method="post" class="card section-gap chat-form">
+      {% csrf_token %}
+      {{ form.body.errors }}
+      <label for="{{ form.body.id_for_label }}" class="sr-only">{{ form.body.label }}</label>
+      {{ form.body }}
+      <button type="submit">Send</button>
+    </form>
+    <p class="muted">New messages show up when you reload the page — automatic updates are coming.</p>
+  {% endif %}
+{% endblock %}

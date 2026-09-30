@@ -20,7 +20,8 @@ What you can see depends on your **role**, which the owner assigns:
   companies), tasks, and search. No revenue figures.
 - **Cleaner** — your own schedule: the dashboard and calendar show only
   the jobs you're assigned to, and a job page shows the customer's name,
-  phone, and address and the work to do (no prices).
+  phone, and address and the work to do (no prices). On a phone your
+  bottom bar is Dashboard, Calendar, Messages, and Profile.
 
 If your dashboard says **"No role assigned yet"**, or you get a
 "permission denied" (403) page, your account doesn't have the role that
@@ -207,6 +208,37 @@ Use **Complete** on a task (a one-click action, separate from editing
 it) rather than editing its status by hand — it also stamps a
 completed-at time. A cancelled task can't be completed by mistake
 through this button; the form guards against it.
+
+## Messages
+
+**Messages** holds the team channels — **#general** for everyone,
+**#crew** for schedules and site notes, and **#sales** for quotes and
+leads (Owner and sales reps only) — plus direct messages. The red
+number on **Messages** in the menu is how many you haven't read; a
+channel you've never opened counts in full until you do. Opening a
+channel marks it read.
+
+Type in the box at the bottom and **Send**. To message one person,
+open **Message someone** on the Messages page (or **Message** on their
+profile). A direct message is private to the two of you — not even the
+Owner can read it. New messages appear when you reload the page for
+now; automatic updates come in a later update.
+
+## Profile and team
+
+**Profile** shows your details and your numbers for the last 30, 90, or
+365 days:
+
+- **Field work** (crew): jobs completed, hours logged and per week,
+  average job value, average customer rating, upcoming jobs.
+- **Sales** (Owner and sales reps): quotes sent, close rate (won out of
+  quotes that were accepted, declined, or expired), value of accepted
+  quotes, follow-ups done.
+
+**Edit profile** changes your name, email, title, phone, and your
+calendar color. The Owner also sees **Team** — everyone's role, title,
+and phone — and can open anyone's profile and stats. Roles themselves
+are still set in the admin.
 
 ## What's not here yet
 
