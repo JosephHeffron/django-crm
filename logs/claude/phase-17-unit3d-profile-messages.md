@@ -89,6 +89,24 @@ $ Playwright: Owner, Sales Rep, Cleaner × phone and desktop × 10
   404 — that was Django's DEBUG technical 404 page; the real 404 page
   passes under production settings.
 
+## Review
+
+Sourcery skipped PR #104 (weekly budget exhausted), so a self-review of
+the full diff. One defect, fixed in a follow-up commit on the PR with a
+regression test that fails on the old code:
+
+- The "people you can message" list only included members of a role
+  group, but a superuser counts as Owner without one — so a superuser
+  owner (the typical first account) couldn't be sent a direct message.
+  Superusers are now included.
+
+Also checked: every messaging entry point goes through
+`visible_channels()` (archived and unreadable channels 404, including
+on POST); anonymous → login and no-role → 403 before any channel
+lookup; the per-page unread count ignores the list's prefetch;
+profile editing is limited to the signed-in user; seed reset deletes
+DMs involving demo users (documented).
+
 ## Git
 
 Branch: `feature/profile-messages`

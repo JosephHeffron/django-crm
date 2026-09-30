@@ -5,6 +5,7 @@ with a form, see new messages on the next page load. Automatic updates
 
 from django.contrib.auth import get_user_model
 from django.core.exceptions import PermissionDenied
+from django.db.models import Q
 from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse
 from django.views.generic import TemplateView
@@ -21,9 +22,11 @@ PAGE_SIZE = 50
 
 
 def _teammates(user):
-    """Active users with a role, for starting a direct message."""
+    """Active users with a role, for starting a direct message. A
+    superuser counts as Owner (user_role) even outside the Owner group."""
     return (
-        User.objects.filter(is_active=True, groups__name__in=[r.value for r in ALL_ROLES])
+        User.objects.filter(is_active=True)
+        .filter(Q(groups__name__in=[r.value for r in ALL_ROLES]) | Q(is_superuser=True))
         .exclude(pk=user.pk)
         .distinct()
         .order_by("first_name", "last_name", "username")

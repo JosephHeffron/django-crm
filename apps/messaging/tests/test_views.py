@@ -135,6 +135,15 @@ class DirectMessageTests(MessagingTestCase):
                 username,
             )
 
+    def test_a_superuser_outside_the_owner_group_can_be_messaged(self):
+        f.user("admin", is_superuser=True, first_name="Admin")
+        self.login(self.crew)
+        self.assertContains(
+            self.client.get(reverse("messaging:home")), reverse("messaging:direct", args=["admin"])
+        )
+        response = self.client.get(reverse("messaging:direct", args=["admin"]))
+        self.assertEqual(response.status_code, 302)
+
     def test_per_channel_unread_uses_my_marker(self):
         seen = self.post_message(self.general, self.rep)
         self.post_message(self.general, self.rep)
