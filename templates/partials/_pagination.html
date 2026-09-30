@@ -1,8 +1,43 @@
-{% comment %}Keeps every current filter: {% querystring %} rewrites only "page".{% endcomment %}
-{% if is_paginated %}
+{% comment %}
+  "Showing 1–10 of N entries" · ‹ 1 2 … 9 › · "25 / page". Every current
+  filter is kept: {% querystring %} rewrites only the page, and the page-
+  size form carries the other query values as hidden fields. Page-size
+  choice needs apps/core/pagination.PerPageMixin on the view.
+{% endcomment %}
+{% load crm_format %}
+{% if page_obj %}
   <nav class="pagination" aria-label="Pages">
-    {% if page_obj.has_previous %}<a href="{% querystring page=page_obj.previous_page_number %}">Previous</a>{% endif %}
-    <span>Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
-    {% if page_obj.has_next %}<a href="{% querystring page=page_obj.next_page_number %}">Next</a>{% endif %}
+    <span>Showing {{ page_obj.start_index }}–{{ page_obj.end_index }} of {{ page_obj.paginator.count }} entr{{ page_obj.paginator.count|pluralize:"y,ies" }}</span>
+    <div class="pagination-pages">
+      {% if page_obj.has_previous %}
+        <a class="page-link" href="{% querystring page=page_obj.previous_page_number %}" aria-label="Previous page">‹</a>
+      {% else %}
+        <span class="page-link is-disabled" aria-hidden="true">‹</span>
+      {% endif %}
+      {% for number in page_obj.paginator|elided_page_range:page_obj.number %}
+        {% if number == page_obj.paginator.ELLIPSIS %}
+          <span class="page-link is-disabled">{{ number }}</span>
+        {% elif number == page_obj.number %}
+          <span class="page-link" aria-current="page">{{ number }}</span>
+        {% else %}
+          <a class="page-link" href="{% querystring page=number %}">{{ number }}</a>
+        {% endif %}
+      {% endfor %}
+      {% if page_obj.has_next %}
+        <a class="page-link" href="{% querystring page=page_obj.next_page_number %}" aria-label="Next page">›</a>
+      {% else %}
+        <span class="page-link is-disabled" aria-hidden="true">›</span>
+      {% endif %}
+      {% if per_page_choices %}
+        <form method="get" class="per-page-form">
+          {% for key, values in request.GET.lists %}{% if key != "page" and key != "per_page" %}{% for value in values %}<input type="hidden" name="{{ key }}" value="{{ value }}">{% endfor %}{% endif %}{% endfor %}
+          <label for="id_per_page" class="sr-only">Entries per page</label>
+          <select id="id_per_page" name="per_page" data-autosubmit>
+            {% for choice in per_page_choices %}<option value="{{ choice }}"{% if choice == per_page %} selected{% endif %}>{{ choice }} / page</option>{% endfor %}
+          </select>
+          <noscript><button type="submit" class="btn-sm">Go</button></noscript>
+        </form>
+      {% endif %}
+    </div>
   </nav>
 {% endif %}

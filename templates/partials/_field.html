@@ -1,0 +1,7 @@
+{% comment %}
+  One form field in the same shape as form.as_p (label, widget, help,
+  errors), so custom layouts — e.g. side by side in a .field-row — get
+  the floating-label style. Usage: {% include "partials/_field.html" with field=form.name %}
+{% endcomment %}
+<p><label for="{{ field.id_for_label }}">{{ field.label }}</label> {{ field }}{% if field.help_text %}<span class="helptext">{{ field.help_text }}</span>{% endif %}</p>
+{% if field.errors %}{{ field.errors }}{% endif %}

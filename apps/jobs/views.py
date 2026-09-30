@@ -6,6 +6,7 @@ from django.utils import timezone
 from django.utils.dateparse import parse_date
 from django.views.generic import DetailView, ListView, TemplateView, UpdateView
 
+from apps.core.pagination import PerPageMixin
 from apps.crm.hub import TasksHubMixin
 from apps.users.roles import (
     ALL_ROLES,
@@ -109,7 +110,7 @@ class JobDetailView(RoleRequiredMixin, DetailView):
 QUOTE_FILTERS = {"open": Quote.OPEN_STATUSES, **{v: (v,) for v in Quote.Status.values}}
 
 
-class QuoteListView(TasksHubMixin, SalesRoleRequiredMixin, ListView):
+class QuoteListView(TasksHubMixin, SalesRoleRequiredMixin, PerPageMixin, ListView):
     """Quotes in the Tasks hub — open (draft or sent) by default."""
 
     hub_tab = "quotes"

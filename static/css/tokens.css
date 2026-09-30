@@ -1,70 +1,121 @@
-/* Design tokens. Every color, size, and radius used by base.css comes
-   from here. Colors are chosen for WCAG AA contrast (checked by
-   scripts in the Phase 17 verification). The production CSP forbids
-   inline style attributes, so anything dynamic (service colors) is a
-   class — .tone-1 … .tone-10 — never a style="" value. */
+/* Design tokens (Phase 17.5 restyle — docs/decisions/0010). Every color,
+   size, and radius used by base.css comes from here.
+
+   - Text colors meet WCAG AA (4.5:1) on the surfaces they sit on; the
+     vivid accent colors (--accent-*) are for fills, icons, bars, and
+     borders, never small text on white.
+   - Dark mode follows the operating system unless the user picks a
+     theme: <html data-theme="light|dark"> overrides it. The dark values
+     therefore appear twice below (media query + attribute) — CSS can't
+     share one block between the two, so change both together.
+   - The production CSP forbids inline style attributes, so anything
+     dynamic (service colors, avatars) is a class, never style="". */
+
+@font-face {
+  font-family: "Inter";
+  src: url("../fonts/inter/inter-latin-wght-normal.woff2") format("woff2");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
 
 :root {
-  color-scheme: light dark;
+  color-scheme: light;
 
   /* Surfaces & text */
-  --color-bg: #f5f6f8;
+  --color-bg: #f3f4f6;
+  --color-sidebar: #fafbfc;
   --color-surface: #ffffff;
-  --color-surface-2: #eef0f3;
-  --color-border: #d6dae0;
-  --color-border-strong: #b8bec7;
-  --color-text: #1a1f26;
-  --color-text-muted: #545d69;
-  --color-overlay: rgb(15 20 25 / 45%);
+  --color-surface-2: #f1f4f8;
+  --color-surface-3: #f8fafc;
+  --color-border: #e5e7eb;
+  --color-border-strong: #cbd5e1;
+  --color-text: #111827;
+  --color-text-muted: #5b6474;
+  --color-overlay: rgb(15 23 42 / 45%);
 
-  /* Brand & status */
-  --color-primary: #1b5cb4;
-  --color-primary-hover: #154a92;
-  --color-primary-soft: #e2ecfa;
-  --color-primary-soft-text: #154a92;
+  /* Brand & status (text-safe shades) */
+  --color-primary: #2563eb;
+  --color-primary-hover: #1d4ed8;
+  --color-primary-soft: #e5ebfa;
+  --color-primary-soft-text: #1d4ed8;
   --color-on-primary: #ffffff;
   /* Link/accent text is separate from the button fill: in dark mode
      text on a dark surface must be light, while a button under white
      text must stay dark. */
-  --color-link: #1b5cb4;
-  --color-link-hover: #154a92;
-  --color-success: #1a7f37;
-  --color-success-soft: #dcf5e3;
-  --color-success-soft-text: #11622a;
-  --color-warning: #9a6700;
-  --color-warning-soft: #fdf2c7;
-  --color-warning-soft-text: #7a4f00;
-  --color-danger: #c62531;
-  --color-danger-soft: #fde6e6;
-  --color-danger-soft-text: #9c1621;
-  --focus-ring: 0 0 0 3px rgb(27 92 180 / 45%);
+  --color-link: #2563eb;
+  --color-link-hover: #1d4ed8;
+  --color-success: #157a3a;
+  --color-success-soft: #e8f5e9;
+  --color-success-soft-text: #166534;
+  --color-warning: #c2410c;
+  --color-warning-soft: #fff1e6;
+  --color-warning-soft-text: #9a3412;
+  --color-danger: #c81e1e;
+  --color-danger-soft: #fee2e2;
+  --color-danger-soft-text: #991b1b;
+  --color-purple: #7b1fa2;
+  --color-purple-soft: #f5e8f7;
+  --color-teal: #00695c;
+  --color-teal-soft: #e0f2f1;
+  --color-sky: #0369a1;
+  --color-sky-soft: #e3f2fd;
+  --color-slate: #475569;
+  --color-slate-soft: #eef2f6;
+  --color-today: #e0f2fe;
+  --color-info-banner: #ebf8fe;
+  --focus-ring: 0 0 0 3px rgb(37 99 235 / 40%);
+
+  /* Vivid accents: fills, icons, chart bars, borders */
+  --accent-blue: #2563eb;
+  --accent-green: #16a34a;
+  --accent-chart-green: #2e7d32;
+  --accent-orange: #ea580c;
+  --accent-red: #dc2626;
+  --accent-purple: #9c27b0;
+  --accent-teal: #00897b;
+  --accent-sky: #0288d1;
+  --accent-slate: #64748b;
+  --accent-chart-blue: #1976d2;
+
+  /* Switch (toggle row) */
+  --switch-track-on: #bfdbfe;
+  --switch-thumb-on: #2563eb;
+
+  /* Avatars: white initials on a fill picked from the name */
+  --avatar-1: #00695c;
+  --avatar-2: #0277bd;
+  --avatar-3: #455a64;
+  --avatar-4: #c2410c;
+  --avatar-5: #c2185b;
 
   /* Service tones: soft background, readable text, solid accent */
-  --tone-1-bg: #e2ecfa; --tone-1-fg: #154a92; --tone-1-accent: #1b5cb4;
-  --tone-2-bg: #dcf5e3; --tone-2-fg: #11622a; --tone-2-accent: #1f8a41;
+  --tone-1-bg: #e2ecfa; --tone-1-fg: #154a92; --tone-1-accent: #2563eb;
+  --tone-2-bg: #dcf5e3; --tone-2-fg: #11622a; --tone-2-accent: #16a34a;
   --tone-3-bg: #fdf2c7; --tone-3-fg: #6e4700; --tone-3-accent: #b98100;
-  --tone-4-bg: #fde6e6; --tone-4-fg: #9c1621; --tone-4-accent: #d13440;
+  --tone-4-bg: #fde6e6; --tone-4-fg: #9c1621; --tone-4-accent: #dc2626;
   --tone-5-bg: #efe6fb; --tone-5-fg: #5b2a9e; --tone-5-accent: #7c45c9;
-  --tone-6-bg: #d9f3f2; --tone-6-fg: #0c5c58; --tone-6-accent: #138a84;
-  --tone-7-bg: #fde9d9; --tone-7-fg: #8a3b06; --tone-7-accent: #d4640f;
-  --tone-8-bg: #fbe4f0; --tone-8-fg: #8f1d58; --tone-8-accent: #c23a82;
-  --tone-9-bg: #e7eaee; --tone-9-fg: #3a4450; --tone-9-accent: #66717f;
+  --tone-6-bg: #d9f3f2; --tone-6-fg: #0c5c58; --tone-6-accent: #00897b;
+  --tone-7-bg: #fde9d9; --tone-7-fg: #8a3b06; --tone-7-accent: #ea580c;
+  --tone-8-bg: #fbe4f0; --tone-8-fg: #8f1d58; --tone-8-accent: #c2185b;
+  --tone-9-bg: #e7eaee; --tone-9-fg: #3a4450; --tone-9-accent: #64748b;
   --tone-10-bg: #ecf3d6; --tone-10-fg: #4a5d0e; --tone-10-accent: #6d8a13;
 
   /* Type */
-  --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+  --font-sans: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   --text-xs: 0.75rem;
   --text-sm: 0.875rem;
   --text-base: 1rem;
   --text-lg: 1.125rem;
   --text-xl: 1.25rem;
   --text-2xl: 1.5rem;
-  --text-3xl: 1.875rem;
+  --text-3xl: 1.75rem;
+  --text-4xl: 2.25rem;
   --weight-medium: 500;
   --weight-semibold: 600;
   --weight-bold: 700;
 
-  /* Space, shape, depth */
+  /* Space, shape, depth — heavily rounded, soft low shadows */
   --space-1: 0.25rem;
   --space-2: 0.5rem;
   --space-3: 0.75rem;
@@ -73,51 +124,82 @@
   --space-6: 2rem;
   --space-7: 2.5rem;
   --space-8: 3rem;
-  --radius-sm: 4px;
-  --radius: 8px;
-  --radius-lg: 12px;
+  --radius-sm: 8px;
+  --radius: 12px;
+  --radius-lg: 24px;
+  --radius-xl: 28px;
+  --radius-2xl: 40px;
+  --radius-3xl: 60px;
   --radius-full: 999px;
-  --shadow-sm: 0 1px 2px rgb(15 20 25 / 8%);
-  --shadow: 0 2px 8px rgb(15 20 25 / 10%);
-  --shadow-lg: 0 10px 30px rgb(15 20 25 / 18%);
+  --shadow-sm: 0 1px 2px rgb(16 24 40 / 4%), 0 1px 3px rgb(16 24 40 / 6%);
+  --shadow: 0 4px 16px rgb(16 24 40 / 7%);
+  --shadow-lg: 0 16px 40px rgb(16 24 40 / 14%);
 
   /* Layout. Breakpoints (CSS vars can't be used in media queries):
      phone < 768px · tablet 768–1023px · desktop ≥ 1024px */
-  --sidebar-width: 15rem;
-  --topbar-height: 3.5rem;
+  --sidebar-width: 16.75rem;
+  --sidebar-inset: 0.5rem;
+  --topbar-height: 4rem;
   --bottombar-height: 4rem;
-  --content-max: 72rem;
+  --content-max: 75rem;
   --tap-target: 44px;
 }
 
 @media (prefers-color-scheme: dark) {
-  :root {
-    --color-bg: #0e1116;
-    --color-surface: #161b22;
-    --color-surface-2: #1f2630;
-    --color-border: #303843;
-    --color-border-strong: #45505d;
-    --color-text: #e6edf3;
-    --color-text-muted: #a3adba;
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --color-bg: #0d131c;
+    --color-sidebar: #111823;
+    --color-surface: #161e2a;
+    --color-surface-2: #1d2735;
+    --color-surface-3: #1a2330;
+    --color-border: #2a3545;
+    --color-border-strong: #3d4a5e;
+    --color-text: #e6ebf2;
+    --color-text-muted: #a0abbb;
     --color-overlay: rgb(0 0 0 / 60%);
 
-    --color-primary: #2a64c4;
-    --color-primary-hover: #1f55ad;
-    --color-primary-soft: #1a2b44;
-    --color-primary-soft-text: #a8c9f5;
+    --color-primary: #2563eb;
+    --color-primary-hover: #1d4ed8;
+    --color-primary-soft: #1c2b47;
+    --color-primary-soft-text: #a9c7ff;
     --color-on-primary: #ffffff;
-    --color-link: #7cb0f2;
-    --color-link-hover: #a8c9f5;
-    --color-success: #3fb95f;
-    --color-success-soft: #13301d;
-    --color-success-soft-text: #8ddca0;
-    --color-warning: #d9a21b;
-    --color-warning-soft: #33280b;
-    --color-warning-soft-text: #f1cd6b;
-    --color-danger: #f0616b;
-    --color-danger-soft: #3a1618;
-    --color-danger-soft-text: #f7a6ab;
-    --focus-ring: 0 0 0 3px rgb(91 149 230 / 55%);
+    --color-link: #82b1ff;
+    --color-link-hover: #a9c7ff;
+    --color-success: #4ade80;
+    --color-success-soft: #122c1c;
+    --color-success-soft-text: #86efac;
+    --color-warning: #fb923c;
+    --color-warning-soft: #3a2213;
+    --color-warning-soft-text: #fdba74;
+    --color-danger: #f87171;
+    --color-danger-soft: #3b1719;
+    --color-danger-soft-text: #fca5a5;
+    --color-purple: #e1a6f0;
+    --color-purple-soft: #2e1935;
+    --color-teal: #5eead4;
+    --color-teal-soft: #0f2e2b;
+    --color-sky: #7dd3fc;
+    --color-sky-soft: #0c2a3c;
+    --color-slate: #cbd5e1;
+    --color-slate-soft: #243041;
+    --color-today: #13304a;
+    --color-info-banner: #10283a;
+    --focus-ring: 0 0 0 3px rgb(130 177 255 / 50%);
+
+    --accent-blue: #3b82f6;
+    --accent-green: #22c55e;
+    --accent-chart-green: #4caf50;
+    --accent-orange: #f97316;
+    --accent-red: #ef4444;
+    --accent-purple: #c060d8;
+    --accent-teal: #14b8a6;
+    --accent-sky: #38bdf8;
+    --accent-slate: #94a3b8;
+    --accent-chart-blue: #60a5fa;
+
+    --switch-track-on: #1e40af;
+    --switch-thumb-on: #93c5fd;
 
     --tone-1-bg: #1a2b44; --tone-1-fg: #a8c9f5; --tone-1-accent: #5b95e6;
     --tone-2-bg: #13301d; --tone-2-fg: #8ddca0; --tone-2-accent: #3fb95f;
@@ -130,10 +212,82 @@
     --tone-9-bg: #262d36; --tone-9-fg: #c3cbd5; --tone-9-accent: #8a96a5;
     --tone-10-bg: #26300e; --tone-10-fg: #c6dc86; --tone-10-accent: #97b83a;
 
-    --shadow-sm: 0 1px 2px rgb(0 0 0 / 40%);
-    --shadow: 0 2px 8px rgb(0 0 0 / 45%);
-    --shadow-lg: 0 10px 30px rgb(0 0 0 / 55%);
+    --shadow-sm: 0 1px 2px rgb(0 0 0 / 35%);
+    --shadow: 0 4px 16px rgb(0 0 0 / 40%);
+    --shadow-lg: 0 16px 40px rgb(0 0 0 / 55%);
   }
+}
+
+/* The same dark values, chosen explicitly (keep in sync with above). */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --color-bg: #0d131c;
+  --color-sidebar: #111823;
+  --color-surface: #161e2a;
+  --color-surface-2: #1d2735;
+  --color-surface-3: #1a2330;
+  --color-border: #2a3545;
+  --color-border-strong: #3d4a5e;
+  --color-text: #e6ebf2;
+  --color-text-muted: #a0abbb;
+  --color-overlay: rgb(0 0 0 / 60%);
+
+  --color-primary: #2563eb;
+  --color-primary-hover: #1d4ed8;
+  --color-primary-soft: #1c2b47;
+  --color-primary-soft-text: #a9c7ff;
+  --color-on-primary: #ffffff;
+  --color-link: #82b1ff;
+  --color-link-hover: #a9c7ff;
+  --color-success: #4ade80;
+  --color-success-soft: #122c1c;
+  --color-success-soft-text: #86efac;
+  --color-warning: #fb923c;
+  --color-warning-soft: #3a2213;
+  --color-warning-soft-text: #fdba74;
+  --color-danger: #f87171;
+  --color-danger-soft: #3b1719;
+  --color-danger-soft-text: #fca5a5;
+  --color-purple: #e1a6f0;
+  --color-purple-soft: #2e1935;
+  --color-teal: #5eead4;
+  --color-teal-soft: #0f2e2b;
+  --color-sky: #7dd3fc;
+  --color-sky-soft: #0c2a3c;
+  --color-slate: #cbd5e1;
+  --color-slate-soft: #243041;
+  --color-today: #13304a;
+  --color-info-banner: #10283a;
+  --focus-ring: 0 0 0 3px rgb(130 177 255 / 50%);
+
+  --accent-blue: #3b82f6;
+  --accent-green: #22c55e;
+  --accent-chart-green: #4caf50;
+  --accent-orange: #f97316;
+  --accent-red: #ef4444;
+  --accent-purple: #c060d8;
+  --accent-teal: #14b8a6;
+  --accent-sky: #38bdf8;
+  --accent-slate: #94a3b8;
+  --accent-chart-blue: #60a5fa;
+
+  --switch-track-on: #1e40af;
+  --switch-thumb-on: #93c5fd;
+
+  --tone-1-bg: #1a2b44; --tone-1-fg: #a8c9f5; --tone-1-accent: #5b95e6;
+  --tone-2-bg: #13301d; --tone-2-fg: #8ddca0; --tone-2-accent: #3fb95f;
+  --tone-3-bg: #33280b; --tone-3-fg: #f1cd6b; --tone-3-accent: #d9a21b;
+  --tone-4-bg: #3a1618; --tone-4-fg: #f7a6ab; --tone-4-accent: #f0616b;
+  --tone-5-bg: #2a1d40; --tone-5-fg: #cfb3f5; --tone-5-accent: #a47ae6;
+  --tone-6-bg: #0f302e; --tone-6-fg: #8fdcd6; --tone-6-accent: #2fb5ac;
+  --tone-7-bg: #36200e; --tone-7-fg: #f6be8f; --tone-7-accent: #ee8a3c;
+  --tone-8-bg: #3a1729; --tone-8-fg: #f3a9cf; --tone-8-accent: #e064a4;
+  --tone-9-bg: #262d36; --tone-9-fg: #c3cbd5; --tone-9-accent: #8a96a5;
+  --tone-10-bg: #26300e; --tone-10-fg: #c6dc86; --tone-10-accent: #97b83a;
+
+  --shadow-sm: 0 1px 2px rgb(0 0 0 / 35%);
+  --shadow: 0 4px 16px rgb(0 0 0 / 40%);
+  --shadow-lg: 0 16px 40px rgb(0 0 0 / 55%);
 }
 
 /* Tone classes expose one tone as generic --tone-* variables that any
@@ -148,3 +302,14 @@
 .tone-8 { --tone-bg: var(--tone-8-bg); --tone-fg: var(--tone-8-fg); --tone-accent: var(--tone-8-accent); }
 .tone-9 { --tone-bg: var(--tone-9-bg); --tone-fg: var(--tone-9-fg); --tone-accent: var(--tone-9-accent); }
 .tone-10 { --tone-bg: var(--tone-10-bg); --tone-fg: var(--tone-10-fg); --tone-accent: var(--tone-10-accent); }
+
+/* Accent classes: one semantic color as generic --accent / --accent-soft
+   / --accent-text for stat cards, chips, icon circles, and outlines. */
+.accent-blue { --accent: var(--accent-blue); --accent-soft: var(--color-primary-soft); --accent-text: var(--color-link); }
+.accent-green { --accent: var(--accent-green); --accent-soft: var(--color-success-soft); --accent-text: var(--color-success); }
+.accent-orange { --accent: var(--accent-orange); --accent-soft: var(--color-warning-soft); --accent-text: var(--color-warning); }
+.accent-red { --accent: var(--accent-red); --accent-soft: var(--color-danger-soft); --accent-text: var(--color-danger); }
+.accent-purple { --accent: var(--accent-purple); --accent-soft: var(--color-purple-soft); --accent-text: var(--color-purple); }
+.accent-teal { --accent: var(--accent-teal); --accent-soft: var(--color-teal-soft); --accent-text: var(--color-teal); }
+.accent-sky { --accent: var(--accent-sky); --accent-soft: var(--color-sky-soft); --accent-text: var(--color-sky); }
+.accent-slate { --accent: var(--accent-slate); --accent-soft: var(--color-slate-soft); --accent-text: var(--color-slate); }

@@ -11,4 +11,5 @@ urlpatterns = [
     path("manifest.webmanifest", views.ManifestView.as_view(), name="manifest"),
     path("sw.js", views.ServiceWorkerView.as_view(), name="service_worker"),
     path("offline/", views.OfflineView.as_view(), name="offline"),
+    path("styleguide/", views.StyleguideView.as_view(), name="styleguide"),
 ]

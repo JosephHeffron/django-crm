@@ -1,0 +1,148 @@
+{% extends "base.html" %}
+{% load crm_format %}
+
+{% block title %}Style guide{% endblock %}
+
+{% block content %}
+  <header class="breadcrumb-header">
+    <ol class="breadcrumb"><li><a href="{% url 'core:index' %}">Dashboard</a></li><li>Style guide</li></ol>
+    <h1>Style guide</h1>
+    <p class="page-subtitle">Every shared component, with made-up sample data. Owner only.</p>
+  </header>
+
+  <section class="card">
+    <h2 class="card-title">Colors</h2>
+    <div class="swatch-grid">
+      {% for accent in accents %}
+        <div class="accent-{{ accent }}"><div class="swatch"></div><p class="muted">{{ accent }}</p></div>
+      {% endfor %}
+    </div>
+  </section>
+
+  <section class="card">
+    <h2 class="card-title">Buttons</h2>
+    <div class="sg-row">
+      <a class="btn" href="#"><svg class="icon" aria-hidden="true"><use href="#icon-plus-circle"/></svg>Create</a>
+      <a class="btn btn-secondary" href="#">Secondary</a>
+      <a class="btn btn-secondary btn-outline" href="#">Outlined</a>
+      <a class="btn btn-text" href="#">Text link</a>
+      <a class="btn btn-sm" href="#">Small</a>
+      <button type="button" class="btn-danger-text"><svg class="icon" aria-hidden="true"><use href="#icon-trash"/></svg>Delete</button>
+      <button type="button" disabled>Disabled</button>
+    </div>
+    <div class="sg-row"><a class="btn btn-lg" href="#"><svg class="icon" aria-hidden="true"><use href="#icon-plus"/></svg>Add New Job</a></div>
+  </section>
+
+  <h2>Stat cards</h2>
+  <div class="stat-grid">
+    <div class="stat-card"><div class="stat-label">Plain</div><div class="stat-value">24</div><div class="stat-meta">Sub-line</div></div>
+    <div class="stat-card is-tinted accent-blue"><div class="stat-head"><div class="stat-label">Today's Jobs</div><span class="icon-circle"><svg class="icon" aria-hidden="true"><use href="#icon-briefcase"/></svg></span></div><div class="stat-value">6</div><div class="stat-meta">Scheduled for today</div></div>
+    <div class="stat-card is-tinted is-outlined accent-green"><div class="stat-label">Revenue</div><div class="stat-value">$1,240.00</div></div>
+    <div class="stat-card is-tinted accent-orange"><div class="stat-label">Past due</div><div class="stat-value">3</div><div class="stat-meta">Requires attention</div></div>
+    <div class="stat-card is-arc accent-red"><div class="stat-label">Failed payments</div><div class="stat-value">$0.00</div></div>
+    <div class="stat-card is-arc accent-teal"><div class="stat-label">Overall amount</div><div class="stat-value">$8,400.00</div></div>
+    <div class="stat-card is-pill is-tinted accent-purple"><div class="stat-label">Monthly revenue</div><div class="stat-value">$12,980.00</div></div>
+  </div>
+
+  <section class="card">
+    <h2 class="card-title">Toggles, chips, avatars</h2>
+    <div class="sg-row">
+      <nav class="segmented" aria-label="Period"><a href="#" aria-current="page">This month</a><a href="#">All time</a></nav>
+      <nav class="segmented" aria-label="Show"><a href="#" aria-current="page">All</a><a href="#">Not done</a><a href="#">Done</a></nav>
+      <a class="date-chip" href="#"><svg class="icon" aria-hidden="true"><use href="#icon-calendar"/></svg>Sep 1, 2026 → Sep 30, 2026<svg class="icon" aria-hidden="true"><use href="#icon-chevron-down"/></svg></a>
+    </div>
+    <div class="sg-row">
+      <span class="badge badge-solid">Owner</span>
+      <span class="badge badge-solid-green">active</span>
+      <span class="badge">6 members</span>
+      <span class="badge badge-outline">cleaner</span>
+      <span class="badge badge-info">Job</span>
+      <span class="badge badge-cyan">Customer</span>
+      <span class="badge badge-danger">Deleted</span>
+      <span class="badge badge-success">Completed</span>
+      <span class="badge badge-warning">Pending</span>
+    </div>
+    <div class="sg-row">
+      {% for name in people %}<span class="avatar {{ name|avatar_class }}" title="{{ name }}">{{ name|initials }}</span>{% endfor %}
+      <span class="avatar-stack">{% for name in people %}<span class="avatar avatar-sm {{ name|avatar_class }}">{{ name|initials }}</span>{% endfor %}</span>
+    </div>
+    <div class="info-banner"><svg class="icon" aria-hidden="true"><use href="#icon-info"/></svg><span>An info banner explains who a page is for or how its numbers are worked out.</span></div>
+  </section>
+
+  <h2>Data table</h2>
+  <div class="table-responsive">
+    <table class="data-table stack-mobile">
+      <thead><tr><th>Crew member</th><th class="text-right">Jobs</th><th class="text-right">Revenue</th><th>Status</th><th>Actions</th></tr></thead>
+      <tbody>
+        {% for name in people|slice:":3" %}
+          <tr>
+            <td data-label="Crew member"><span class="cluster"><span class="avatar avatar-sm {{ name|avatar_class }}">{{ name|initials }}</span>{{ name }}</span></td>
+            <td data-label="Jobs" class="text-right">{{ forloop.counter|add:4 }}</td>
+            <td data-label="Revenue" class="text-right">{{ forloop.counter|add:4|floatformat:2 }}</td>
+            <td data-label="Status"><span class="badge badge-success">Paid</span></td>
+            <td data-label="Actions"><span class="row-actions"><a class="icon-btn is-active" href="#" aria-label="Pay"><svg class="icon" aria-hidden="true"><use href="#icon-wallet"/></svg></a><a class="icon-btn" href="#" aria-label="History"><svg class="icon" aria-hidden="true"><use href="#icon-history"/></svg></a><a class="icon-btn is-danger" href="#" aria-label="Remove"><svg class="icon" aria-hidden="true"><use href="#icon-trash"/></svg></a></span></td>
+          </tr>
+        {% endfor %}
+        <tr class="total-row"><td data-label="Total">Total</td><td data-label="Jobs" class="text-right">18</td><td data-label="Revenue" class="text-right">18.00</td><td></td><td></td></tr>
+      </tbody>
+    </table>
+    {% include "partials/_pagination.html" %}
+  </div>
+
+  <div class="grid-2 section-gap">
+    <section class="card">
+      {% include "partials/_empty_state.html" with icon="inbox" title="No estimates yet" text="Create an estimate to send a quote." action_url="#" action_label="New Estimate" link_url="#" link_label="View customers" %}
+    </section>
+    <section class="card">
+      <h2 class="card-title">Password requirements</h2>
+      <ul class="password-rules">
+        <li class="is-met">At least 8 characters</li>
+        <li class="is-met">At least 1 uppercase letter</li>
+        <li>At least 1 number</li>
+        <li>At least 1 special character</li>
+        <li>Passwords match</li>
+      </ul>
+      <details class="release-card" open><summary>Version 1.2</summary><div class="release-card-body"><p class="subhead">Added</p><ul><li>A sample release note.</li></ul></div></details>
+      <details class="release-card"><summary>Version 1.1</summary><div class="release-card-body"><p>Older notes.</p></div></details>
+    </section>
+  </div>
+
+  <div class="page-banner section-gap"><h1>Banner header</h1><a class="date-chip" href="#"><svg class="icon" aria-hidden="true"><use href="#icon-calendar"/></svg>Sep 27 – Oct 3, 2026</a></div>
+
+  <div class="settings-shell">
+    <h1>Settings shell</h1>
+    <p class="page-subtitle">Section cards, filled pill inputs with floating labels, toggle rows.</p>
+    <section class="section-card">
+      <div class="section-card-head"><svg class="icon" aria-hidden="true"><use href="#icon-building"/></svg><h2>Business Information</h2></div>
+      <form method="post" action="#">
+        <div class="field-row">{% include "partials/_field.html" with field=form.business_name %}{% include "partials/_field.html" with field=form.owner_name %}</div>
+        <p class="subhead">Contact information</p>
+        <div class="field-row">{% include "partials/_field.html" with field=form.contact_email %}{% include "partials/_field.html" with field=form.service %}</div>
+        {% include "partials/_field.html" with field=form.notes %}
+        <div class="toggle-row">
+          <div><div class="toggle-row-title">Dark Mode</div><div class="toggle-row-text">Switch between light and dark themes</div></div>
+          <label class="sr-only" for="sg-switch">Dark Mode</label>
+          <input type="checkbox" class="switch" id="sg-switch" checked>
+        </div>
+        <div class="section-card-actions"><button type="button"><svg class="icon" aria-hidden="true"><use href="#icon-save"/></svg>Save changes</button></div>
+      </form>
+    </section>
+    <section class="section-card is-danger">
+      <div class="section-card-head"><svg class="icon" aria-hidden="true"><use href="#icon-trash"/></svg><h2>Danger zone</h2></div>
+      <p class="muted">A red-outlined card for irreversible actions.</p>
+    </section>
+  </div>
+
+  <p class="hub-group">Hub cards</p>
+  <div class="hub-grid">
+    <a class="hub-card accent-orange" href="#"><span class="icon-circle"><svg class="icon" aria-hidden="true"><use href="#icon-settings"/></svg></span><span><span class="hub-card-title">Service types</span><br><span class="hub-card-text">Options, prices, and calendar colors.</span></span></a>
+    <a class="hub-card accent-blue" href="#"><span class="icon-circle"><svg class="icon" aria-hidden="true"><use href="#icon-bell"/></svg></span><span><span class="hub-card-title">Notifications</span><br><span class="hub-card-text">Which in-app alerts you receive.</span></span></a>
+  </div>
+
+  <section class="card section-gap">
+    <h2 class="card-title">Icons</h2>
+    <div class="sg-row">
+      {% for name in nav_icons %}<span class="cluster"><svg class="icon icon-color" aria-hidden="true"><use href="#nav-{{ name }}"/></svg><span class="muted">{{ name }}</span></span>{% endfor %}
+    </div>
+  </section>
+{% endblock %}

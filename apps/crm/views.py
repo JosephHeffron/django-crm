@@ -9,6 +9,7 @@ from django.utils.http import url_has_allowed_host_and_scheme
 from django.views import View
 from django.views.generic import CreateView, DetailView, ListView, UpdateView
 
+from apps.core.pagination import PerPageMixin
 from apps.jobs.models import Job, Quote
 from apps.users.roles import SalesRoleRequiredMixin
 
@@ -253,7 +254,7 @@ CONTACT_SORTS = {
 }
 
 
-class ContactListView(SalesRoleRequiredMixin, ListView):
+class ContactListView(SalesRoleRequiredMixin, PerPageMixin, ListView):
     model = Contact
     template_name = "crm/contact_list.html"
     context_object_name = "contacts"
@@ -746,7 +747,7 @@ class ActivityCreateView(SalesRoleRequiredMixin, PermissionRequiredMixin, Create
         return reverse("crm:activity_list")
 
 
-class TaskListView(TasksHubMixin, SalesRoleRequiredMixin, ListView):
+class TaskListView(TasksHubMixin, SalesRoleRequiredMixin, PerPageMixin, ListView):
     hub_tab = "tasks"
     model = Task
     template_name = "crm/task_list.html"
@@ -799,7 +800,7 @@ FOLLOW_UP_VIEWS = {
 }
 
 
-class FollowUpListView(TasksHubMixin, SalesRoleRequiredMixin, ListView):
+class FollowUpListView(TasksHubMixin, SalesRoleRequiredMixin, PerPageMixin, ListView):
     """Repeat-service follow-ups (apps/crm/followups.py): who's due,
     for what, with one-tap complete."""
 
@@ -828,7 +829,7 @@ class FollowUpListView(TasksHubMixin, SalesRoleRequiredMixin, ListView):
         return context
 
 
-class PlanListView(TasksHubMixin, SalesRoleRequiredMixin, ListView):
+class PlanListView(TasksHubMixin, SalesRoleRequiredMixin, PerPageMixin, ListView):
     hub_tab = "plans"
     template_name = "crm/plan_list.html"
     context_object_name = "plans"
@@ -875,7 +876,7 @@ NOTE_FILTERS = {
 }
 
 
-class NoteListView(TasksHubMixin, SalesRoleRequiredMixin, ListView):
+class NoteListView(TasksHubMixin, SalesRoleRequiredMixin, PerPageMixin, ListView):
     """Notes, pinned first. Adding and editing notes lands in Phase 19."""
 
     hub_tab = "notes"
