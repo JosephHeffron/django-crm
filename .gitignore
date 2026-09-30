@@ -65,3 +65,11 @@ coverage.xml
 # intentionally NOT covered by this rule)
 *.log
 *.pid
+
+# Design reference screenshots contain real people's data (ADR 0010):
+# keep them outside the repo (~/design-reference/). Safety net in case
+# any land here by accident.
+docs/design-reference/
+design-reference/
+Screenshot*.png
+Screenshot*.jpg

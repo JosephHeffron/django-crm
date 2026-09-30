@@ -1,9 +1,15 @@
 {% comment %}
-  Usage: {% include "partials/_empty_state.html" with icon="inbox" title="No jobs yet" text="…" action_url=… action_label=… %}
+  Usage: {% include "partials/_empty_state.html" with icon="inbox" title="No jobs yet" text="…" action_url=… action_label=… link_url=… link_label=… %}
+  The primary button and the text link are both optional.
 {% endcomment %}
 <div class="empty-state">
-  <svg class="icon" aria-hidden="true"><use href="#icon-{{ icon|default:'inbox' }}"/></svg>
+  <span class="empty-state-icon"><svg class="icon" aria-hidden="true"><use href="#icon-{{ icon|default:'inbox' }}"/></svg></span>
   <p class="empty-state-title">{{ title }}</p>
   {% if text %}<p>{{ text }}</p>{% endif %}
-  {% if action_url %}<a class="btn" href="{{ action_url }}">{{ action_label }}</a>{% endif %}
+  {% if action_url or link_url %}
+    <div class="empty-state-actions">
+      {% if action_url %}<a class="btn" href="{{ action_url }}">{{ action_label }}</a>{% endif %}
+      {% if link_url %}<a href="{{ link_url }}">{{ link_label }}</a>{% endif %}
+    </div>
+  {% endif %}
 </div>

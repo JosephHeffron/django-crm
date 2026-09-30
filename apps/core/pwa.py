@@ -17,6 +17,8 @@ PRECACHE_STATIC = (
     "css/tokens.css",
     "css/base.css",
     "js/nav.js",
+    "js/ui.js",
+    "fonts/inter/inter-latin-wght-normal.woff2",
     "js/sw-register.js",
     "pwa/icons/icon.svg",
     "pwa/icons/icon-192.png",
@@ -24,8 +26,8 @@ PRECACHE_STATIC = (
     "pwa/icons/apple-touch-icon.png",
 )
 
-THEME_COLOR = "#1b5cb4"
-BACKGROUND_COLOR = "#f5f6f8"
+THEME_COLOR = "#2563eb"
+BACKGROUND_COLOR = "#f3f4f6"
 
 
 def precache_urls():

@@ -3,8 +3,10 @@ import logging
 import re
 from datetime import timedelta
 
+from django import forms
 from django.conf import settings
 from django.contrib.auth.mixins import LoginRequiredMixin
+from django.core.paginator import Paginator
 from django.db import connection
 from django.db.models import Count, F, Q, Sum
 from django.http import JsonResponse
@@ -20,7 +22,7 @@ from apps.jobs.calendar import day_bounds
 from apps.jobs.models import Job, JobAssignment, Quote
 from apps.jobs.reports import invoiced_revenue, outstanding
 from apps.messaging.services import unread_count
-from apps.users.roles import Role, SalesRoleRequiredMixin, user_role
+from apps.users.roles import OwnerRequiredMixin, Role, SalesRoleRequiredMixin, user_role
 
 from . import pwa
 
@@ -260,4 +262,61 @@ class SearchView(SalesRoleRequiredMixin, TemplateView):
             results = _search(query)
             context["results"] = results
             context["has_results"] = any(results.values())
+        return context
+
+
+class StyleguideForm(forms.Form):
+    """Sample fields for the style guide — never saved."""
+
+    business_name = forms.CharField(
+        initial="Sample Exterior Co.", help_text="Leave blank if you're operating as a freelancer"
+    )
+    owner_name = forms.CharField(
+        initial="Alex Morgan",
+        disabled=True,
+        help_text="This is your registered name and cannot be changed",
+    )
+    contact_email = forms.EmailField(initial="alex@example.com")
+    service = forms.ChoiceField(
+        choices=[("windows", "Window cleaning"), ("gutters", "Gutter cleaning")]
+    )
+    notes = forms.CharField(widget=forms.Textarea(attrs={"rows": 3}), required=False)
+    active = forms.BooleanField(initial=True, required=False)
+
+
+class StyleguideView(OwnerRequiredMixin, TemplateView):
+    """Every shared component on one page, with made-up sample data
+    (docs/decisions/0010). Owner-only: it's a design reference, not a
+    working page."""
+
+    template_name = "core/styleguide.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["form"] = StyleguideForm()
+        context["page_obj"] = Paginator(range(137), 10).get_page(3)
+        context["people"] = [
+            "Alex Morgan",
+            "Jamie Rivera",
+            "Sam Patel",
+            "Riley Chen",
+            "Casey Brooks",
+        ]
+        context["accents"] = ["blue", "green", "orange", "red", "purple", "teal", "sky", "slate"]
+        context["nav_icons"] = [
+            "dashboard",
+            "inbox",
+            "customers",
+            "crew",
+            "job",
+            "finance",
+            "map",
+            "reports",
+            "messages",
+            "logout",
+            "ideas",
+            "bug",
+            "settings",
+            "profile",
+        ]
         return context
