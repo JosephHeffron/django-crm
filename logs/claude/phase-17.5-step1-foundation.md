@@ -83,6 +83,21 @@ $ Playwright: Owner (style guide + 7 existing pages) and Cleaner (3
   renders the plain label); the sidebar's Log out button picked up the
   new button shadow; sub-heading spacing.
 
+## Review
+
+Sourcery skipped PR #106 (its 7-day window still counted last week's
+PRs), so a self-review of the full diff. One defect, fixed in a
+follow-up commit on the PR: the floating label's background was white
+on its top half (to blend into a white card), so on forms that sit
+directly on the grey page — the task, company, and activity forms — a
+white strip showed behind each label. The top half is now transparent
+(checked on the task form and the style guide, light and dark).
+
+Also checked: pagination edge cases (single page, ellipsis), the
+same-origin font preload, the PWA precache hash, which buttons inherit
+the new shadow (link and nav buttons opt out), container-query sizing,
+and that the style guide is Owner-only.
+
 ## Git
 
 Branch: `feature/restyle-foundation`

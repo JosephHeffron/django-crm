@@ -760,7 +760,7 @@ form p:has(> input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"
   color: var(--color-text-muted);
   white-space: nowrap;
   text-overflow: ellipsis;
-  background: linear-gradient(to bottom, var(--color-surface) 55%, var(--color-surface-3) 55%);
+  background: linear-gradient(to bottom, transparent 55%, var(--color-surface-3) 55%);
   border-radius: var(--radius-sm);
 }
 
