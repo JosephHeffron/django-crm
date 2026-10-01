@@ -8,7 +8,7 @@
   <div class="palette-input">
     <svg class="icon" aria-hidden="true"><use href="#icon-search"/></svg>
     <label for="palette-q" class="sr-only">Search or jump to</label>
-    <input type="search" id="palette-q" autocomplete="off" placeholder="{% if nav.show_search %}Search customers, jobs, or jump to a page…{% else %}Jump to a page…{% endif %}" data-palette-input>
+    <input type="text" id="palette-q" autocomplete="off" spellcheck="false" placeholder="{% if nav.show_search %}Search customers, jobs, or jump to a page…{% else %}Jump to a page…{% endif %}" data-palette-input>
     <kbd class="kbd">Esc</kbd>
   </div>
   <ul class="palette-list" data-palette-results aria-label="Search results"></ul>

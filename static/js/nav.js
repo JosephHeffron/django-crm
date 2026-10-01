@@ -307,6 +307,13 @@
     });
 
     input.addEventListener("keydown", function (event) {
+      // Close on the first Escape ourselves: Chrome can swallow the
+      // dialog's own Escape when it was opened from a keystroke.
+      if (event.key === "Escape") {
+        event.preventDefault();
+        palette.close();
+        return;
+      }
       if (event.key === "ArrowDown") {
         event.preventDefault();
         select(selected + 1);
@@ -331,11 +338,18 @@
       }
     });
 
+    // Open from the search pill on a click or when typing starts — not
+    // on focus: closing the dialog hands focus back to the pill, and a
+    // focus trigger would reopen it straight away.
     all("[data-palette-trigger]").forEach(function (el) {
       if (el.tagName === "INPUT") {
-        el.addEventListener("focus", function () {
-          if (openPalette(el.value)) {
-            el.blur();
+        el.addEventListener("click", function () {
+          openPalette(el.value);
+        });
+        el.addEventListener("keydown", function (event) {
+          if (event.key.length === 1 && !event.metaKey && !event.ctrlKey && !event.altKey) {
+            event.preventDefault();
+            openPalette(el.value + event.key);
           }
         });
       } else {
@@ -380,7 +394,11 @@
       return;
     }
     if (pending) {
-      var target = document.querySelector('[data-shortcut="' + pending + " " + key + '"]');
+      // Only letters complete a shortcut (and only letters ever reach the
+      // selector below).
+      var target = /^[a-z]$/.test(key)
+        ? document.querySelector('[data-shortcut="' + pending + " " + key + '"]')
+        : null;
       pending = null;
       clearTimeout(pendingTimer);
       if (target) {

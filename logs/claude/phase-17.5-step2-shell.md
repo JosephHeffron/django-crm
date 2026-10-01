@@ -84,6 +84,28 @@ $ Playwright, interactive (light and dark, 1920×1080): flyout opens
   waits for the URL.
 - Owner sidebar link count in the new test was off by one (12, not 13).
 
+## Review
+
+Sourcery skipped PR #108 (weekly budget), so a self-review of the full
+diff. Two defects, fixed in a follow-up commit on the PR, each with a
+new step in the browser verification that fails on the old code:
+
+- **Palette trap:** the search pill opened the palette on *focus*;
+  closing the dialog hands focus back to the pill, which reopened it —
+  clicking the pill then pressing Escape couldn't close the palette.
+  It now opens on click or when typing starts. Chrome also swallowed
+  the dialog's own first Escape when it was opened from a keystroke, so
+  the palette closes itself on Escape (and its input is a plain text
+  field, so Escape isn't spent clearing it).
+- **Shortcut selector:** the second key of a "g"/"n" sequence went
+  into a CSS selector unchecked — a quote character threw an error.
+  Only letters are accepted now.
+
+Also checked: theme fetch carries the CSRF token from its form;
+`next` redirect validated; collapse cookie compared to one literal;
+context processor reads (never creates) the profile; unread count and
+theme add two queries per page; the suggestion endpoint is sales-only.
+
 ## Git
 
 Branch: `feature/restyle-shell`

@@ -780,7 +780,7 @@ hr {
   color: var(--color-text-muted);
 }
 
-.palette-input input[type="search"] {
+.palette-input input[type="text"] {
   flex: 1;
   max-width: none;
   min-height: 2.5rem;
@@ -790,7 +790,7 @@ hr {
   font-size: var(--text-lg);
 }
 
-.palette-input input[type="search"]:focus-visible {
+.palette-input input[type="text"]:focus-visible {
   box-shadow: none;
 }
 
