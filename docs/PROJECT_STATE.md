@@ -15,7 +15,7 @@ actually verified.
 > (browser-verified CSP review) is also complete** — a headless-Chromium
 > check found zero violations, including after a real Sourcery-caught
 > bug (an un-nonced inline style on the production 500 page) was fixed.
-> Phase 17 (field-service foundation) is complete; Phase 18 (quotes and jobs workflow) is next.
+> Phase 17 (field-service foundation) is complete. Phase 17.5 (UI restyle) is in progress — step 1 of 11 done.
 > Note: the GitHub repo, switched from public to private earlier in the
 > project, is now **public again** — Phase 13 unit 1's audit found
 > branch protection and secret scanning had been silently disabled
@@ -39,8 +39,8 @@ actually verified.
 The original 14-phase roadmap (Phases 0-14) is fully complete — see
 "Project complete," below, for the summary, and "Completed" for full
 phase-by-phase detail. The post-release roadmap is now underway:
-Phases 15-17 are complete; Phase 18 (quotes and jobs workflow) is
-next — see "Post-release roadmap progress,"
+Phases 15-17 are complete; Phase 17.5 (UI restyle) is in progress
+(step 1 done) — see "Post-release roadmap progress,"
 below, for current status. This section deliberately stays short and points at
 those two rather than duplicating them, so it can't drift out of sync
 with them the way an earlier version of this section once did (it
@@ -791,20 +791,31 @@ roadmap completed:
   (Sourcery budget exhausted): one defect fixed before merge — a
   superuser owner couldn't be sent a direct message. 494 tests. Full
   detail in `logs/claude/phase-17-unit3d-profile-messages.md`.
+- **Phase 17.5 — UI restyle (in progress — step 1 of 11 done).**
+  Matching the owner's reference design (ADR 0010); map on
+  OpenStreetMap (ADR 0011). Reference screenshots hold real people's
+  data and are kept outside the repo. **Step 1 (PR #106) — done:** new
+  design tokens (AA-checked palette, light/dark with a saved-choice
+  override, large radii, soft shadows), self-hosted Inter, and the
+  shared components on an Owner-only `/styleguide/`; every existing
+  page picked up the new look. Self-reviewed (Sourcery budget still
+  counting last week): one visual defect fixed before merge. 500
+  tests. Full detail in `logs/claude/phase-17.5-step1-foundation.md`.
 - Phases 18-25: not yet started (re-sequenced in `docs/ROADMAP.md`).
 
 ## Currently working on
 
-Nothing in flight — Phase 17 is complete and closed out.
+Nothing in flight — Phase 17.5 step 1 just closed out.
 
 ## Next
 
-1. Phase 18 — quotes and jobs workflow: quote builder (catalog line
-   items), status transitions, accepted quote → job, scheduling and
-   crew assignment, calendar rescheduling (with a non-drag
-   alternative), before/after photos served through a login-gated
-   view, service-address editing, and removal of the legacy Lead/Deal
-   models and pages. Plan it as several small PRs, like Phase 17.
+1. Phase 17.5 step 2 — the app shell: floating sidebar with flyouts
+   (Customers, Crew, Job, Finance; Inbox → Messages), top bar (search
+   pill with ⌘K palette, Create menu, bell, moon toggle saved to the
+   profile, settings gear), help button, keyboard shortcuts, footer
+   links to an email from settings.
+2. Then steps 3–11 (docs/decisions/0010, ROADMAP Phase 17.5), then
+   Phase 18 (quotes and jobs workflow).
 
 ## Known issues
 
