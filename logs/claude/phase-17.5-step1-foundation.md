@@ -101,8 +101,8 @@ and that the style guide is Owner-only.
 ## Git
 
 Branch: `feature/restyle-foundation`
-Commit: pending
-Merged to `main`: pending
+Commits: `66f3587` (feature), `83c80f8` (self-review fix)
+Merged to `main`: PR #106, merge commit `0a93877`
 
 ## Next
 
