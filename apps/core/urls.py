@@ -7,6 +7,7 @@ app_name = "core"
 urlpatterns = [
     path("", views.DashboardView.as_view(), name="index"),
     path("search/", views.SearchView.as_view(), name="search"),
+    path("search/suggest/", views.SearchSuggestView.as_view(), name="search_suggest"),
     path("health/", views.HealthCheckView.as_view(), name="health"),
     path("manifest.webmanifest", views.ManifestView.as_view(), name="manifest"),
     path("sw.js", views.ServiceWorkerView.as_view(), name="service_worker"),

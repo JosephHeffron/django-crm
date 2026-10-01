@@ -320,3 +320,55 @@ class StyleguideView(OwnerRequiredMixin, TemplateView):
             "profile",
         ]
         return context
+
+
+SUGGEST_LIMIT = 8
+
+
+class SearchSuggestView(SalesRoleRequiredMixin, View):
+    """Top matches for the command palette (⌘K), as JSON. The full
+    search page stays the no-JS path and the place to see everything."""
+
+    def get(self, request, *args, **kwargs):
+        query = request.GET.get("q", "").strip()
+        if len(query) < 2:
+            return JsonResponse({"results": []})
+        results = _search(query)
+        rows = (
+            [
+                {
+                    "label": job.number,
+                    "detail": str(job.contact),
+                    "url": job.get_absolute_url(),
+                    "kind": "Job",
+                }
+                for job in results["jobs"]
+            ]
+            + [
+                {
+                    "label": q.number,
+                    "detail": str(q.contact),
+                    "url": q.get_absolute_url(),
+                    "kind": "Estimate",
+                }
+                for q in results["quotes"]
+            ]
+            + [
+                {
+                    "label": str(c),
+                    "detail": c.phone or c.email,
+                    "url": c.get_absolute_url(),
+                    "kind": "Customer",
+                }
+                for c in results["contacts"]
+            ]
+            + [
+                {"label": c.name, "detail": "", "url": c.get_absolute_url(), "kind": "Company"}
+                for c in results["companies"]
+            ]
+            + [
+                {"label": t.title, "detail": "", "url": t.get_absolute_url(), "kind": "Task"}
+                for t in results["tasks"]
+            ]
+        )
+        return JsonResponse({"results": rows[:SUGGEST_LIMIT]})

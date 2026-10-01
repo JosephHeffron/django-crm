@@ -21,7 +21,7 @@ What you can see depends on your **role**, which the owner assigns:
 - **Cleaner** — your own schedule: the dashboard and calendar show only
   the jobs you're assigned to, and a job page shows the customer's name,
   phone, and address and the work to do (no prices). On a phone your
-  bottom bar is Dashboard, Calendar, Messages, and Profile.
+  bottom bar is Dashboard, Scheduling, Inbox, and Profile.
 
 If your dashboard says **"No role assigned yet"**, or you get a
 "permission denied" (403) page, your account doesn't have the role that
@@ -31,6 +31,41 @@ model.
 On a phone, the app can be installed to your home screen (your
 browser's "Add to Home Screen" / "Install app" option) and opens like a
 native app.
+
+## Getting around
+
+**The sidebar** on the left lists everything you can open:
+**Dashboard**, **Inbox** (team messages; the red number is how many you
+haven't read), and groups that open a small menu beside it —
+**Customers** (customers, companies, follow-ups, tasks, notes,
+activities), **Crew**, **Job** (scheduling, estimates), and **Finance**.
+You only see what your role allows. The ☰ button at the top of the
+sidebar shrinks it to icons; it stays that way until you click it
+again. On a phone or tablet the sidebar opens from the ☰ button in the
+top bar instead.
+
+**The top bar** (right side):
+
+- **Search everything…** — click it or press **Ctrl+K** (**⌘K** on a
+  Mac) to search customers, companies, jobs (type a number like
+  `J-1502`), estimates, and tasks, or to jump straight to any page.
+  Use the arrow keys and Enter, or click. Crew members get the jump-to-
+  a-page part.
+- **Create** — start a new customer, task, or activity log.
+- **Refresh**, the **moon** (dark mode on/off — remembered on your
+  account, on every device), and the **gear**: your profile, account
+  settings, password, the Owner's company settings, and a Dark Mode
+  switch.
+
+**Shortcuts:** press **G** then a letter to go somewhere — **G D**
+dashboard, **G I** inbox, **G S** scheduling, **G C** customers, **G T**
+tasks, **G F** follow-ups, **G E** estimates — or **N C** / **N T** for
+a new customer or task. **?** opens the help button's list. (Shortcuts
+only include pages your role can open.)
+
+The round **?** button at the bottom right shows these shortcuts and,
+if the owner has set one up, an email address for help, ideas, or bug
+reports (also in the sidebar).
 
 ## Dashboard
 

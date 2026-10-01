@@ -1,0 +1,76 @@
+{% load static crm_format %}
+<header class="topbar">
+  <a href="#sidebar" class="icon-btn menu-toggle" data-nav-toggle role="button" aria-controls="sidebar" aria-expanded="false" aria-label="Open menu">
+    <svg class="icon" aria-hidden="true"><use href="#icon-menu"/></svg>
+  </a>
+  <a class="brand topbar-brand" href="{% url 'core:index' %}">
+    <img class="brand-mark" src="{% static 'pwa/icons/icon.svg' %}" alt="" width="28" height="28">
+    <span class="brand-name">{{ brand_name }}</span>
+  </a>
+
+  <div class="topbar-actions">
+    {% if nav.show_search %}
+      <form method="get" action="{% url 'core:search' %}" class="topbar-search" role="search">
+        <label for="nav-search" class="sr-only">Search everything</label>
+        <svg class="icon" aria-hidden="true"><use href="#icon-search"/></svg>
+        <input type="search" id="nav-search" name="q" placeholder="Search everything…" value="{{ request.GET.q|default:'' }}" autocomplete="off" data-palette-trigger>
+        <kbd class="kbd" aria-hidden="true">⌘K</kbd>
+      </form>
+    {% elif nav.role %}
+      <button type="button" class="icon-btn topbar-icon js-only" data-palette-trigger aria-label="Jump to a page (Ctrl+K)">
+        <svg class="icon" aria-hidden="true"><use href="#icon-search"/></svg>
+      </button>
+    {% endif %}
+
+    {% if nav.create_items %}
+      <details class="dropdown" data-dropdown>
+        <summary class="btn btn-create" aria-label="Create">
+          <svg class="icon" aria-hidden="true"><use href="#icon-plus-circle"/></svg><span class="create-label">Create</span>
+        </summary>
+        <div class="dropdown-menu">
+          {% for item in nav.create_items %}
+            <a class="dropdown-item" href="{{ item.url }}"><svg class="icon" aria-hidden="true"><use href="#icon-{{ item.icon }}"/></svg>{{ item.label }}</a>
+          {% endfor %}
+        </div>
+      </details>
+    {% endif %}
+
+    <a class="icon-btn topbar-icon hide-phone" href="{{ request.get_full_path }}" aria-label="Refresh">
+      <svg class="icon" aria-hidden="true"><use href="#icon-refresh"/></svg>
+    </a>
+
+    <form method="post" action="{% url 'people:theme' %}" class="theme-form hide-phone" data-theme-form>
+      {% csrf_token %}
+      <input type="hidden" name="next" value="{{ request.get_full_path }}">
+      <button type="submit" name="theme" value="{% if theme == 'dark' %}light{% else %}dark{% endif %}" class="icon-btn topbar-icon theme-button" aria-label="Toggle dark mode">
+        <svg class="icon theme-icon-moon" aria-hidden="true"><use href="#icon-moon"/></svg>
+        <svg class="icon theme-icon-sun" aria-hidden="true"><use href="#icon-sun"/></svg>
+      </button>
+    </form>
+
+    <details class="dropdown" data-dropdown>
+      <summary class="icon-btn topbar-icon" aria-label="Settings">
+        <svg class="icon" aria-hidden="true"><use href="#icon-settings"/></svg>
+      </summary>
+      <div class="dropdown-menu">
+        <div class="dropdown-head">
+          <span class="avatar {{ nav.display_name|avatar_class }}" aria-hidden="true">{{ nav.initials }}</span>
+          <div><div class="dropdown-name">{{ nav.display_name }}</div><div class="muted">{{ nav.role_label }}</div></div>
+        </div>
+        {% for item in nav.gear_items %}
+          <a class="dropdown-item" href="{{ item.url }}"><svg class="icon" aria-hidden="true"><use href="#icon-{{ item.icon }}"/></svg>{{ item.label }}</a>
+        {% endfor %}
+        <hr>
+        <form method="post" action="{% url 'people:theme' %}" data-theme-form>
+          {% csrf_token %}
+          <input type="hidden" name="next" value="{{ request.get_full_path }}">
+          <button type="submit" name="theme" value="{% if theme == 'dark' %}light{% else %}dark{% endif %}" class="dropdown-item dropdown-toggle-row" role="switch" aria-checked="{% if theme == 'dark' %}true{% else %}false{% endif %}">
+            <svg class="icon" aria-hidden="true"><use href="#icon-half-circle"/></svg>
+            <span>Dark Mode</span>
+            <span class="switch-visual" aria-hidden="true"></span>
+          </button>
+        </form>
+      </div>
+    </details>
+  </div>
+</header>
