@@ -3,12 +3,16 @@ their own profile; only the Owner sees other people's (ADR 0008)."""
 
 from django.contrib import messages
 from django.contrib.auth import get_user_model
+from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db import transaction
+from django.http import HttpResponse, HttpResponseBadRequest
 from django.shortcuts import get_object_or_404, redirect
+from django.utils.http import url_has_allowed_host_and_scheme
+from django.views import View
 from django.views.generic import TemplateView
 
 from .forms import AccountForm, ProfileForm
-from .models import get_profile
+from .models import UserProfile, get_profile
 from .roles import (
     ALL_ROLES,
     SALES_ROLES,
@@ -112,3 +116,25 @@ class TeamMemberView(OwnerRequiredMixin, TemplateView):
         person = get_object_or_404(User, username=kwargs["username"], is_active=True)
         context.update(profile_context(person, self.request), is_self=False)
         return context
+
+
+class ThemeView(LoginRequiredMixin, View):
+    """Save light / dark / match-my-device. The page script posts here
+    and flips the theme in place (204); without JS it's a plain form
+    post that comes back to the page."""
+
+    def post(self, request, *args, **kwargs):
+        value = request.POST.get("theme")
+        if value not in UserProfile.Theme.values:
+            return HttpResponseBadRequest("Unknown theme")
+        profile = get_profile(request.user)
+        profile.theme = value
+        profile.save(update_fields=["theme"])
+        if request.headers.get("X-Requested-With") == "fetch":
+            return HttpResponse(status=204)
+        next_url = request.POST.get("next", "")
+        if not url_has_allowed_host_and_scheme(
+            next_url, allowed_hosts={request.get_host()}, require_https=request.is_secure()
+        ):
+            next_url = "/"
+        return redirect(next_url)

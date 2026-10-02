@@ -106,6 +106,12 @@ always treated as Owner.
 characters) in `.env`; the business timezone is `CRM_TIME_ZONE`
 (default `America/New_York`). Restart the stack to apply.
 
+**Help and feedback email:** set `CRM_SUPPORT_EMAIL` in `.env` to the
+address staff should write to. It appears as the sidebar's **Ideas**
+and **Report a bug** links and in the help (?) button. Left blank, those
+links are hidden. Keep the address in `.env` only — the repository is
+public.
+
 ## Deploying an update
 
 ```

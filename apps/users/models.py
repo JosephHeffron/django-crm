@@ -35,6 +35,16 @@ class UserProfile(models.Model):
     photo = models.ImageField(upload_to=avatar_upload_to, blank=True)
     calendar_tone = models.PositiveSmallIntegerField(default=1, validators=TONE_VALIDATORS)
 
+    class Theme(models.TextChoices):
+        SYSTEM = "system", "Match my device"
+        LIGHT = "light", "Light"
+        DARK = "dark", "Dark"
+
+    # Saved on the profile so it follows the person across devices, and
+    # applied server-side as <html data-theme> (no flash of the wrong
+    # theme, no browser storage) — docs/decisions/0010.
+    theme = models.CharField(max_length=10, choices=Theme.choices, default=Theme.SYSTEM)
+
     def __str__(self):
         return f"Profile for {self.user}"
 

@@ -1,0 +1,20 @@
+{% comment %}Floating help button: keyboard shortcuts and how to reach whoever runs this install.{% endcomment %}
+<details class="dropdown help-fab" data-dropdown>
+  <summary class="help-fab-button" aria-label="Help">
+    <svg class="icon" aria-hidden="true"><use href="#icon-help"/></svg>
+  </summary>
+  <div class="dropdown-menu help-menu">
+    <p class="dropdown-label">Keyboard shortcuts</p>
+    <dl class="shortcut-list">
+      <dt><kbd class="kbd">Ctrl K</kbd> / <kbd class="kbd">⌘K</kbd></dt><dd>Search and jump</dd>
+      {% for shortcut in nav.shortcuts %}
+        <dt>{% for key in shortcut.keys.split %}<kbd class="kbd">{{ key|upper }}</kbd>{% if not forloop.last %} then {% endif %}{% endfor %}</dt><dd>{{ shortcut.label }}</dd>
+      {% endfor %}
+      <dt><kbd class="kbd">?</kbd></dt><dd>This help</dd>
+    </dl>
+    {% if support_email %}
+      <hr>
+      <a class="dropdown-item" href="mailto:{{ support_email }}?subject={{ brand_name|urlencode }}%20help"><svg class="icon" aria-hidden="true"><use href="#icon-message"/></svg>Email for help</a>
+    {% endif %}
+  </div>
+</details>
