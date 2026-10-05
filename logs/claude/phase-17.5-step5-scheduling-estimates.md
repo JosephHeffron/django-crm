@@ -136,8 +136,8 @@ afterwards.
 ## Git
 
 Branch: `feature/restyle-scheduling` (PR #116)
-Commits: `9a20133` (the step), self-review fix to follow
-Merged to `main`: pending
+Commits: `9a20133` (the step), `868f114` (self-review fix)
+Merged to `main`: `f42a7fc`
 
 ## Next
 
