@@ -134,7 +134,7 @@ class NavigationMatchesAccessForEveryRoleTests(NavTestCase):
         return set(re.findall(r'<a class="dropdown-item" href="([^"]+)"', html))
 
     def test_owner(self):
-        self.assertEqual(len(self._check(Role.OWNER)), 12)
+        self.assertEqual(len(self._check(Role.OWNER)), 15)
 
     def test_sales_rep(self):
         self._check(Role.SALES_REP)

@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+{% load crm_format %}
+
+{% block title %}{{ invoice.number }}{% endblock %}
+
+{% block content %}
+  <div class="page-header">
+    <div>
+      <h1>{{ invoice.number }}</h1>
+      <p class="page-subtitle">
+        {{ invoice.contact }} · <a href="{{ invoice.job.get_absolute_url }}">{{ invoice.job.number }}</a> ·
+        issued {{ invoice.issued_on|date:"M j, Y" }}, due {{ invoice.due_on|date:"M j, Y" }}
+      </p>
+    </div>
+    <div class="cluster">
+      {% include "jobs/_payment_badge.html" with state=payment_status %}
+      <a class="btn btn-secondary btn-sm" href="{% url 'jobs:invoice_update' invoice.pk %}">
+        <svg class="icon" aria-hidden="true"><use href="#icon-settings"/></svg>Edit
+      </a>
+      {% if invoice.status == "sent" and invoice.balance > 0 %}
+        <a class="btn btn-sm" href="{% url 'jobs:payment_create' invoice.pk %}">
+          <svg class="icon" aria-hidden="true"><use href="#icon-wallet"/></svg>Record a payment
+        </a>
+      {% endif %}
+    </div>
+  </div>
+
+  {% if invoice.status == "draft" %}
+    <div class="info-banner">
+      <svg class="icon" aria-hidden="true"><use href="#icon-info"/></svg>
+      <p>This is a draft. It isn't owed yet and doesn't count as revenue — open <strong>Edit</strong> and set it to Sent once you've billed it.</p>
+    </div>
+  {% elif invoice.status == "void" %}
+    <div class="info-banner">
+      <svg class="icon" aria-hidden="true"><use href="#icon-info"/></svg>
+      <p>This invoice is void. It was never owed and counts nowhere.</p>
+    </div>
+  {% endif %}
+
+  <div class="stat-grid">
+    <div class="stat-card is-tinted accent-blue">
+      <div class="stat-label">Total</div>
+      <div class="stat-value">{{ invoice.total|money }}</div>
+    </div>
+    <div class="stat-card accent-green">
+      <div class="stat-label">Paid</div>
+      <div class="stat-value">{{ invoice.paid|money }}</div>
+      <div class="stat-meta">{{ payments|length }} payment{{ payments|length|pluralize }}</div>
+    </div>
+    <div class="stat-card {% if invoice.balance > 0 %}accent-orange{% else %}accent-green{% endif %}">
+      <div class="stat-label">Balance</div>
+      <div class="stat-value">{{ invoice.balance|money }}</div>
+      <div class="stat-meta">{% if invoice.balance > 0 %}Due {{ invoice.due_on|date:"M j" }}{% else %}Settled{% endif %}</div>
+    </div>
+  </div>
+
+  <div class="grid-2 is-top">
+    <section class="card">
+      <h2 class="card-title">What's billed</h2>
+      {% if line_items %}
+        <div class="table-responsive">
+          <table class="data-table stack-mobile">
+            <thead><tr><th>Service</th><th class="text-right">Qty</th><th class="text-right">Unit</th><th class="text-right">Total</th></tr></thead>
+            <tbody>
+              {% for line in line_items %}
+                <tr>
+                  <td data-label="Service">{{ line.service_type.name }}{% if line.description %}<br><span class="muted">{{ line.description }}</span>{% endif %}</td>
+                  <td data-label="Qty" class="text-right">{{ line.quantity|floatformat:"-2" }}</td>
+                  <td data-label="Unit" class="text-right">{{ line.unit_price|money }}</td>
+                  <td data-label="Total" class="text-right">{{ line.line_total|money }}</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+            <tfoot><tr class="total-row"><td colspan="3">Total</td><td class="text-right">{{ invoice.total|money }}</td></tr></tfoot>
+          </table>
+        </div>
+      {% else %}
+        {% url 'jobs:invoice_update' invoice.pk as edit_url %}{% include "partials/_empty_state.html" with icon="file-text" title="Nothing billed yet" text="Add the work to this invoice and it'll total up here." action_url=edit_url action_label="Add the work" compact=True %}
+      {% endif %}
+      {% if invoice.notes %}<p class="muted section-note">{{ invoice.notes|linebreaksbr }}</p>{% endif %}
+    </section>
+
+    <section class="card">
+      <div class="card-head">
+        <h2 class="card-title">Payments</h2>
+        {% if invoice.status == "sent" and invoice.balance > 0 %}
+          <a class="btn btn-text btn-sm" href="{% url 'jobs:payment_create' invoice.pk %}">Record one</a>
+        {% endif %}
+      </div>
+      {% if payments %}
+        <ul class="list-plain">
+          {% for payment in payments %}
+            <li>
+              <strong>{{ payment.amount|money }}</strong> · {{ payment.get_method_display }} ·
+              {{ payment.received_on|date:"M j, Y" }}
+              {% if payment.notes %}<span class="muted">— {{ payment.notes }}</span>{% endif %}
+              <div class="muted">Recorded by {{ payment.recorded_by.get_full_name|default:payment.recorded_by }}</div>
+            </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        {% include "partials/_empty_state.html" with icon="wallet" title="Nothing received yet" text="Payments you record show up here." compact=True %}
+      {% endif %}
+    </section>
+  </div>
+{% endblock %}

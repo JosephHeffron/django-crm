@@ -127,7 +127,36 @@ SECTIONS = (
         "Finance",
         "finance",
         children=(
-            NavLink("Financials", "jobs:financials", "dollar", OWNER_ONLY, ("jobs:financials",)),
+            NavLink(
+                "Invoices",
+                "jobs:invoice_list",
+                "file-text",
+                OWNER_ONLY,
+                ("jobs:invoice_", "jobs:payment_create"),
+                shortcut="g i",
+            ),
+            NavLink(
+                "Payments",
+                "jobs:payment_list",
+                "wallet",
+                OWNER_ONLY,
+                ("jobs:payment_list",),
+            ),
+            NavLink(
+                "Expenses",
+                "jobs:expense_list",
+                "trend-up",
+                OWNER_ONLY,
+                ("jobs:expense_",),
+            ),
+            NavLink(
+                "Profit",
+                "jobs:financials",
+                "dollar",
+                OWNER_ONLY,
+                ("jobs:financials",),
+                shortcut="g p",
+            ),
         ),
     ),
 )
@@ -157,7 +186,8 @@ QUICK_ACTIONS = (
     NavLink("Schedule", "jobs:calendar", "calendar", ALL_ROLES),
     NavLink("Estimates", "jobs:quote_list", "briefcase", SALES_ROLES),
     NavLink("Follow-ups", "crm:task_followups", "refresh", SALES_ROLES),
-    NavLink("Financials", "jobs:financials", "dollar", OWNER_ONLY),
+    NavLink("Profit", "jobs:financials", "dollar", OWNER_ONLY),
+    NavLink("Record a payment", "jobs:invoice_list", "wallet", OWNER_ONLY),
     NavLink("Inbox", "messaging:home", "inbox", ALL_ROLES),
 )
 

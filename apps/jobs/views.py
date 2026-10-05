@@ -4,13 +4,16 @@ from django.contrib import messages
 from django.contrib.auth import get_user_model
 from django.contrib.auth.mixins import PermissionRequiredMixin
 from django.db import transaction
-from django.shortcuts import redirect
+from django.db.models import Sum, Value
+from django.db.models.functions import Coalesce
+from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse, reverse_lazy
 from django.utils import timezone
 from django.utils.dateparse import parse_date
 from django.views.generic import CreateView, DetailView, ListView, TemplateView, UpdateView
 
 from apps.core.pagination import PerPageMixin
+from apps.core.templatetags.crm_format import money
 from apps.crm.hub import TasksHubMixin
 from apps.users.roles import (
     ALL_ROLES,
@@ -26,10 +29,35 @@ from apps.users.roles import (
 from . import reports
 from .access import invoices_for, jobs_for, quotes_for
 from .calendar import DEFAULT_VIEW, VIEWS, calendar_days, calendar_range
-from .forms import JobForm, JobLineFormSet, QuoteForm, QuoteLineFormSet, ServiceTypeForm
-from .models import Job, JobAssignment, Quote, ServiceType
+from .forms import (
+    ExpenseForm,
+    InvoiceForm,
+    InvoiceLineFormSet,
+    JobForm,
+    JobLineFormSet,
+    PaymentForm,
+    QuoteForm,
+    QuoteLineFormSet,
+    ServiceTypeForm,
+    line_formset,
+)
+from .models import (
+    TOTAL_FIELD,
+    ZERO,
+    Expense,
+    Invoice,
+    InvoiceLineItem,
+    Job,
+    JobAssignment,
+    Payment,
+    Quote,
+    ServiceType,
+)
 
 User = get_user_model()
+
+# How long a new invoice is given to be paid, unless the date is changed.
+INVOICE_TERMS_DAYS = 14
 
 
 class CalendarView(RoleRequiredMixin, TemplateView):
@@ -365,6 +393,269 @@ class FinancialsView(OwnerRequiredMixin, TemplateView):
             chart=reports.chart_bars(kind, buckets) if len(buckets) > 1 else None,
         )
         return context
+
+
+class InvoiceListView(OwnerRequiredMixin, PerPageMixin, ListView):
+    """Every invoice, filtered by where its money stands. Paid and
+    overdue aren't stored — they follow from the payments and the due
+    date (apps/jobs/reports.py)."""
+
+    template_name = "jobs/invoice_list.html"
+    context_object_name = "invoices"
+
+    def filter_key(self):
+        key = self.request.GET.get("show", "unpaid")
+        return key if key in reports.INVOICE_FILTERS else "unpaid"
+
+    def get_queryset(self):
+        return reports.filter_invoices(
+            invoices_for(self.request.user)
+            .with_balances()
+            .select_related("contact", "job", "job__primary_service_type"),
+            self.filter_key(),
+            timezone.localdate(),
+        )
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        key = self.filter_key()
+        context.update(
+            show=key,
+            filters=[(k, label, k == key) for k, label in reports.INVOICE_FILTERS.items()],
+            totals=reports.invoice_totals(self.get_queryset()),
+            today=timezone.localdate(),
+        )
+        return context
+
+
+class InvoiceDetailView(OwnerRequiredMixin, DetailView):
+    template_name = "jobs/invoice_detail.html"
+    context_object_name = "invoice"
+
+    def get_queryset(self):
+        return (
+            invoices_for(self.request.user)
+            .with_balances()
+            .select_related("contact", "job", "job__primary_service_type")
+        )
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context.update(
+            line_items=self.object.line_items.select_related("service_type"),
+            payments=self.object.payments.select_related("recorded_by"),
+            today=timezone.localdate(),
+            payment_status=self.object.payment_status(timezone.localdate()),
+        )
+        return context
+
+
+class InvoiceFormMixin(OwnerRequiredMixin, PermissionRequiredMixin):
+    model = Invoice
+    form_class = InvoiceForm
+    template_name = "jobs/invoice_form.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        if "lines" not in context:
+            initial = self.line_initial()
+            # Sized to what it's seeded with: a formset renders `extra`
+            # rows however many initial ones it's given, so billing a
+            # three-line job would otherwise show one and quietly drop
+            # the other two.
+            formset = line_formset(
+                Invoice, InvoiceLineItem, extra=len(initial) + 1 if initial else 1
+            )
+            context["lines"] = formset(
+                self.request.POST or None,
+                instance=self.object,
+                prefix="lines",
+                initial=initial,
+            )
+        return context
+
+    def line_initial(self):
+        return None
+
+    def form_valid(self, form):
+        lines = InvoiceLineFormSet(self.request.POST, instance=form.instance, prefix="lines")
+        if not lines.is_valid():
+            return self.render_to_response(self.get_context_data(form=form, lines=lines))
+        with transaction.atomic():
+            self.object = form.save()
+            lines.instance = self.object
+            lines.save()
+        messages.success(self.request, self.success_message % {"number": self.object.number})
+        return redirect(self.object.get_absolute_url())
+
+
+class InvoiceCreateView(InvoiceFormMixin, CreateView):
+    permission_required = "jobs.add_invoice"
+    success_message = "Created %(number)s."
+
+    def job(self):
+        """The job this invoice is being raised for, if the page was
+        opened from one."""
+        pk = self.request.GET.get("job", "")
+        if not pk.isdigit():
+            return None
+        return Job.objects.filter(pk=int(pk)).first()
+
+    def get_initial(self):
+        initial = super().get_initial()
+        today = timezone.localdate()
+        initial.setdefault("issued_on", today)
+        initial.setdefault("due_on", today + timedelta(days=INVOICE_TERMS_DAYS))
+        job = self.job()
+        if job:
+            initial.setdefault("job", job.pk)
+        return initial
+
+    def line_initial(self):
+        """Opening from a job starts with that job's own lines, so the
+        bill matches the work instead of being retyped."""
+        job = self.job()
+        if not job:
+            return None
+        return [
+            {
+                "service_type": line.service_type_id,
+                "description": line.description,
+                "quantity": line.quantity,
+                "unit_price": line.unit_price,
+            }
+            for line in job.line_items.all()
+        ]
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["from_job"] = self.job()
+        return context
+
+
+class InvoiceUpdateView(InvoiceFormMixin, UpdateView):
+    permission_required = "jobs.change_invoice"
+    success_message = "Updated %(number)s."
+
+    def get_queryset(self):
+        return invoices_for(self.request.user)
+
+
+class PaymentCreateView(OwnerRequiredMixin, PermissionRequiredMixin, CreateView):
+    """Money received against one invoice."""
+
+    model = Payment
+    form_class = PaymentForm
+    template_name = "jobs/payment_form.html"
+    permission_required = "jobs.add_payment"
+
+    def invoice(self):
+        return get_object_or_404(
+            invoices_for(self.request.user).with_balances(), pk=self.kwargs["pk"]
+        )
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["invoice"] = self.invoice()
+        return kwargs
+
+    def get_initial(self):
+        initial = super().get_initial()
+        invoice = self.invoice()
+        initial.setdefault("received_on", timezone.localdate())
+        # The rest of the bill, which is what's usually being paid.
+        # Quantized because the balance is a sum of sums and comes back
+        # with more places than money has — a raw 300.0000 in a field
+        # that steps in cents is one the browser refuses.
+        if invoice.balance > 0:
+            initial.setdefault("amount", invoice.balance.quantize(ZERO))
+        return initial
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["invoice"] = self.invoice()
+        return context
+
+    def form_valid(self, form):
+        invoice = self.invoice()
+        form.instance.invoice = invoice
+        form.instance.recorded_by = self.request.user
+        self.object = form.save()
+        over = getattr(form, "overpayment", None)
+        extra = f" That's {money(over)} more than the balance." if over else ""
+        messages.success(
+            self.request, f"Recorded {money(self.object.amount)} on {invoice.number}.{extra}"
+        )
+        return redirect(invoice.get_absolute_url())
+
+
+class PaymentListView(OwnerRequiredMixin, PerPageMixin, ListView):
+    """Everything received, newest first."""
+
+    template_name = "jobs/payment_list.html"
+    context_object_name = "payments"
+
+    def get_queryset(self):
+        return Payment.objects.select_related("invoice", "invoice__contact", "recorded_by")
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["total"] = self.get_queryset().aggregate(
+            total=Coalesce(Sum("amount"), Value(ZERO), output_field=TOTAL_FIELD)
+        )["total"]
+        return context
+
+
+class ExpenseListView(OwnerRequiredMixin, PerPageMixin, ListView):
+    template_name = "jobs/expense_list.html"
+    context_object_name = "expenses"
+
+    def get_queryset(self):
+        expenses = Expense.objects.select_related("recorded_by")
+        category = self.request.GET.get("category", "")
+        if category in Expense.Category.values:
+            expenses = expenses.filter(category=category)
+        return expenses
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        category = self.request.GET.get("category", "")
+        context["category"] = category
+        context["categories"] = Expense.Category.choices
+        context["category_label"] = (
+            Expense.Category(category).label if category in Expense.Category.values else ""
+        )
+        context["total"] = self.get_queryset().aggregate(
+            total=Coalesce(Sum("amount"), Value(ZERO), output_field=TOTAL_FIELD)
+        )["total"]
+        return context
+
+
+class ExpenseFormMixin(OwnerRequiredMixin, PermissionRequiredMixin):
+    model = Expense
+    form_class = ExpenseForm
+    template_name = "jobs/expense_form.html"
+    success_url = reverse_lazy("jobs:expense_list")
+
+    def form_valid(self, form):
+        if not form.instance.pk:
+            form.instance.recorded_by = self.request.user
+        response = super().form_valid(form)
+        messages.success(self.request, f"Saved {money(self.object.amount)} of expenses.")
+        return response
+
+
+class ExpenseCreateView(ExpenseFormMixin, CreateView):
+    permission_required = "jobs.add_expense"
+
+    def get_initial(self):
+        initial = super().get_initial()
+        initial.setdefault("date", timezone.localdate())
+        return initial
+
+
+class ExpenseUpdateView(ExpenseFormMixin, UpdateView):
+    permission_required = "jobs.change_expense"
 
 
 class ServiceListView(OwnerRequiredMixin, ListView):

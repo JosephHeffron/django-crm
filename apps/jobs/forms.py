@@ -6,7 +6,17 @@ from apps.crm.models import Property
 from apps.users.forms import TONE_CHOICES
 from apps.users.roles import Role
 
-from .models import Job, JobLineItem, Quote, QuoteLineItem, ServiceType
+from .models import (
+    Expense,
+    Invoice,
+    InvoiceLineItem,
+    Job,
+    JobLineItem,
+    Payment,
+    Quote,
+    QuoteLineItem,
+    ServiceType,
+)
 
 
 class ServiceTypeForm(forms.ModelForm):
@@ -189,15 +199,22 @@ class BaseLineFormSet(forms.BaseInlineFormSet):
 LINE_FIELDS = ["service_type", "description", "quantity", "unit_price"]
 
 
-def line_formset(parent, line_model):
-    """The same editable list of work for a job and for an estimate."""
+def line_formset(parent, line_model, extra=1):
+    """The same editable list of work for a job, an estimate, and an
+    invoice.
+
+    `extra` is how many blank rows are offered. A formset renders
+    exactly that many no matter how many initial rows it's handed, so a
+    caller seeding it with existing lines has to size it to them —
+    otherwise the rest are silently dropped.
+    """
     return forms.inlineformset_factory(
         parent,
         line_model,
         formset=BaseLineFormSet,
         fields=LINE_FIELDS,
         widgets={"service_type": ServiceSelect},
-        extra=1,
+        extra=extra,
         can_delete=True,
     )
 
@@ -252,3 +269,88 @@ class QuoteForm(forms.ModelForm):
         if contact and service_property and service_property.contact_id != contact.pk:
             self.add_error("service_property", "That address belongs to a different customer.")
         return cleaned
+
+
+class InvoiceForm(forms.ModelForm):
+    """Bill a job. The customer isn't asked for — it's the job's
+    customer, and two fields that must agree are two fields that can
+    disagree."""
+
+    class Meta:
+        model = Invoice
+        fields = ["job", "issued_on", "due_on", "status", "notes"]
+        labels = {"issued_on": "Issued", "due_on": "Due"}
+        widgets = {
+            "issued_on": forms.DateInput(attrs={"type": "date"}, format="%Y-%m-%d"),
+            "due_on": forms.DateInput(attrs={"type": "date"}, format="%Y-%m-%d"),
+            "notes": forms.Textarea(attrs={"rows": 3}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["job"].queryset = Job.objects.select_related(
+            "contact", "primary_service_type"
+        ).order_by("-scheduled_start")
+
+    def clean(self):
+        cleaned = super().clean()
+        issued, due = cleaned.get("issued_on"), cleaned.get("due_on")
+        if issued and due and due < issued:
+            self.add_error("due_on", "The due date can't be before the issue date.")
+        return cleaned
+
+    def save(self, commit=True):
+        invoice = super().save(commit=False)
+        invoice.contact = invoice.job.contact
+        if commit:
+            invoice.save()
+        return invoice
+
+
+InvoiceLineFormSet = line_formset(Invoice, InvoiceLineItem)
+
+
+class PaymentForm(forms.ModelForm):
+    """Money received against one invoice. The invoice comes from the
+    page you're on, not from a field."""
+
+    class Meta:
+        model = Payment
+        fields = ["amount", "received_on", "method", "notes"]
+        labels = {"received_on": "Received", "notes": "Reference"}
+        widgets = {
+            "received_on": forms.DateInput(attrs={"type": "date"}, format="%Y-%m-%d"),
+            "notes": forms.TextInput(attrs={"placeholder": "Check number, last four digits…"}),
+        }
+
+    def __init__(self, *args, invoice=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.invoice = invoice
+
+    def clean_amount(self):
+        amount = self.cleaned_data["amount"]
+        if amount <= 0:
+            raise forms.ValidationError("A payment has to be more than nothing.")
+        return amount
+
+    def clean(self):
+        cleaned = super().clean()
+        amount = cleaned.get("amount")
+        # Overpayment is allowed — a customer rounds up, or pays two
+        # invoices with one check — but it's worth saying out loud.
+        if amount and self.invoice is not None and amount > self.invoice.balance:
+            self.overpayment = amount - self.invoice.balance
+        return cleaned
+
+
+class ExpenseForm(forms.ModelForm):
+    class Meta:
+        model = Expense
+        fields = ["date", "amount", "category", "description"]
+        widgets = {"date": forms.DateInput(attrs={"type": "date"}, format="%Y-%m-%d")}
+
+    def clean_amount(self):
+        amount = self.cleaned_data["amount"]
+        if amount <= 0:
+            raise forms.ValidationError("An expense has to be more than nothing.")
+        return amount

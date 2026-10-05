@@ -72,3 +72,11 @@ def initials(user_or_name):
     if len(parts) >= 2:
         return (parts[0][0] + parts[-1][0]).upper()
     return str(user_or_name)[:2].upper()
+
+
+@register.filter
+def payment_state(invoice, today):
+    """Where an invoice's money stands — paid, overdue, part paid, and
+    so on. It isn't a stored field: it follows from the payments and the
+    due date, so the badge can't drift away from the money."""
+    return invoice.payment_status(today)

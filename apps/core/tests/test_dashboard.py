@@ -299,7 +299,8 @@ class DashboardLayoutTests(DashboardTestCase):
 
     def test_quick_action_tiles_only_point_where_the_role_may_go(self):
         owner_tiles = {action["label"] for action in self.get().context["quick_actions"]}
-        self.assertIn("Financials", owner_tiles)
+        self.assertIn("Profit", owner_tiles)
+        self.assertIn("Record a payment", owner_tiles)
         grant_role(f.user("crew"), Role.CLEANER)
         self.client.login(username="crew", password=PASSWORD)
         crew_tiles = {action["label"] for action in self.get().context["quick_actions"]}

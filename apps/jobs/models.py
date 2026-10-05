@@ -395,6 +395,9 @@ class Invoice(TotalMixin, models.Model):
     def number(self):
         return f"INV-{1000 + self.pk}" if self.pk else "INV-(unsaved)"
 
+    def get_absolute_url(self):
+        return reverse("jobs:invoice_detail", kwargs={"pk": self.pk})
+
     @property
     def paid(self):
         if hasattr(self, "paid_amount"):

@@ -199,9 +199,46 @@ Open the **gear → Business settings**:
   invoices, payments, expenses, or the team list as CSV (opens in Excel)
   or JSON.
 
-## Financials (Owner)
+## Invoices, Payments and Expenses (Owner)
 
-**Financials** shows the money side for **Today**, **This week**,
+The **Finance** menu holds four pages, all Owner-only.
+
+### Invoices
+
+**Invoices** lists what you've billed, with cards for what's billed,
+what's been collected, and what's still owed across whatever you're
+looking at. The buttons across the top choose which invoices: **Unpaid**
+(the default), **Overdue**, **Paid**, **Draft**, **Void**, or **All**.
+Paid and overdue aren't something you set — they follow from the
+payments and the due date, so a badge can't disagree with the money.
+
+**New invoice** asks which job you're billing; the customer comes from
+the job, so the two can never disagree. The quickest way is **Invoice
+this job** on a job's own page, which starts the bill from that job's
+lines so you don't retype the work. A new invoice is dated today and due
+in two weeks, both of which you can change.
+
+**Status** is yours to set: a **Draft** isn't billed yet and isn't
+counted as revenue, **Sent** is owed, and **Void** was never owed.
+
+### Payments
+
+On a sent invoice with a balance, **Record a payment** opens a short
+form. The amount starts at the balance, so settling a bill in full is
+two clicks; change it for a part payment. Paying more than the balance
+is allowed — a customer rounds up, or covers two bills with one check —
+and the app says so when it happens. **Payments** lists everything
+received, newest first, with the total.
+
+### Expenses
+
+**Expenses** is what the work costs you: fuel, supplies, equipment,
+payroll, insurance, marketing, or other. Filter by category to see one
+kind, with its total. What you record here is what **Profit** subtracts.
+
+## Profit (Owner)
+
+**Profit** shows the money side for **Today**, **This week**,
 **This month** (the default), **Year to date**, or any date range up to
 five years:
 
@@ -209,7 +246,7 @@ five years:
   drafts aren't billed yet and voided invoices don't count), with the
   number of invoices and the average.
 - **Collected** — payments received in the period.
-- **Expenses** and **Net** (revenue minus expenses — a quick owner's
+- **Expenses** and **Profit** (revenue minus expenses — a quick owner's
   view, not your accountant's profit and loss).
 - **Jobs completed**.
 - A chart of revenue and expenses per day, week, or month (tap **Show

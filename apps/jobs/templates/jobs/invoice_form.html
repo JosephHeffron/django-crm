@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% load static crm_format %}
+
+{% block title %}{% if object %}Edit {{ object.number }}{% else %}New invoice{% endif %}{% endblock %}
+
+{% block extra_head %}<script src="{% static 'js/lines.js' %}" defer></script>{% endblock %}
+
+{% block content %}
+  <div class="settings-shell">
+    <h1>{% if object %}Edit {{ object.number }}{% else %}New invoice{% endif %}</h1>
+    <p class="page-subtitle">{% if from_job %}Billing {{ from_job.number }} for {{ from_job.contact }}{% else %}Which job you're billing, for how much, and by when{% endif %}</p>
+
+    <form method="post" novalidate>
+      {% csrf_token %}
+      {{ form.non_field_errors }}
+
+      <section class="section-card">
+        <div class="section-card-head"><svg class="icon" aria-hidden="true"><use href="#icon-briefcase"/></svg><h2>The job</h2></div>
+        {% include "partials/_field.html" with field=form.job %}
+        <p class="helptext">The customer comes from the job, so the two can't disagree.</p>
+        <div class="field-row">
+          {% include "partials/_field.html" with field=form.issued_on %}
+          {% include "partials/_field.html" with field=form.due_on %}
+        </div>
+        {% include "partials/_field.html" with field=form.status %}
+        <p class="helptext">A draft isn't billed yet and doesn't count as revenue. Void means it was never owed.</p>
+      </section>
+
+      <section class="section-card">
+        <div class="section-card-head"><svg class="icon" aria-hidden="true"><use href="#icon-dollar"/></svg><h2>What you're billing</h2></div>
+        {% if from_job %}<p class="muted section-note">Started from the job's own lines — change anything that's different.</p>{% endif %}
+        {{ lines.management_form }}
+        {{ lines.non_form_errors }}
+        <div class="line-rows" data-line-rows>
+          {% for line in lines %}
+            {% include "jobs/_line_row.html" with line=line %}
+          {% endfor %}
+        </div>
+        <template data-line-template>{% include "jobs/_line_row.html" with line=lines.empty_form %}</template>
+        <button type="button" class="btn btn-secondary btn-sm js-only" data-add-line><svg class="icon" aria-hidden="true"><use href="#icon-plus"/></svg>Add a line</button>
+      </section>
+
+      <section class="section-card">
+        <div class="section-card-head"><svg class="icon" aria-hidden="true"><use href="#icon-message"/></svg><h2>Notes</h2></div>
+        {% include "partials/_field.html" with field=form.notes %}
+      </section>
+
+      <div class="form-actions">
+        <button type="submit"><svg class="icon" aria-hidden="true"><use href="#icon-save"/></svg>{% if object %}Save changes{% else %}Create invoice{% endif %}</button>
+        <a class="btn btn-secondary" href="{% if object %}{{ object.get_absolute_url }}{% else %}{% url 'jobs:invoice_list' %}{% endif %}">Cancel</a>
+      </div>
+    </form>
+  </div>
+{% endblock %}
