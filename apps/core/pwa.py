@@ -60,11 +60,13 @@ def asset_version():
     return _cached_asset_version()
 
 
-def manifest():
+def manifest(business_name=""):
+    """The web app manifest; a business name set in Business Settings
+    replaces the CRM_BRAND_NAME default."""
     return {
         "id": "/",
-        "name": settings.CRM_BRAND_NAME,
-        "short_name": settings.CRM_BRAND_SHORT_NAME,
+        "name": business_name or settings.CRM_BRAND_NAME,
+        "short_name": business_name[:12] if business_name else settings.CRM_BRAND_SHORT_NAME,
         "start_url": "/",
         "scope": "/",
         "display": "standalone",

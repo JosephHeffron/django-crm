@@ -1,6 +1,7 @@
-/* Loaded only inside <noscript>: without nav.js the off-canvas drawer
+/* Loaded only inside <noscript>. Without static/js/nav.js the drawer
    can't open, so the sidebar becomes an ordinary block in the page and
-   the "Menu" links (href="#sidebar") simply jump to it. */
+   the "Menu" links (href="#sidebar") jump to it; flyouts expand inline
+   (they're <details>), and controls that need the script are hidden. */
 
 .app-shell {
   display: block;
@@ -9,12 +10,29 @@
 .sidebar {
   position: static;
   width: auto;
+  height: auto;
+  margin: 0;
   transform: none;
   visibility: visible;
-  border-right: none;
-  border-bottom: 1px solid var(--color-border);
+  border-radius: 0;
+  box-shadow: none;
 }
 
-.sidebar-close {
+.flyout {
+  position: static;
+  margin: var(--space-1) 0 var(--space-2) var(--space-6);
+  padding: 0;
+  box-shadow: none;
+  background: none;
+}
+
+.sidebar .sidebar-close,
+.sidebar .sidebar-toggle,
+.topbar .js-only,
+button.js-only {
+  display: none;
+}
+
+.topbar-search .kbd {
   display: none;
 }

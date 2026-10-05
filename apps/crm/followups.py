@@ -24,6 +24,8 @@ from django.db import IntegrityError, transaction
 from django.db.models import Max
 from django.utils import timezone
 
+from apps.core.models import Notification
+from apps.core.notifications import notify
 from apps.jobs.models import JobLineItem, ServiceType
 from apps.users.roles import Role
 
@@ -113,21 +115,30 @@ def generate_follow_ups(today=None, contact_ids=None):
             continue  # no active owner anywhere to assign it to
         try:
             with transaction.atomic():
-                created.append(
-                    Task.objects.create(
-                        kind=Task.Kind.FOLLOW_UP,
-                        title=f"Follow up: {service.name} — {contact}",
-                        description=(
-                            f"Last {service.name.lower()} or contact: "
-                            f"{baseline_day:%b} {baseline_day.day}, {baseline_day.year}. "
-                            f"Due every {service.followup_interval_months} months."
-                        ),
-                        contact=contact,
-                        service_type=service,
-                        assigned_to=assignee,
-                        created_by=assignee,
-                        due_date=today,
-                    )
+                task = Task.objects.create(
+                    kind=Task.Kind.FOLLOW_UP,
+                    title=f"Follow up: {service.name} — {contact}",
+                    description=(
+                        f"Last {service.name.lower()} or contact: "
+                        f"{baseline_day:%b} {baseline_day.day}, {baseline_day.year}. "
+                        f"Due every {service.followup_interval_months} months."
+                    ),
+                    contact=contact,
+                    service_type=service,
+                    assigned_to=assignee,
+                    created_by=assignee,
+                    due_date=today,
+                )
+                created.append(task)
+                # The key stops a second run announcing the same task
+                # again (this generator runs daily and is idempotent).
+                notify(
+                    assignee,
+                    Notification.Kind.FOLLOW_UP,
+                    f"Follow-up due: {service.name}",
+                    str(contact),
+                    task.get_absolute_url(),
+                    event=f"task:{task.pk}",
                 )
         except IntegrityError:
             # Another run created it between our check and this insert;

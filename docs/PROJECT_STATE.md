@@ -15,7 +15,7 @@ actually verified.
 > (browser-verified CSP review) is also complete** — a headless-Chromium
 > check found zero violations, including after a real Sourcery-caught
 > bug (an un-nonced inline style on the production 500 page) was fixed.
-> Phase 17 (field-service foundation) is complete. Phase 17.5 (UI restyle) is in progress — step 1 of 11 done.
+> Phase 17 (field-service foundation) is complete. Phase 17.5 (UI restyle) is in progress — steps 1–4 of 11 done.
 > Note: the GitHub repo, switched from public to private earlier in the
 > project, is now **public again** — Phase 13 unit 1's audit found
 > branch protection and secret scanning had been silently disabled
@@ -40,7 +40,7 @@ The original 14-phase roadmap (Phases 0-14) is fully complete — see
 "Project complete," below, for the summary, and "Completed" for full
 phase-by-phase detail. The post-release roadmap is now underway:
 Phases 15-17 are complete; Phase 17.5 (UI restyle) is in progress
-(step 1 done) — see "Post-release roadmap progress,"
+(steps 1–4 done) — see "Post-release roadmap progress,"
 below, for current status. This section deliberately stays short and points at
 those two rather than duplicating them, so it can't drift out of sync
 with them the way an earlier version of this section once did (it
@@ -791,7 +791,7 @@ roadmap completed:
   (Sourcery budget exhausted): one defect fixed before merge — a
   superuser owner couldn't be sent a direct message. 494 tests. Full
   detail in `logs/claude/phase-17-unit3d-profile-messages.md`.
-- **Phase 17.5 — UI restyle (in progress — step 1 of 11 done).**
+- **Phase 17.5 — UI restyle (in progress — steps 1–4 of 11 done).**
   Matching the owner's reference design (ADR 0010); map on
   OpenStreetMap (ADR 0011). Reference screenshots hold real people's
   data and are kept outside the repo. **Step 1 (PR #106) — done:** new
@@ -801,21 +801,58 @@ roadmap completed:
   page picked up the new look. Self-reviewed (Sourcery budget still
   counting last week): one visual defect fixed before merge. 500
   tests. Full detail in `logs/claude/phase-17.5-step1-foundation.md`.
+  **Step 2 (PR #108) — done:** the app shell — floating sidebar with
+  flyouts (Customers, Crew, Job, Finance; Inbox → team messages), top
+  bar with a ⌘K command palette, Create menu, dark-mode toggle saved
+  per user, settings gear, help button, role-aware keyboard shortcuts,
+  footer email links (`CRM_SUPPORT_EMAIL`); works without JavaScript.
+  Self-reviewed: two defects fixed before merge (the palette reopened
+  on Escape; an unchecked shortcut key). 507 tests. Full detail in
+  `logs/claude/phase-17.5-step2-shell.md`.
+  **Step 3 (PR #112) — done:** Business Settings for the Owner at
+  `/settings/business/` — business name, logo (cropped in the browser,
+  then validated and re-encoded server-side as a ≤512px PNG with no
+  metadata; the uploaded bytes are never stored), customer-facing
+  contact email and phone, website and social links (one per main
+  platform plus labeled Other links), and the currency (USD/CAD) that
+  the `money` filter follows everywhere. The name and logo replace the
+  install brand across the shell, the sign-in page, and the PWA
+  manifest. Export Data streams any dataset as CSV or JSON with
+  spreadsheet-formula cells neutralized. Settings load once per
+  request; reading never writes the row. Self-reviewed: three defects
+  fixed before merge (an added link sorted second; an unreadable hidden
+  crop value silently discarded the save; a negative amount exported as
+  text). 530 tests. Full detail in
+  `logs/claude/phase-17.5-step3-business-settings.md`.
+  **Step 4 (PR #114) — done:** the dashboard to the reference layout —
+  a greeting, four overview cards per role (the Owner's revenue card
+  carries a month-to-date mini chart and a comparison with the same
+  stretch of last month), today's jobs, quick action tiles, and the
+  task and activity lists. Two models the design needs are built for
+  real: `Notification` (a top-bar bell and its own page, written only
+  through `notify()`, raised by a task assigned to someone else and by a
+  due follow-up, de-duplicated so a daily run can't announce the same
+  task twice) and `Goal` (one monthly target per metric, measured
+  against aggregates that reuse the Financials definitions). The Owner
+  also gets a setup checklist answered entirely from the database, so a
+  step un-ticks itself when its data goes away. Progress bars are SVG,
+  since the CSP forbids an inline width. Self-reviewed: two defects
+  fixed before merge (a stored notification link was followed verbatim;
+  a hand-rolled "next" check replaced with Django's). 586 tests. Full
+  detail in `logs/claude/phase-17.5-step4-dashboard.md`.
 - Phases 18-25: not yet started (re-sequenced in `docs/ROADMAP.md`).
 
 ## Currently working on
 
-Nothing in flight — Phase 17.5 step 1 just closed out.
+Nothing in flight — Phase 17.5 step 4 just closed out.
 
 ## Next
 
-1. Phase 17.5 step 2 — the app shell: floating sidebar with flyouts
-   (Customers, Crew, Job, Finance; Inbox → Messages), top bar (search
-   pill with ⌘K palette, Create menu, bell, moon toggle saved to the
-   profile, settings gear), help button, keyboard shortcuts, footer
-   links to an email from settings.
-2. Then steps 3–11 (docs/decisions/0010, ROADMAP Phase 17.5), then
-   Phase 18 (quotes and jobs workflow).
+1. Phase 17.5 step 5 — Scheduling (with indicators) and Estimates.
+   This is where creating a job lives, so it also gives the dashboard
+   its "Add New Job" button, deliberately left out of step 4 rather
+   than shipped as a button that goes nowhere.
+2. Then steps 6–11 (ADR 0010, ROADMAP Phase 17.5), then Phase 18.
 
 ## Known issues
 
