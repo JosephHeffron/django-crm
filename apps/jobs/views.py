@@ -144,6 +144,7 @@ class JobFormMixin(SalesRoleRequiredMixin, PermissionRequiredMixin):
         with transaction.atomic():
             if not form.instance.pk:
                 form.instance.created_by = self.request.user
+            _stamp_completion(form.instance)
             self.object = form.save()
             lines.instance = self.object
             lines.save()
@@ -161,6 +162,21 @@ class JobFormMixin(SalesRoleRequiredMixin, PermissionRequiredMixin):
                 assignment.delete()
         for user_id in wanted - set(existing):
             JobAssignment.objects.create(job=self.object, user_id=user_id)
+
+
+def _stamp_completion(job):
+    """Record when a job was finished, from its status.
+
+    Every count of finished work — the dashboard, the monthly goal,
+    Financials, a cleaner's week — is by `completed_at`, not by status,
+    so a job marked done without a date would say "Completed" on screen
+    and be counted nowhere. Re-opening one clears the date again.
+    """
+    if job.status == Job.Status.COMPLETED:
+        if job.completed_at is None:
+            job.completed_at = timezone.now()
+    else:
+        job.completed_at = None
 
 
 class JobCreateView(JobFormMixin, CreateView):
@@ -280,14 +296,19 @@ class QuoteFormMixin(SalesRoleRequiredMixin, PermissionRequiredMixin):
 
 
 def _stamp_status(quote):
-    """Record when an estimate went out and when it was taken up. Set
-    once and kept: a quote re-sent after a correction keeps the date the
-    customer first saw it, which is what the expiry is counted from."""
-    now = timezone.now()
+    """Record when an estimate went out and when it was taken up.
+
+    `sent_at` is set once and kept: an estimate re-sent after a
+    correction keeps the date the customer first saw it, which is what
+    the expiry counts from. `accepted_at` follows the status instead, so
+    one that's since been declined doesn't still show a day it was won.
+    """
     if quote.status != Quote.Status.DRAFT and quote.sent_at is None:
-        quote.sent_at = now
-    if quote.status == Quote.Status.ACCEPTED and quote.accepted_at is None:
-        quote.accepted_at = now
+        quote.sent_at = timezone.now()
+    if quote.status != Quote.Status.ACCEPTED:
+        quote.accepted_at = None
+    elif quote.accepted_at is None:
+        quote.accepted_at = timezone.now()
 
 
 class QuoteCreateView(QuoteFormMixin, CreateView):

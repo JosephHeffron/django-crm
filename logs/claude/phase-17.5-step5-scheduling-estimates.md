@@ -76,7 +76,7 @@ step 4 deliberately left out.
 
 ## Verification
 
-$ `manage.py test` — 629 tests, OK (586 before, 43 new).
+$ `manage.py test` — 633 tests, OK (586 before, 47 new).
 $ `ruff` / `ruff format --check` / bandit (CI flags) /
   `makemigrations --check` — clean. No migrations: this step adds no
   fields.
@@ -109,10 +109,34 @@ $ Playwright under production settings, 34 checks, zero CSP violations:
   Create-menu entry, and `form button[type=submit]` matched the top
   bar's theme toggle before the form's own button.
 
+## Self-review (PR #116)
+
+Sourcery raised nothing and there were no review threads, so the diff
+was read by hand. One real defect, confirmed by a probe before fixing:
+
+1. **A job marked Completed counted nowhere.** Every count of finished
+   work — the dashboard card, the monthly goal, Financials, a cleaner's
+   week — is by `completed_at`, not by status. Nothing set it, because
+   until this step there was no way to set a job's status from the app
+   at all: a probe marked a job done and `summary()` still reported zero
+   jobs completed that month. `_stamp_completion()` now records the
+   date from the status, and clears it again if the job is re-opened.
+   Four tests, including one that asserts the reports see it.
+2. The same thinking applied to estimates: `accepted_at` now follows
+   the status, so one accepted and later declined no longer shows a day
+   it was won. `sent_at` still doesn't move — it's genuinely historical,
+   and the expiry counts from it.
+
+Re-verified in the browser under production settings: booking a job as
+Completed and watching the dashboard's count go from 0 to 1, then
+accepting an estimate and declining it and watching the won date go
+away. The job and estimate were deleted from the dev database
+afterwards.
+
 ## Git
 
-Branch: `feature/restyle-scheduling`
-Commit: pending
+Branch: `feature/restyle-scheduling` (PR #116)
+Commits: `9a20133` (the step), self-review fix to follow
 Merged to `main`: pending
 
 ## Next

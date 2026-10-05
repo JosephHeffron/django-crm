@@ -1,4 +1,4 @@
-from datetime import timedelta
+from datetime import datetime, time, timedelta
 from decimal import Decimal
 
 from django.test import TestCase
@@ -8,6 +8,7 @@ from django.utils import timezone
 from apps.crm.models import Property
 from apps.crm.tests._helpers import grant_role
 from apps.jobs.models import Job, JobAssignment, JobLineItem
+from apps.jobs.reports import Period, summary
 from apps.users.roles import Role
 
 from . import _factories as f
@@ -231,10 +232,41 @@ class ReschedulingTests(SchedulingTestCase):
         kept = JobAssignment.objects.get(job=self.job)
         self.assertEqual((kept.user, kept.hours_worked), (self.crew, Decimal("3.50")))
 
-    def test_marking_a_job_finished(self):
+    def test_marking_a_job_finished_records_when(self):
+        # Every count of finished work goes by completed_at, so a job
+        # marked done without one would be counted nowhere.
         self.client.post(self.url, self.form(status=Job.Status.COMPLETED))
         self.job.refresh_from_db()
         self.assertEqual(self.job.status, Job.Status.COMPLETED)
+        self.assertIsNotNone(self.job.completed_at)
+
+    def test_a_finished_job_is_counted_by_the_reports(self):
+        today = timezone.localdate()
+        start = timezone.make_aware(datetime.combine(today, time(9)))
+        self.client.post(
+            self.url,
+            self.form(
+                status=Job.Status.COMPLETED,
+                scheduled_start=local(start),
+                scheduled_end=local(start + timedelta(hours=2)),
+            ),
+        )
+        figures = summary(Period("month", today.replace(day=1), today))
+        self.assertEqual(figures["jobs_completed"], 1)
+
+    def test_reopening_a_job_clears_the_date(self):
+        self.client.post(self.url, self.form(status=Job.Status.COMPLETED))
+        self.client.post(self.url, self.form(status=Job.Status.IN_PROGRESS))
+        self.job.refresh_from_db()
+        self.assertIsNone(self.job.completed_at)
+
+    def test_the_finish_date_is_not_moved_by_a_later_edit(self):
+        self.client.post(self.url, self.form(status=Job.Status.COMPLETED))
+        self.job.refresh_from_db()
+        first = self.job.completed_at
+        self.client.post(self.url, self.form(status=Job.Status.COMPLETED, notes="Tidied up"))
+        self.job.refresh_from_db()
+        self.assertEqual(self.job.completed_at, first)
 
 
 class ScheduleePageTests(SchedulingTestCase):

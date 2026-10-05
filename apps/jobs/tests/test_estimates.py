@@ -121,6 +121,17 @@ class WritingTests(EstimateTestCase):
         quote.refresh_from_db()
         self.assertEqual(quote.sent_at, first_sent)
 
+    def test_an_estimate_later_declined_no_longer_shows_a_won_date(self):
+        self.client.post(NEW, self.form(status=Quote.Status.ACCEPTED))
+        quote = Quote.objects.get()
+        self.client.post(
+            reverse("jobs:quote_update", args=[quote.pk]),
+            self.form(status=Quote.Status.DECLINED),
+        )
+        quote.refresh_from_db()
+        self.assertIsNone(quote.accepted_at)
+        self.assertIsNotNone(quote.sent_at)  # it was still sent
+
     def test_an_address_belonging_to_someone_else_is_refused(self):
         stranger = f.contact(self.rep, "Sam", "Stranger")
         theirs = Property.objects.create(
