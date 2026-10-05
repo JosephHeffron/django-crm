@@ -25,6 +25,13 @@ from .models import Notification
 BELL_LIMIT = 8
 
 
+def _site_path(url):
+    """Keep only a plain path on this site. The field has a validator
+    saying the same thing, but `objects.create()` doesn't run
+    validators, and this value ends up in an href and a redirect."""
+    return url if url.startswith("/") and not url.startswith(("//", "/\\")) else ""
+
+
 def notify(recipient, kind, title, body="", url="", event=""):
     """Announce one event to one person. Returns the notification, or
     None when `event` says this person has already been told.
@@ -42,7 +49,7 @@ def notify(recipient, kind, title, body="", url="", event=""):
                 kind=kind,
                 title=title[:160],
                 body=body[:300],
-                url=url,
+                url=_site_path(url),
                 event=event[:120],
             )
     except IntegrityError:

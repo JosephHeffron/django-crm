@@ -86,7 +86,7 @@ actions, and monthly goals — with the two models the design needs
 
 ## Verification
 
-$ `manage.py test` — 584 tests, OK (530 before, 54 new).
+$ `manage.py test` — 586 tests, OK (530 before, 56 new).
 $ `ruff` / `ruff format --check` / bandit (CI flags) /
   `makemigrations --check` — clean.
 $ Playwright under production settings, 34 checks, zero CSP violations
@@ -123,10 +123,43 @@ $ Playwright under production settings, 34 checks, zero CSP violations
   along with the check's goals and notifications; the owner's checklist
   flag was reset.
 
+## Self-review (PR #114)
+
+Sourcery's budget again allowed only a reviewer's guide (no findings),
+so the diff was read by hand. Two defects found, both probed before
+fixing and both now covered by regression tests:
+
+1. **A notification's stored link was followed verbatim.** The field
+   carries a validator saying it must be a path on this site, but
+   `Model.objects.create()` doesn't run validators, so nothing actually
+   enforced it — a probe stored `https://evil.example.com/` and the
+   "open" button redirected straight there. Nothing writes such a link
+   today (every producer uses `get_absolute_url()`), so this was a
+   defence that existed only on paper. Now `notify()` drops anything
+   that isn't a plain site path, and the redirect checks again, since
+   that's the one place a bad value would do damage.
+2. **The "next" check was hand-rolled** (`startswith("/")` and not
+   `"//"`) where this codebase already uses Django's
+   `url_has_allowed_host_and_scheme` for exactly this, in
+   `TaskCompleteView`. The hand-rolled version let `/\evil.example.com`
+   through; Django percent-encodes the backslash on the way out, so it
+   stayed on this site and was not exploitable — but matching the
+   existing helper removes the question entirely.
+
+Also tidied: `add_months(month_first, 0)` was a no-op in the
+previous-month comparison.
+
+Re-verified after the fixes: 586 tests; and in the browser under
+production settings, the dashboard, goals, and notifications pages in
+**dark mode** at desktop width (the first run had only checked dark on a
+phone) — correct dark surfaces and text, no overflow, the bell menu
+opening, zero CSP violations. The check's goals and notifications were
+removed from the dev database afterwards.
+
 ## Git
 
 Branch: `feature/restyle-dashboard`
-Commit: pending
+Commits: `bb6d056` (the dashboard), self-review fixes to follow
 Merged to `main`: pending
 
 ## Next

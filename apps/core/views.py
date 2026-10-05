@@ -23,6 +23,7 @@ from django.shortcuts import redirect, render
 from django.template.defaultfilters import pluralize
 from django.urls import reverse
 from django.utils import timezone
+from django.utils.http import url_has_allowed_host_and_scheme
 from django.views import View
 from django.views.generic import ListView, TemplateView
 
@@ -219,7 +220,7 @@ class DashboardView(LoginRequiredMixin, TemplateView):
         # Same stretch of the previous month, so a comparison on the 3rd
         # isn't a whole month against three days.
         previous_first = add_months(month_first, -1)
-        previous_last = min(add_months(today, -1), add_months(month_first, 0) - timedelta(days=1))
+        previous_last = min(add_months(today, -1), month_first - timedelta(days=1))
         previous = (
             invoiced_revenue(previous_first, previous_last)
             if previous_last >= previous_first
@@ -337,7 +338,15 @@ class NotificationReadView(LoginRequiredMixin, View):
         notification = notifications.mark_read(request.user, pk)
         if notification is None:
             raise Http404("No such notification")
-        return redirect(notification.url or reverse("core:notifications"))
+        # The stored link is checked again here, not only when it was
+        # written: a redirect is the one place a bad value would do
+        # damage, and Model.objects.create() doesn't run validators.
+        target = notification.url
+        if target and url_has_allowed_host_and_scheme(
+            target, allowed_hosts={request.get_host()}, require_https=request.is_secure()
+        ):
+            return redirect(target)
+        return redirect("core:notifications")
 
 
 class NotificationReadAllView(LoginRequiredMixin, View):
@@ -357,10 +366,14 @@ class OnboardingDismissView(OwnerRequiredMixin, View):
 
 
 def _safe_next(request, fallback):
-    """A "next" from the form, but only a path on this site — never an
-    absolute URL someone put in a link."""
+    """A "next" from the form, but only a destination on this site —
+    Django's own check, as in apps/crm/views.py, rather than a
+    hand-rolled one."""
     target = request.POST.get("next", "")
-    return target if target.startswith("/") and not target.startswith("//") else fallback
+    allowed = url_has_allowed_host_and_scheme(
+        target, allowed_hosts={request.get_host()}, require_https=request.is_secure()
+    )
+    return target if target and allowed else fallback
 
 
 def _search(query):

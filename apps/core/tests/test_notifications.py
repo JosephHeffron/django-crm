@@ -44,6 +44,11 @@ class NotifyTests(TestCase):
         self.assertIsNone(notify(None, Notification.Kind.SYSTEM, "Into the void"))
         self.assertFalse(Notification.objects.exists())
 
+    def test_a_link_off_this_site_is_not_stored(self):
+        for url in ("https://evil.example.com/", "//evil.example.com/", "javascript:alert(1)"):
+            notification = notify(self.user, Notification.Kind.SYSTEM, "Odd link", url=url)
+            self.assertEqual(notification.url, "", url)
+
     def test_long_text_is_trimmed_to_fit(self):
         notification = notify(self.user, Notification.Kind.SYSTEM, "T" * 300, "B" * 400)
         self.assertEqual((len(notification.title), len(notification.body)), (160, 300))
@@ -117,6 +122,18 @@ class NotificationPageTests(TestCase):
         response = self.client.post(reverse("core:notification_read", args=[notification.pk]))
         self.assertRedirects(response, LIST_URL)
 
+    def test_a_stored_link_off_this_site_is_never_followed(self):
+        # Nothing writes one today (notify() strips it), but a redirect
+        # is where it would do damage, so the view checks again.
+        notification = Notification.objects.create(
+            recipient=self.user,
+            title="Tampered",
+            url="https://evil.example.com/",
+            kind=Notification.Kind.SYSTEM,
+        )
+        response = self.client.post(reverse("core:notification_read", args=[notification.pk]))
+        self.assertRedirects(response, LIST_URL)
+
     def test_someone_elses_notification_is_not_found(self):
         notification = make(self.other, "Theirs")
         response = self.client.post(reverse("core:notification_read", args=[notification.pk]))
@@ -137,10 +154,10 @@ class NotificationPageTests(TestCase):
         here = self.client.post(reverse("core:notifications_read_all"), {"next": "/calendar/"})
         self.assertRedirects(here, "/calendar/", fetch_redirect_response=False)
         make(self.user, "Another")
-        away = self.client.post(
-            reverse("core:notifications_read_all"), {"next": "https://evil.example.com/"}
-        )
-        self.assertRedirects(away, LIST_URL)
+        for target in ("https://evil.example.com/", "//evil.example.com/", r"/\evil.example.com"):
+            make(self.user, f"Another for {target}")
+            away = self.client.post(reverse("core:notifications_read_all"), {"next": target})
+            self.assertRedirects(away, LIST_URL, msg_prefix=target)
 
 
 class TaskProducerTests(TestCase):
