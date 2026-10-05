@@ -24,6 +24,9 @@
       <noscript>
         <p class="map-fallback">The map needs JavaScript. The addresses are listed below.</p>
       </noscript>
+      {% if pins_capped %}
+        <p class="map-fallback muted">Showing the first {{ pin_count }} addresses; {{ pins_capped }} more are placed but not drawn.</p>
+      {% endif %}
       <p class="map-legend">
         <span class="map-key"><span class="map-dot is-scheduled"></span>Booked this week</span>
         <span class="map-key"><span class="map-dot is-done"></span>Finished</span>

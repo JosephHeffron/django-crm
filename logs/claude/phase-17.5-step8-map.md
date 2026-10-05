@@ -71,8 +71,8 @@ Nominatim for turning addresses into coordinates.
 
 ## Verification
 
-$ `manage.py test` — 721 tests, OK (696 before, 25 new). The migration
-  reverses cleanly.
+$ `manage.py test` — 724 tests, OK (696 before, 28 new). Both
+  migrations reverse cleanly.
 $ `ruff` / `ruff format --check` / bandit (CI flags) /
   `makemigrations --check` — clean.
 $ Playwright under production settings, 20 checks, **zero CSP
@@ -99,10 +99,40 @@ $ Playwright under production settings, 20 checks, **zero CSP
   instead — one request, inside Nominatim's policy, against an invented
   demo address rather than a customer's.
 
+## Self-review (PR #122)
+
+No review threads and nothing from Sourcery, so the diff was read by
+hand. One real defect:
+
+**The Map page loaded every property into memory to filter in Python**
+— `[p for p in Property.objects.all() if p.needs_locating]` — which is
+exactly what `CLAUDE.md`'s performance rule 2 forbids. The question is
+now asked of the database: `Property.needing_location()` builds the
+address in SQL and compares it with the snapshot taken when it was
+placed, so the page counts and slices instead of fetching everything.
+The classmethod lives beside `__str__`, because it mirrors it and the
+two must not drift. `located_address` grew to 450 characters (migration
+`crm/0009`) so a maximum-length address can hold its whole snapshot and
+can't look permanently stale. Pins are capped at 500, with the page
+saying how many are placed but not drawn.
+
+Two tests of my own needed fixing before they were worth anything:
+the first asserted the page's query count against *its own measurement*
+of the page's query count, which can only pass; the second compared
+query counts across two data sizes, which the old Python-side filter
+would also have passed, since it was one query too. The test now checks
+the thing that actually matters — that the question is a filtered,
+sliceable queryset — and that the page counts and slices rather than
+listing everything.
+
+Re-verified in the browser under production settings: all 20 checks
+again, zero CSP violations. The addresses placed for the check were
+cleared afterwards.
+
 ## Git
 
-Branch: `feature/restyle-map`
-Commit: pending
+Branch: `feature/restyle-map` (PR #122)
+Commits: `42331c9` (the step), self-review fix to follow
 Merged to `main`: pending
 
 ## Next

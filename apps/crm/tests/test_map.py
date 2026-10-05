@@ -181,6 +181,45 @@ class MapPageTests(MapTestCase):
         self.assertContains(response, str(self.address))
         self.assertContains(response, self.customer.get_absolute_url())
 
+    def add_addresses(self, how_many, placed=False):
+        for number in range(how_many):
+            address = Property.objects.create(
+                contact=self.customer,
+                street=f"{number} Elm St",
+                city="Oak Park",
+                state="IL",
+                postal_code="60301",
+            )
+            if placed:
+                geocoding.place_by_hand(address, "41.5", "-87.5")
+
+    def test_which_addresses_need_placing_is_a_database_question(self):
+        # Not "load them all and filter in Python": the page must be
+        # able to count and slice without fetching every row.
+        self.add_addresses(4)
+        self.add_addresses(3, placed=True)
+        pending = Property.needing_location()
+        self.assertEqual(pending.count(), 5)  # four new, plus the one from setUp
+        self.assertEqual(len(pending[:2]), 2)
+        self.assertIn("LIMIT", str(pending[:2].query).upper())
+        self.assertIn("WHERE", str(pending.query).upper())
+
+    def test_the_page_counts_and_slices_rather_than_listing_everything(self):
+        self.add_addresses(40)
+        self.add_addresses(3, placed=True)
+        context = self.client.get(MAP).context
+        self.assertEqual(context["unplaced_count"], 41)
+        self.assertEqual(len(context["unplaced"]), 25)  # the page's cap
+        self.assertEqual(context["unplaced_more"], 16)
+        self.assertEqual(context["pin_count"], 3)
+
+    def test_an_edited_address_is_asked_about_again(self):
+        geocoding.place_by_hand(self.address, "41.5", "-87.5")
+        self.assertEqual(self.client.get(MAP).context["unplaced_count"], 0)
+        self.address.street = "14 Oak Ave"
+        self.address.save(update_fields=["street"])
+        self.assertEqual(self.client.get(MAP).context["unplaced_count"], 1)
+
     def test_nothing_is_looked_up_while_the_page_renders(self):
         # A page must never wait on a third party.
         with mock.patch("apps.crm.geocoding.urlopen") as urlopen:

@@ -67,6 +67,9 @@ INVOICE_TERMS_DAYS = 14
 
 # How many unplaced addresses the map lists before it stops.
 MAP_UNPLACED_LISTED = 25
+# And how many pins it draws. Past this, a map is a smudge and the
+# browser is doing a lot of work for no one's benefit.
+MAP_PIN_LIMIT = 500
 
 # How many upcoming jobs the time clock offers to clock onto.
 TIME_CLOCK_JOB_CHOICES = 25
@@ -881,7 +884,9 @@ class MapView(SalesRoleRequiredMixin, TemplateView):
             if job.service_property_id:
                 jobs_by_property.setdefault(job.service_property_id, []).append(job)
 
-        located = Property.objects.filter(latitude__isnull=False).select_related("contact")
+        located = Property.objects.filter(latitude__isnull=False).select_related("contact")[
+            :MAP_PIN_LIMIT
+        ]
         pins = []
         for service_property in located:
             jobs_here = jobs_by_property.get(service_property.pk, [])
@@ -899,14 +904,19 @@ class MapView(SalesRoleRequiredMixin, TemplateView):
                     "jobs": len(jobs_here),
                 }
             )
-        unplaced = [p for p in Property.objects.select_related("contact") if p.needs_locating]
+        # Asked of the database, not by loading every property and
+        # filtering in Python (CLAUDE.md's performance rules).
+        pending = Property.needing_location().select_related("contact")
+        unplaced_count = pending.count()
+        placed_total = Property.objects.filter(latitude__isnull=False).count()
         context.update(
             pins=pins,
             pins_json=json.dumps(pins),
             pin_count=len(pins),
-            unplaced=unplaced[:MAP_UNPLACED_LISTED],
-            unplaced_count=len(unplaced),
-            unplaced_more=max(0, len(unplaced) - MAP_UNPLACED_LISTED),
+            pins_capped=max(0, placed_total - len(pins)),
+            unplaced=pending[:MAP_UNPLACED_LISTED],
+            unplaced_count=unplaced_count,
+            unplaced_more=max(0, unplaced_count - MAP_UNPLACED_LISTED),
             week_first=first,
             week_last=last,
             week_jobs=len(week),
