@@ -1,172 +1,274 @@
 import re
 
 from django.contrib.auth import get_user_model
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.urls import reverse
 
-from apps.core.navigation import NAV_ITEMS
+from apps.core.navigation import all_links
 from apps.crm.tests._helpers import grant_role
-from apps.users.roles import OWNER_ONLY, Role
+from apps.jobs.tests import _factories as f
+from apps.users.models import get_profile
+from apps.users.roles import Role
 
 User = get_user_model()
 PASSWORD = "correct-horse-battery"
 
 
+def _sidebar(html):
+    return html.split('<nav id="sidebar"', 1)[1].split("</nav>", 1)[0]
+
+
 def _sidebar_links(html):
-    """(href, label, is_current) for every main sidebar nav link — the
-    account links in the sidebar footer are deliberately excluded."""
-    html = html.split('<nav id="sidebar"', 1)[1].split('<div class="sidebar-footer">', 1)[0]
+    """(href, label, is_current) for every page link in the sidebar —
+    direct links and flyout rows; not the logout button or footer."""
+    body = _sidebar(html).split('<div class="sidebar-footer">', 1)[0]
     pattern = re.compile(
-        r'<a class="nav-link" href="([^"]+)"( aria-current="page")?>\s*'
-        r"<svg[^>]*>.*?</svg>\s*<span>([^<]+)</span>",
+        r'<a class="(?:nav-link|flyout-link)" href="([^"]+)"( aria-current="page")?>\s*'
+        r"<svg[^>]*>.*?</svg>\s*<span[^>]*>([^<]+)</span>",
         re.S,
     )
-    return [(href, label, bool(current)) for href, current, label in pattern.findall(html)]
+    return [(href, label, bool(current)) for href, current, label in pattern.findall(body)]
 
 
-class NavigationForSalesRepTests(TestCase):
-    """Every nav link should point at a real, working page — the nav is
-    only worth as much as its links actually resolve."""
-
-    def setUp(self):
-        grant_role(User.objects.create_user("alice", password=PASSWORD))
-        self.client.login(username="alice", password=PASSWORD)
-
-    def test_nav_lists_every_crm_section(self):
-        labels = [label for _, label, _ in _sidebar_links(self.client.get("/").content.decode())]
-        self.assertEqual(
-            labels,
-            [
-                "Dashboard",
-                "Calendar",
-                "Contacts",
-                "Tasks",
-                "Messages",
-                "Companies",
-                "Activities",
-                "Profile",
-            ],
-        )
-
-    def test_each_nav_url_is_reachable_and_login_required(self):
-        for href, label, _ in _sidebar_links(self.client.get("/").content.decode()):
-            self.client.logout()
-            self.assertEqual(
-                self.client.get(href).status_code, 302, f"{label} should require login"
-            )
-            self.client.login(username="alice", password=PASSWORD)
-            response = self.client.get(href)
-            self.assertEqual(response.status_code, 200, f"{label} should render")
-            self.assertContains(response, label)
-
-    def test_current_nav_section_is_marked_for_orientation(self):
-        links = _sidebar_links(self.client.get(reverse("crm:company_list")).content.decode())
-        current = [label for _, label, is_current in links if is_current]
-        self.assertEqual(current, ["Companies"])
-
-    def test_detail_pages_mark_their_section_current(self):
-        response = self.client.get(reverse("crm:company_create"))
-        current = [
-            label
-            for _, label, is_current in _sidebar_links(response.content.decode())
-            if is_current
-        ]
-        self.assertEqual(current, ["Companies"])
-
-    def test_dashboard_is_marked_current_on_the_dashboard(self):
-        links = _sidebar_links(self.client.get(reverse("core:index")).content.decode())
-        self.assertEqual([label for _, label, is_current in links if is_current], ["Dashboard"])
-
-    def test_search_box_shown(self):
-        self.assertContains(self.client.get("/"), 'role="search"')
+def _groups(html):
+    return re.findall(
+        r'<span class="nav-text">([^<]+)</span>\s*<svg class="icon nav-arrow"', _sidebar(html)
+    )
 
 
-class NavigationMatchesAccessForEveryRoleTests(TestCase):
-    """The nav and the views are declared against the same role sets
-    (ADR 0008). For each role: every link shown opens (200), and every
-    nav page NOT shown is refused (403) — the two can never disagree."""
-
-    def _check(self, role):
-        username = f"user-{role or 'none'}"
+class NavTestCase(TestCase):
+    def login(self, role, username=None):
+        username = username or f"user-{role or 'none'}"
         user = User.objects.create_user(username, password=PASSWORD)
         if role:
             grant_role(user, role)
         self.client.login(username=username, password=PASSWORD)
+        return user
 
-        shown = {href for href, _, _ in _sidebar_links(self.client.get("/").content.decode())}
-        for item in NAV_ITEMS:
-            url = reverse(item.url_name)
-            expected = 200 if url in shown else 403
-            self.assertEqual(self.client.get(url).status_code, expected, f"{role}: {url}")
+    def page(self, url="/"):
+        return self.client.get(url).content.decode()
+
+
+class SidebarStructureTests(NavTestCase):
+    def test_sales_rep(self):
+        self.login(Role.SALES_REP)
+        html = self.page()
+        self.assertEqual(_groups(html), ["Customers", "Job"])
+        self.assertEqual(
+            [label for _, label, _ in _sidebar_links(html)],
+            [
+                "Dashboard",
+                "Inbox",
+                "Customers",
+                "Companies",
+                "Follow-ups",
+                "Tasks",
+                "Notes",
+                "Activities",
+                "Scheduling",
+                "Estimates",
+            ],
+        )
+
+    def test_owner_also_gets_crew_and_finance(self):
+        self.login(Role.OWNER)
+        self.assertEqual(_groups(self.page()), ["Customers", "Crew", "Job", "Finance"])
+
+    def test_cleaner_and_no_role(self):
+        self.login(Role.CLEANER)
+        self.assertEqual(
+            [label for _, label, _ in _sidebar_links(self.page())],
+            ["Dashboard", "Inbox", "Scheduling"],
+        )
+        self.client.logout()
+        self.login(None)
+        self.assertEqual([label for _, label, _ in _sidebar_links(self.page())], ["Dashboard"])
+
+    def test_most_specific_link_is_current_and_its_group_lights_up(self):
+        self.login(Role.SALES_REP)
+        html = self.page(reverse("crm:task_followups"))
+        self.assertEqual(
+            [label for _, label, current in _sidebar_links(html) if current], ["Follow-ups"]
+        )
+        self.assertIn('class="nav-group is-active"', html)
+
+    def test_brand_and_workspace_label(self):
+        self.login(Role.SALES_REP)
+        html = self.page()
+        self.assertIn('<span class="brand-name">Exterior CRM</span>', html)
+        self.assertIn('<span class="brand-sub">Workspace</span>', html)
+        self.assertIn("<title>Dashboard · Exterior CRM</title>", html)
+
+
+# Every role's own pages, reached from the gear menu.
+OWN_PAGES = ("people:profile", "people:profile_edit", "users:password_change")
+
+
+class NavigationMatchesAccessForEveryRoleTests(NavTestCase):
+    """The nav and the views are declared against the same role sets
+    (ADR 0008). For each role: every link shown opens (200) and needs a
+    login, and every navigation destination NOT shown is refused (403)
+    — the two can never disagree."""
+
+    def _check(self, role):
+        self.login(role)
+        shown = {href for href, _, _ in _sidebar_links(self.page())}
+        for href in shown:
+            self.assertEqual(self.client.get(href).status_code, 200, f"{role}: {href}")
+        everywhere = {reverse(link.url_name) for link in all_links()}
+        own = {reverse(name) for name in OWN_PAGES}
+        for url in everywhere - shown - own:
+            response = self.client.get(url)
+            if role is None or url not in self._menu_urls():
+                self.assertEqual(response.status_code, 403, f"{role}: {url}")
+            else:
+                self.assertEqual(response.status_code, 200, f"{role}: {url}")
+        self.client.logout()
+        for href in shown:
+            self.assertEqual(self.client.get(href).status_code, 302, f"anonymous: {href}")
         return shown
 
+    def _menu_urls(self):
+        """Create/gear destinations this person was shown on the page."""
+        html = self.page()
+        return set(re.findall(r'<a class="dropdown-item" href="([^"]+)"', html))
+
     def test_owner(self):
-        self.assertEqual(len(self._check(Role.OWNER)), len(NAV_ITEMS))
+        self.assertEqual(len(self._check(Role.OWNER)), 12)
 
     def test_sales_rep(self):
-        # Everything but the Owner-only pages (Financials, Services).
-        owner_only = {reverse(i.url_name) for i in NAV_ITEMS if i.roles == OWNER_ONLY}
-        self.assertEqual(owner_only, {reverse("jobs:financials"), reverse("jobs:service_list")})
-        self.assertEqual(
-            self._check(Role.SALES_REP), {reverse(i.url_name) for i in NAV_ITEMS} - owner_only
-        )
+        self._check(Role.SALES_REP)
 
     def test_cleaner(self):
-        self.assertEqual(
-            self._check(Role.CLEANER),
-            {
-                reverse(n)
-                for n in ("core:index", "jobs:calendar", "messaging:home", "people:profile")
-            },
-        )
+        self._check(Role.CLEANER)
 
     def test_no_role(self):
-        self.assertEqual(self._check(None), {reverse("core:index")})
+        self._check(None)
 
 
-class ShellTests(TestCase):
-    def test_cleaner_gets_no_search_box(self):
-        grant_role(User.objects.create_user("crew", password=PASSWORD), Role.CLEANER)
-        self.client.login(username="crew", password=PASSWORD)
-        self.assertNotContains(self.client.get("/"), 'role="search"')
-
-    def test_shell_shows_name_initials_and_role(self):
-        user = User.objects.create_user(
-            "jdoe", password=PASSWORD, first_name="Jane", last_name="Doe"
-        )
-        grant_role(user, Role.SALES_REP)
-        self.client.login(username="jdoe", password=PASSWORD)
-        response = self.client.get("/")
-        self.assertContains(response, "Jane Doe")
-        self.assertContains(response, ">JD</span>")
-        self.assertContains(response, "Sales Rep")
-
-    def test_phone_bottom_bar_has_primary_items_and_menu(self):
-        grant_role(User.objects.create_user("alice", password=PASSWORD))
-        self.client.login(username="alice", password=PASSWORD)
-        html = self.client.get("/").content.decode()
-        bar = html.split('<nav class="bottom-bar"', 1)[1].split("</nav>", 1)[0]
+class TopBarTests(NavTestCase):
+    def test_sales_roles_get_search_pill_and_create_menu(self):
+        self.login(Role.SALES_REP)
+        html = self.page()
+        self.assertIn('placeholder="Search everything…"', html)
+        create = html.split('aria-label="Create"', 1)[1].split("</details>", 1)[0]
         self.assertEqual(
-            re.findall(r"<span>([^<]+)</span>", bar),
-            ["Dashboard", "Calendar", "Contacts", "Tasks", "Menu"],
+            re.findall(r"</svg>([^<]+)</a>", create), ["New customer", "New task", "Log activity"]
         )
 
-    def test_cleaners_bottom_bar_is_their_own_day(self):
-        grant_role(User.objects.create_user("crew", password=PASSWORD), Role.CLEANER)
-        self.client.login(username="crew", password=PASSWORD)
-        html = self.client.get("/").content.decode()
-        bar = html.split('<nav class="bottom-bar"', 1)[1].split("</nav>", 1)[0]
+    def test_cleaner_gets_no_search_box_or_create_menu(self):
+        self.login(Role.CLEANER)
+        html = self.page()
+        self.assertNotIn('role="search"', html)
+        self.assertNotIn('aria-label="Create"', html)
+        self.assertIn("data-palette-trigger", html)  # jump-to-page palette still
+
+    def test_gear_menu_is_role_filtered(self):
+        self.login(Role.SALES_REP)
+        gear = self.page().split('aria-label="Settings"', 1)[1].split("</details>", 1)[0]
+        self.assertIn("Your profile", gear)
+        self.assertIn("Dark Mode", gear)
+        self.assertNotIn("Company management", gear)
+        self.client.logout()
+        self.login(Role.OWNER, "boss")
+        self.assertIn("Company management", self.page().split('aria-label="Settings"', 1)[1])
+
+    def test_bottom_bar_per_role(self):
+        def bar(html):
+            section = html.split('<nav class="bottom-bar"', 1)[1].split("</nav>", 1)[0]
+            return re.findall(r"<span>([^<]+)</span>", section)
+
+        self.login(Role.SALES_REP)
         self.assertEqual(
-            re.findall(r"<span>([^<]+)</span>", bar),
-            ["Dashboard", "Calendar", "Messages", "Profile", "Menu"],
+            bar(self.page()), ["Dashboard", "Scheduling", "Customers", "Tasks", "Menu"]
         )
+        self.client.logout()
+        self.login(Role.CLEANER)
+        self.assertEqual(bar(self.page()), ["Dashboard", "Scheduling", "Inbox", "Profile", "Menu"])
 
-    def test_brand_name_in_title(self):
-        grant_role(User.objects.create_user("alice", password=PASSWORD))
-        self.client.login(username="alice", password=PASSWORD)
-        self.assertContains(self.client.get("/"), "<title>Dashboard · Exterior CRM</title>")
+    def test_shortcuts_follow_roles(self):
+        self.login(Role.CLEANER)
+        html = self.page()
+        self.assertIn('data-shortcut="g s"', html)
+        self.assertNotIn('data-shortcut="g c"', html)
+
+    def test_footer_email_links_only_when_configured(self):
+        self.login(Role.SALES_REP)
+        self.assertNotIn("Report a bug", self.page())
+        with override_settings(CRM_SUPPORT_EMAIL="help@example.com"):
+            html = self.page()
+        self.assertIn('href="mailto:help@example.com?subject=Exterior%20CRM%20bug%20report"', html)
+        self.assertIn("Ideas", html)
+
+    def test_collapsed_sidebar_cookie(self):
+        self.login(Role.SALES_REP)
+        self.assertNotIn('class="sidebar-collapsed"', self.page())
+        self.client.cookies["crm_sidebar"] = "collapsed"
+        self.assertIn('<body class="sidebar-collapsed">', self.page())
 
     def test_logged_out_pages_use_the_auth_layout_without_nav(self):
         response = self.client.get(reverse("users:login"))
         self.assertContains(response, 'class="auth-layout"')
         self.assertNotContains(response, 'class="sidebar"')
+
+
+class ThemeTests(NavTestCase):
+    def test_saved_theme_is_rendered_on_html(self):
+        user = self.login(Role.CLEANER)
+        self.assertIn('<html lang="en">', self.page())
+        response = self.client.post(
+            reverse("people:theme"), {"theme": "dark", "next": "/calendar/"}
+        )
+        self.assertRedirects(response, "/calendar/")
+        self.assertEqual(get_profile(user).theme, "dark")
+        self.assertIn('<html lang="en" data-theme="dark">', self.page())
+
+    def test_fetch_gets_204_and_system_clears_the_override(self):
+        self.login(Role.CLEANER)
+        response = self.client.post(
+            reverse("people:theme"), {"theme": "system"}, headers={"X-Requested-With": "fetch"}
+        )
+        self.assertEqual(response.status_code, 204)
+        self.assertIn('<html lang="en">', self.page())
+
+    def test_bad_value_and_unsafe_next(self):
+        self.login(Role.CLEANER)
+        self.assertEqual(
+            self.client.post(reverse("people:theme"), {"theme": "purple"}).status_code, 400
+        )
+        response = self.client.post(
+            reverse("people:theme"), {"theme": "light", "next": "https://evil.example/"}
+        )
+        self.assertRedirects(response, "/")
+
+    def test_requires_login(self):
+        response = self.client.post(reverse("people:theme"), {"theme": "dark"})
+        self.assertEqual(response.status_code, 302)
+        self.assertIn(reverse("users:login"), response["Location"])
+
+
+class SearchSuggestTests(NavTestCase):
+    def test_sales_roles_get_json_matches(self):
+        user = self.login(Role.SALES_REP)
+        contact = f.contact(user, "Pat", "Gutters", phone="(585) 555-0101")
+        job = f.job(contact, user)
+        url = reverse("core:search_suggest")
+        rows = self.client.get(url, {"q": job.number}).json()["results"]
+        self.assertEqual(
+            rows[0],
+            {
+                "label": job.number,
+                "detail": "Pat Gutters",
+                "url": job.get_absolute_url(),
+                "kind": "Job",
+            },
+        )
+        rows = self.client.get(url, {"q": "Gutters"}).json()["results"]
+        self.assertEqual(rows[0]["kind"], "Customer")
+        self.assertEqual(self.client.get(url, {"q": "G"}).json(), {"results": []})
+
+    def test_cleaners_are_refused(self):
+        self.login(Role.CLEANER)
+        self.assertEqual(
+            self.client.get(reverse("core:search_suggest"), {"q": "Pat"}).status_code, 403
+        )

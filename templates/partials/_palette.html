@@ -1,0 +1,32 @@
+{% comment %}
+  ⌘K / Ctrl+K command palette (static/js/nav.js). Lists every page and
+  action this person may use, filtered as they type; sales roles also
+  get live search results. Without JS it never opens — the top-bar
+  search form is the fallback.
+{% endcomment %}
+<dialog id="palette" class="palette" aria-label="Search and jump"{% if nav.show_search %} data-suggest-url="{% url 'core:search_suggest' %}" data-search-url="{% url 'core:search' %}"{% endif %}>
+  <div class="palette-input">
+    <svg class="icon" aria-hidden="true"><use href="#icon-search"/></svg>
+    <label for="palette-q" class="sr-only">Search or jump to</label>
+    <input type="text" id="palette-q" autocomplete="off" spellcheck="false" placeholder="{% if nav.show_search %}Search customers, jobs, or jump to a page…{% else %}Jump to a page…{% endif %}" data-palette-input>
+    <kbd class="kbd">Esc</kbd>
+  </div>
+  <ul class="palette-list" data-palette-results aria-label="Search results"></ul>
+  <ul class="palette-list" data-palette-commands aria-label="Pages and actions">
+    {% for section in nav.sections %}
+      {% if section.children %}
+        {% for child in section.children %}
+          <li><a class="palette-item" href="{{ child.url }}"{% if child.shortcut %} data-shortcut="{{ child.shortcut }}"{% endif %}><svg class="icon" aria-hidden="true"><use href="#icon-{{ child.icon }}"/></svg><span>{{ child.label }}</span><span class="palette-kind">{{ section.label }}</span></a></li>
+        {% endfor %}
+      {% else %}
+        <li><a class="palette-item" href="{{ section.url }}"{% if section.shortcut %} data-shortcut="{{ section.shortcut }}"{% endif %}><svg class="icon" aria-hidden="true"><use href="#icon-{{ section.line_icon }}"/></svg><span>{{ section.label }}</span><span class="palette-kind">Page</span></a></li>
+      {% endif %}
+    {% endfor %}
+    {% for item in nav.create_items %}
+      <li><a class="palette-item" href="{{ item.url }}"{% if item.shortcut %} data-shortcut="{{ item.shortcut }}"{% endif %}><svg class="icon" aria-hidden="true"><use href="#icon-{{ item.icon }}"/></svg><span>{{ item.label }}</span><span class="palette-kind">Create</span></a></li>
+    {% endfor %}
+    {% for item in nav.gear_items %}
+      <li><a class="palette-item" href="{{ item.url }}"><svg class="icon" aria-hidden="true"><use href="#icon-{{ item.icon }}"/></svg><span>{{ item.label }}</span><span class="palette-kind">Settings</span></a></li>
+    {% endfor %}
+  </ul>
+</dialog>

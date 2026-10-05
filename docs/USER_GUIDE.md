@@ -21,7 +21,7 @@ What you can see depends on your **role**, which the owner assigns:
 - **Cleaner** — your own schedule: the dashboard and calendar show only
   the jobs you're assigned to, and a job page shows the customer's name,
   phone, and address and the work to do (no prices). On a phone your
-  bottom bar is Dashboard, Calendar, Messages, and Profile.
+  bottom bar is Dashboard, Scheduling, Inbox, and Profile.
 
 If your dashboard says **"No role assigned yet"**, or you get a
 "permission denied" (403) page, your account doesn't have the role that
@@ -32,18 +32,97 @@ On a phone, the app can be installed to your home screen (your
 browser's "Add to Home Screen" / "Install app" option) and opens like a
 native app.
 
+## Getting around
+
+**The sidebar** on the left lists everything you can open:
+**Dashboard**, **Inbox** (team messages; the red number is how many you
+haven't read), and groups that open a small menu beside it —
+**Customers** (customers, companies, follow-ups, tasks, notes,
+activities), **Crew**, **Job** (scheduling, estimates), and **Finance**.
+You only see what your role allows. The ☰ button at the top of the
+sidebar shrinks it to icons; it stays that way until you click it
+again. On a phone or tablet the sidebar opens from the ☰ button in the
+top bar instead.
+
+**The top bar** (right side):
+
+- **Search everything…** — click it or press **Ctrl+K** (**⌘K** on a
+  Mac) to search customers, companies, jobs (type a number like
+  `J-1502`), estimates, and tasks, or to jump straight to any page.
+  Use the arrow keys and Enter, or click. Crew members get the jump-to-
+  a-page part.
+- **Create** — start a new customer, task, or activity log.
+- **Refresh**, the **moon** (dark mode on/off — remembered on your
+  account, on every device), and the **gear**: your profile, account
+  settings, password, the Owner's company settings, and a Dark Mode
+  switch.
+
+**Shortcuts:** press **G** then a letter to go somewhere — **G D**
+dashboard, **G I** inbox, **G S** scheduling, **G C** customers, **G T**
+tasks, **G F** follow-ups, **G E** estimates — or **N C** / **N T** for
+a new customer or task. **?** opens the help button's list. (Shortcuts
+only include pages your role can open.)
+
+The round **?** button at the bottom right shows these shortcuts and,
+if the owner has set one up, an email address for help, ideas, or bug
+reports (also in the sidebar).
+
 ## Dashboard
 
-The page you land on after logging in. It's different for each role:
+The page you land on after logging in. It greets you, says what's on
+today, and puts four overview cards at the top. Below them are today's
+jobs, **Quick actions** (shortcut tiles to the pages your role may
+open), and your tasks and recent activity.
 
-- **Owner** — revenue invoiced today and this week (sent invoices; a
-  draft isn't billed yet), the unpaid balance still owed, open quotes,
-  follow-ups due, unread team messages, today's schedule, site visits in
-  the next seven days, your tasks, and recent activity.
-- **Sales Rep** — the same minus the money figures, with quotes,
-  follow-ups, and site visits limited to your own.
-- **Cleaner** — your jobs today and coming up, jobs completed and hours
-  logged this week, and unread messages.
+What the cards show depends on your role:
+
+- **Owner** — revenue invoiced this month (with today's and this week's
+  on the second line, a small day-by-day chart, and how it compares with
+  the same stretch of last month), payments collected, the unpaid
+  balance still owed, and jobs completed. Money counts *sent* invoices:
+  a draft isn't billed yet, and a voided one was never owed.
+- **Sales Rep** — your open estimates and their value, follow-ups due,
+  jobs today, and unread messages. No money figures beyond your own
+  estimates.
+- **Cleaner** — your jobs today, jobs completed and hours logged this
+  week, and unread messages.
+
+The Owner also gets two more cards: **Finish setting up** and goals.
+
+### Finish setting up
+
+Until it's done, the Owner sees a short checklist: name your business,
+add your logo and contact details, add your first customer, and set a
+monthly goal. Each line links to the page that completes it, and ticks
+itself off from your actual records — nothing is remembered as a flag,
+so if you delete your last customer that line opens again. Once every
+line is done the checklist disappears, and **Hide this** removes it
+sooner.
+
+### Monthly goals (Owner)
+
+**Settings gear → Monthly goals** sets a target for revenue invoiced,
+jobs completed, and new customers. The dashboard then shows how far
+through the current calendar month you are against each one. Leave a
+field empty to stop tracking it. Goals change nothing about what the
+business records — only what the dashboard compares against.
+
+## Notifications
+
+The **bell** in the top bar shows how many unread notifications you
+have, and opens the latest few. **See all notifications** lists
+everything, newest first; opening one marks it read and takes you to
+the record, and **Mark all read** clears the count.
+
+Two things raise a notification today:
+
+- someone assigns you a task (never your own doing — assigning a task
+  to yourself notifies nobody);
+- a follow-up comes due for a customer you own.
+
+Estimates accepted, jobs finished, and invoices paid join the list as
+those workflows arrive in the next phases. Team messages deliberately
+don't appear here: the Inbox carries its own unread count.
 
 ## Calendar and jobs
 
@@ -62,6 +141,28 @@ from; the Owner also sees its invoices and whether they're paid.
 A **quote** page (from the calendar or dashboard) shows its status,
 line items and total, the site visit, and any jobs booked from it.
 Creating and editing quotes and jobs arrives in Phase 18.
+
+## Business Settings (Owner)
+
+Open the **gear → Business settings**:
+
+- **Company Logo** — choose a JPEG, PNG, GIF, or WebP up to 5 MB. A crop
+  box opens: drag the square (or use the arrow keys) and the slider to
+  pick what to keep, then **Use this crop** and **Save changes**. The logo
+  appears in the sidebar, on the sign-in page, and (later) on estimates
+  and invoices. Check **Remove the current logo** to go back to the
+  default icon.
+- **Business name** — shown everywhere in place of the default name.
+  Leave it blank if you work under your own name.
+- **Contact Email / Phone** and **website & social links** — what
+  customers see. They're separate from your own login and profile.
+  One link per platform (Website, Google, Facebook…), plus any number of
+  **Other** links, each with a label.
+- **Currency** — US or Canadian dollars; every amount in the app follows
+  it.
+- **Export Data** — download customers, companies, jobs, estimates,
+  invoices, payments, expenses, or the team list as CSV (opens in Excel)
+  or JSON.
 
 ## Financials (Owner)
 

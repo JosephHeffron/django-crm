@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% load crm_format %}
+
+{% block title %}Monthly Goals{% endblock %}
+
+{% block content %}
+  <div class="settings-shell">
+    <h1>Monthly Goals</h1>
+    <p class="page-subtitle">Targets the dashboard measures each calendar month against</p>
+
+    <form method="post" class="section-card" novalidate>
+      {% csrf_token %}
+      <div class="section-card-head"><svg class="icon" aria-hidden="true"><use href="#icon-target"/></svg><h2>Your targets</h2></div>
+      <p class="muted section-note">Leave a field empty to stop tracking that target. Nothing here changes what the business records — only what the dashboard compares against.</p>
+      {{ form.non_field_errors }}
+      <div class="field-row">
+        {% include "partials/_field.html" with field=form.revenue %}
+        {% include "partials/_field.html" with field=form.jobs %}
+        {% include "partials/_field.html" with field=form.customers %}
+      </div>
+      <div class="section-card-actions">
+        <button type="submit"><svg class="icon" aria-hidden="true"><use href="#icon-save"/></svg>Save goals</button>
+      </div>
+    </form>
+
+    <section class="section-card">
+      <div class="section-card-head"><svg class="icon" aria-hidden="true"><use href="#icon-trend-up"/></svg><h2>This month so far</h2></div>
+      {% if progress %}
+        <ul class="goal-list">
+          {% for goal in progress %}
+            <li class="goal{% if goal.is_met %} is-met{% endif %}">
+              <div class="goal-head">
+                <span class="goal-label">{{ goal.label }}</span>
+                <span class="goal-numbers">
+                  {% if goal.is_money %}{{ goal.actual|money }} / {{ goal.target|money }}{% else %}{{ goal.actual|floatformat:"-0" }} / {{ goal.target|floatformat:"-0" }}{% endif %}
+                </span>
+              </div>
+              {% include "core/_progress_bar.html" with percent=goal.percent label=goal.label %}
+              <p class="muted goal-meta">
+                {% if goal.is_met %}Goal met.{% else %}{% if goal.is_money %}{{ goal.remaining|money }}{% else %}{{ goal.remaining|floatformat:"-0" }}{% endif %} to go.{% endif %}
+              </p>
+            </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        {% include "partials/_empty_state.html" with icon="target" title="No goals set yet" text="Save a target above and the dashboard starts tracking the month against it." compact=True %}
+      {% endif %}
+    </section>
+  </div>
+{% endblock %}

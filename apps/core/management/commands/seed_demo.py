@@ -30,6 +30,8 @@ from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 from django.utils import timezone
 
+from apps.core.models import Goal, Notification
+from apps.core.notifications import notify
 from apps.crm.followups import generate_follow_ups, record_completion
 from apps.crm.models import (
     Activity,
@@ -42,6 +44,7 @@ from apps.crm.models import (
     Tag,
     Task,
 )
+from apps.jobs.calendar import day_bounds
 from apps.jobs.models import (
     Expense,
     Invoice,
@@ -54,6 +57,7 @@ from apps.jobs.models import (
     QuoteLineItem,
     ServiceType,
 )
+from apps.jobs.reports import invoiced_revenue
 from apps.messaging.models import Channel, ChannelMembership, Message
 from apps.messaging.services import direct_channel, visible_channels
 from apps.users.models import get_profile
@@ -194,6 +198,9 @@ def remove_demo_data():
     demo_contacts = Contact.objects.filter(created_by__in=demo_users)
     demo_jobs = Job.objects.filter(created_by__in=demo_users)
 
+    Notification.objects.filter(recipient__in=demo_users).delete()
+    # Goals aren't owned by a user, so they'd survive the user delete.
+    Goal.objects.all().delete()
     Message.objects.filter(author_user__in=demo_users).delete()
     # Direct messages with a demo user (including any a real user started
     # with one) go with the demo.
@@ -260,6 +267,7 @@ class DemoSeeder:
         self.plans_and_notes()
         self.expenses()
         self.messages()
+        goal_count = self.goals()
         return {
             "users": len(DEMO_USERS),
             "contacts": Contact.objects.filter(created_by__in=self.all_users).count(),
@@ -268,6 +276,8 @@ class DemoSeeder:
             "invoices": Invoice.objects.filter(job__created_by__in=self.all_users).count(),
             "follow-ups": self.follow_up_count,
             "messages": Message.objects.filter(author_user__in=self.all_users).count(),
+            "notifications": Notification.objects.filter(recipient__in=self.all_users).count(),
+            "goals": goal_count,
         }
 
     def users(self):
@@ -569,7 +579,7 @@ class DemoSeeder:
         for index, title in enumerate(titles):
             assignee = self.rng.choice(self.reps + [self.owner])
             completed = index % 4 == 3
-            Task.objects.create(
+            task = Task.objects.create(
                 title=title,
                 assigned_to=assignee,
                 contact=self.rng.choice(self.customers) if index % 3 == 0 else None,
@@ -580,6 +590,36 @@ class DemoSeeder:
                 completed_by=assignee if completed else None,
                 created_by=self.owner,
             )
+            # Same announcement the task form makes, so the bell has the
+            # history it would really have. (Follow-up notifications come
+            # from generate_follow_ups above.)
+            if not completed and assignee != self.owner:
+                notify(
+                    assignee,
+                    Notification.Kind.TASK,
+                    f"{self.owner.get_full_name()} assigned you a task",
+                    task.title,
+                    task.get_absolute_url(),
+                    event=f"task:{task.pk}",
+                )
+
+    def goals(self):
+        """Targets a little above what this month has actually done, so
+        the dashboard shows progress rather than a goal already met."""
+        first = self.today.replace(day=1)
+        revenue = invoiced_revenue(first, self.today)
+        completed = Job.objects.filter(
+            status=Job.Status.COMPLETED, completed_at__gte=day_bounds(first, self.today)[0]
+        ).count()
+        targets = {
+            Goal.Metric.REVENUE: (revenue * Decimal("1.3")).quantize(Decimal("1"))
+            or Decimal("8000"),
+            Goal.Metric.JOBS: Decimal(max(completed + 4, 10)),
+            Goal.Metric.CUSTOMERS: Decimal("6"),
+        }
+        for metric, target in targets.items():
+            Goal.objects.update_or_create(metric=metric, defaults={"target": target})
+        return len(targets)
 
     def plans_and_notes(self):
         plans = [

@@ -48,6 +48,8 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    # Loads the business settings (name, logo, currency) once per request.
+    "apps.core.business.BusinessSettingsMiddleware",
 ]
 
 ROOT_URLCONF = "config.urls"
@@ -120,6 +122,10 @@ TIME_ZONE = os.environ.get("CRM_TIME_ZONE", "America/New_York")
 # name is what a phone shows under the home-screen icon (~12 chars max).
 CRM_BRAND_NAME = os.environ.get("CRM_BRAND_NAME", "Exterior CRM")
 CRM_BRAND_SHORT_NAME = os.environ.get("CRM_BRAND_SHORT_NAME", CRM_BRAND_NAME[:12])
+# Where the sidebar's "Ideas" / "Report a bug" links and the help button
+# send people (a mailto: link). Empty hides them. Set in .env — never
+# hard-code an address in this public repository.
+CRM_SUPPORT_EMAIL = os.environ.get("CRM_SUPPORT_EMAIL", "").strip()
 USE_I18N = True
 USE_TZ = True
 

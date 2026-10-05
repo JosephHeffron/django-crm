@@ -1,0 +1,79 @@
+{% load static %}
+{% comment %}
+  Floating sidebar (ADR 0010). Groups are <details> so their flyouts
+  open and close without JavaScript; static/js/nav.js only adds
+  close-on-outside-click, one-open-at-a-time, and the collapse toggle.
+{% endcomment %}
+<div class="sidebar-header">
+  <button type="button" class="icon-btn sidebar-toggle" data-sidebar-toggle aria-label="Collapse menu" aria-pressed="{% if sidebar_collapsed %}true{% else %}false{% endif %}">
+    <svg class="icon" aria-hidden="true"><use href="#icon-menu"/></svg>
+  </button>
+  <a class="brand" href="{% url 'core:index' %}">
+    <img class="brand-mark{% if brand_logo_url %} is-logo{% endif %}" src="{% if brand_logo_url %}{{ brand_logo_url }}{% else %}{% static 'pwa/icons/icon.svg' %}{% endif %}" alt="" width="32" height="32">
+    <span class="brand-text">
+      <span class="brand-name">{{ brand_name }}</span>
+      <span class="brand-sub">Workspace</span>
+    </span>
+  </a>
+  <a href="#main" class="icon-btn sidebar-close" data-nav-close role="button" aria-label="Close menu">
+    <svg class="icon" aria-hidden="true"><use href="#icon-x"/></svg>
+  </a>
+</div>
+
+<p class="nav-label">Navigate</p>
+<ul class="nav-list">
+  {% for section in nav.sections %}
+    <li>
+      {% if section.children %}
+        <details class="nav-group{% if section.active %} is-active{% endif %}" data-nav-group>
+          <summary class="nav-link">
+            <svg class="icon icon-color" aria-hidden="true"><use href="#nav-{{ section.icon }}"/></svg>
+            <span class="nav-text">{{ section.label }}</span>
+            <svg class="icon nav-arrow" aria-hidden="true"><use href="#icon-chevron-right"/></svg>
+          </summary>
+          <div class="flyout">
+            <p class="flyout-label">{{ section.label }}</p>
+            <ul class="flyout-list">
+              {% for child in section.children %}
+                <li>
+                  <a class="flyout-link" href="{{ child.url }}"{% if child.active %} aria-current="page"{% endif %}>
+                    <svg class="icon" aria-hidden="true"><use href="#icon-{{ child.icon }}"/></svg>
+                    <span>{{ child.label }}</span>
+                  </a>
+                </li>
+              {% endfor %}
+            </ul>
+          </div>
+        </details>
+      {% else %}
+        <a class="nav-link" href="{{ section.url }}"{% if section.active %} aria-current="page"{% endif %}>
+          <svg class="icon icon-color" aria-hidden="true"><use href="#nav-{{ section.icon }}"/></svg>
+          <span class="nav-text">{{ section.label }}</span>
+          {% if section.badge %}<span class="nav-badge">{% if section.badge > 99 %}99+{% else %}{{ section.badge }}{% endif %}<span class="sr-only"> unread</span></span>{% endif %}
+        </a>
+      {% endif %}
+    </li>
+  {% endfor %}
+  <li>
+    <form method="post" action="{% url 'users:logout' %}" class="logout-form">
+      {% csrf_token %}
+      <button type="submit" class="nav-link nav-button">
+        <svg class="icon icon-color" aria-hidden="true"><use href="#nav-logout"/></svg>
+        <span class="nav-text">Log out</span>
+      </button>
+    </form>
+  </li>
+</ul>
+
+{% if support_email %}
+  <div class="sidebar-footer">
+    <a class="nav-link" href="mailto:{{ support_email }}?subject={{ brand_name|urlencode }}%20idea">
+      <svg class="icon icon-color" aria-hidden="true"><use href="#nav-ideas"/></svg>
+      <span class="nav-text">Ideas</span>
+    </a>
+    <a class="nav-link" href="mailto:{{ support_email }}?subject={{ brand_name|urlencode }}%20bug%20report">
+      <svg class="icon icon-color" aria-hidden="true"><use href="#nav-bug"/></svg>
+      <span class="nav-text">Report a bug</span>
+    </a>
+  </div>
+{% endif %}

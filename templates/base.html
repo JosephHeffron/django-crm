@@ -1,5 +1,5 @@
 {% load static %}<!doctype html>
-<html lang="en">
+<html lang="en"{% if theme %} data-theme="{{ theme }}"{% endif %}>
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -21,7 +21,7 @@
   <script src="{% static 'js/sw-register.js' %}" data-sw="{% url 'core:service_worker' %}" defer></script>
   {% block extra_head %}{% endblock %}
 </head>
-<body>
+<body{% if sidebar_collapsed %} class="sidebar-collapsed"{% endif %}>
   <a class="skip-link" href="#main">Skip to content</a>
   {% include "partials/_icons.html" %}
   {% comment %}
@@ -31,36 +31,18 @@
   {% endcomment %}
   {% if nav %}
   <div class="app-shell">
-    <header class="topbar">
-      <a href="#sidebar" class="icon-button menu-toggle" data-nav-toggle role="button" aria-controls="sidebar" aria-expanded="false" aria-label="Open menu">
-        <svg class="icon" aria-hidden="true"><use href="#icon-menu"/></svg>
-      </a>
-      <a class="brand" href="{% url 'core:index' %}">
-        <img class="brand-mark" src="{% static 'pwa/icons/icon.svg' %}" alt="" width="28" height="28">
-        <span>{{ brand_name }}</span>
-      </a>
-      {% if nav.show_search %}
-        <form method="get" action="{% url 'core:search' %}" class="topbar-search" role="search">
-          <label for="nav-search" class="sr-only">Search</label>
-          <input type="search" id="nav-search" name="q" placeholder="Search" value="{{ request.GET.q|default:'' }}">
-        </form>
-      {% endif %}
-      <div class="topbar-user">
-        <span class="avatar" aria-hidden="true">{{ nav.initials }}</span>
-        <span class="user-card-name">{{ nav.display_name }}</span>
-      </div>
-    </header>
     <div class="nav-backdrop" data-nav-backdrop hidden></div>
     <nav id="sidebar" class="sidebar" aria-label="Main">
-      {% include "partials/_nav.html" %}
+      {% include "partials/_sidebar.html" %}
     </nav>
+    {% include "partials/_topbar.html" %}
     <main id="main" class="app-main">
   {% else %}
   <main id="main" class="auth-layout">
     <div class="auth-card">
       <div class="auth-brand">
         <span class="brand">
-          <img class="brand-mark" src="{% static 'pwa/icons/icon.svg' %}" alt="" width="28" height="28">
+          <img class="brand-mark{% if brand_logo_url %} is-logo{% endif %}" src="{% if brand_logo_url %}{{ brand_logo_url }}{% else %}{% static 'pwa/icons/icon.svg' %}{% endif %}" alt="" width="28" height="28">
           <span>{{ brand_name }}</span>
         </span>
       </div>
@@ -80,6 +62,8 @@
   {% if nav %}
     </main>
     {% include "partials/_bottom_nav.html" %}
+    {% include "partials/_help.html" %}
+    {% include "partials/_palette.html" %}
   </div>
   {% else %}
       </div>
