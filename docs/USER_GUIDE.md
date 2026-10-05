@@ -69,16 +69,60 @@ reports (also in the sidebar).
 
 ## Dashboard
 
-The page you land on after logging in. It's different for each role:
+The page you land on after logging in. It greets you, says what's on
+today, and puts four overview cards at the top. Below them are today's
+jobs, **Quick actions** (shortcut tiles to the pages your role may
+open), and your tasks and recent activity.
 
-- **Owner** — revenue invoiced today and this week (sent invoices; a
-  draft isn't billed yet), the unpaid balance still owed, open quotes,
-  follow-ups due, unread team messages, today's schedule, site visits in
-  the next seven days, your tasks, and recent activity.
-- **Sales Rep** — the same minus the money figures, with quotes,
-  follow-ups, and site visits limited to your own.
-- **Cleaner** — your jobs today and coming up, jobs completed and hours
-  logged this week, and unread messages.
+What the cards show depends on your role:
+
+- **Owner** — revenue invoiced this month (with today's and this week's
+  on the second line, a small day-by-day chart, and how it compares with
+  the same stretch of last month), payments collected, the unpaid
+  balance still owed, and jobs completed. Money counts *sent* invoices:
+  a draft isn't billed yet, and a voided one was never owed.
+- **Sales Rep** — your open estimates and their value, follow-ups due,
+  jobs today, and unread messages. No money figures beyond your own
+  estimates.
+- **Cleaner** — your jobs today, jobs completed and hours logged this
+  week, and unread messages.
+
+The Owner also gets two more cards: **Finish setting up** and goals.
+
+### Finish setting up
+
+Until it's done, the Owner sees a short checklist: name your business,
+add your logo and contact details, add your first customer, and set a
+monthly goal. Each line links to the page that completes it, and ticks
+itself off from your actual records — nothing is remembered as a flag,
+so if you delete your last customer that line opens again. Once every
+line is done the checklist disappears, and **Hide this** removes it
+sooner.
+
+### Monthly goals (Owner)
+
+**Settings gear → Monthly goals** sets a target for revenue invoiced,
+jobs completed, and new customers. The dashboard then shows how far
+through the current calendar month you are against each one. Leave a
+field empty to stop tracking it. Goals change nothing about what the
+business records — only what the dashboard compares against.
+
+## Notifications
+
+The **bell** in the top bar shows how many unread notifications you
+have, and opens the latest few. **See all notifications** lists
+everything, newest first; opening one marks it read and takes you to
+the record, and **Mark all read** clears the count.
+
+Two things raise a notification today:
+
+- someone assigns you a task (never your own doing — assigning a task
+  to yourself notifies nobody);
+- a follow-up comes due for a customer you own.
+
+Estimates accepted, jobs finished, and invoices paid join the list as
+those workflows arrive in the next phases. Team messages deliberately
+don't appear here: the Inbox carries its own unread count.
 
 ## Calendar and jobs
 

@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% load crm_format %}
+
+{% block title %}Notifications{% endblock %}
+
+{% block content %}
+  <div class="page-header">
+    <div>
+      <h1>Notifications</h1>
+      <p class="page-subtitle">{% if unread %}{{ unread }} unread{% else %}All caught up{% endif %}</p>
+    </div>
+    {% if unread %}
+      <form method="post" action="{% url 'core:notifications_read_all' %}">
+        {% csrf_token %}
+        <input type="hidden" name="next" value="{% url 'core:notifications' %}">
+        <button type="submit" class="btn btn-secondary"><svg class="icon" aria-hidden="true"><use href="#icon-check"/></svg>Mark all read</button>
+      </form>
+    {% endif %}
+  </div>
+
+  <section class="card">
+    {% if notifications %}
+      <ul class="notice-list">
+        {% for item in notifications %}
+          <li class="notice{% if item.is_unread %} is-unread{% endif %}">
+            <span class="notice-icon"><svg class="icon" aria-hidden="true"><use href="#icon-{{ item.icon }}"/></svg></span>
+            <div class="notice-body">
+              <p class="notice-title">{{ item.title }}</p>
+              {% if item.body %}<p class="muted">{{ item.body }}</p>{% endif %}
+              <p class="notice-when muted">{{ item.created_at|date:"M j, Y · g:i A" }}</p>
+            </div>
+            <form method="post" action="{% url 'core:notification_read' item.pk %}">
+              {% csrf_token %}
+              <button type="submit" class="btn btn-text btn-sm">{% if item.url %}Open{% else %}Mark read{% endif %}</button>
+            </form>
+          </li>
+        {% endfor %}
+      </ul>
+      {% include "partials/_pagination.html" %}
+    {% else %}
+      {% include "partials/_empty_state.html" with icon="bell" title="No notifications yet" text="Tasks assigned to you and follow-ups that come due show up here." %}
+    {% endif %}
+  </section>
+{% endblock %}

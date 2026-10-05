@@ -1,0 +1,11 @@
+{% comment %}
+  A progress bar drawn as SVG, not a styled div: the production CSP
+  forbids inline style attributes, so a percentage can't become a CSS
+  width. SVG geometry attributes aren't CSS, so this works everywhere.
+
+  Usage: {% include "core/_progress_bar.html" with percent=42 label="Setup progress" %}
+{% endcomment %}
+<svg class="progress" viewBox="0 0 100 6" role="img" aria-label="{{ label }}: {{ percent }} percent" preserveAspectRatio="none">
+  <rect class="progress-track" x="0" y="0" width="100" height="6" rx="3"/>
+  {% if percent %}<rect class="progress-fill" x="0" y="0" width="{{ percent }}" height="6" rx="3"/>{% endif %}
+</svg>

@@ -2,6 +2,7 @@ import json
 import logging
 import re
 from datetime import timedelta
+from decimal import Decimal
 
 from django import forms
 from django.conf import settings
@@ -19,23 +20,30 @@ from django.http import (
     StreamingHttpResponse,
 )
 from django.shortcuts import redirect, render
+from django.template.defaultfilters import pluralize
 from django.urls import reverse
 from django.utils import timezone
 from django.views import View
-from django.views.generic import TemplateView
+from django.views.generic import ListView, TemplateView
 
+from apps.crm.followups import add_months
 from apps.crm.models import Activity, Company, Contact, Deal, Lead, Task
+from apps.jobs import reports
 from apps.jobs.access import jobs_for, quotes_for
 from apps.jobs.calendar import day_bounds
 from apps.jobs.models import Job, JobAssignment, Quote
 from apps.jobs.reports import invoiced_revenue, outstanding
 from apps.messaging.services import unread_count
+from apps.users.models import get_profile
 from apps.users.roles import OwnerRequiredMixin, Role, SalesRoleRequiredMixin, user_role
 
-from . import export, pwa
+from . import export, goals, notifications, onboarding, pwa
 from .branding import process_logo
-from .forms import BusinessSettingsForm, LinkFormSet, LogoForm
-from .models import BusinessLink
+from .forms import BusinessSettingsForm, GoalsForm, LinkFormSet, LogoForm
+from .models import BusinessLink, Notification
+from .navigation import quick_actions
+from .pagination import PerPageMixin
+from .templatetags.crm_format import money
 
 logger = logging.getLogger(__name__)
 
@@ -56,11 +64,18 @@ VISIT_DAYS = 7
 
 
 class DashboardView(LoginRequiredMixin, TemplateView):
-    """Role-aware at-a-glance page (ADR 0008): today's jobs and unread
-    messages for everyone; quotes, follow-ups, site visits, tasks and
-    recent activity for sales roles; revenue for the Owner; a cleaner's
-    own schedule and hours. Every figure is a plain ORM aggregate,
-    scoped through apps/jobs/access.py.
+    """The role-aware home screen (ADR 0010, Phase 17.5 step 4).
+
+    Everyone gets a greeting, their own overview cards, today's jobs, and
+    shortcut tiles. The Owner also gets the setup checklist until it's
+    finished, revenue cards with a month-to-date mini chart, and progress
+    against the monthly goals. A Sales Rep sees their own pipeline; a
+    Cleaner sees their own work and hours. Revenue never reaches a
+    non-Owner.
+
+    Every figure is a database aggregate, scoped through
+    apps/jobs/access.py, and money figures come from
+    apps/jobs/reports.py so this page and Financials always agree.
     """
 
     template_name = "core/index.html"
@@ -73,38 +88,67 @@ class DashboardView(LoginRequiredMixin, TemplateView):
         if role is None:
             return context
 
-        today = timezone.localdate()
+        now = timezone.localtime()
+        today = now.date()
         week_start = today - timedelta(days=today.weekday())
         day_start, day_end = day_bounds(today, today)
+        context.update(
+            greeting=_greeting(now.hour),
+            today=today,
+            quick_actions=quick_actions(user),
+            unread_messages=unread_count(user),
+        )
+
         jobs = jobs_for(user).exclude(status=Job.Status.CANCELLED)
-        context["today"] = today
         todays_jobs = jobs.filter(scheduled_start__gte=day_start, scheduled_start__lt=day_end)
-        context["todays_job_count"] = todays_jobs.count()
+        todays_count = todays_jobs.count()
+        context["todays_job_count"] = todays_count
         context["todays_jobs"] = (
             todays_jobs.select_related("contact", "service_property", "primary_service_type")
             .prefetch_related("crew")
             .order_by("scheduled_start", "pk")[:DASHBOARD_LIST_LIMIT]
         )
-        context["unread_messages"] = unread_count(user)
 
         if role == Role.CLEANER:
-            context["upcoming_jobs"] = (
-                jobs.filter(scheduled_start__gte=day_end, status=Job.Status.SCHEDULED)
-                .select_related("contact", "service_property", "primary_service_type")
-                .prefetch_related("crew")
-                .order_by("scheduled_start", "pk")[:DASHBOARD_LIST_LIMIT]
-            )
-            week = JobAssignment.objects.filter(
-                user=user,
-                job__status=Job.Status.COMPLETED,
-                job__completed_at__gte=day_bounds(week_start, today)[0],
-            )
-            context["jobs_done_this_week"] = week.count()
-            context["hours_this_week"] = week.aggregate(total=Sum("hours_worked"))["total"] or 0
+            self._cleaner(context, user, jobs, week_start, today, day_end, todays_count)
             return context
+        self._sales(context, user, role, today, week_start, todays_count)
+        return context
 
-        # Owner sees the whole business; a Sales Rep sees their own pipeline.
+    # ---------- Per-role figures ----------
+
+    def _cleaner(self, context, user, jobs, week_start, today, day_end, todays_count):
+        context["upcoming_jobs"] = (
+            jobs.filter(scheduled_start__gte=day_end, status=Job.Status.SCHEDULED)
+            .select_related("contact", "service_property", "primary_service_type")
+            .prefetch_related("crew")
+            .order_by("scheduled_start", "pk")[:DASHBOARD_LIST_LIMIT]
+        )
+        week = JobAssignment.objects.filter(
+            user=user,
+            job__status=Job.Status.COMPLETED,
+            job__completed_at__gte=day_bounds(week_start, today)[0],
+        )
+        hours = week.aggregate(total=Sum("hours_worked"))["total"] or 0
+        done = week.count()
+        context["jobs_done_this_week"] = done
+        context["hours_this_week"] = hours
+        context["cards"] = [
+            _card("Jobs today", todays_count, "Assigned to you", url=reverse("jobs:calendar")),
+            _card("Done this week", done, "Completed jobs", accent="green"),
+            _card("Hours this week", hours, "Logged on completed jobs", accent="purple"),
+            _card(
+                "Unread messages",
+                context["unread_messages"],
+                "Team chat",
+                url=reverse("messaging:home"),
+                accent="orange",
+            ),
+        ]
+
+    def _sales(self, context, user, role, today, week_start, todays_count):
         is_owner = role == Role.OWNER
+        context["is_owner"] = is_owner
         open_quotes = quotes_for(user).filter(status__in=Quote.OPEN_STATUSES)
         follow_ups = Task.objects.filter(kind=Task.Kind.FOLLOW_UP, status=Task.Status.PENDING)
         visit_start, visit_end = day_bounds(today, today + timedelta(days=VISIT_DAYS - 1))
@@ -118,20 +162,17 @@ class DashboardView(LoginRequiredMixin, TemplateView):
             follow_ups = follow_ups.filter(assigned_to=user)
             visits = visits.filter(prepared_by=user)
 
-        context["is_owner"] = is_owner
-        context["open_quotes"] = open_quotes.with_totals().aggregate(
+        quote_totals = open_quotes.with_totals().aggregate(
             count=Count("pk"), total=Sum("total_amount")
         )
-        context["follow_ups_due"] = follow_ups.filter(due_date__lte=today).count()
-        context["follow_ups_overdue"] = follow_ups.filter(due_date__lt=today).count()
+        due = follow_ups.filter(due_date__lte=today).count()
+        overdue = follow_ups.filter(due_date__lt=today).count()
+        context["open_quotes"] = quote_totals
+        context["follow_ups_due"] = due
+        context["follow_ups_overdue"] = overdue
         context["site_visits"] = visits.select_related("contact", "service_property").order_by(
             "site_visit_at", "pk"
         )[:DASHBOARD_LIST_LIMIT]
-        if is_owner:
-            context["revenue_today"] = invoiced_revenue(today, today)
-            context["revenue_week"] = invoiced_revenue(week_start, today)
-            context["outstanding"] = outstanding()
-
         context["my_tasks"] = (
             Task.objects.filter(assigned_to=user, status=Task.Status.PENDING)
             .select_related("contact", "service_type")
@@ -140,7 +181,186 @@ class DashboardView(LoginRequiredMixin, TemplateView):
         context["recent_activities"] = Activity.objects.select_related(
             "created_by", "company", "contact"
         )[:DASHBOARD_LIST_LIMIT]
+
+        if not is_owner:
+            context["cards"] = [
+                _card(
+                    "Your open estimates",
+                    quote_totals["count"],
+                    f"{money(quote_totals['total'] or 0)} in drafts and sent",
+                    url=reverse("jobs:quote_list"),
+                ),
+                _card(
+                    "Follow-ups due",
+                    due,
+                    f"{overdue} overdue" if overdue else "None overdue",
+                    url=reverse("crm:task_followups") + "?mine=1",
+                    accent="orange" if overdue else "green",
+                ),
+                _card("Jobs today", todays_count, "Whole team", url=reverse("jobs:calendar")),
+                _card(
+                    "Unread messages",
+                    context["unread_messages"],
+                    "Team chat",
+                    url=reverse("messaging:home"),
+                    accent="purple",
+                ),
+            ]
+            return
+
+        self._owner(context, today, week_start)
+
+    def _owner(self, context, today, week_start):
+        month_first = goals.month_start(today)
+        period = reports.Period("month", month_first, today)
+        figures = reports.summary(period)
+        unpaid = outstanding()
+        context["outstanding"] = unpaid
+        # Same stretch of the previous month, so a comparison on the 3rd
+        # isn't a whole month against three days.
+        previous_first = add_months(month_first, -1)
+        previous_last = min(add_months(today, -1), add_months(month_first, 0) - timedelta(days=1))
+        previous = (
+            invoiced_revenue(previous_first, previous_last)
+            if previous_last >= previous_first
+            else None
+        )
+        _, buckets = reports.trend(period)
+        # Today and this week stay on the card's second line: the design
+        # is month-first, but a day's takings are what an owner checks.
+        context["revenue_today"] = invoiced_revenue(today, today)
+        context["revenue_week"] = invoiced_revenue(week_start, today)
+        context["revenue_spark"] = reports.sparkline(buckets)
+        context["revenue_change"] = reports.change(figures["revenue"], previous)
+        context["month_label"] = f"{today:%B}"
+        context["cards"] = [
+            _card(
+                "Revenue this month",
+                money(figures["revenue"]),
+                f"{money(context['revenue_today'])} today · "
+                f"{money(context['revenue_week'])} this week",
+                url=reverse("jobs:financials") + "?range=month",
+                spark=True,
+                change=context["revenue_change"],
+            ),
+            _card(
+                "Collected",
+                money(figures["collected"]),
+                "Payments received this month",
+                url=reverse("jobs:financials") + "?range=month",
+                accent="green",
+            ),
+            _card(
+                "Outstanding",
+                money(unpaid["total"]),
+                f"{unpaid['count']} unpaid invoice{pluralize(unpaid['count'])}",
+                url=reverse("jobs:financials") + "#outstanding",
+                accent="orange" if unpaid["count"] else "green",
+            ),
+            _card(
+                "Jobs completed",
+                figures["jobs_completed"],
+                f"This month · {figures['invoice_count']} invoice"
+                f"{pluralize(figures['invoice_count'])} sent",
+                url=reverse("jobs:calendar"),
+                accent="purple",
+            ),
+        ]
+        context["goals"] = goals.progress(today)
+        context["onboarding"] = onboarding.checklist(
+            self.request.business, get_profile(self.request.user)
+        )
+
+
+def _greeting(hour):
+    if hour < 12:
+        return "Good morning"
+    return "Good afternoon" if hour < 18 else "Good evening"
+
+
+def _card(label, value, meta="", url="", accent="blue", spark=False, change=None):
+    """One overview card. Every card carries an accent (blue unless it
+    says otherwise) because the tint, hover border, and value color all
+    read from it — the first card is the tinted one, matching the
+    reference design."""
+    return {
+        "label": label,
+        "value": value,
+        "meta": meta,
+        "url": url,
+        "accent": accent,
+        "spark": spark,
+        "change": change,
+    }
+
+
+class GoalsView(OwnerRequiredMixin, TemplateView):
+    """The monthly targets the dashboard measures against."""
+
+    template_name = "core/goals.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context.setdefault("form", GoalsForm())
+        context["progress"] = goals.progress(timezone.localdate())
         return context
+
+    def post(self, request, *args, **kwargs):
+        form = GoalsForm(request.POST)
+        if not form.is_valid():
+            return self.render_to_response(self.get_context_data(form=form))
+        form.save()
+        messages.success(request, "Monthly goals saved.")
+        return redirect("core:goals")
+
+
+class NotificationListView(LoginRequiredMixin, PerPageMixin, ListView):
+    """Everything this person has been told, newest first."""
+
+    template_name = "core/notifications.html"
+    context_object_name = "notifications"
+
+    def get_queryset(self):
+        return Notification.objects.filter(recipient=self.request.user)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["unread"] = notifications.unread_notifications(self.request.user).count()
+        return context
+
+
+class NotificationReadView(LoginRequiredMixin, View):
+    """Mark one notification read and go where it points. Someone else's
+    notification is simply not found."""
+
+    def post(self, request, pk, *args, **kwargs):
+        notification = notifications.mark_read(request.user, pk)
+        if notification is None:
+            raise Http404("No such notification")
+        return redirect(notification.url or reverse("core:notifications"))
+
+
+class NotificationReadAllView(LoginRequiredMixin, View):
+    def post(self, request, *args, **kwargs):
+        notifications.mark_all_read(request.user)
+        return redirect(_safe_next(request, reverse("core:notifications")))
+
+
+class OnboardingDismissView(OwnerRequiredMixin, View):
+    """Hide the setup checklist for good."""
+
+    def post(self, request, *args, **kwargs):
+        profile = get_profile(request.user)
+        profile.onboarding_dismissed = True
+        profile.save(update_fields=["onboarding_dismissed"])
+        return redirect(_safe_next(request, reverse("core:index")))
+
+
+def _safe_next(request, fallback):
+    """A "next" from the form, but only a path on this site — never an
+    absolute URL someone put in a link."""
+    target = request.POST.get("next", "")
+    return target if target.startswith("/") and not target.startswith("//") else fallback
 
 
 def _search(query):
@@ -316,6 +536,14 @@ class StyleguideView(OwnerRequiredMixin, TemplateView):
             "Casey Brooks",
         ]
         context["accents"] = ["blue", "green", "orange", "red", "purple", "teal", "sky", "slate"]
+        # A made-up series, so the mini chart has the same geometry here
+        # as on the dashboard (reports.sparkline, not hand-written SVG).
+        context["sg_spark"] = reports.sparkline(
+            [
+                {"start": None, "revenue": Decimal(amount)}
+                for amount in (120, 0, 340, 210, 560, 90, 480, 300, 620, 150)
+            ]
+        )
         context["nav_icons"] = [
             "dashboard",
             "inbox",

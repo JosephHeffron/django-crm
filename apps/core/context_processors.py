@@ -6,6 +6,7 @@ from apps.users.models import UserProfile
 from apps.users.roles import user_role
 
 from .navigation import build_navigation
+from .notifications import bell
 
 SIDEBAR_COOKIE = "crm_sidebar"
 
@@ -35,8 +36,15 @@ def app_shell(request):
     if user is None or not user.is_authenticated:
         return context
     match = getattr(request, "resolver_match", None)
-    badges = {"unread_messages": unread_count(user)} if user_role(user) else {}
+    has_role = bool(user_role(user))
+    badges = {"unread_messages": unread_count(user)} if has_role else {}
     context["nav"] = build_navigation(user, getattr(match, "view_name", "") or "", badges)
+    # The top bar's bell. Its list is rendered server-side (a <details>
+    # dropdown works without JavaScript), which costs one indexed query
+    # with a small LIMIT on every page — the price of the bell not
+    # needing a round trip to open.
+    if has_role:
+        context["bell"] = bell(user)
     # Read, never create, the profile here — a GET shouldn't write.
     theme = UserProfile.objects.filter(user=user).values_list("theme", flat=True).first()
     context["theme"] = theme if theme in (UserProfile.Theme.LIGHT, UserProfile.Theme.DARK) else ""

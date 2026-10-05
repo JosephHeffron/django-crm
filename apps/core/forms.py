@@ -1,7 +1,7 @@
 from django import forms
 from django.forms import BaseModelFormSet, modelformset_factory
 
-from .models import BusinessLink, BusinessSettings
+from .models import BusinessLink, BusinessSettings, Goal
 
 
 class BusinessSettingsForm(forms.ModelForm):
@@ -59,3 +59,49 @@ LinkFormSet = modelformset_factory(
     extra=1,
     can_delete=True,
 )
+
+
+class GoalsForm(forms.Form):
+    """The Owner's monthly targets (Phase 17.5 step 4). A blank field
+    means "no target for this" — the row is removed and the dashboard
+    stops measuring it, rather than measuring against zero."""
+
+    revenue = forms.DecimalField(
+        required=False,
+        min_value=0,
+        max_digits=12,
+        decimal_places=2,
+        label="Revenue invoiced",
+        help_text="Invoiced in the calendar month.",
+    )
+    jobs = forms.IntegerField(
+        required=False,
+        min_value=0,
+        label="Jobs completed",
+        help_text="Jobs marked complete in the month.",
+    )
+    customers = forms.IntegerField(
+        required=False,
+        min_value=0,
+        label="New customers",
+        help_text="Customers added in the month.",
+    )
+
+    def __init__(self, *args, **kwargs):
+        # Counts come back as whole numbers; only money keeps its cents.
+        kwargs.setdefault(
+            "initial",
+            {
+                goal.metric: goal.target if goal.is_money else int(goal.target)
+                for goal in Goal.objects.all()
+            },
+        )
+        super().__init__(*args, **kwargs)
+
+    def save(self):
+        for metric in Goal.Metric.values:
+            target = self.cleaned_data.get(metric)
+            if target is None:
+                Goal.objects.filter(metric=metric).delete()
+            else:
+                Goal.objects.update_or_create(metric=metric, defaults={"target": target})

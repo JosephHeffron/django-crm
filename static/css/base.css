@@ -1041,6 +1041,13 @@ hr {
   margin-top: 0;
 }
 
+/* Cards in a pair normally stretch to the same height. `is-top` lets
+   each one end where its content does — for a short card beside a long
+   one, the stretch leaves a lot of empty card. */
+.grid-2.is-top {
+  align-items: start;
+}
+
 .card-title {
   margin: 0 0 var(--space-3);
   font-size: var(--text-lg);
@@ -3265,4 +3272,404 @@ a.hub-card:hover {
 
 .crop-dialog input[type="range"] {
   width: 100%;
+}
+
+/* ---------- Dashboard (Phase 17.5 step 4) ---------- */
+
+.dash-hero {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--space-4);
+  margin-bottom: var(--space-5);
+}
+
+.dash-hero h1 {
+  margin: 0;
+}
+
+.dash-hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+/* A heading with an action on the right, inside a card. */
+.card-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.card-head .card-title {
+  margin-bottom: var(--space-3);
+}
+
+.stat-change {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  margin-top: var(--space-2);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-medium);
+  color: var(--color-success);
+}
+
+.stat-change .icon {
+  width: 1em;
+  height: 1em;
+}
+
+.stat-change.is-down {
+  color: var(--color-danger);
+}
+
+/* The down arrow is the up arrow flipped — one icon, both directions. */
+.stat-change.is-down .icon {
+  transform: scaleY(-1);
+}
+
+.spark {
+  display: block;
+  width: 100%;
+  height: 2rem;
+  margin-top: var(--space-3);
+  overflow: visible;
+}
+
+.spark-bar {
+  fill: var(--accent, var(--color-primary));
+  opacity: 0.55;
+}
+
+/* ---------- Progress bar (SVG — the CSP forbids inline widths) ---------- */
+
+.progress {
+  display: block;
+  width: 100%;
+  height: 0.375rem;
+  margin: var(--space-2) 0;
+}
+
+.progress-track {
+  fill: var(--color-surface-3);
+}
+
+.progress-fill {
+  fill: var(--accent, var(--color-primary));
+}
+
+/* ---------- Setup checklist ---------- */
+
+.onboarding {
+  margin-bottom: var(--space-5);
+}
+
+.onboarding-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.onboarding-head .card-title {
+  margin-bottom: var(--space-1);
+}
+
+.onboarding-list {
+  list-style: none;
+  margin: var(--space-4) 0 0;
+  padding: 0;
+  display: grid;
+  gap: var(--space-2);
+}
+
+.onboarding-step {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  border-radius: var(--radius);
+  background: var(--color-surface-2);
+}
+
+.onboarding-mark {
+  flex: none;
+  margin-top: 0.125rem;
+  color: var(--color-text-muted);
+}
+
+.onboarding-step.is-done .onboarding-mark {
+  color: var(--color-success);
+}
+
+.onboarding-text {
+  display: grid;
+  gap: 0.125rem;
+  flex: 1;
+}
+
+.onboarding-label {
+  font-weight: var(--weight-medium);
+}
+
+.onboarding-step.is-done .onboarding-label {
+  color: var(--color-text-muted);
+}
+
+.onboarding-hint {
+  font-size: var(--text-xs);
+}
+
+/* ---------- Goals ---------- */
+
+.goal-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--space-4);
+}
+
+.goal.is-met {
+  --accent: var(--accent-green);
+}
+
+.goal-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.goal-label {
+  font-weight: var(--weight-medium);
+}
+
+.goal-numbers {
+  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.goal-meta {
+  margin: 0;
+  font-size: var(--text-xs);
+}
+
+/* ---------- Quick action tiles ---------- */
+
+.action-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr));
+  gap: var(--space-3);
+}
+
+.action-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  padding: var(--space-4) var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface-2);
+  color: var(--color-text);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  text-align: center;
+  text-decoration: none;
+}
+
+.action-tile:hover {
+  border-color: var(--color-link);
+  color: var(--color-link);
+}
+
+.action-tile .icon {
+  width: 1.5rem;
+  height: 1.5rem;
+  color: var(--color-link);
+}
+
+/* ---------- Notification bell ---------- */
+
+.bell-button {
+  position: relative;
+}
+
+.bell-dot {
+  position: absolute;
+  top: -0.125rem;
+  right: -0.125rem;
+  min-width: 1.125rem;
+  padding: 0 0.25rem;
+  border-radius: var(--radius-full);
+  background: var(--color-danger);
+  color: #fff;
+  font-size: 0.625rem;
+  font-weight: var(--weight-bold);
+  line-height: 1.125rem;
+  text-align: center;
+}
+
+.bell-menu {
+  width: min(22rem, calc(100vw - 2rem));
+  padding: 0;
+}
+
+.bell-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.bell-item {
+  border-top: 1px solid var(--color-border);
+}
+
+.bell-item.is-unread {
+  background: var(--color-primary-soft);
+}
+
+.bell-link {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  width: 100%;
+  padding: var(--space-3) var(--space-4);
+  border: 0;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+  color: var(--color-text);
+  font: inherit;
+  text-align: left;
+}
+
+.bell-link:hover {
+  background: var(--color-surface-2);
+  color: var(--color-text);
+}
+
+.bell-link .icon {
+  flex: none;
+  margin-top: 0.125rem;
+  color: var(--color-link);
+}
+
+.bell-text {
+  display: grid;
+  gap: 0.125rem;
+}
+
+.bell-title {
+  font-weight: var(--weight-medium);
+}
+
+.bell-body,
+.bell-when {
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+}
+
+.bell-empty {
+  margin: 0;
+  padding: var(--space-4);
+  border-top: 1px solid var(--color-border);
+  font-size: var(--text-sm);
+}
+
+.bell-all {
+  border-top: 1px solid var(--color-border);
+  justify-content: center;
+  font-weight: var(--weight-medium);
+}
+
+/* ---------- Notifications page ---------- */
+
+.notice-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.notice {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-4) 0;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.notice:last-child {
+  border-bottom: 0;
+}
+
+.notice-icon {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: var(--radius-full);
+  background: var(--color-surface-3);
+  color: var(--color-link);
+}
+
+.notice.is-unread .notice-icon {
+  background: var(--color-primary-soft);
+}
+
+.notice-body {
+  flex: 1;
+}
+
+.notice-title {
+  margin: 0;
+  font-weight: var(--weight-medium);
+}
+
+.notice.is-unread .notice-title::after {
+  content: "";
+  display: inline-block;
+  width: 0.5rem;
+  height: 0.5rem;
+  margin-left: var(--space-2);
+  border-radius: var(--radius-full);
+  background: var(--color-danger);
+  vertical-align: middle;
+}
+
+.notice-body p {
+  margin: 0;
+}
+
+.notice-when {
+  font-size: var(--text-xs);
+}
+
+/* An empty state inside a card beside cards that do have content. */
+.empty-state.is-compact {
+  padding: var(--space-5) var(--space-4);
+}
+
+.empty-state.is-compact .empty-state-icon {
+  width: 2.5rem;
+  height: 2.5rem;
+}
+
+@media (max-width: 36rem) {
+  .dash-hero-actions {
+    width: 100%;
+  }
+
+  .dash-hero-actions .btn {
+    flex: 1;
+    justify-content: center;
+  }
 }

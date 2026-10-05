@@ -6,6 +6,8 @@ from django.test import TestCase
 from django.urls import reverse
 from django.utils import timezone
 
+from apps.core.views import _greeting
+from apps.crm.followups import add_months
 from apps.crm.models import Activity, Company, Task
 from apps.crm.tests._helpers import grant_role
 from apps.jobs.models import Invoice, Job, Payment, Quote
@@ -197,7 +199,7 @@ class DashboardMyTasksTests(DashboardTestCase):
         self.assertContains(response, "Overdue")
 
     def test_empty_state_message(self):
-        self.assertContains(self.get(), "No pending tasks assigned to you")
+        self.assertContains(self.get(), "No pending tasks")
 
     def test_my_tasks_capped_at_dashboard_limit(self):
         from apps.core.views import DASHBOARD_LIST_LIMIT
@@ -235,3 +237,80 @@ class DashboardRecentActivityTests(DashboardTestCase):
                 created_by=self.user,
             )
         self.assertEqual(len(self.get().context["recent_activities"]), DASHBOARD_LIST_LIMIT)
+
+
+class DashboardLayoutTests(DashboardTestCase):
+    """The reference layout's own pieces (Phase 17.5 step 4)."""
+
+    role = Role.OWNER
+
+    def test_the_greeting_follows_the_clock(self):
+        self.assertEqual(
+            [_greeting(hour) for hour in (0, 9, 12, 17, 18, 23)],
+            [
+                "Good morning",
+                "Good morning",
+                "Good afternoon",
+                "Good afternoon",
+                "Good evening",
+                "Good evening",
+            ],
+        )
+
+    def test_the_greeting_uses_a_first_name(self):
+        self.user.first_name = "Alex"
+        self.user.save(update_fields=["first_name"])
+        self.assertContains(self.get(), "Good", msg_prefix="greeting missing")
+        self.assertContains(self.get(), "Alex")
+
+    def test_the_owner_gets_four_cards_with_an_accent_each(self):
+        cards = self.get().context["cards"]
+        self.assertEqual(len(cards), 4)
+        self.assertTrue(all(card["accent"] for card in cards))
+        self.assertEqual(cards[0]["label"], "Revenue this month")
+
+    def test_the_revenue_card_keeps_today_and_this_week(self):
+        job = f.job(f.contact(self.user), self.user)
+        f.invoice(job, lines=[(Decimal("1"), Decimal("120"))], issued=timezone.localdate())
+        context = self.get().context
+        self.assertEqual(context["revenue_today"], Decimal("120"))
+        self.assertIn("today", context["cards"][0]["meta"])
+
+    def test_the_mini_chart_appears_once_there_is_revenue(self):
+        self.assertIsNone(self.get().context["revenue_spark"])
+        job = f.job(f.contact(self.user), self.user)
+        f.invoice(job, lines=[(Decimal("1"), Decimal("120"))], issued=timezone.localdate())
+        response = self.get()
+        self.assertIsNotNone(response.context["revenue_spark"])
+        self.assertContains(response, "spark-bar")
+
+    def test_revenue_is_compared_with_the_same_stretch_of_last_month(self):
+        today = timezone.localdate()
+        job = f.job(f.contact(self.user), self.user)
+        f.invoice(job, lines=[(Decimal("1"), Decimal("200"))], issued=today)
+        last_month = add_months(today.replace(day=1), -1)
+        f.invoice(job, lines=[(Decimal("1"), Decimal("100"))], issued=last_month)
+        self.assertEqual(self.get().context["revenue_change"], 100)
+
+    def test_no_comparison_without_an_earlier_month(self):
+        job = f.job(f.contact(self.user), self.user)
+        f.invoice(job, lines=[(Decimal("1"), Decimal("200"))], issued=timezone.localdate())
+        self.assertIsNone(self.get().context["revenue_change"])
+
+    def test_quick_action_tiles_only_point_where_the_role_may_go(self):
+        owner_tiles = {action["label"] for action in self.get().context["quick_actions"]}
+        self.assertIn("Financials", owner_tiles)
+        grant_role(f.user("crew"), Role.CLEANER)
+        self.client.login(username="crew", password=PASSWORD)
+        crew_tiles = {action["label"] for action in self.get().context["quick_actions"]}
+        self.assertEqual(crew_tiles, {"Schedule", "Inbox"})
+
+    def test_a_cleaner_gets_their_own_cards_and_no_money(self):
+        grant_role(f.user("crew"), Role.CLEANER)
+        self.client.login(username="crew", password=PASSWORD)
+        response = self.get()
+        self.assertEqual(
+            [card["label"] for card in response.context["cards"]],
+            ["Jobs today", "Done this week", "Hours this week", "Unread messages"],
+        )
+        self.assertNotContains(response, "Revenue")

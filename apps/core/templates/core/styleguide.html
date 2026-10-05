@@ -139,6 +139,85 @@
     <a class="hub-card accent-blue" href="#"><span class="icon-circle"><svg class="icon" aria-hidden="true"><use href="#icon-bell"/></svg></span><span><span class="hub-card-title">Notifications</span><br><span class="hub-card-text">Which in-app alerts you receive.</span></span></a>
   </div>
 
+  <h2>Dashboard pieces</h2>
+  <div class="grid-2">
+    <section class="card">
+      <h2 class="card-title">Progress bars and goals</h2>
+      <ul class="goal-list">
+        <li class="goal accent-blue">
+          <div class="goal-head"><span class="goal-label">Revenue invoiced</span><span class="goal-numbers">$4,200.00 / $12,000.00</span></div>
+          {% include "core/_progress_bar.html" with percent=35 label="Revenue invoiced" %}
+          <p class="muted goal-meta">$7,800.00 to go.</p>
+        </li>
+        <li class="goal is-met">
+          <div class="goal-head"><span class="goal-label">Jobs completed</span><span class="goal-numbers">12 / 10</span></div>
+          {% include "core/_progress_bar.html" with percent=100 label="Jobs completed" %}
+          <p class="muted goal-meta">Goal met.</p>
+        </li>
+      </ul>
+    </section>
+
+    <section class="card">
+      <h2 class="card-title">Setup checklist</h2>
+      <ul class="onboarding-list">
+        <li class="onboarding-step is-done">
+          <svg class="icon onboarding-mark" aria-hidden="true"><use href="#icon-check"/></svg>
+          <span class="onboarding-text"><span class="onboarding-label">A finished step</span><span class="muted onboarding-hint">What it was for.</span></span>
+          <span class="badge badge-success">Done</span>
+        </li>
+        <li class="onboarding-step">
+          <svg class="icon onboarding-mark" aria-hidden="true"><use href="#icon-chevron-right"/></svg>
+          <span class="onboarding-text"><a class="onboarding-label" href="#">A step still to do</a><span class="muted onboarding-hint">Links to the page that completes it.</span></span>
+        </li>
+      </ul>
+    </section>
+  </div>
+
+  <section class="card section-gap">
+    <h2 class="card-title">Overview card with a mini chart</h2>
+    <div class="stat-grid">
+      <div class="stat-card is-tinted accent-blue">
+        <div class="stat-label">Revenue this month</div>
+        <div class="stat-value">$4,200.00</div>
+        <div class="stat-meta">$320.00 today · $980.00 this week</div>
+        <div class="stat-change is-up"><svg class="icon" aria-hidden="true"><use href="#icon-trend-up"/></svg>18% vs last month</div>
+        <svg class="spark" viewBox="0 0 120 32" role="img" aria-label="Example mini chart" preserveAspectRatio="none">
+          {% for bar in sg_spark.bars %}<rect class="spark-bar" x="{{ bar.x }}" y="{{ bar.y }}" width="{{ bar.width }}" height="{{ bar.height }}"/>{% endfor %}
+        </svg>
+      </div>
+      <div class="stat-card accent-orange">
+        <div class="stat-label">Outstanding</div>
+        <div class="stat-value">$1,480.00</div>
+        <div class="stat-meta">4 unpaid invoices</div>
+        <div class="stat-change is-down"><svg class="icon" aria-hidden="true"><use href="#icon-trend-up"/></svg>9% vs last month</div>
+      </div>
+    </div>
+  </section>
+
+  <section class="card section-gap">
+    <h2 class="card-title">Quick action tiles</h2>
+    <div class="action-grid">
+      <a class="action-tile" href="#"><svg class="icon" aria-hidden="true"><use href="#icon-user-plus"/></svg><span>New customer</span></a>
+      <a class="action-tile" href="#"><svg class="icon" aria-hidden="true"><use href="#icon-calendar"/></svg><span>Schedule</span></a>
+      <a class="action-tile" href="#"><svg class="icon" aria-hidden="true"><use href="#icon-dollar"/></svg><span>Financials</span></a>
+      <a class="action-tile" href="#"><svg class="icon" aria-hidden="true"><use href="#icon-inbox"/></svg><span>Inbox</span></a>
+    </div>
+  </section>
+
+  <section class="card section-gap">
+    <h2 class="card-title">Notification rows</h2>
+    <ul class="notice-list">
+      <li class="notice is-unread">
+        <span class="notice-icon"><svg class="icon" aria-hidden="true"><use href="#icon-check"/></svg></span>
+        <div class="notice-body"><p class="notice-title">Someone assigned you a task</p><p class="muted">Call back about the gutter estimate</p><p class="notice-when muted">Today · 9:12 AM</p></div>
+      </li>
+      <li class="notice">
+        <span class="notice-icon"><svg class="icon" aria-hidden="true"><use href="#icon-refresh"/></svg></span>
+        <div class="notice-body"><p class="notice-title">Follow-up due: Gutter Cleaning</p><p class="notice-when muted">Yesterday · 7:00 AM</p></div>
+      </li>
+    </ul>
+  </section>
+
   <section class="card section-gap">
     <h2 class="card-title">Icons</h2>
     <div class="sg-row">
