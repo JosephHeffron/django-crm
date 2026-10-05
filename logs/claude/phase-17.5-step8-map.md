@@ -132,8 +132,8 @@ cleared afterwards.
 ## Git
 
 Branch: `feature/restyle-map` (PR #122)
-Commits: `42331c9` (the step), self-review fix to follow
-Merged to `main`: pending
+Commits: `42331c9` (the step), `3439b5c` (self-review fix)
+Merged to `main`: `ab2cad3`
 
 ## Next
 
