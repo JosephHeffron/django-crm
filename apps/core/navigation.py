@@ -98,7 +98,30 @@ SECTIONS = (
         "Crew",
         "crew",
         children=(
+            NavLink(
+                "Time clock",
+                "jobs:time_clock",
+                "clock",
+                ALL_ROLES,
+                ("jobs:time_clock",),
+                shortcut="g k",
+            ),
+            NavLink(
+                "Assignments",
+                "jobs:assignments",
+                "calendar",
+                SALES_ROLES,
+                ("jobs:assignments",),
+            ),
             NavLink("Team", "people:team", "users", OWNER_ONLY, ("people:team", "people:member")),
+            NavLink("Payroll", "jobs:payroll", "wallet", OWNER_ONLY, ("jobs:payroll",)),
+            NavLink(
+                "Performance",
+                "jobs:performance",
+                "trend-up",
+                OWNER_ONLY,
+                ("jobs:performance",),
+            ),
         ),
     ),
     NavSection(
@@ -184,6 +207,7 @@ QUICK_ACTIONS = (
     NavLink("New task", "crm:task_create", "check", SALES_ROLES),
     NavLink("Log activity", "crm:activity_create", "activity", SALES_ROLES),
     NavLink("Schedule", "jobs:calendar", "calendar", ALL_ROLES),
+    NavLink("Time clock", "jobs:time_clock", "clock", ALL_ROLES),
     NavLink("Estimates", "jobs:quote_list", "briefcase", SALES_ROLES),
     NavLink("Follow-ups", "crm:task_followups", "refresh", SALES_ROLES),
     NavLink("Profit", "jobs:financials", "dollar", OWNER_ONLY),

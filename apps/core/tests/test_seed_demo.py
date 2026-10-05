@@ -10,9 +10,10 @@ from apps.core.management.commands.seed_demo import DEMO_PREFIX, DEMO_USERS
 from apps.core.models import Goal, Notification
 from apps.crm.models import Contact, Task
 from apps.crm.tests._helpers import grant_role
-from apps.jobs.models import Invoice, Job, Quote, ServiceType
+from apps.jobs.models import Invoice, Job, Quote, ServiceType, TimeEntry
 from apps.messaging.models import Channel, ChannelMembership, Message
 from apps.messaging.services import direct_channel
+from apps.users.models import UserProfile
 from apps.users.roles import Role, user_role
 
 User = get_user_model()
@@ -62,6 +63,13 @@ class SeedDemoTests(TestCase):
             set(Goal.objects.values_list("metric", flat=True)), set(Goal.Metric.values)
         )
         self.assertTrue(all(target > 0 for target in Goal.objects.values_list("target", flat=True)))
+        # Crew have a rate and clocked time, so Payroll isn't an empty page.
+        self.assertTrue(TimeEntry.objects.filter(ended_at__isnull=False).exists())
+        rates = UserProfile.objects.filter(
+            user__username__startswith=DEMO_PREFIX, hourly_rate__isnull=False
+        )
+        self.assertTrue(rates.exists())
+        self.assertTrue(all(profile.working_days for profile in rates))
         self.assertEqual(Message.objects.filter(channel__slug="crew").count(), 12)
         self.assertEqual(Channel.objects.filter(kind=Channel.Kind.DIRECT).count(), 2)
         # Opening a seeded DM in the app finds it rather than starting another.

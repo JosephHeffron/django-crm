@@ -63,4 +63,25 @@
       <div class="stat-card"><div class="stat-label">Follow-ups done</div><div class="stat-value">{{ sales.follow_ups_completed }}</div></div>
     </div>
   {% endif %}
+
+  {% if not is_self and pay_form %}
+    <form method="post" class="section-card section-gap" novalidate>
+      {% csrf_token %}
+      <div class="section-card-head"><svg class="icon" aria-hidden="true"><use href="#icon-wallet"/></svg><h2>Pay and working days</h2></div>
+      <p class="muted section-note">Only you can see or set this. The rate is what Payroll pays for their clocked hours.</p>
+      {{ pay_form.non_field_errors }}
+      {% include "partials/_field.html" with field=pay_form.hourly_rate %}
+      <fieldset class="crew-picker">
+        <legend>{{ pay_form.working_days.label }}</legend>
+        {% for choice in pay_form.working_days %}
+          <label class="crew-choice">{{ choice.tag }}<span>{{ choice.choice_label }}</span></label>
+        {% endfor %}
+      </fieldset>
+      <p class="helptext">{{ pay_form.working_days.help_text }}</p>
+      {{ pay_form.working_days.errors }}
+      <div class="section-card-actions">
+        <button type="submit"><svg class="icon" aria-hidden="true"><use href="#icon-save"/></svg>Save</button>
+      </div>
+    </form>
+  {% endif %}
 {% endblock %}

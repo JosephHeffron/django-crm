@@ -56,6 +56,7 @@ from apps.jobs.models import (
     Quote,
     QuoteLineItem,
     ServiceType,
+    TimeEntry,
 )
 from apps.jobs.reports import invoiced_revenue
 from apps.messaging.models import Channel, ChannelMembership, Message
@@ -198,6 +199,7 @@ def remove_demo_data():
     demo_contacts = Contact.objects.filter(created_by__in=demo_users)
     demo_jobs = Job.objects.filter(created_by__in=demo_users)
 
+    TimeEntry.objects.filter(user__in=demo_users).delete()
     Notification.objects.filter(recipient__in=demo_users).delete()
     # Goals aren't owned by a user, so they'd survive the user delete.
     Goal.objects.all().delete()
@@ -268,6 +270,7 @@ class DemoSeeder:
         self.expenses()
         self.messages()
         goal_count = self.goals()
+        clocked = self.time_entries()
         return {
             "users": len(DEMO_USERS),
             "contacts": Contact.objects.filter(created_by__in=self.all_users).count(),
@@ -278,6 +281,7 @@ class DemoSeeder:
             "messages": Message.objects.filter(author_user__in=self.all_users).count(),
             "notifications": Notification.objects.filter(recipient__in=self.all_users).count(),
             "goals": goal_count,
+            "time entries": clocked,
         }
 
     def users(self):
@@ -295,6 +299,11 @@ class DemoSeeder:
             profile.title = title
             profile.phone = f"(585) 555-01{len(self.by_role[role]) + tone:02d}"
             profile.calendar_tone = tone
+            # Crew get a pay rate and weekday hours so Payroll and
+            # Assignments have something real to work from.
+            if role == Role.CLEANER:
+                profile.hourly_rate = Decimal("21.00") + tone
+                profile.working_days = "01234" if tone % 2 else "012345"
             profile.save()
             self.by_role[role].append(user)
         self.all_users = [u for users in self.by_role.values() for u in users]
@@ -602,6 +611,29 @@ class DemoSeeder:
                     task.get_absolute_url(),
                     event=f"task:{task.pk}",
                 )
+
+    def time_entries(self):
+        """Clocked time for the crew over the last fortnight, on the
+        jobs they actually worked — so Payroll and the time clock show a
+        real week rather than an empty one."""
+        done = list(
+            Job.objects.filter(
+                status=Job.Status.COMPLETED, completed_at__gte=self.now - timedelta(days=14)
+            ).prefetch_related("assignments")[:40]
+        )
+        made = 0
+        for job in done:
+            for assignment in job.assignments.all():
+                hours = assignment.hours_worked or Decimal("2")
+                started = job.scheduled_start
+                TimeEntry.objects.create(
+                    user=assignment.user,
+                    job=job,
+                    started_at=started,
+                    ended_at=started + timedelta(hours=float(hours)),
+                )
+                made += 1
+        return made
 
     def goals(self):
         """Targets a little above what this month has actually done, so

@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+{% load crm_format %}
+
+{% block title %}Time clock{% endblock %}
+
+{% block content %}
+  <div class="dash-hero">
+    <div>
+      <h1>Time clock</h1>
+      <p class="page-subtitle">{% if running %}Running since {{ running.started_at|time:"g:i A" }}{% else %}Not clocked in{% endif %}</p>
+    </div>
+  </div>
+
+  <div class="stat-grid">
+    <div class="stat-card is-tinted {% if running %}accent-green{% else %}accent-blue{% endif %}">
+      <div class="stat-label">Right now</div>
+      <div class="stat-value">{% if running %}On the clock{% else %}Off{% endif %}</div>
+      <div class="stat-meta">{% if running %}{% if running.job %}{{ running.job.primary_service_type.name }} · {{ running.job.contact }}{% else %}No job named{% endif %}{% else %}Clock in when you start{% endif %}</div>
+    </div>
+    <div class="stat-card accent-purple">
+      <div class="stat-label">Today</div>
+      <div class="stat-value">{{ today_hours|floatformat:"-2" }}</div>
+      <div class="stat-meta">Hours finished today</div>
+    </div>
+    <div class="stat-card accent-orange">
+      <div class="stat-label">This week</div>
+      <div class="stat-value">{{ week_hours|floatformat:"-2" }}</div>
+      <div class="stat-meta">{{ week_first|date:"M j" }} – {{ week_last|date:"M j" }}</div>
+    </div>
+  </div>
+
+  <section class="section-card">
+    {% if running %}
+      <div class="section-card-head"><svg class="icon" aria-hidden="true"><use href="#icon-clock"/></svg><h2>You're on the clock</h2></div>
+      <p>Started {{ running.started_at|date:"l" }} at {{ running.started_at|time:"g:i A" }}{% if running.job %}, on <a href="{{ running.job.get_absolute_url }}">{{ running.job.number }}</a> for {{ running.job.contact }}{% endif %}.</p>
+      {% if running.notes %}<p class="muted">{{ running.notes }}</p>{% endif %}
+      <form method="post">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="out">
+        <div class="form-actions">
+          <button type="submit" class="btn-lg"><svg class="icon" aria-hidden="true"><use href="#icon-clock"/></svg>Clock out</button>
+        </div>
+      </form>
+      <p class="helptext">Clocking out of a job adds those hours to your time on it.</p>
+    {% else %}
+      <div class="section-card-head"><svg class="icon" aria-hidden="true"><use href="#icon-clock"/></svg><h2>Start work</h2></div>
+      <form method="post">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="in">
+        <p>
+          <label for="clock-job">Job (optional)</label>
+          <select id="clock-job" name="job">
+            <option value="">No particular job</option>
+            {% for job in jobs %}
+              <option value="{{ job.pk }}">{{ job.scheduled_start|date:"D M j, g:i A" }} — {{ job.primary_service_type.name }} · {{ job.contact }}</option>
+            {% endfor %}
+          </select>
+          <span class="helptext">Naming a job puts your hours on it. Leave it blank for travel, the shop, or a supply run — it's still paid.</span>
+        </p>
+        <p>
+          <label for="clock-notes">Note (optional)</label>
+          <input type="text" id="clock-notes" name="notes" maxlength="255" placeholder="What you're doing">
+        </p>
+        <div class="form-actions">
+          <button type="submit" class="btn-lg"><svg class="icon" aria-hidden="true"><use href="#icon-clock"/></svg>Clock in</button>
+        </div>
+      </form>
+    {% endif %}
+  </section>
+
+  <section class="card">
+    <div class="card-head">
+      <h2 class="card-title">This week</h2>
+      <span class="muted">{{ week_hours|floatformat:"-2" }} hours</span>
+    </div>
+    {% if week_entries %}
+      <div class="table-responsive">
+        <table class="data-table stack-mobile">
+          <thead><tr><th>Day</th><th>From</th><th>To</th><th>Job</th><th>Note</th><th class="text-right">Hours</th></tr></thead>
+          <tbody>
+            {% for entry in week_entries %}
+              <tr>
+                <td data-label="Day">{{ entry.started_at|date:"D M j" }}</td>
+                <td data-label="From">{{ entry.started_at|time:"g:i A" }}</td>
+                <td data-label="To">{{ entry.ended_at|time:"g:i A" }}</td>
+                <td data-label="Job">{% if entry.job %}<a href="{{ entry.job.get_absolute_url }}">{{ entry.job.number }}</a>{% else %}—{% endif %}</td>
+                <td data-label="Note">{{ entry.notes|default:"—" }}</td>
+                <td data-label="Hours" class="text-right">{{ entry.hours|floatformat:"-2" }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+          <tfoot><tr class="total-row"><td colspan="5">Total</td><td class="text-right">{{ week_hours|floatformat:"-2" }}</td></tr></tfoot>
+        </table>
+      </div>
+    {% else %}
+      {% include "partials/_empty_state.html" with icon="clock" title="Nothing clocked this week" text="Clock in when you start and out when you finish, and your hours land here." compact=True %}
+    {% endif %}
+  </section>
+{% endblock %}

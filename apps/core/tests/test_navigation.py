@@ -53,7 +53,7 @@ class SidebarStructureTests(NavTestCase):
     def test_sales_rep(self):
         self.login(Role.SALES_REP)
         html = self.page()
-        self.assertEqual(_groups(html), ["Customers", "Job"])
+        self.assertEqual(_groups(html), ["Customers", "Crew", "Job"])
         self.assertEqual(
             [label for _, label, _ in _sidebar_links(html)],
             [
@@ -65,6 +65,10 @@ class SidebarStructureTests(NavTestCase):
                 "Tasks",
                 "Notes",
                 "Activities",
+                # A rep clocks their own time and plans the crew's week,
+                # but doesn't see pay or the team list.
+                "Time clock",
+                "Assignments",
                 "Scheduling",
                 "Estimates",
             ],
@@ -78,7 +82,7 @@ class SidebarStructureTests(NavTestCase):
         self.login(Role.CLEANER)
         self.assertEqual(
             [label for _, label, _ in _sidebar_links(self.page())],
-            ["Dashboard", "Inbox", "Scheduling"],
+            ["Dashboard", "Inbox", "Time clock", "Scheduling"],
         )
         self.client.logout()
         self.login(None)
@@ -134,7 +138,7 @@ class NavigationMatchesAccessForEveryRoleTests(NavTestCase):
         return set(re.findall(r'<a class="dropdown-item" href="([^"]+)"', html))
 
     def test_owner(self):
-        self.assertEqual(len(self._check(Role.OWNER)), 15)
+        self.assertEqual(len(self._check(Role.OWNER)), 19)
 
     def test_sales_rep(self):
         self._check(Role.SALES_REP)

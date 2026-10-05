@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% load crm_format %}
+
+{% block title %}Performance{% endblock %}
+
+{% block content %}
+  <div class="dash-hero">
+    <div>
+      <h1>Performance</h1>
+      <p class="page-subtitle">{{ period.label }} · {{ period.first|date:"M j" }} – {{ period.last|date:"M j, Y" }}</p>
+    </div>
+  </div>
+
+  <div class="cal-toolbar">
+    <nav class="segmented" aria-label="Period">
+      {% for key, label, current in presets %}
+        <a href="?range={{ key }}"{% if current %} aria-current="page"{% endif %}>{{ label }}</a>
+      {% endfor %}
+    </nav>
+  </div>
+
+  {% if rows %}
+    <div class="table-responsive card card-flush">
+      <table class="data-table stack-mobile">
+        <thead>
+          <tr><th>Person</th><th class="text-right">Jobs finished</th><th class="text-right">Hours</th><th class="text-right">Work value</th><th class="text-right">Per hour</th><th class="text-right">Rating</th></tr>
+        </thead>
+        <tbody>
+          {% for row in rows %}
+            <tr>
+              <td data-label="Person"><a href="{% url 'people:member' row.person.get_username %}">{{ row.person.get_full_name|default:row.person.get_username }}</a></td>
+              <td data-label="Jobs finished" class="text-right">{{ row.jobs }}</td>
+              <td data-label="Hours" class="text-right">{{ row.hours|floatformat:"-2" }}</td>
+              <td data-label="Work value" class="text-right">{{ row.value|money }}</td>
+              <td data-label="Per hour" class="text-right">{% if row.per_hour is not None %}{{ row.per_hour|money }}{% else %}—{% endif %}</td>
+              <td data-label="Rating" class="text-right">{% if row.rating %}{{ row.rating|floatformat:1 }} / 5{% else %}—{% endif %}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <p class="muted section-note">Work value is what the jobs they finished were worth in total, not what they were paid. Per hour divides that by the hours they clocked, so it's blank until there are hours to divide by.</p>
+  {% else %}
+    {% include "partials/_empty_state.html" with icon="users" title="No crew yet" text="People with the Cleaner role appear here once they've worked." %}
+  {% endif %}
+{% endblock %}

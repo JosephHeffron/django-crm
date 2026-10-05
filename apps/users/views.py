@@ -11,7 +11,7 @@ from django.utils.http import url_has_allowed_host_and_scheme
 from django.views import View
 from django.views.generic import TemplateView
 
-from .forms import AccountForm, ProfileForm
+from .forms import AccountForm, CrewPayForm, ProfileForm
 from .models import UserProfile, get_profile
 from .roles import (
     ALL_ROLES,
@@ -32,13 +32,22 @@ def _window(request):
     return int(value) if value.isdigit() and int(value) in WINDOWS else DEFAULT_WINDOW
 
 
+def read_profile(person):
+    """This person's profile, or unsaved defaults if they've never saved
+    one. Saving creates the row; looking never does."""
+    return UserProfile.objects.filter(user=person).first() or UserProfile(user=person)
+
+
 def profile_context(person, request):
     days = _window(request)
     role = user_role(person)
     is_crew = role == Role.CLEANER or person.job_assignments.exists()
     return {
         "person": person,
-        "person_profile": get_profile(person),
+        # Read, never create: looking at a profile shouldn't write one.
+        # Someone who has never saved theirs reads as empty defaults,
+        # the same way the app shell reads a saved theme.
+        "person_profile": read_profile(person),
         "person_role": role,
         "days": days,
         "windows": WINDOWS,
@@ -104,7 +113,13 @@ class TeamListView(OwnerRequiredMixin, TemplateView):
 
 
 class TeamMemberView(OwnerRequiredMixin, TemplateView):
+    """A teammate's profile, and the two things only the Owner sets:
+    their hourly rate and the days they normally work."""
+
     template_name = "users/profile.html"
+
+    def person(self):
+        return get_object_or_404(User, username=self.kwargs["username"], is_active=True)
 
     def get(self, request, *args, **kwargs):
         if kwargs["username"] == request.user.get_username():
@@ -113,9 +128,21 @@ class TeamMemberView(OwnerRequiredMixin, TemplateView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        person = get_object_or_404(User, username=kwargs["username"], is_active=True)
+        person = self.person()
         context.update(profile_context(person, self.request), is_self=False)
+        context.setdefault("pay_form", CrewPayForm(instance=read_profile(person)))
         return context
+
+    def post(self, request, *args, **kwargs):
+        person = self.person()
+        form = CrewPayForm(request.POST, instance=get_profile(person))
+        if not form.is_valid():
+            return self.render_to_response(self.get_context_data(pay_form=form))
+        form.save()
+        messages.success(
+            request, f"Saved pay and working days for {person.get_full_name() or person}."
+        )
+        return redirect("people:member", username=person.get_username())
 
 
 class ThemeView(LoginRequiredMixin, View):

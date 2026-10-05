@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% load crm_format %}
+
+{% block title %}Assignments{% endblock %}
+
+{% block content %}
+  <div class="dash-hero">
+    <div>
+      <h1>Assignments</h1>
+      <p class="page-subtitle">Who's on what, {{ week_first|date:"M j" }} – {{ week_last|date:"M j, Y" }}</p>
+    </div>
+    <div class="dash-hero-actions">
+      <a class="btn btn-secondary" href="?week={{ previous_week }}">
+        <svg class="icon" aria-hidden="true"><use href="#icon-chevron-left"/></svg>Previous
+      </a>
+      <a class="btn btn-secondary" href="?week={{ this_week }}">This week</a>
+      <a class="btn btn-secondary" href="?week={{ next_week }}">
+        Next<svg class="icon" aria-hidden="true"><use href="#icon-chevron-right"/></svg>
+      </a>
+    </div>
+  </div>
+
+  {% if unassigned %}
+    <div class="info-banner">
+      <svg class="icon" aria-hidden="true"><use href="#icon-alert"/></svg>
+      <p><strong>{{ unassigned|length }} job{{ unassigned|length|pluralize }} this week with nobody on {{ unassigned|pluralize:"it,them" }}.</strong>
+        {% for job in unassigned %}<a href="{% url 'jobs:job_update' job.pk %}">{{ job.number }}</a>{% if not forloop.last %}, {% endif %}{% endfor %}
+      </p>
+    </div>
+  {% endif %}
+
+  <div class="crew-grid">
+    {% for row in rows %}
+      <section class="card">
+        <div class="card-head">
+          <h2 class="card-title">{{ row.person.get_full_name|default:row.person.get_username }}</h2>
+          <span class="muted">{{ row.assignments|length }} job{{ row.assignments|length|pluralize }}</span>
+        </div>
+        {% if row.working_days %}<p class="muted">Usually works {{ row.working_days }}.</p>{% endif %}
+        {% if row.off_days %}
+          <p class="badge badge-warning">{{ row.off_days|length }} on a day they don't usually work</p>
+        {% endif %}
+        {% if row.assignments %}
+          <ul class="agenda">
+            {% for assignment in row.assignments %}
+              <li class="agenda-item {{ assignment.job.primary_service_type.tone_class }}">
+                <div class="agenda-time">
+                  <span>{{ assignment.job.scheduled_start|date:"D M j" }}</span>
+                  <span>{{ assignment.job.scheduled_start|time:"g:i A" }}</span>
+                </div>
+                <div class="agenda-body">
+                  <a class="agenda-title" href="{{ assignment.job.get_absolute_url }}">{{ assignment.job.primary_service_type.name }} · {{ assignment.job.contact }}</a>
+                  {% if assignment.hours_worked %}<div class="agenda-meta">{{ assignment.hours_worked|floatformat:"-2" }} hours logged</div>{% endif %}
+                </div>
+                {% include "jobs/_status_badge.html" with status=assignment.job.status label=assignment.job.get_status_display %}
+              </li>
+            {% endfor %}
+          </ul>
+        {% else %}
+          {% include "partials/_empty_state.html" with icon="calendar" title="Nothing booked" text="This week is clear for them." compact=True %}
+        {% endif %}
+      </section>
+    {% empty %}
+      {% include "partials/_empty_state.html" with icon="users" title="No crew yet" text="People with the Cleaner role show up here with their week." %}
+    {% endfor %}
+  </div>
+{% endblock %}

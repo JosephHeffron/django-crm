@@ -304,7 +304,7 @@ class DashboardLayoutTests(DashboardTestCase):
         grant_role(f.user("crew"), Role.CLEANER)
         self.client.login(username="crew", password=PASSWORD)
         crew_tiles = {action["label"] for action in self.get().context["quick_actions"]}
-        self.assertEqual(crew_tiles, {"Schedule", "Inbox"})
+        self.assertEqual(crew_tiles, {"Schedule", "Time clock", "Inbox"})
 
     def test_a_cleaner_gets_their_own_cards_and_no_money(self):
         grant_role(f.user("crew"), Role.CLEANER)

@@ -426,7 +426,10 @@ Channel 1──* ChannelMembership *──1 User;  Channel 1──* Message
 ### New models
 
 - **UserProfile** (`apps.users`): user 1:1, title, phone, photo?,
-  calendar_tone (1-10).
+  calendar_tone (1-10), theme, onboarding_dismissed, and (Phase 17.5
+  step 7) hourly_rate? and working_days — the weekdays someone normally
+  works, as digits with Monday 0 ("01234"), so adding a day is editing a
+  string rather than a migration. Only the Owner sets either.
 - **Property**: contact FK (CASCADE — an address has no meaning without
   its contact), label, street, city, state, postal_code, notes,
   is_primary.
@@ -465,6 +468,13 @@ Channel 1──* ChannelMembership *──1 User;  Channel 1──* Message
   amount (> 0), received_on, method (cash/check/card/transfer/other),
   recorded_by.
 - **Expense**: date, amount, category, description, recorded_by.
+- **TimeEntry** (Phase 17.5 step 7): user (PROTECT), job? (SET_NULL),
+  started_at, ended_at? (null = still running), notes. Constraints: ends
+  after it starts; a partial unique on user where `ended_at` is null, so
+  one clock runs per person. Clocking out of a job tops up that person's
+  `JobAssignment.hours_worked`, so the job's hours and the clock agree by
+  construction rather than being two numbers to reconcile. Payroll is
+  paid from clocked time (`apps/jobs/crew.py`).
 - **BusinessSettings** (`apps.core`, Phase 17.5): a single row (CheckConstraint
   `id = 1`; read with `load()`, which never writes) — name (blank falls back
   to `CRM_BRAND_NAME`), logo (always a re-encoded ≤512px square PNG under

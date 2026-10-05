@@ -3783,3 +3783,19 @@ a.hub-card:hover {
   gap: var(--space-3);
   margin-top: var(--space-5);
 }
+
+/* ---------- Crew (Phase 17.5 step 7) ---------- */
+
+.crew-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(20rem, 1fr));
+  gap: var(--space-4);
+  align-items: start;
+}
+
+.crew-picker legend {
+  padding: 0;
+  margin-bottom: var(--space-2);
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+}

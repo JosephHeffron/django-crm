@@ -483,3 +483,60 @@ class Expense(models.Model):
 
     def __str__(self):
         return f"{self.get_category_display()} ${self.amount} on {self.date}"
+
+
+class TimeEntry(models.Model):
+    """One stretch of clocked work (Phase 17.5 step 7).
+
+    This is the attendance record payroll is paid from. An entry can
+    name the job being worked on, and clocking out of one adds its hours
+    to that crew member's assignment — so a job's hours and the clock
+    agree by construction instead of being two numbers to reconcile.
+    Time clocked with no job (travel, the shop, a supply run) is still
+    paid; it just isn't charged to a job.
+    """
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="time_entries"
+    )
+    job = models.ForeignKey(
+        Job, null=True, blank=True, on_delete=models.SET_NULL, related_name="time_entries"
+    )
+    started_at = models.DateTimeField()
+    ended_at = models.DateTimeField(null=True, blank=True)
+    notes = models.CharField(max_length=255, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name_plural = "time entries"
+        ordering = ["-started_at", "-pk"]
+        indexes = [models.Index(fields=["user", "started_at"], name="time_entry_user_idx")]
+        constraints = [
+            models.CheckConstraint(
+                condition=Q(ended_at__isnull=True) | Q(ended_at__gt=F("started_at")),
+                name="time_entry_ends_after_it_starts",
+            ),
+            # One clock running per person: clocking in twice is a
+            # mistake, not two jobs at once.
+            models.UniqueConstraint(
+                fields=["user"],
+                condition=Q(ended_at__isnull=True),
+                name="one_open_time_entry_per_user",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.user} from {self.started_at:%b %d %H:%M}"
+
+    @property
+    def is_running(self):
+        return self.ended_at is None
+
+    @property
+    def hours(self):
+        """Hours to two places, or None while the clock is still
+        running — an unfinished stretch has no length yet."""
+        if self.ended_at is None:
+            return None
+        seconds = Decimal((self.ended_at - self.started_at).total_seconds())
+        return (seconds / Decimal("3600")).quantize(Decimal("0.01"))
