@@ -3673,3 +3673,113 @@ a.hub-card:hover {
     justify-content: center;
   }
 }
+
+/* ---------- Scheduling: day indicators (Phase 17.5 step 5) ---------- */
+
+.day-dots {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 3px;
+  margin: 0 0 var(--space-1);
+}
+
+.day-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: var(--radius-full);
+  /* Each dot carries its service's tone class, the same colors the
+     chips below use, so the two read as one thing. */
+  background: var(--tone-accent, var(--color-primary));
+}
+
+.day-dot-more {
+  font-size: 0.625rem;
+  color: var(--color-text-muted);
+}
+
+.day-summary {
+  margin: 0 0 var(--space-3);
+  font-size: var(--text-sm);
+}
+
+/* ---------- Line items on a job or estimate ---------- */
+
+.line-rows {
+  display: grid;
+  gap: var(--space-3);
+  margin-bottom: var(--space-3);
+}
+
+.line-row {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  background: var(--color-surface-2);
+}
+
+.line-row p {
+  margin: 0;
+}
+
+.line-row input,
+.line-row select {
+  width: 100%;
+}
+
+.line-errors {
+  grid-column: 1 / -1;
+}
+
+@media (min-width: 48rem) {
+  .line-row {
+    grid-template-columns: 14rem 1fr 6rem 8rem auto;
+    align-items: end;
+  }
+
+  /* The column is labelled once by the field above it; repeating the
+     label on every row would be noise for a sighted reader. */
+  .line-row:not(:first-child) label:not(.checkbox-label) {
+    display: none;
+  }
+}
+
+.crew-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  border: 0;
+  margin: 0;
+  padding: 0;
+}
+
+.crew-choice {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-full);
+  background: var(--color-surface-2);
+  cursor: pointer;
+}
+
+.crew-choice:has(input:checked) {
+  border-color: var(--color-primary);
+  background: var(--color-primary-soft);
+  color: var(--color-primary-soft-text);
+}
+
+.crew-choice:has(input:focus-visible) {
+  outline: 2px solid var(--color-link);
+  outline-offset: 2px;
+}
+
+.form-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin-top: var(--space-5);
+}

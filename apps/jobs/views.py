@@ -1,10 +1,14 @@
+from datetime import datetime, time, timedelta
+
 from django.contrib import messages
 from django.contrib.auth import get_user_model
 from django.contrib.auth.mixins import PermissionRequiredMixin
+from django.db import transaction
+from django.shortcuts import redirect
 from django.urls import reverse, reverse_lazy
 from django.utils import timezone
 from django.utils.dateparse import parse_date
-from django.views.generic import DetailView, ListView, TemplateView, UpdateView
+from django.views.generic import CreateView, DetailView, ListView, TemplateView, UpdateView
 
 from apps.core.pagination import PerPageMixin
 from apps.crm.hub import TasksHubMixin
@@ -22,8 +26,8 @@ from apps.users.roles import (
 from . import reports
 from .access import invoices_for, jobs_for, quotes_for
 from .calendar import DEFAULT_VIEW, VIEWS, calendar_days, calendar_range
-from .forms import ServiceTypeForm
-from .models import Quote, ServiceType
+from .forms import JobForm, JobLineFormSet, QuoteForm, QuoteLineFormSet, ServiceTypeForm
+from .models import Job, JobAssignment, Quote, ServiceType
 
 User = get_user_model()
 
@@ -52,6 +56,7 @@ class CalendarView(RoleRequiredMixin, TemplateView):
             if requested.isdigit() and any(m.pk == int(requested) for m in crew_members):
                 crew_id = int(requested)
 
+        can_schedule = user_role(self.request.user) in SALES_ROLES
         days = calendar_days(self.request.user, cal, crew_id=crew_id, today=today)
         for day in days:
             day["url"] = calendar_url("day", day["date"], crew_id)
@@ -70,6 +75,9 @@ class CalendarView(RoleRequiredMixin, TemplateView):
             has_events=any(day["events"] for day in days),
             crew_members=crew_members,
             crew_id=crew_id,
+            can_schedule=can_schedule,
+            new_job_url=reverse("jobs:job_create") if can_schedule else "",
+            new_job_label="Schedule a job",
         )
         return context
 
@@ -107,11 +115,104 @@ class JobDetailView(RoleRequiredMixin, DetailView):
         return context
 
 
+class JobFormMixin(SalesRoleRequiredMixin, PermissionRequiredMixin):
+    """Booking and moving jobs — the Owner and Sales Reps. A Cleaner sees
+    their schedule but doesn't set it (ADR 0008).
+
+    The crew and the line items are saved in one transaction with the
+    job, so a half-booked job can't survive a failure partway through.
+    """
+
+    model = Job
+    form_class = JobForm
+    template_name = "jobs/job_form.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        if "lines" not in context:
+            context["lines"] = JobLineFormSet(
+                self.request.POST or None, instance=self.object, prefix="lines"
+            )
+        return context
+
+    def form_valid(self, form):
+        lines = JobLineFormSet(self.request.POST, instance=form.instance, prefix="lines")
+        # The formset needs the job's primary key, so validate it against
+        # an unsaved instance first and only commit once both are good.
+        if not lines.is_valid():
+            return self.render_to_response(self.get_context_data(form=form, lines=lines))
+        with transaction.atomic():
+            if not form.instance.pk:
+                form.instance.created_by = self.request.user
+            _stamp_completion(form.instance)
+            self.object = form.save()
+            lines.instance = self.object
+            lines.save()
+            self._save_crew(form.cleaned_data["crew"])
+        messages.success(self.request, self.success_message % {"number": self.object.number})
+        return redirect(self.object.get_absolute_url())
+
+    def _save_crew(self, crew):
+        """Add and remove assignments rather than replacing them, so
+        hours already logged against a crew member survive an edit."""
+        wanted = {member.pk for member in crew}
+        existing = {a.user_id: a for a in self.object.assignments.all()}
+        for user_id, assignment in existing.items():
+            if user_id not in wanted:
+                assignment.delete()
+        for user_id in wanted - set(existing):
+            JobAssignment.objects.create(job=self.object, user_id=user_id)
+
+
+def _stamp_completion(job):
+    """Record when a job was finished, from its status.
+
+    Every count of finished work — the dashboard, the monthly goal,
+    Financials, a cleaner's week — is by `completed_at`, not by status,
+    so a job marked done without a date would say "Completed" on screen
+    and be counted nowhere. Re-opening one clears the date again.
+    """
+    if job.status == Job.Status.COMPLETED:
+        if job.completed_at is None:
+            job.completed_at = timezone.now()
+    else:
+        job.completed_at = None
+
+
+class JobCreateView(JobFormMixin, CreateView):
+    permission_required = "jobs.add_job"
+    success_message = "Scheduled %(number)s."
+
+    def get_initial(self):
+        initial = super().get_initial()
+        initial.setdefault("sales_rep", self.request.user.pk)
+        contact = self.request.GET.get("contact", "")
+        if contact.isdigit():
+            initial.setdefault("contact", int(contact))
+        start = _parse_day(self.request.GET.get("date"))
+        if start:
+            # Arriving from a day on the schedule: start that morning.
+            begins = timezone.make_aware(datetime.combine(start, time(9)))
+            initial.setdefault("scheduled_start", begins)
+            initial.setdefault("scheduled_end", begins + timedelta(hours=2))
+        return initial
+
+
+class JobUpdateView(JobFormMixin, UpdateView):
+    permission_required = "jobs.change_job"
+    success_message = "Updated %(number)s."
+
+    def get_queryset(self):
+        # Scoped like the detail page: out of scope is a 404, not a 403.
+        return jobs_for(self.request.user)
+
+
 QUOTE_FILTERS = {"open": Quote.OPEN_STATUSES, **{v: (v,) for v in Quote.Status.values}}
 
 
 class QuoteListView(TasksHubMixin, SalesRoleRequiredMixin, PerPageMixin, ListView):
-    """Quotes in the Tasks hub — open (draft or sent) by default."""
+    """Estimates — open (draft or sent) by default. It keeps the Tasks
+    hub's tabs, because it's one of them, under its own heading."""
 
     hub_tab = "quotes"
     template_name = "jobs/quote_list.html"
@@ -140,6 +241,7 @@ class QuoteListView(TasksHubMixin, SalesRoleRequiredMixin, PerPageMixin, ListVie
         context["status"] = self._status()
         context["status_choices"] = [("open", "Open"), *Quote.Status.choices, ("all", "All")]
         context["mine"] = self.request.GET.get("mine") == "1"
+        context["new_quote_url"] = reverse("jobs:quote_create")
         return context
 
 
@@ -159,6 +261,74 @@ class QuoteDetailView(SalesRoleRequiredMixin, DetailView):
         context["line_items"] = self.object.line_items.select_related("service_type")
         context["jobs"] = self.object.jobs.select_related("primary_service_type")
         return context
+
+
+class QuoteFormMixin(SalesRoleRequiredMixin, PermissionRequiredMixin):
+    """Writing an estimate. Its lines are saved in the same transaction,
+    and the dates that record what happened to it — sent, accepted — are
+    stamped here rather than typed, so they always match the status."""
+
+    model = Quote
+    form_class = QuoteForm
+    template_name = "jobs/quote_form.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        if "lines" not in context:
+            context["lines"] = QuoteLineFormSet(
+                self.request.POST or None, instance=self.object, prefix="lines"
+            )
+        return context
+
+    def form_valid(self, form):
+        lines = QuoteLineFormSet(self.request.POST, instance=form.instance, prefix="lines")
+        if not lines.is_valid():
+            return self.render_to_response(self.get_context_data(form=form, lines=lines))
+        with transaction.atomic():
+            if not form.instance.pk:
+                form.instance.prepared_by = self.request.user
+            _stamp_status(form.instance)
+            self.object = form.save()
+            lines.instance = self.object
+            lines.save()
+        messages.success(self.request, self.success_message % {"number": self.object.number})
+        return redirect(self.object.get_absolute_url())
+
+
+def _stamp_status(quote):
+    """Record when an estimate went out and when it was taken up.
+
+    `sent_at` is set once and kept: an estimate re-sent after a
+    correction keeps the date the customer first saw it, which is what
+    the expiry counts from. `accepted_at` follows the status instead, so
+    one that's since been declined doesn't still show a day it was won.
+    """
+    if quote.status != Quote.Status.DRAFT and quote.sent_at is None:
+        quote.sent_at = timezone.now()
+    if quote.status != Quote.Status.ACCEPTED:
+        quote.accepted_at = None
+    elif quote.accepted_at is None:
+        quote.accepted_at = timezone.now()
+
+
+class QuoteCreateView(QuoteFormMixin, CreateView):
+    permission_required = "jobs.add_quote"
+    success_message = "Created %(number)s."
+
+    def get_initial(self):
+        initial = super().get_initial()
+        contact = self.request.GET.get("contact", "")
+        if contact.isdigit():
+            initial.setdefault("contact", int(contact))
+        return initial
+
+
+class QuoteUpdateView(QuoteFormMixin, UpdateView):
+    permission_required = "jobs.change_quote"
+    success_message = "Updated %(number)s."
+
+    def get_queryset(self):
+        return quotes_for(self.request.user)
 
 
 class FinancialsView(OwnerRequiredMixin, TemplateView):

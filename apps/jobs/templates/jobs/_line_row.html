@@ -1,0 +1,13 @@
+{% comment %}
+  One line of work on a job or an estimate. Labels show on phones and
+  are hidden on wide screens, where the column headings carry them.
+{% endcomment %}
+<div class="line-row" data-line-row>
+  {{ line.id }}
+  <p class="line-service"><label for="{{ line.service_type.id_for_label }}">Service</label> {{ line.service_type }}</p>
+  <p class="line-desc"><label for="{{ line.description.id_for_label }}">Description</label> {{ line.description }}</p>
+  <p class="line-qty"><label for="{{ line.quantity.id_for_label }}">Qty</label> {{ line.quantity }}</p>
+  <p class="line-price"><label for="{{ line.unit_price.id_for_label }}">Unit price</label> {{ line.unit_price }}</p>
+  {% if line.instance.pk %}<label class="checkbox-label line-remove">{{ line.DELETE }} Remove</label>{% endif %}
+  {% if line.errors %}<div class="line-errors">{% for field in line %}{{ field.errors }}{% endfor %}</div>{% endif %}
+</div>

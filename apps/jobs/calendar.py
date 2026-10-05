@@ -145,6 +145,30 @@ def _visit_events(user, start, end):
     ]
 
 
+# How many dots a day shows before it switches to "+n".
+MAX_DOTS = 6
+
+
+def day_indicators(events):
+    """A day's shape at a glance: one colored dot per booking, and how
+    many are jobs, site visits, and already finished. The month view has
+    room for three events at most, so without this a busy day and a very
+    busy day look the same."""
+    return {
+        "dots": [
+            {
+                "tone_class": event.tone_class,
+                "label": f"{timezone.localtime(event.start):%-I:%M %p} {event.title}",
+            }
+            for event in events[:MAX_DOTS]
+        ],
+        "extra": max(0, len(events) - MAX_DOTS),
+        "jobs": sum(1 for event in events if event.kind == "job"),
+        "visits": sum(1 for event in events if event.kind == "visit"),
+        "done": sum(1 for event in events if event.status == Job.Status.COMPLETED),
+    }
+
+
 def calendar_days(user, cal, crew_id=None, today=None):
     """One dict per date in the range, each with its events in time
     order. ``crew_id`` narrows jobs to one crew member (and drops site
@@ -169,6 +193,7 @@ def calendar_days(user, cal, crew_id=None, today=None):
                 "events": by_date.get(current, []),
                 "is_today": current == today,
                 "in_month": cal.view != "month" or current.month == cal.anchor.month,
+                "indicators": day_indicators(by_date.get(current, [])),
             }
         )
         current += timedelta(days=1)

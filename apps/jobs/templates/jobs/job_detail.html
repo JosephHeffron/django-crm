@@ -14,6 +14,11 @@
     <div class="cluster">
       <span class="badge {{ job.primary_service_type.tone_class }}">{{ job.primary_service_type.name }}</span>
       {% include "jobs/_status_badge.html" with status=job.status label=job.get_status_display %}
+      {% if is_sales %}
+        <a class="btn btn-secondary btn-sm" href="{% url 'jobs:job_update' job.pk %}">
+          <svg class="icon" aria-hidden="true"><use href="#icon-settings"/></svg>Edit
+        </a>
+      {% endif %}
     </div>
   </div>
 

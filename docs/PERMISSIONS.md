@@ -147,6 +147,8 @@ member of), so a direct message never leaks onto a contact page.
 | Services (`/settings/services/`) | view and edit | 403 | 403 |
 | Business Settings (`/settings/business/`) and data export | yes | 403 | 403 |
 | Monthly goals (`/settings/goals/`) | view and edit | 403 | 403 |
+| Book or change a job (`/jobs/new/`, `/jobs/<pk>/edit/`) | yes | yes | 403 |
+| Write or change an estimate (`/quotes/new/`, `/quotes/<pk>/edit/`) | yes | yes | 403 |
 | Setup checklist (dashboard, `/onboarding/dismiss/`) | yes | not shown | not shown |
 | Notifications (`/notifications/`) | own | own | own |
 | Contacts (`/contacts/`, a contact's page) | yes | yes | 403 |

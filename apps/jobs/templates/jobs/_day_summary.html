@@ -1,0 +1,4 @@
+{% comment %}The day view's one-line summary above the agenda.{% endcomment %}
+<p class="day-summary muted">
+  {{ day.indicators.jobs }} job{{ day.indicators.jobs|pluralize }}{% if day.indicators.done %} · {{ day.indicators.done }} finished{% endif %}{% if day.indicators.visits %} · {{ day.indicators.visits }} site visit{{ day.indicators.visits|pluralize }}{% endif %}
+</p>

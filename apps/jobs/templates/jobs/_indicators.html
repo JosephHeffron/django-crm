@@ -1,0 +1,13 @@
+{% comment %}
+  A day's shape at a glance: one dot per booking, colored by service.
+  The month cell only has room for two events, so the dots say how busy
+  the day really is. Decorative — the count beside them carries the
+  meaning for a screen reader.
+{% endcomment %}
+<p class="day-dots">
+  {% for dot in indicators.dots %}<span class="day-dot {{ dot.tone_class }}" title="{{ dot.label }}" aria-hidden="true"></span>{% endfor %}
+  {% if indicators.extra %}<span class="day-dot-more" aria-hidden="true">+{{ indicators.extra }}</span>{% endif %}
+  <span class="sr-only">
+    {{ indicators.jobs }} job{{ indicators.jobs|pluralize }}{% if indicators.done %}, {{ indicators.done }} finished{% endif %}{% if indicators.visits %}, {{ indicators.visits }} site visit{{ indicators.visits|pluralize }}{% endif %}
+  </span>
+</p>

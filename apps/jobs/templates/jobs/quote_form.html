@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{% if object %}Edit {{ object.number }}{% else %}New estimate{% endif %}{% endblock %}
+
+{% block extra_head %}<script src="{% static 'js/lines.js' %}" defer></script>{% endblock %}
+
+{% block content %}
+  <div class="settings-shell">
+    <h1>{% if object %}Edit {{ object.number }}{% else %}New estimate{% endif %}</h1>
+    <p class="page-subtitle">{% if object %}Change the work, the price, or where it stands{% else %}What you're quoting, for whom, and for how much{% endif %}</p>
+
+    <form method="post" novalidate>
+      {% csrf_token %}
+      {{ form.non_field_errors }}
+
+      <section class="section-card">
+        <div class="section-card-head"><svg class="icon" aria-hidden="true"><use href="#icon-user"/></svg><h2>Customer and address</h2></div>
+        <div class="field-row">
+          {% include "partials/_field.html" with field=form.contact %}
+          {% include "partials/_field.html" with field=form.service_property %}
+        </div>
+      </section>
+
+      <section class="section-card">
+        <div class="section-card-head"><svg class="icon" aria-hidden="true"><use href="#icon-dollar"/></svg><h2>The work</h2></div>
+        <p class="muted section-note">Each line picks a service and fills in its usual price, which you can change.</p>
+        {{ lines.management_form }}
+        {{ lines.non_form_errors }}
+        <div class="line-rows" data-line-rows>
+          {% for line in lines %}
+            {% include "jobs/_line_row.html" with line=line %}
+          {% endfor %}
+        </div>
+        <template data-line-template>{% include "jobs/_line_row.html" with line=lines.empty_form %}</template>
+        <button type="button" class="btn btn-secondary btn-sm js-only" data-add-line><svg class="icon" aria-hidden="true"><use href="#icon-plus"/></svg>Add a line</button>
+      </section>
+
+      <section class="section-card">
+        <div class="section-card-head"><svg class="icon" aria-hidden="true"><use href="#icon-calendar"/></svg><h2>Where it stands</h2></div>
+        <div class="field-row">
+          {% include "partials/_field.html" with field=form.status %}
+          {% include "partials/_field.html" with field=form.expires_on %}
+        </div>
+        {% include "partials/_field.html" with field=form.site_visit_at %}
+        <p class="helptext">Moving it past Draft records today as the day it went out; marking it Accepted records today as the day it was won.</p>
+        {% include "partials/_field.html" with field=form.notes %}
+      </section>
+
+      <div class="form-actions">
+        <button type="submit"><svg class="icon" aria-hidden="true"><use href="#icon-save"/></svg>{% if object %}Save changes{% else %}Create estimate{% endif %}</button>
+        <a class="btn btn-secondary" href="{% if object %}{{ object.get_absolute_url }}{% else %}{% url 'jobs:quote_list' %}{% endif %}">Cancel</a>
+      </div>
+    </form>
+  </div>
+{% endblock %}
