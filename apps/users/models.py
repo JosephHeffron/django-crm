@@ -45,6 +45,10 @@ class UserProfile(models.Model):
     # theme, no browser storage) — docs/decisions/0010.
     theme = models.CharField(max_length=10, choices=Theme.choices, default=Theme.SYSTEM)
 
+    # The dashboard's setup checklist hides itself once every step is
+    # done; this is the "hide it anyway" choice (apps/core/onboarding.py).
+    onboarding_dismissed = models.BooleanField(default=False)
+
     def __str__(self):
         return f"Profile for {self.user}"
 

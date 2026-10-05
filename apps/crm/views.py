@@ -9,6 +9,8 @@ from django.utils.http import url_has_allowed_host_and_scheme
 from django.views import View
 from django.views.generic import CreateView, DetailView, ListView, UpdateView
 
+from apps.core.models import Notification
+from apps.core.notifications import notify
 from apps.core.pagination import PerPageMixin
 from apps.jobs.models import Job, Quote
 from apps.users.roles import SalesRoleRequiredMixin
@@ -910,6 +912,28 @@ class TaskDetailView(SalesRoleRequiredMixin, DetailView):
     context_object_name = "task"
 
 
+def _notify_assignee(task, actor, previous_assignee_id=None):
+    """Tell someone a task is now theirs.
+
+    Never the person doing the assigning — nobody needs telling about
+    their own action — and only when the assignment actually changed, so
+    editing a task's title doesn't re-announce it.
+    """
+    assignee = task.assigned_to
+    if assignee is None or assignee == actor or assignee.pk == previous_assignee_id:
+        return
+    kind = (
+        Notification.Kind.FOLLOW_UP if task.kind == Task.Kind.FOLLOW_UP else Notification.Kind.TASK
+    )
+    notify(
+        assignee,
+        kind,
+        f"{actor.get_full_name() or actor.get_username()} assigned you a task",
+        task.title,
+        task.get_absolute_url(),
+    )
+
+
 class TaskCreateView(SalesRoleRequiredMixin, PermissionRequiredMixin, CreateView):
     model = Task
     form_class = TaskForm
@@ -929,6 +953,7 @@ class TaskCreateView(SalesRoleRequiredMixin, PermissionRequiredMixin, CreateView
         form.instance.created_by = self.request.user
         _apply_task_completion(form.instance, self.request.user, was_completed=False)
         response = super().form_valid(form)
+        _notify_assignee(self.object, self.request.user)
         messages.success(self.request, f"Created task “{self.object.title}”.")
         return response
 
@@ -940,11 +965,12 @@ class TaskUpdateView(SalesRoleRequiredMixin, PermissionRequiredMixin, UpdateView
     permission_required = "crm.change_task"
 
     def form_valid(self, form):
-        was_completed = Task.objects.filter(
-            pk=form.instance.pk, status=Task.Status.COMPLETED
-        ).exists()
+        saved = Task.objects.filter(pk=form.instance.pk).values("status", "assigned_to").first()
+        was_completed = bool(saved) and saved["status"] == Task.Status.COMPLETED
+        previous_assignee = saved["assigned_to"] if saved else None
         _apply_task_completion(form.instance, self.request.user, was_completed)
         response = super().form_valid(form)
+        _notify_assignee(self.object, self.request.user, previous_assignee)
         messages.success(self.request, f"Updated task “{self.object.title}”.")
         return response
 

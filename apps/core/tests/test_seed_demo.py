@@ -7,6 +7,7 @@ from django.core.management import CommandError, call_command
 from django.test import TestCase, override_settings
 
 from apps.core.management.commands.seed_demo import DEMO_PREFIX, DEMO_USERS
+from apps.core.models import Goal, Notification
 from apps.crm.models import Contact, Task
 from apps.crm.tests._helpers import grant_role
 from apps.jobs.models import Invoice, Job, Quote, ServiceType
@@ -54,6 +55,13 @@ class SeedDemoTests(TestCase):
         self.assertTrue(Job.objects.filter(status=Job.Status.SCHEDULED).exists())
         self.assertTrue(Invoice.objects.exists())
         self.assertTrue(Task.objects.filter(kind=Task.Kind.FOLLOW_UP).exists())
+        # The dashboard's bell and goals card have something real to show.
+        self.assertTrue(Notification.objects.filter(kind=Notification.Kind.TASK).exists())
+        self.assertTrue(Notification.objects.filter(kind=Notification.Kind.FOLLOW_UP).exists())
+        self.assertEqual(
+            set(Goal.objects.values_list("metric", flat=True)), set(Goal.Metric.values)
+        )
+        self.assertTrue(all(target > 0 for target in Goal.objects.values_list("target", flat=True)))
         self.assertEqual(Message.objects.filter(channel__slug="crew").count(), 12)
         self.assertEqual(Channel.objects.filter(kind=Channel.Kind.DIRECT).count(), 2)
         # Opening a seeded DM in the app finds it rather than starting another.
@@ -108,6 +116,9 @@ class SeedDemoTests(TestCase):
         self.assertTrue(Contact.objects.filter(pk=self.real_contact.pk).exists())
         self.assertTrue(User.objects.filter(pk=self.real_user.pk).exists())
         self.assertEqual(ServiceType.objects.count(), services)
+        # Goals belong to nobody, so --reset has to clear them itself
+        # rather than relying on the demo users going away.
+        self.assertEqual(Goal.objects.count(), len(Goal.Metric.values))
         self.assertEqual(
             set(Channel.objects.filter(kind=Channel.Kind.PUBLIC).values_list("slug", flat=True)),
             {"general", "crew", "sales"},

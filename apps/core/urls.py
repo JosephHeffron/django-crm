@@ -16,4 +16,21 @@ urlpatterns = [
     path("settings/business/", views.BusinessSettingsView.as_view(), name="business_settings"),
     path("settings/business/export/", views.BusinessExportView.as_view(), name="business_export"),
     path("branding/logo/", views.BusinessLogoView.as_view(), name="business_logo"),
+    path("settings/goals/", views.GoalsView.as_view(), name="goals"),
+    path("notifications/", views.NotificationListView.as_view(), name="notifications"),
+    path(
+        "notifications/<int:pk>/read/",
+        views.NotificationReadView.as_view(),
+        name="notification_read",
+    ),
+    path(
+        "notifications/read-all/",
+        views.NotificationReadAllView.as_view(),
+        name="notifications_read_all",
+    ),
+    path(
+        "onboarding/dismiss/",
+        views.OnboardingDismissView.as_view(),
+        name="onboarding_dismiss",
+    ),
 ]

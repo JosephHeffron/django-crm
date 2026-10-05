@@ -323,3 +323,48 @@ def chart_bars(kind, buckets):
         "peak": peak,
         "kind": kind,
     }
+
+
+# ---------- Mini chart for the dashboard's overview cards ----------
+
+# A small bar strip, not the full trend chart: same CSP reasoning — the
+# geometry is computed here and the template only copies numbers into
+# SVG attributes.
+SPARK_WIDTH, SPARK_HEIGHT = 120, 32
+
+
+def sparkline(buckets, key="revenue"):
+    """Bar geometry for one series across `buckets` (from trend()).
+
+    Returns None when there's nothing to draw — every bucket empty means
+    a chart of zero-height bars, which reads as a broken image rather
+    than as "no money yet", so the card shows a dash instead.
+    """
+    values = [bucket[key] for bucket in buckets]
+    peak = max(values, default=ZERO)
+    if not values or peak <= 0:
+        return None
+    slot = SPARK_WIDTH / len(values)
+    bar = max(slot * 0.6, 1)
+    bars = []
+    for index, value in enumerate(values):
+        height = round(float(value / peak) * SPARK_HEIGHT, 1)
+        bars.append(
+            {
+                "x": round(index * slot + (slot - bar) / 2, 1),
+                "y": round(SPARK_HEIGHT - height, 1),
+                "width": round(bar, 1),
+                "height": height or 0.5,  # a visible floor for empty days
+                "start": buckets[index]["start"],
+                "value": value,
+            }
+        )
+    return {"bars": bars, "width": SPARK_WIDTH, "height": SPARK_HEIGHT, "peak": peak}
+
+
+def change(current, previous):
+    """Percent change between two totals, or None when there's no
+    earlier figure to compare against (a first month has no trend)."""
+    if previous is None or previous <= 0:
+        return None
+    return int(round(float((current - previous) / previous) * 100))

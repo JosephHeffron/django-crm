@@ -472,6 +472,21 @@ Channel 1──* ChannelMembership *──1 User;  Channel 1──* Message
   currency (USD / CAD — drives every money figure). **BusinessLink**:
   platform (one row per main platform — partial unique constraint), label
   (required for "other" — CheckConstraint), url, position.
+- **Notification** (`apps.core`, Phase 17.5 step 4): recipient (CASCADE),
+  kind (task/follow_up/job/estimate/invoice/system), title, body, url (a
+  path on this site — a RegexValidator keeps it relative, because it's
+  rendered into an href), `event` (an optional de-duplication key:
+  partial unique on (recipient, event), so the daily follow-up run can't
+  announce the same task twice), created_at, read_at? (null = unread;
+  index on (recipient, read_at) for the bell's count). Written only
+  through `apps/core/notifications.py` — no signals, the same choice as
+  the audit log.
+- **Goal** (`apps.core`, Phase 17.5 step 4): metric (revenue / jobs /
+  customers, unique — one target per metric, the one in force rather
+  than a month-by-month history), target (≥ 0), updated_at. The actuals
+  are never stored: `apps/core/goals.py` aggregates the current calendar
+  month and reuses `apps/jobs/reports.py`, so the dashboard and
+  Financials can't disagree.
 - **Channel** (`apps.messaging`): name, slug (unique), kind
   (public/direct; `customer_sms` reserved), audience (everyone / sales —
   who may read a public channel; #sales is sales-only, messaging/0003),

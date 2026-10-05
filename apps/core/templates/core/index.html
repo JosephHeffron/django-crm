@@ -4,87 +4,125 @@
 {% block title %}Dashboard{% endblock %}
 
 {% block content %}
-  <div class="page-header">
-    <div>
-      <h1>Dashboard</h1>
-      <p class="page-subtitle">Welcome back, {{ nav.display_name }}.{% if today %} {{ today|date:"l, F j" }}.{% endif %}</p>
-    </div>
-  </div>
-
   {% if role is None %}
+    <div class="page-header"><div><h1>Dashboard</h1></div></div>
     {% include "partials/_empty_state.html" with icon="lock" title="No role assigned yet" text="Your account doesn't have a role, so there's nothing to show. Ask the owner to make you an Owner, Sales Rep, or Cleaner." %}
   {% else %}
 
-  <div class="stat-grid">
-    {% if is_owner %}
-      <a class="stat-card" href="{% url 'jobs:financials' %}?range=day">
-        <div class="stat-label">Revenue today</div>
-        <div class="stat-value">{{ revenue_today|money }}</div>
-        <div class="stat-meta">Invoiced</div>
-      </a>
-      <a class="stat-card" href="{% url 'jobs:financials' %}?range=week">
-        <div class="stat-label">Revenue this week</div>
-        <div class="stat-value">{{ revenue_week|money }}</div>
-        <div class="stat-meta">Since Monday</div>
-      </a>
-      <a class="stat-card" href="{% url 'jobs:financials' %}#outstanding">
-        <div class="stat-label">Outstanding</div>
-        <div class="stat-value">{{ outstanding.total|money }}</div>
-        <div class="stat-meta">{{ outstanding.count }} unpaid invoice{{ outstanding.count|pluralize }}</div>
-      </a>
-    {% else %}
-      <a class="stat-card" href="{% url 'jobs:calendar' %}?view=day">
-        <div class="stat-label">Jobs today</div>
-        <div class="stat-value">{{ todays_job_count }}</div>
-        <div class="stat-meta">{% if role == "Cleaner" %}Assigned to you{% else %}Whole team{% endif %}</div>
-      </a>
-    {% endif %}
-
-    {% if role == "Cleaner" %}
-      <div class="stat-card">
-        <div class="stat-label">Done this week</div>
-        <div class="stat-value">{{ jobs_done_this_week }}</div>
-        <div class="stat-meta">Completed jobs</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-label">Hours this week</div>
-        <div class="stat-value">{{ hours_this_week|floatformat:"-1" }}</div>
-        <div class="stat-meta">Logged on completed jobs</div>
-      </div>
-    {% else %}
-      <div class="stat-card">
-        <div class="stat-label">{% if is_owner %}Open quotes{% else %}Your open quotes{% endif %}</div>
-        <div class="stat-value">{{ open_quotes.count }}</div>
-        <div class="stat-meta">{{ open_quotes.total|default:0|money }} in drafts and sent</div>
-      </div>
-      <a class="stat-card" href="{% url 'crm:task_followups' %}{% if not is_owner %}?mine=1{% endif %}">
-        <div class="stat-label">Follow-ups due</div>
-        <div class="stat-value">{{ follow_ups_due }}</div>
-        <div class="stat-meta">{% if follow_ups_overdue %}{{ follow_ups_overdue }} overdue{% else %}None overdue{% endif %}</div>
-      </a>
-    {% endif %}
-
-    <div class="stat-card">
-      <div class="stat-label">Unread messages</div>
-      <div class="stat-value">{{ unread_messages }}</div>
-      <div class="stat-meta">Team chat</div>
+  <div class="dash-hero">
+    <div>
+      <h1>{{ greeting }}, {{ nav.first_name }}</h1>
+      <p class="page-subtitle">{{ today|date:"l, F j, Y" }}{% if todays_job_count %} · {{ todays_job_count }} job{{ todays_job_count|pluralize }} scheduled today{% else %} · nothing scheduled today{% endif %}</p>
+    </div>
+    <div class="dash-hero-actions">
+      {% for action in quick_actions|slice:":2" %}
+        <a class="btn{% if not forloop.first %} btn-secondary{% endif %}" href="{{ action.url }}">
+          <svg class="icon" aria-hidden="true"><use href="#icon-{{ action.icon }}"/></svg>{{ action.label }}
+        </a>
+      {% endfor %}
     </div>
   </div>
 
-  <div class="grid-2">
+  {% if onboarding %}
+    <section class="section-card onboarding">
+      <div class="onboarding-head">
+        <div>
+          <h2 class="card-title">Finish setting up</h2>
+          <p class="muted">{{ onboarding.done }} of {{ onboarding.total }} done — next up: {{ onboarding.next.label }}.</p>
+        </div>
+        <form method="post" action="{% url 'core:onboarding_dismiss' %}">
+          {% csrf_token %}
+          <input type="hidden" name="next" value="{{ request.get_full_path }}">
+          <button type="submit" class="btn btn-text btn-sm">Hide this</button>
+        </form>
+      </div>
+      {% include "core/_progress_bar.html" with percent=onboarding.percent label="Setup progress" %}
+      <ul class="onboarding-list">
+        {% for step in onboarding.steps %}
+          <li class="onboarding-step{% if step.done %} is-done{% endif %}">
+            <svg class="icon onboarding-mark" aria-hidden="true"><use href="#icon-{% if step.done %}check{% else %}chevron-right{% endif %}"/></svg>
+            <span class="onboarding-text">
+              {% if step.done %}
+                <span class="onboarding-label">{{ step.label }}</span>
+              {% else %}
+                <a class="onboarding-label" href="{{ step.url }}">{{ step.label }}</a>
+              {% endif %}
+              <span class="muted onboarding-hint">{{ step.hint }}</span>
+            </span>
+            {% if step.done %}<span class="badge badge-success">Done</span>{% endif %}
+          </li>
+        {% endfor %}
+      </ul>
+      <p class="muted onboarding-note">Your service list comes with starting prices — worth checking them in <a href="{% url 'jobs:service_list' %}">Customize</a> before your first estimate.</p>
+    </section>
+  {% endif %}
+
+  <div class="stat-grid">
+    {% for card in cards %}
+      {% if card.url %}<a class="stat-card{% if forloop.first %} is-tinted{% endif %}{% if card.accent %} accent-{{ card.accent }}{% endif %}" href="{{ card.url }}">{% else %}<div class="stat-card{% if forloop.first %} is-tinted{% endif %}{% if card.accent %} accent-{{ card.accent }}{% endif %}">{% endif %}
+        <div class="stat-label">{{ card.label }}</div>
+        <div class="stat-value">{{ card.value }}</div>
+        <div class="stat-meta">{{ card.meta }}</div>
+        {% if card.change is not None %}
+          <div class="stat-change{% if card.change < 0 %} is-down{% else %} is-up{% endif %}">
+            <svg class="icon" aria-hidden="true"><use href="#icon-trend-up"/></svg>
+            {{ card.change }}% vs last month
+          </div>
+        {% endif %}
+        {% if card.spark and revenue_spark %}
+          <svg class="spark" viewBox="0 0 {{ revenue_spark.width }} {{ revenue_spark.height }}" role="img" aria-label="Revenue so far this month, day by day" preserveAspectRatio="none">
+            {% for bar in revenue_spark.bars %}
+              <rect class="spark-bar" x="{{ bar.x }}" y="{{ bar.y }}" width="{{ bar.width }}" height="{{ bar.height }}"><title>{{ bar.start|date:"M j" }}: {{ bar.value|money }}</title></rect>
+            {% endfor %}
+          </svg>
+        {% endif %}
+      {% if card.url %}</a>{% else %}</div>{% endif %}
+    {% endfor %}
+  </div>
+
+  <div class="grid-2 is-top">
     <section class="card">
-      <h2 class="card-title">Today's schedule</h2>
+      <div class="card-head">
+        <h2 class="card-title">Jobs today</h2>
+        <a class="btn btn-text btn-sm" href="{% url 'jobs:calendar' %}">Open the schedule</a>
+      </div>
       {% if todays_jobs %}
         <ul class="agenda">
           {% for job in todays_jobs %}{% include "jobs/_job_item.html" %}{% endfor %}
         </ul>
       {% else %}
-        <p class="muted">No jobs scheduled today.</p>
+        {% include "partials/_empty_state.html" with icon="calendar" title="Nothing scheduled today" text="Jobs you schedule show up here on the day they're due." compact=True %}
       {% endif %}
-      <p><a href="{% url 'jobs:calendar' %}">Open the calendar</a></p>
     </section>
 
-    {% if role == "Cleaner" %}
+    {% if is_owner %}
+      <section class="card">
+        <div class="card-head">
+          <h2 class="card-title">{{ month_label }} goals</h2>
+          <a class="btn btn-text btn-sm" href="{% url 'core:goals' %}">{% if goals %}Edit{% else %}Set goals{% endif %}</a>
+        </div>
+        {% if goals %}
+          <ul class="goal-list">
+            {% for goal in goals %}
+              <li class="goal{% if goal.is_met %} is-met{% endif %}">
+                <div class="goal-head">
+                  <span class="goal-label">{{ goal.label }}</span>
+                  <span class="goal-numbers">
+                    {% if goal.is_money %}{{ goal.actual|money }} / {{ goal.target|money }}{% else %}{{ goal.actual|floatformat:"-0" }} / {{ goal.target|floatformat:"-0" }}{% endif %}
+                  </span>
+                </div>
+                {% include "core/_progress_bar.html" with percent=goal.percent label=goal.label %}
+                <p class="muted goal-meta">
+                  {% if goal.is_met %}Goal met.{% else %}{% if goal.is_money %}{{ goal.remaining|money }}{% else %}{{ goal.remaining|floatformat:"-0" }}{% endif %} to go.{% endif %}
+                </p>
+              </li>
+            {% endfor %}
+          </ul>
+        {% else %}
+          {% include "partials/_empty_state.html" with icon="target" title="No goals set" text="Set a monthly target and this card tracks the month against it." compact=True %}
+        {% endif %}
+      </section>
+    {% elif role == "Cleaner" %}
       <section class="card">
         <h2 class="card-title">Coming up</h2>
         {% if upcoming_jobs %}
@@ -92,7 +130,7 @@
             {% for job in upcoming_jobs %}{% include "jobs/_job_item.html" with show_date=True %}{% endfor %}
           </ul>
         {% else %}
-          <p class="muted">Nothing else scheduled for you yet.</p>
+          {% include "partials/_empty_state.html" with icon="calendar" title="Nothing else scheduled" text="Your next jobs will appear here once they're booked." compact=True %}
         {% endif %}
       </section>
     {% else %}
@@ -114,52 +152,68 @@
             {% endfor %}
           </ul>
         {% else %}
-          <p class="muted">No site visits in the next seven days.</p>
+          {% include "partials/_empty_state.html" with icon="map-pin" title="No site visits booked" text="Estimates with a visit booked in the next seven days show here." compact=True %}
         {% endif %}
       </section>
     {% endif %}
   </div>
 
-  {% if role != "Cleaner" %}
-  <div class="grid-2 section-gap">
-    <section class="card">
-      <h2 class="card-title">Your tasks</h2>
-      {% if my_tasks %}
-        <ul class="list-plain">
-          {% for task in my_tasks %}
-            <li>
-              <a href="{{ task.get_absolute_url }}">{{ task.title }}</a>
-              <span class="muted">— {% if task.due_date %}due {{ task.due_date|date:"M j" }}{% else %}no due date{% endif %}</span>
-              {% if task.is_overdue %}<span class="badge badge-danger">Overdue</span>{% endif %}
-            </li>
-          {% endfor %}
-        </ul>
-      {% else %}
-        <p class="muted">No pending tasks assigned to you.</p>
-      {% endif %}
-      <p><a href="{% url 'crm:task_list' %}?mine=1">View all my tasks</a></p>
+  {% if quick_actions %}
+    <section class="card section-gap">
+      <h2 class="card-title">Quick actions</h2>
+      <div class="action-grid">
+        {% for action in quick_actions %}
+          <a class="action-tile" href="{{ action.url }}">
+            <svg class="icon" aria-hidden="true"><use href="#icon-{{ action.icon }}"/></svg>
+            <span>{{ action.label }}</span>
+          </a>
+        {% endfor %}
+      </div>
     </section>
+  {% endif %}
 
-    <section class="card">
-      <h2 class="card-title">Recent activity</h2>
-      {% if recent_activities %}
-        <ul class="timeline">
-          {% for activity in recent_activities %}
-            <li class="timeline-entry">
-              <div class="timeline-meta">
-                <strong>{{ activity.get_activity_type_display }}</strong>
-                <span>{{ activity.created_at|date:"M j, g:i A" }}</span>
-                <span>{{ activity.created_by }}</span>
-              </div>
-              <div class="timeline-subject">{% if activity.contact %}<a href="{{ activity.contact.get_absolute_url }}">{{ activity.contact }}</a>: {% endif %}{{ activity.subject }}</div>
-            </li>
-          {% endfor %}
-        </ul>
-      {% else %}
-        <p class="muted">No activity yet.</p>
-      {% endif %}
-    </section>
-  </div>
+  {% if role != "Cleaner" %}
+    <div class="grid-2 is-top section-gap">
+      <section class="card">
+        <div class="card-head">
+          <h2 class="card-title">Your tasks</h2>
+          <a class="btn btn-text btn-sm" href="{% url 'crm:task_list' %}?mine=1">View all</a>
+        </div>
+        {% if my_tasks %}
+          <ul class="list-plain">
+            {% for task in my_tasks %}
+              <li>
+                <a href="{{ task.get_absolute_url }}">{{ task.title }}</a>
+                <span class="muted">— {% if task.due_date %}due {{ task.due_date|date:"M j" }}{% else %}no due date{% endif %}</span>
+                {% if task.is_overdue %}<span class="badge badge-danger">Overdue</span>{% endif %}
+              </li>
+            {% endfor %}
+          </ul>
+        {% else %}
+          {% include "partials/_empty_state.html" with icon="check" title="No pending tasks" text="Tasks assigned to you show up here." compact=True %}
+        {% endif %}
+      </section>
+
+      <section class="card">
+        <h2 class="card-title">Recent activity</h2>
+        {% if recent_activities %}
+          <ul class="timeline">
+            {% for activity in recent_activities %}
+              <li class="timeline-entry">
+                <div class="timeline-meta">
+                  <strong>{{ activity.get_activity_type_display }}</strong>
+                  <span>{{ activity.created_at|date:"M j, g:i A" }}</span>
+                  <span>{{ activity.created_by }}</span>
+                </div>
+                <div class="timeline-subject">{% if activity.contact %}<a href="{{ activity.contact.get_absolute_url }}">{{ activity.contact }}</a>: {% endif %}{{ activity.subject }}</div>
+              </li>
+            {% endfor %}
+          </ul>
+        {% else %}
+          {% include "partials/_empty_state.html" with icon="activity" title="No activity yet" text="Calls, visits, and notes logged against customers appear here." compact=True %}
+        {% endif %}
+      </section>
+    </div>
   {% endif %}
   {% endif %}
 {% endblock %}

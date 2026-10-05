@@ -1,8 +1,10 @@
 {% comment %}
-  Usage: {% include "partials/_empty_state.html" with icon="inbox" title="No jobs yet" text="…" action_url=… action_label=… link_url=… link_label=… %}
-  The primary button and the text link are both optional.
+  Usage: {% include "partials/_empty_state.html" with icon="inbox" title="No jobs yet" text="…" action_url=… action_label=… link_url=… link_label=… compact=True %}
+  The primary button and the text link are both optional. `compact`
+  tightens the padding for an empty state sitting inside a card next to
+  cards that do have content.
 {% endcomment %}
-<div class="empty-state">
+<div class="empty-state{% if compact %} is-compact{% endif %}">
   <span class="empty-state-icon"><svg class="icon" aria-hidden="true"><use href="#icon-{{ icon|default:'inbox' }}"/></svg></span>
   <p class="empty-state-title">{{ title }}</p>
   {% if text %}<p>{{ text }}</p>{% endif %}

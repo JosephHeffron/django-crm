@@ -39,6 +39,43 @@
       <svg class="icon" aria-hidden="true"><use href="#icon-refresh"/></svg>
     </a>
 
+    {% if bell %}
+      <details class="dropdown" data-dropdown>
+        <summary class="icon-btn topbar-icon bell-button" aria-label="Notifications{% if bell.unread %} ({{ bell.unread }} unread){% endif %}">
+          <svg class="icon" aria-hidden="true"><use href="#icon-bell"/></svg>
+          {% if bell.unread %}<span class="bell-dot" aria-hidden="true">{{ bell.unread }}</span>{% endif %}
+        </summary>
+        <div class="dropdown-menu bell-menu">
+          <div class="dropdown-head bell-head">
+            <strong>Notifications</strong>
+            {% if bell.unread %}
+              <form method="post" action="{% url 'core:notifications_read_all' %}">
+                {% csrf_token %}
+                <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                <button type="submit" class="btn btn-text btn-sm">Mark all read</button>
+              </form>
+            {% endif %}
+          </div>
+          {% for item in bell.items %}
+            <form method="post" action="{% url 'core:notification_read' item.pk %}" class="bell-item{% if item.is_unread %} is-unread{% endif %}">
+              {% csrf_token %}
+              <button type="submit" class="bell-link">
+                <svg class="icon" aria-hidden="true"><use href="#icon-{{ item.icon }}"/></svg>
+                <span class="bell-text">
+                  <span class="bell-title">{{ item.title }}</span>
+                  {% if item.body %}<span class="bell-body">{{ item.body }}</span>{% endif %}
+                  <span class="bell-when">{{ item.created_at|timesince }} ago</span>
+                </span>
+              </button>
+            </form>
+          {% empty %}
+            <p class="bell-empty muted">Nothing yet. Assigned tasks and due follow-ups show up here.</p>
+          {% endfor %}
+          <a class="dropdown-item bell-all" href="{% url 'core:notifications' %}">See all notifications</a>
+        </div>
+      </details>
+    {% endif %}
+
     <form method="post" action="{% url 'people:theme' %}" class="theme-form hide-phone" data-theme-form>
       {% csrf_token %}
       <input type="hidden" name="next" value="{{ request.get_full_path }}">

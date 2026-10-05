@@ -145,8 +145,22 @@ CREATE_MENU = (
     NavLink("Log activity", "crm:activity_create", "activity", SALES_ROLES),
 )
 
+# The dashboard's shortcut grid (Phase 17.5 step 4). Every tile is a
+# page that exists; a role only sees the ones it may open.
+QUICK_ACTIONS = (
+    NavLink("New customer", "crm:contact_create", "user-plus", SALES_ROLES),
+    NavLink("New task", "crm:task_create", "check", SALES_ROLES),
+    NavLink("Log activity", "crm:activity_create", "activity", SALES_ROLES),
+    NavLink("Schedule", "jobs:calendar", "calendar", ALL_ROLES),
+    NavLink("Estimates", "jobs:quote_list", "briefcase", SALES_ROLES),
+    NavLink("Follow-ups", "crm:task_followups", "refresh", SALES_ROLES),
+    NavLink("Financials", "jobs:financials", "dollar", OWNER_ONLY),
+    NavLink("Inbox", "messaging:home", "inbox", ALL_ROLES),
+)
+
 GEAR_MENU = (
     NavLink("Business settings", "core:business_settings", "building", OWNER_ONLY),
+    NavLink("Monthly goals", "core:goals", "target", OWNER_ONLY),
     NavLink("Your profile", "people:profile", "user", ALL_ROLES),
     NavLink("Account settings", "people:profile_edit", "settings", ALL_ROLES),
     NavLink("Company management", "people:team", "users", OWNER_ONLY),
@@ -179,6 +193,16 @@ def sidebar_links():
 def all_links():
     """Every NavLink anywhere in the navigation (sidebar and menus)."""
     return sidebar_links() + list(CREATE_MENU) + list(GEAR_MENU)
+
+
+def quick_actions(user):
+    """The dashboard's shortcut tiles for this person."""
+    role = user_role(user)
+    return [
+        {"label": link.label, "url": reverse(link.url_name), "icon": link.icon}
+        for link in QUICK_ACTIONS
+        if _allowed(link, role)
+    ]
 
 
 def build_navigation(user, view_name, badges=None):
@@ -239,6 +263,8 @@ def build_navigation(user, view_name, badges=None):
         "role": role,
         "role_label": role.value if role else "No role",
         "display_name": full_name or user.get_username(),
+        # For the dashboard's greeting, which wants a first name.
+        "first_name": user.first_name or full_name or user.get_username(),
         "initials": initials.upper(),
         "sections": sections,
         "bottom_items": bottom,
