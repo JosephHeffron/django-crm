@@ -116,8 +116,8 @@ affected.
 ## Git
 
 Branch: `feature/restyle-finance` (PR #118)
-Commits: `75dd931` (the step), self-review fix to follow
-Merged to `main`: pending
+Commits: `75dd931` (the step), `f2b1870` (self-review fix)
+Merged to `main`: `5936fba`
 
 ## Next
 

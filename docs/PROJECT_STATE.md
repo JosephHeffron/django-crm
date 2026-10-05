@@ -15,7 +15,7 @@ actually verified.
 > (browser-verified CSP review) is also complete** — a headless-Chromium
 > check found zero violations, including after a real Sourcery-caught
 > bug (an un-nonced inline style on the production 500 page) was fixed.
-> Phase 17 (field-service foundation) is complete. Phase 17.5 (UI restyle) is in progress — steps 1–5 of 11 done.
+> Phase 17 (field-service foundation) is complete. Phase 17.5 (UI restyle) is in progress — steps 1–6 of 11 done.
 > Note: the GitHub repo, switched from public to private earlier in the
 > project, is now **public again** — Phase 13 unit 1's audit found
 > branch protection and secret scanning had been silently disabled
@@ -40,7 +40,7 @@ The original 14-phase roadmap (Phases 0-14) is fully complete — see
 "Project complete," below, for the summary, and "Completed" for full
 phase-by-phase detail. The post-release roadmap is now underway:
 Phases 15-17 are complete; Phase 17.5 (UI restyle) is in progress
-(steps 1–5 done) — see "Post-release roadmap progress,"
+(steps 1–6 done) — see "Post-release roadmap progress,"
 below, for current status. This section deliberately stays short and points at
 those two rather than duplicating them, so it can't drift out of sync
 with them the way an earlier version of this section once did (it
@@ -791,7 +791,7 @@ roadmap completed:
   (Sourcery budget exhausted): one defect fixed before merge — a
   superuser owner couldn't be sent a direct message. 494 tests. Full
   detail in `logs/claude/phase-17-unit3d-profile-messages.md`.
-- **Phase 17.5 — UI restyle (in progress — steps 1–5 of 11 done).**
+- **Phase 17.5 — UI restyle (in progress — steps 1–6 of 11 done).**
   Matching the owner's reference design (ADR 0010); map on
   OpenStreetMap (ADR 0011). Reference screenshots hold real people's
   data and are kept outside the repo. **Step 1 (PR #106) — done:** new
@@ -854,16 +854,30 @@ roadmap completed:
   job marked Completed recorded no date, so every count of finished work
   ignored it — fixed before merge. 633 tests. Full detail in
   `logs/claude/phase-17.5-step5-scheduling-estimates.md`.
+  **Step 6 (PR #118) — done:** the Finance menu — **Invoices**,
+  **Payments**, **Expenses** and **Profit** (Financials restyled and
+  retitled; it keeps the route name). Until now the money could only be
+  read; the Owner can now raise an invoice, take a payment and record a
+  cost. Invoice states aren't stored: unpaid, overdue and paid are
+  queryset filters over the payments and the due date, so a badge can't
+  drift from the money. Billing a job starts from that job's own lines
+  and takes the customer from the job. A payment defaults to the whole
+  balance (quantized to cents); overpayment is allowed and says so.
+  Self-reviewed: billing a multi-line job dropped all but the first
+  line, which would have under-billed the customer — fixed before
+  merge. 666 tests. Full detail in
+  `logs/claude/phase-17.5-step6-finance.md`.
 - Phases 18-25: not yet started (re-sequenced in `docs/ROADMAP.md`).
 
 ## Currently working on
 
-Nothing in flight — Phase 17.5 step 5 just closed out.
+Nothing in flight — Phase 17.5 step 6 just closed out.
 
 ## Next
 
-1. Phase 17.5 step 6 — Finance: Invoices, Payments, Expenses, Profit.
-2. Then steps 7–11 (ADR 0010, ROADMAP Phase 17.5), then Phase 18, which
+1. Phase 17.5 step 7 — Crew: pay rates, working days, Time clock,
+   Assignments, Payroll, Performance.
+2. Then steps 8–11 (ADR 0010, ROADMAP Phase 17.5), then Phase 18, which
    picks up what step 5 deliberately left: turning an accepted estimate
    into a job in one click, and drag-to-reschedule.
 
