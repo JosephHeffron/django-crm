@@ -15,7 +15,7 @@ actually verified.
 > (browser-verified CSP review) is also complete** — a headless-Chromium
 > check found zero violations, including after a real Sourcery-caught
 > bug (an un-nonced inline style on the production 500 page) was fixed.
-> Phase 17 (field-service foundation) is complete. Phase 17.5 (UI restyle) is in progress — steps 1–6 of 11 done.
+> Phase 17 (field-service foundation) is complete. Phase 17.5 (UI restyle) is in progress — steps 1–7 of 11 done.
 > Note: the GitHub repo, switched from public to private earlier in the
 > project, is now **public again** — Phase 13 unit 1's audit found
 > branch protection and secret scanning had been silently disabled
@@ -40,7 +40,7 @@ The original 14-phase roadmap (Phases 0-14) is fully complete — see
 "Project complete," below, for the summary, and "Completed" for full
 phase-by-phase detail. The post-release roadmap is now underway:
 Phases 15-17 are complete; Phase 17.5 (UI restyle) is in progress
-(steps 1–6 done) — see "Post-release roadmap progress,"
+(steps 1–7 done) — see "Post-release roadmap progress,"
 below, for current status. This section deliberately stays short and points at
 those two rather than duplicating them, so it can't drift out of sync
 with them the way an earlier version of this section once did (it
@@ -791,7 +791,7 @@ roadmap completed:
   (Sourcery budget exhausted): one defect fixed before merge — a
   superuser owner couldn't be sent a direct message. 494 tests. Full
   detail in `logs/claude/phase-17-unit3d-profile-messages.md`.
-- **Phase 17.5 — UI restyle (in progress — steps 1–6 of 11 done).**
+- **Phase 17.5 — UI restyle (in progress — steps 1–7 of 11 done).**
   Matching the owner's reference design (ADR 0010); map on
   OpenStreetMap (ADR 0011). Reference screenshots hold real people's
   data and are kept outside the repo. **Step 1 (PR #106) — done:** new
@@ -867,16 +867,29 @@ roadmap completed:
   line, which would have under-billed the customer — fixed before
   merge. 666 tests. Full detail in
   `logs/claude/phase-17.5-step6-finance.md`.
+  **Step 7 (PR #120) — done:** the Crew menu — **Time clock**,
+  **Assignments**, **Payroll** and **Performance** — plus the two things
+  the design needed and the CRM had no record of: an hourly rate and the
+  days someone normally works, both Owner-only. `TimeEntry` is the clock
+  (one running per person, enforced by a partial unique constraint);
+  clocking out of a job tops up that person's hours on it, so the job's
+  record and the clock agree by construction. Payroll pays for clocked
+  time and names anyone whose rate is missing rather than quietly paying
+  nothing. Self-reviewed: listing people created profile rows for them
+  (a rule the app shell already stated, and broken in `profile_context`
+  since long before this step), and a double tap on Clock in would have
+  been a 500 — both fixed before merge. 696 tests. Full detail in
+  `logs/claude/phase-17.5-step7-crew.md`.
 - Phases 18-25: not yet started (re-sequenced in `docs/ROADMAP.md`).
 
 ## Currently working on
 
-Nothing in flight — Phase 17.5 step 6 just closed out.
+Nothing in flight — Phase 17.5 step 7 just closed out.
 
 ## Next
 
-1. Phase 17.5 step 7 — Crew: pay rates, working days, Time clock,
-   Assignments, Payroll, Performance.
+1. Phase 17.5 step 8 — Map on OpenStreetMap (ADR 0011), with Leaflet
+   vendored and Nominatim for geocoding.
 2. Then steps 8–11 (ADR 0010, ROADMAP Phase 17.5), then Phase 18, which
    picks up what step 5 deliberately left: turning an accepted estimate
    into a job in one click, and drag-to-reschedule.
