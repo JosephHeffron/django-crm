@@ -39,12 +39,14 @@ from .forms import (
     QuoteForm,
     QuoteLineFormSet,
     ServiceTypeForm,
+    line_formset,
 )
 from .models import (
     TOTAL_FIELD,
     ZERO,
     Expense,
     Invoice,
+    InvoiceLineItem,
     Job,
     JobAssignment,
     Payment,
@@ -456,11 +458,19 @@ class InvoiceFormMixin(OwnerRequiredMixin, PermissionRequiredMixin):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         if "lines" not in context:
-            context["lines"] = InvoiceLineFormSet(
+            initial = self.line_initial()
+            # Sized to what it's seeded with: a formset renders `extra`
+            # rows however many initial ones it's given, so billing a
+            # three-line job would otherwise show one and quietly drop
+            # the other two.
+            formset = line_formset(
+                Invoice, InvoiceLineItem, extra=len(initial) + 1 if initial else 1
+            )
+            context["lines"] = formset(
                 self.request.POST or None,
                 instance=self.object,
                 prefix="lines",
-                initial=self.line_initial(),
+                initial=initial,
             )
         return context
 

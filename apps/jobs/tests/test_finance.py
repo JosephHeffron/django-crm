@@ -1,3 +1,4 @@
+import re
 from datetime import date, timedelta
 from decimal import Decimal
 
@@ -83,6 +84,26 @@ class InvoicingTests(FinanceTestCase):
         response = self.client.get(NEW_INVOICE, {"job": str(self.job.pk)})
         self.assertContains(response, 'value="150.00"')
         self.assertContains(response, self.job.number)
+
+    def test_every_line_of_the_job_carries_over(self):
+        # A formset renders `extra` rows however many it's seeded with,
+        # so a job with several lines would otherwise arrive as one and
+        # the customer would be under-billed.
+        job = f.job(
+            self.customer,
+            self.owner,
+            lines=[
+                (Decimal("2"), Decimal("150")),
+                (Decimal("1"), Decimal("75")),
+                (Decimal("3"), Decimal("20")),
+            ],
+        )
+        page = self.client.get(NEW_INVOICE, {"job": str(job.pk)}).content.decode()
+        prices = re.findall(r'name="lines-\d+-unit_price"[^>]*value="([\d.]+)"', page)
+        self.assertEqual(prices, ["150.00", "75.00", "20.00"])
+        # Plus one blank row to add another.
+        rows = len(re.findall(r'name="lines-\d+-service_type"', page))
+        self.assertEqual(rows, 4)
 
     def test_creating_an_invoice_takes_the_customer_from_the_job(self):
         response = self.client.post(

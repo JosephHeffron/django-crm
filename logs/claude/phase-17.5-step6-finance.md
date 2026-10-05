@@ -67,7 +67,7 @@ builds those.
 
 ## Verification
 
-$ `manage.py test` — 665 tests, OK (633 before, 32 new). No migrations:
+$ `manage.py test` — 666 tests, OK (633 before, 33 new). No migrations:
   this step adds no fields.
 $ `ruff` / `ruff format --check` / bandit (CI flags) /
   `makemigrations --check` — clean.
@@ -95,10 +95,28 @@ $ Playwright under production settings, 38 checks, zero CSP violations:
   until the check set it to Sent, and a row-count assertion broke once
   the check had been run three times and left three identical expenses.
 
+## Self-review (PR #118)
+
+No review threads and nothing from Sourcery, so the diff was read by
+hand. One real defect, confirmed by a probe before fixing:
+
+**Billing a multi-line job dropped all but the first line.** A formset
+renders exactly `extra` rows however many initial rows it is handed, and
+the invoice form was built with `extra=1` while being seeded with the
+job's lines. A probe billed a three-line job and the form showed one row
+with one price: the Owner would have under-billed the customer and had
+no sign of it. The form is now sized to what it's seeded with
+(`len(initial) + 1`, so there's still a blank row to add another), with
+a test asserting every price arrives and a browser check billing a
+two-line job end to end.
+
+Neither the job nor the estimate form seeds its lines, so neither was
+affected.
+
 ## Git
 
-Branch: `feature/restyle-finance`
-Commit: pending
+Branch: `feature/restyle-finance` (PR #118)
+Commits: `75dd931` (the step), self-review fix to follow
 Merged to `main`: pending
 
 ## Next

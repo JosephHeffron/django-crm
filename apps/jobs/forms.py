@@ -199,15 +199,22 @@ class BaseLineFormSet(forms.BaseInlineFormSet):
 LINE_FIELDS = ["service_type", "description", "quantity", "unit_price"]
 
 
-def line_formset(parent, line_model):
-    """The same editable list of work for a job and for an estimate."""
+def line_formset(parent, line_model, extra=1):
+    """The same editable list of work for a job, an estimate, and an
+    invoice.
+
+    `extra` is how many blank rows are offered. A formset renders
+    exactly that many no matter how many initial rows it's handed, so a
+    caller seeding it with existing lines has to size it to them —
+    otherwise the rest are silently dropped.
+    """
     return forms.inlineformset_factory(
         parent,
         line_model,
         formset=BaseLineFormSet,
         fields=LINE_FIELDS,
         widgets={"service_type": ServiceSelect},
-        extra=1,
+        extra=extra,
         can_delete=True,
     )
 
