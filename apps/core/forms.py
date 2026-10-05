@@ -16,14 +16,19 @@ class LogoForm(forms.Form):
     image's pixels; blank = the center square)."""
 
     logo_file = forms.FileField(required=False, label="Company Logo")
-    crop_x = forms.IntegerField(required=False, min_value=0, widget=forms.HiddenInput)
-    crop_y = forms.IntegerField(required=False, min_value=0, widget=forms.HiddenInput)
-    crop_size = forms.IntegerField(required=False, min_value=1, widget=forms.HiddenInput)
+    # Kept as text: anything the page script didn't write falls back to
+    # the center square (what happens without JavaScript anyway) rather
+    # than failing validation on a hidden field nobody can see or fix.
+    crop_x = forms.CharField(required=False, widget=forms.HiddenInput)
+    crop_y = forms.CharField(required=False, widget=forms.HiddenInput)
+    crop_size = forms.CharField(required=False, widget=forms.HiddenInput)
     remove_logo = forms.BooleanField(required=False, label="Remove the current logo")
 
     def crop(self):
-        values = [self.cleaned_data.get(k) for k in ("crop_x", "crop_y", "crop_size")]
-        return tuple(values) if all(v is not None for v in values) else None
+        try:
+            return tuple(int(self.cleaned_data[k]) for k in ("crop_x", "crop_y", "crop_size"))
+        except (KeyError, TypeError, ValueError):
+            return None
 
 
 class BaseLinkFormSet(BaseModelFormSet):

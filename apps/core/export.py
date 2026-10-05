@@ -10,6 +10,7 @@ opened (CSV/formula injection). Passwords and hashes are never exported.
 
 import csv
 import json
+import re
 
 from django.contrib.auth import get_user_model
 from django.db.models import Prefetch
@@ -19,6 +20,7 @@ from apps.jobs.models import Expense, Invoice, Job, Payment, Quote
 from apps.users.roles import roles_for
 
 FORMULA_PREFIXES = ("=", "+", "-", "@", "\t", "\r")
+NUMBER = re.compile(r"-?\d+(?:\.\d+)?")
 
 
 def _iso(value):
@@ -179,7 +181,11 @@ class _Echo:
 
 def safe_cell(value):
     text = "" if value is None else str(value)
-    return "'" + text if text.startswith(FORMULA_PREFIXES) else text
+    # A plain negative number is a number, not a formula — leave it
+    # alone so amounts stay numeric in a spreadsheet.
+    if text.startswith(FORMULA_PREFIXES) and not NUMBER.fullmatch(text):
+        return f"'{text}"
+    return text
 
 
 def stream_csv(rows):

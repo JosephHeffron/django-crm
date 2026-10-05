@@ -436,11 +436,23 @@ class BusinessSettingsView(OwnerRequiredMixin, TemplateView):
             business.logo = ""
         with transaction.atomic():
             business.save()
-            for position, link in enumerate(links.save(commit=False)):
-                link.position = position
+            for link in links.save(commit=False):
                 link.save()
             for link in links.deleted_objects:
                 link.delete()
+            # Number every surviving row the way the page listed them, so
+            # an added link lands last instead of sharing position 0 with
+            # the first one (save(commit=False) returns only new and
+            # changed rows).
+            kept = [
+                form.instance
+                for form in links.forms
+                if form.instance.pk and form not in links.deleted_forms
+            ]
+            for position, link in enumerate(kept):
+                if link.position != position:
+                    link.position = position
+                    link.save(update_fields=["position"])
         # Remove the replaced file only once the new state is saved.
         if old_logo and old_logo != (business.logo.name if business.logo else ""):
             business.logo.storage.delete(old_logo)

@@ -48,7 +48,7 @@ every amount its currency.
   crop dialog.
 - Docs: USER_GUIDE (Business Settings), ADMIN_GUIDE (where the logo
   lives, backups), PERMISSIONS, DATABASE_DESIGN.
-- Tests: `apps/core/tests/test_business_settings.py` (20) — access;
+- Tests: `apps/core/tests/test_business_settings.py` (23) — access;
   reading never creates the row; saving and showing name/contact/
   currency everywhere incl. the manifest; CAD formatting; brand
   fallback; read-only owner name; crop, center crop, out-of-bounds
@@ -65,7 +65,7 @@ Customer Tips (no online payments), Upgrade Plan, Stripe Connect.
 
 ## Verification
 
-$ `manage.py test` — 527 tests, OK.
+$ `manage.py test` — 530 tests, OK.
 $ `ruff` / `ruff format --check` / bandit (CI flags) /
   `makemigrations --check` — clean.
 $ Playwright (session scratchpad was cleared between sessions — the
@@ -86,6 +86,35 @@ $ Playwright (session scratchpad was cleared between sessions — the
 - Link-row labels ended in Django's ":" — rendered plainly.
 - A no-JS note claimed a blank link row appears after saving while the
   formset offered none — now one blank row is always offered.
+
+## Self-review (PR #112)
+
+Sourcery's budget allowed only a reviewer's guide (no findings), so the
+diff was read through by hand. Three defects found, each confirmed by a
+probe test before fixing, each now covered by a regression test:
+
+1. **A newly added link jumped to second place.** Positions were
+   numbered over `formset.save(commit=False)`, which returns only new
+   and changed rows — so a fourth link added to three saved ones got
+   position 0 and sorted between the first and second
+   (`website, instagram, facebook, yelp`). Every surviving row is now
+   numbered in the order the page listed them.
+2. **A hidden crop field that didn't parse silently discarded the
+   save.** The crop square is written by the page script into hidden
+   inputs; an unreadable value failed `IntegerField` validation, and
+   that error is rendered nowhere, so the page came back unchanged with
+   no message and nothing saved. The fields are now text, and anything
+   unreadable falls back to the center square — what already happens
+   without JavaScript.
+3. **A negative amount exported as text.** `-` is a formula prefix, so
+   an overpaid invoice's negative balance was written as `'-50.0000`
+   and stopped being a number in Excel. A cell that is entirely a plain
+   number is no longer prefixed; nothing else about the formula
+   neutralizing changed.
+
+Not changed: Sourcery's editor hint to use an assignment expression in
+`BusinessSettingsView.post` — this codebase uses none anywhere, so the
+explicit assignment stays.
 
 ## Git
 

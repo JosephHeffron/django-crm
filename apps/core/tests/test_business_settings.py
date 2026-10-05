@@ -3,6 +3,7 @@ import io
 import json
 import shutil
 import tempfile
+from datetime import date
 from decimal import Decimal
 
 from django.core.files.uploadedfile import SimpleUploadedFile
@@ -12,6 +13,7 @@ from PIL import Image
 
 from apps.core.models import BusinessLink, BusinessSettings
 from apps.crm.tests._helpers import grant_role
+from apps.jobs.models import Payment
 from apps.jobs.tests import _factories as f
 from apps.users.roles import Role
 
@@ -136,6 +138,13 @@ class LogoTests(MediaTestCase):
         self.upload(image_file(), crop_x="700", crop_y="0", crop_size="400")
         self.assertEqual(self.stored()[1], (400, 400))
 
+    def test_unreadable_crop_values_still_save_a_center_crop(self):
+        # The crop square comes from a hidden field, so a bad value must
+        # not block the save with an error nobody can see or correct.
+        response = self.upload(image_file(), crop_x="", crop_y="oops", crop_size="400")
+        self.assertRedirects(response, URL)
+        self.assertEqual(self.stored()[1], (400, 400))
+
     def test_rejects_non_images_wrong_formats_huge_files_and_image_bombs(self):
         cases = {
             "an image we can read": SimpleUploadedFile(
@@ -212,6 +221,23 @@ class LinkTests(MediaTestCase):
         self.assertContains(response, "Give this link a label.")
         self.assertFalse(BusinessLink.objects.exists())
 
+    def test_an_added_link_goes_last(self):
+        self.post_links(
+            [
+                {"platform": "website", "url": "https://example.com"},
+                {"platform": "facebook", "url": "https://example.com/fb"},
+                {"platform": "yelp", "url": "https://example.com/yelp"},
+            ]
+        )
+        saved = list(BusinessLink.objects.all())
+        rows = [{"id": str(link.pk), "platform": link.platform, "url": link.url} for link in saved]
+        rows.append({"platform": "instagram", "url": "https://example.com/ig"})
+        self.post_links(rows, initial=len(saved))
+        self.assertEqual(
+            [link.platform for link in BusinessLink.objects.all()],
+            ["website", "facebook", "yelp", "instagram"],
+        )
+
     def test_remove_a_link(self):
         link = BusinessLink.objects.create(platform="website", url="https://example.com")
         response = self.post_links(
@@ -260,6 +286,22 @@ class ExportTests(MediaTestCase):
         row = next(r for r in csv.DictReader(io.StringIO(body)) if "HYPERLINK" in r["first_name"])
         self.assertTrue(row["first_name"].startswith("'="))
         self.assertTrue(row["last_name"].startswith("'@"))
+
+    def test_negative_amounts_stay_numbers(self):
+        # A leading "-" is a formula prefix, but a plain number isn't a
+        # formula — an overpaid invoice's balance must stay numeric.
+        job = f.job(f.contact(self.owner), self.owner)
+        invoice = f.invoice(job, lines=[(Decimal("1"), Decimal("100"))])
+        Payment.objects.create(
+            invoice=invoice,
+            amount=Decimal("150"),
+            received_on=date.today(),
+            recorded_by=self.owner,
+        )
+        body = b"".join(self.download("invoices").streaming_content).decode()
+        row = next(iter(csv.DictReader(io.StringIO(body))))
+        self.assertFalse(row["balance"].startswith("'"))
+        self.assertEqual(Decimal(row["balance"]), Decimal("-50"))
 
     def test_team_export_has_roles_and_no_passwords(self):
         body = b"".join(self.download("team").streaming_content).decode()
