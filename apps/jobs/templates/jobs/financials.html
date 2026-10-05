@@ -1,20 +1,28 @@
 {% extends "base.html" %}
 {% load crm_format %}
 
-{% block title %}Financials{% endblock %}
+{% block title %}Profit{% endblock %}
 
 {% block content %}
-  <div class="page-header">
+  <div class="dash-hero">
     <div>
-      <h1>Financials</h1>
+      <h1>Profit</h1>
       <p class="page-subtitle">{{ period.label }}{% if period.preset != "custom" %} · {{ period.first|date:"M j, Y" }}{% if period.last != period.first %} – {{ period.last|date:"M j, Y" }}{% endif %}{% endif %}</p>
+    </div>
+    <div class="dash-hero-actions">
+      <a class="btn btn-secondary" href="{% url 'jobs:invoice_list' %}">
+        <svg class="icon" aria-hidden="true"><use href="#icon-file-text"/></svg>Invoices
+      </a>
+      <a class="btn btn-secondary" href="{% url 'jobs:expense_list' %}">
+        <svg class="icon" aria-hidden="true"><use href="#icon-wallet"/></svg>Expenses
+      </a>
     </div>
   </div>
 
   <div class="cal-toolbar">
-    <nav class="tabs" aria-label="Period">
+    <nav class="segmented" aria-label="Period">
       {% for key, label, current in presets %}
-        <a class="tab" href="?range={{ key }}"{% if current %} aria-current="page"{% endif %}>{{ label }}</a>
+        <a href="?range={{ key }}"{% if current %} aria-current="page"{% endif %}>{{ label }}</a>
       {% endfor %}
     </nav>
     <form method="get" class="filter-form cal-filter">
@@ -23,7 +31,7 @@
       <input type="date" id="id_start" name="start" value="{% if period.preset == 'custom' %}{{ period.first|date:'Y-m-d' }}{% endif %}" required>
       <label for="id_end" class="sr-only">To</label>
       <input type="date" id="id_end" name="end" value="{% if period.preset == 'custom' %}{{ period.last|date:'Y-m-d' }}{% endif %}" required>
-      <button type="submit" class="btn-sm">Show range</button>
+      <button type="submit" class="btn-secondary btn-sm">Show range</button>
     </form>
   </div>
 
@@ -32,27 +40,27 @@
   {% endif %}
 
   <div class="stat-grid">
-    <div class="stat-card">
+    <div class="stat-card is-tinted accent-blue">
       <div class="stat-label">Revenue</div>
       <div class="stat-value">{{ summary.revenue|money }}</div>
       <div class="stat-meta">{{ summary.invoice_count }} invoice{{ summary.invoice_count|pluralize }}{% if summary.average_invoice %}, avg {{ summary.average_invoice|money }}{% endif %}</div>
     </div>
-    <div class="stat-card">
+    <div class="stat-card accent-green">
       <div class="stat-label">Collected</div>
       <div class="stat-value">{{ summary.collected|money }}</div>
       <div class="stat-meta">Payments received</div>
     </div>
-    <div class="stat-card">
+    <div class="stat-card accent-orange">
       <div class="stat-label">Expenses</div>
       <div class="stat-value">{{ summary.expenses|money }}</div>
       <div class="stat-meta">Recorded costs</div>
     </div>
-    <div class="stat-card">
-      <div class="stat-label">Net</div>
+    <div class="stat-card {% if summary.net < 0 %}accent-red{% else %}accent-green{% endif %}">
+      <div class="stat-label">Profit</div>
       <div class="stat-value{% if summary.net < 0 %} is-negative{% endif %}">{{ summary.net|money }}</div>
       <div class="stat-meta">Revenue − expenses</div>
     </div>
-    <div class="stat-card">
+    <div class="stat-card accent-purple">
       <div class="stat-label">Jobs completed</div>
       <div class="stat-value">{{ summary.jobs_completed }}</div>
       <div class="stat-meta">In this period</div>

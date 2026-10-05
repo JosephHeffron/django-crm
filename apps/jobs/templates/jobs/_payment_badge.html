@@ -1,0 +1,10 @@
+{% comment %}
+  Where an invoice's money stands. Not a stored field: it follows from
+  the payments and the due date (Invoice.payment_status).
+{% endcomment %}
+{% if state == "paid" %}<span class="badge badge-success">Paid</span>
+{% elif state == "overdue" %}<span class="badge badge-danger">Overdue</span>
+{% elif state == "partially_paid" %}<span class="badge badge-warning">Part paid</span>
+{% elif state == "unpaid" %}<span class="badge badge-info">Unpaid</span>
+{% elif state == "void" %}<span class="badge">Void</span>
+{% else %}<span class="badge">Draft</span>{% endif %}

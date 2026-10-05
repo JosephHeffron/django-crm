@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% load crm_format %}
+
+{% block title %}Record a payment{% endblock %}
+
+{% block content %}
+  <div class="settings-shell">
+    <h1>Record a payment</h1>
+    <p class="page-subtitle">{{ invoice.number }} for {{ invoice.contact }}</p>
+
+    <div class="stat-grid">
+      <div class="stat-card is-tinted accent-blue">
+        <div class="stat-label">Invoice total</div>
+        <div class="stat-value">{{ invoice.total|money }}</div>
+      </div>
+      <div class="stat-card accent-green">
+        <div class="stat-label">Already paid</div>
+        <div class="stat-value">{{ invoice.paid|money }}</div>
+      </div>
+      <div class="stat-card accent-orange">
+        <div class="stat-label">Balance</div>
+        <div class="stat-value">{{ invoice.balance|money }}</div>
+      </div>
+    </div>
+
+    <form method="post" class="section-card" novalidate>
+      {% csrf_token %}
+      <div class="section-card-head"><svg class="icon" aria-hidden="true"><use href="#icon-wallet"/></svg><h2>What came in</h2></div>
+      {{ form.non_field_errors }}
+      <div class="field-row">
+        {% include "partials/_field.html" with field=form.amount %}
+        {% include "partials/_field.html" with field=form.received_on %}
+      </div>
+      <div class="field-row">
+        {% include "partials/_field.html" with field=form.method %}
+        {% include "partials/_field.html" with field=form.notes %}
+      </div>
+      <p class="helptext">The amount starts at the balance. Change it for a part payment — paying more than the balance is allowed, and says so afterwards.</p>
+      <div class="form-actions">
+        <button type="submit"><svg class="icon" aria-hidden="true"><use href="#icon-save"/></svg>Record it</button>
+        <a class="btn btn-secondary" href="{{ invoice.get_absolute_url }}">Cancel</a>
+      </div>
+    </form>
+  </div>
+{% endblock %}

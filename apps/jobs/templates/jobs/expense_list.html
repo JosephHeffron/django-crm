@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% load crm_format %}
+
+{% block title %}Expenses{% endblock %}
+
+{% block content %}
+  <div class="dash-hero">
+    <div>
+      <h1>Expenses</h1>
+      <p class="page-subtitle">What the work costs you</p>
+    </div>
+    <div class="dash-hero-actions">
+      <a class="btn" href="{% url 'jobs:expense_create' %}">
+        <svg class="icon" aria-hidden="true"><use href="#icon-plus-circle"/></svg>Add an expense
+      </a>
+    </div>
+  </div>
+
+  <div class="stat-grid">
+    <div class="stat-card is-tinted accent-orange">
+      <div class="stat-label">{% if category %}{{ category_label }}{% else %}All categories{% endif %}</div>
+      <div class="stat-value">{{ total|money }}</div>
+      <div class="stat-meta">{{ page_obj.paginator.count }} entr{{ page_obj.paginator.count|pluralize:"y,ies" }}</div>
+    </div>
+  </div>
+
+  <form method="get" class="filter-form">
+    <label for="id_category" class="sr-only">Category</label>
+    <select id="id_category" name="category">
+      <option value="">Every category</option>
+      {% for value, label in categories %}
+        <option value="{{ value }}"{% if category == value %} selected{% endif %}>{{ label }}</option>
+      {% endfor %}
+    </select>
+    <button type="submit" class="btn-secondary">Filter</button>
+  </form>
+
+  {% if expenses %}
+    <div class="table-responsive card card-flush">
+      <table class="data-table stack-mobile">
+        <thead>
+          <tr><th>Date</th><th>Category</th><th>Description</th><th>Recorded by</th><th class="text-right">Amount</th><th><span class="sr-only">Actions</span></th></tr>
+        </thead>
+        <tbody>
+          {% for expense in expenses %}
+            <tr>
+              <td data-label="Date">{{ expense.date|date:"M j, Y" }}</td>
+              <td data-label="Category">{{ expense.get_category_display }}</td>
+              <td data-label="Description">{{ expense.description|default:"—" }}</td>
+              <td data-label="Recorded by">{{ expense.recorded_by.get_full_name|default:expense.recorded_by }}</td>
+              <td data-label="Amount" class="text-right">{{ expense.amount|money }}</td>
+              <td data-label="Actions" class="text-right"><a class="btn btn-text btn-sm" href="{% url 'jobs:expense_update' expense.pk %}">Edit</a></td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% include "partials/_pagination.html" %}
+  {% else %}
+    {% url 'jobs:expense_create' as add_url %}
+    {% include "partials/_empty_state.html" with icon="wallet" title="No expenses here" text="Fuel, supplies, payroll — what you record here is what Profit subtracts." action_url=add_url action_label="Add an expense" %}
+  {% endif %}
+{% endblock %}

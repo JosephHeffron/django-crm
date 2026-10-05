@@ -19,6 +19,11 @@
           <svg class="icon" aria-hidden="true"><use href="#icon-settings"/></svg>Edit
         </a>
       {% endif %}
+      {% if is_owner and not invoices %}
+        <a class="btn btn-sm" href="{% url 'jobs:invoice_create' %}?job={{ job.pk }}">
+          <svg class="icon" aria-hidden="true"><use href="#icon-file-text"/></svg>Invoice this job
+        </a>
+      {% endif %}
     </div>
   </div>
 

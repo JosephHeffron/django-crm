@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+
+{% block title %}{% if object %}Edit expense{% else %}Add an expense{% endif %}{% endblock %}
+
+{% block content %}
+  <div class="settings-shell">
+    <h1>{% if object %}Edit expense{% else %}Add an expense{% endif %}</h1>
+    <p class="page-subtitle">Expenses are subtracted from revenue to give Profit</p>
+
+    <form method="post" class="section-card" novalidate>
+      {% csrf_token %}
+      <div class="section-card-head"><svg class="icon" aria-hidden="true"><use href="#icon-wallet"/></svg><h2>What you spent</h2></div>
+      {{ form.non_field_errors }}
+      <div class="field-row">
+        {% include "partials/_field.html" with field=form.date %}
+        {% include "partials/_field.html" with field=form.amount %}
+      </div>
+      {% include "partials/_field.html" with field=form.category %}
+      {% include "partials/_field.html" with field=form.description %}
+      <div class="form-actions">
+        <button type="submit"><svg class="icon" aria-hidden="true"><use href="#icon-save"/></svg>{% if object %}Save changes{% else %}Add it{% endif %}</button>
+        <a class="btn btn-secondary" href="{% url 'jobs:expense_list' %}">Cancel</a>
+      </div>
+    </form>
+  </div>
+{% endblock %}

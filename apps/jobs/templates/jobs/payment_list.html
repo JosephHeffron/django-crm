@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% load crm_format %}
+
+{% block title %}Payments{% endblock %}
+
+{% block content %}
+  <div class="dash-hero">
+    <div>
+      <h1>Payments</h1>
+      <p class="page-subtitle">Everything received, newest first</p>
+    </div>
+    <div class="dash-hero-actions">
+      <a class="btn btn-secondary" href="{% url 'jobs:invoice_list' %}?show=unpaid">
+        <svg class="icon" aria-hidden="true"><use href="#icon-file-text"/></svg>Unpaid invoices
+      </a>
+    </div>
+  </div>
+
+  <div class="stat-grid">
+    <div class="stat-card is-tinted accent-green">
+      <div class="stat-label">Received, all time</div>
+      <div class="stat-value">{{ total|money }}</div>
+      <div class="stat-meta">{{ page_obj.paginator.count }} payment{{ page_obj.paginator.count|pluralize }}</div>
+    </div>
+  </div>
+
+  {% if payments %}
+    <div class="table-responsive card card-flush">
+      <table class="data-table stack-mobile">
+        <thead>
+          <tr><th>Received</th><th>Customer</th><th>Invoice</th><th>Method</th><th>Reference</th><th class="text-right">Amount</th></tr>
+        </thead>
+        <tbody>
+          {% for payment in payments %}
+            <tr>
+              <td data-label="Received">{{ payment.received_on|date:"M j, Y" }}</td>
+              <td data-label="Customer">{{ payment.invoice.contact }}</td>
+              <td data-label="Invoice"><a href="{{ payment.invoice.get_absolute_url }}">{{ payment.invoice.number }}</a></td>
+              <td data-label="Method">{{ payment.get_method_display }}</td>
+              <td data-label="Reference">{{ payment.notes|default:"—" }}</td>
+              <td data-label="Amount" class="text-right">{{ payment.amount|money }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% include "partials/_pagination.html" %}
+  {% else %}
+    {% include "partials/_empty_state.html" with icon="wallet" title="Nothing received yet" text="Payments you record against an invoice show up here." %}
+  {% endif %}
+{% endblock %}

@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% load crm_format %}
+
+{% block title %}Invoices{% endblock %}
+
+{% block content %}
+  <div class="dash-hero">
+    <div>
+      <h1>Invoices</h1>
+      <p class="page-subtitle">What you've billed, and what's still owed</p>
+    </div>
+    <div class="dash-hero-actions">
+      <a class="btn" href="{% url 'jobs:invoice_create' %}">
+        <svg class="icon" aria-hidden="true"><use href="#icon-plus-circle"/></svg>New invoice
+      </a>
+    </div>
+  </div>
+
+  <div class="stat-grid">
+    <div class="stat-card is-tinted accent-blue">
+      <div class="stat-label">Billed</div>
+      <div class="stat-value">{{ totals.billed|money }}</div>
+      <div class="stat-meta">{{ totals.count }} invoice{{ totals.count|pluralize }} listed</div>
+    </div>
+    <div class="stat-card accent-green">
+      <div class="stat-label">Collected</div>
+      <div class="stat-value">{{ totals.collected|money }}</div>
+      <div class="stat-meta">Payments against these</div>
+    </div>
+    <div class="stat-card accent-orange">
+      <div class="stat-label">Still owed</div>
+      <div class="stat-value">{{ totals.owed|money }}</div>
+      <div class="stat-meta">Across the unpaid ones</div>
+    </div>
+  </div>
+
+  <nav class="segmented" aria-label="Which invoices">
+    {% for key, label, current in filters %}
+      <a href="?show={{ key }}"{% if current %} aria-current="page"{% endif %}>{{ label }}</a>
+    {% endfor %}
+  </nav>
+
+  {% if invoices %}
+    <div class="table-responsive card card-flush">
+      <table class="data-table stack-mobile">
+        <thead>
+          <tr><th>Invoice</th><th>Customer</th><th>Job</th><th>Issued</th><th>Due</th><th class="text-right">Total</th><th class="text-right">Balance</th><th>Status</th></tr>
+        </thead>
+        <tbody>
+          {% for invoice in invoices %}
+            <tr>
+              <td data-label="Invoice"><a href="{{ invoice.get_absolute_url }}">{{ invoice.number }}</a></td>
+              <td data-label="Customer">{{ invoice.contact }}</td>
+              <td data-label="Job"><a href="{{ invoice.job.get_absolute_url }}">{{ invoice.job.number }}</a></td>
+              <td data-label="Issued">{{ invoice.issued_on|date:"M j, Y" }}</td>
+              <td data-label="Due">{{ invoice.due_on|date:"M j, Y" }}</td>
+              <td data-label="Total" class="text-right">{{ invoice.total|money }}</td>
+              <td data-label="Balance" class="text-right">{{ invoice.balance|money }}</td>
+              <td data-label="Status">{% include "jobs/_payment_badge.html" with state=invoice|payment_state:today %}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% include "partials/_pagination.html" %}
+  {% else %}
+    {% include "partials/_empty_state.html" with icon="file-text" title="Nothing here" text="No invoices match this filter." %}
+  {% endif %}
+{% endblock %}

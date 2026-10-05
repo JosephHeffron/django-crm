@@ -368,3 +368,45 @@ def change(current, previous):
     if previous is None or previous <= 0:
         return None
     return int(round(float((current - previous) / previous) * 100))
+
+
+# ---------- The Invoices list ----------
+
+# What a person means when they pick a filter. "Paid" and "overdue"
+# aren't stored — they follow from the payments and the due date — so
+# they're expressed here as queryset filters rather than as a column
+# that could drift out of step with the money.
+INVOICE_FILTERS = {
+    "unpaid": "Unpaid",
+    "overdue": "Overdue",
+    "paid": "Paid",
+    "draft": "Draft",
+    "void": "Void",
+    "all": "All",
+}
+
+
+def filter_invoices(invoices, key, today):
+    """`invoices` must already carry with_balances()."""
+    sent = invoices.filter(status=Invoice.Status.SENT)
+    if key == "unpaid":
+        return sent.filter(balance_amount__gt=0)
+    if key == "overdue":
+        return sent.filter(balance_amount__gt=0, due_on__lt=today)
+    if key == "paid":
+        return sent.filter(balance_amount__lte=0)
+    if key == "draft":
+        return invoices.filter(status=Invoice.Status.DRAFT)
+    if key == "void":
+        return invoices.filter(status=Invoice.Status.VOID)
+    return invoices
+
+
+def invoice_totals(invoices):
+    """Billed, collected, and still owed across whatever is listed."""
+    return invoices.aggregate(
+        billed=_money("total_amount"),
+        collected=_money("paid_amount"),
+        owed=_money("balance_amount", filter=Q(balance_amount__gt=0)),
+        count=Count("pk"),
+    )
