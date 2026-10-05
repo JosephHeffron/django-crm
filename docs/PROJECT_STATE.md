@@ -15,7 +15,7 @@ actually verified.
 > (browser-verified CSP review) is also complete** — a headless-Chromium
 > check found zero violations, including after a real Sourcery-caught
 > bug (an un-nonced inline style on the production 500 page) was fixed.
-> Phase 17 (field-service foundation) is complete. Phase 17.5 (UI restyle) is in progress — steps 1–7 of 11 done.
+> Phase 17 (field-service foundation) is complete. Phase 17.5 (UI restyle) is in progress — steps 1–8 of 11 done.
 > Note: the GitHub repo, switched from public to private earlier in the
 > project, is now **public again** — Phase 13 unit 1's audit found
 > branch protection and secret scanning had been silently disabled
@@ -40,7 +40,7 @@ The original 14-phase roadmap (Phases 0-14) is fully complete — see
 "Project complete," below, for the summary, and "Completed" for full
 phase-by-phase detail. The post-release roadmap is now underway:
 Phases 15-17 are complete; Phase 17.5 (UI restyle) is in progress
-(steps 1–7 done) — see "Post-release roadmap progress,"
+(steps 1–8 done) — see "Post-release roadmap progress,"
 below, for current status. This section deliberately stays short and points at
 those two rather than duplicating them, so it can't drift out of sync
 with them the way an earlier version of this section once did (it
@@ -791,7 +791,7 @@ roadmap completed:
   (Sourcery budget exhausted): one defect fixed before merge — a
   superuser owner couldn't be sent a direct message. 494 tests. Full
   detail in `logs/claude/phase-17-unit3d-profile-messages.md`.
-- **Phase 17.5 — UI restyle (in progress — steps 1–7 of 11 done).**
+- **Phase 17.5 — UI restyle (in progress — steps 1–8 of 11 done).**
   Matching the owner's reference design (ADR 0010); map on
   OpenStreetMap (ADR 0011). Reference screenshots hold real people's
   data and are kept outside the repo. **Step 1 (PR #106) — done:** new
@@ -880,16 +880,31 @@ roadmap completed:
   since long before this step), and a double tap on Clock in would have
   been a 500 — both fixed before merge. 696 tests. Full detail in
   `logs/claude/phase-17.5-step7-crew.md`.
+  **Step 8 (PR #122) — done:** the **Map** on OpenStreetMap (ADR 0011).
+  Customer addresses become pins colored by whether a job is booked
+  there this week, with the same addresses listed below so nothing
+  needs the map to be reachable. Leaflet is vendored with its licence
+  and SHA-256 of every file (Dependabot can't see vendored files, so
+  updates are deliberate); the production CSP gains exactly one entry,
+  `img-src https://tile.openstreetmap.org`. Addresses become
+  coordinates through Nominatim — server-side, one request a second,
+  the address only and never a name or a job — and **never while a page
+  renders**: the page lists what needs placing and
+  `manage.py locate_properties` works through them. Anything Nominatim
+  can't find, or shouldn't be sent, can be pinned by hand. Self-reviewed:
+  the page loaded every property to filter in Python, against the
+  project's own performance rules, and two of the tests written for it
+  proved nothing — both fixed before merge. 724 tests. Full detail in
+  `logs/claude/phase-17.5-step8-map.md`.
 - Phases 18-25: not yet started (re-sequenced in `docs/ROADMAP.md`).
 
 ## Currently working on
 
-Nothing in flight — Phase 17.5 step 7 just closed out.
+Nothing in flight — Phase 17.5 step 8 just closed out.
 
 ## Next
 
-1. Phase 17.5 step 8 — Map on OpenStreetMap (ADR 0011), with Leaflet
-   vendored and Nominatim for geocoding.
+1. Phase 17.5 step 9 — Reports.
 2. Then steps 8–11 (ADR 0010, ROADMAP Phase 17.5), then Phase 18, which
    picks up what step 5 deliberately left: turning an accepted estimate
    into a job in one click, and drag-to-reschedule.
