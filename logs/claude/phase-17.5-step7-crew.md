@@ -72,7 +72,7 @@ needs that the CRM had no record of, pay rates and working days.
 
 ## Verification
 
-$ `manage.py test` — 693 tests, OK (666 before, 27 new).
+$ `manage.py test` — 696 tests, OK (666 before, 30 new).
 $ `ruff` / `ruff format --check` / bandit (CI flags) /
   `makemigrations --check` — clean. Both migrations reverse cleanly.
 $ Playwright under production settings, 36 checks, zero CSP violations:
@@ -97,10 +97,39 @@ $ Playwright under production settings, 36 checks, zero CSP violations:
   Reverted, and the script now picks a demo account explicitly. Worth
   remembering for any check that writes through a list page.
 
+## Self-review (PR #120)
+
+No review threads and nothing from Sourcery, so the diff was read by
+hand. Two defects, both confirmed by a probe before fixing:
+
+1. **Listing people wrote rows for them.** Opening Assignments or
+   Payroll called `get_profile()`, which is a `get_or_create` — a probe
+   emptied the profile table, loaded the two pages, and found rows
+   created. The codebase already states the rule, in the app shell:
+   reading a saved theme must never create a profile. Added
+   `crew.profiles_for()`, which reads in one query and hands back
+   unsaved defaults for anyone without a row.
+
+   The same bug was already in `profile_context()`, so *viewing any
+   profile* has always written one. Fixed there too, with `read_profile()`,
+   since it's the same rule and one line.
+2. **A double tap on Clock in would have been a 500.** The guard checks
+   for an open entry and then inserts, so two taps landing together both
+   pass the check and the second hits the partial unique constraint. A
+   probe confirmed the `IntegrityError`. `clock_in()` now catches it and
+   returns the same friendly answer the guard gives.
+
+Re-verified in the browser under production settings: all four crew
+pages render with the profile table untouched (8 rows before and after),
+and the clocked-in page offers only Clock out, so a second clock-in
+isn't reachable through the UI at all. The race behind it is covered by
+a unit test rather than in the browser, because a browser refetches on
+Back and won't replay a stale page.
+
 ## Git
 
-Branch: `feature/restyle-crew`
-Commit: pending
+Branch: `feature/restyle-crew` (PR #120)
+Commits: `9eab150` (the step), self-review fixes to follow
 Merged to `main`: pending
 
 ## Next

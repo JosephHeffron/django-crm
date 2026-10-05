@@ -8,7 +8,7 @@ from django.utils import timezone
 from apps.crm.tests._helpers import grant_role
 from apps.jobs import crew
 from apps.jobs.models import Job, JobAssignment, TimeEntry
-from apps.users.models import get_profile
+from apps.users.models import UserProfile, get_profile
 from apps.users.roles import Role
 
 from . import _factories as f
@@ -116,6 +116,16 @@ class TimeClockTests(CrewTestCase):
         crew.clock_in(self.casey, job=job, now=started)
         crew.clock_out(self.casey, now=started + timedelta(hours=1))
         self.assertTrue(JobAssignment.objects.filter(job=job, user=self.casey).exists())
+
+    def test_two_taps_in_the_same_instant_start_one_clock(self):
+        # The guard and the constraint can both be true at once on a
+        # phone; the second must get the same answer, not a crash.
+        crew.clock_in(self.casey)
+        TimeEntry.objects.filter(user=self.casey).update(ended_at=None)
+        entry, error = crew.clock_in(self.casey)
+        self.assertIsNone(entry)
+        self.assertIn("already clocked in", error)
+        self.assertEqual(TimeEntry.objects.filter(user=self.casey).count(), 1)
 
     def test_an_end_before_the_start_is_refused(self):
         crew.clock_in(self.casey, now=self.now)
@@ -248,6 +258,30 @@ class AssignmentsTests(CrewTestCase):
             r for r in self.client.get(ASSIGNMENTS).context["rows"] if r["person"] == self.casey
         )
         self.assertEqual(row["off_days"], [])
+
+
+class ProfileReadingTests(CrewTestCase):
+    """Listing people must not write rows for them — the rule the app
+    shell already follows when it reads a saved theme."""
+
+    def setUp(self):
+        super().setUp()
+        self.client.login(username="boss", password=PASSWORD)
+
+    def pages(self):
+        return (ASSIGNMENTS, PAYROLL, PERFORMANCE, reverse("people:member", args=["casey"]))
+
+    def test_opening_a_page_creates_no_profiles(self):
+        UserProfile.objects.all().delete()
+        for page in self.pages():
+            self.assertEqual(self.client.get(page).status_code, 200, page)
+            self.assertFalse(UserProfile.objects.exists(), page)
+
+    def test_someone_without_a_profile_still_appears(self):
+        UserProfile.objects.all().delete()
+        row = next(r for r in self.client.get(PAYROLL).context["rows"] if r["person"] == self.casey)
+        self.assertIsNone(row["rate"])
+        self.assertEqual(row["hours"], Decimal("0.00"))
 
 
 class PerformanceTests(CrewTestCase):

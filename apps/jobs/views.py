@@ -16,7 +16,6 @@ from django.views.generic import CreateView, DetailView, ListView, TemplateView,
 from apps.core.pagination import PerPageMixin
 from apps.core.templatetags.crm_format import money
 from apps.crm.hub import TasksHubMixin
-from apps.users.models import get_profile
 from apps.users.roles import (
     ALL_ROLES,
     OWNER_ONLY,
@@ -742,9 +741,10 @@ class AssignmentsView(SalesRoleRequiredMixin, TemplateView):
         for assignment in assignments:
             by_person.setdefault(assignment.user_id, []).append(assignment)
         rows = []
+        profiles = crew.profiles_for(people)
         for person in people:
             own = by_person.get(person.pk, [])
-            profile = get_profile(person)
+            profile = profiles[person.pk]
             rows.append(
                 {
                     "person": person,

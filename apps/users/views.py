@@ -32,13 +32,22 @@ def _window(request):
     return int(value) if value.isdigit() and int(value) in WINDOWS else DEFAULT_WINDOW
 
 
+def read_profile(person):
+    """This person's profile, or unsaved defaults if they've never saved
+    one. Saving creates the row; looking never does."""
+    return UserProfile.objects.filter(user=person).first() or UserProfile(user=person)
+
+
 def profile_context(person, request):
     days = _window(request)
     role = user_role(person)
     is_crew = role == Role.CLEANER or person.job_assignments.exists()
     return {
         "person": person,
-        "person_profile": get_profile(person),
+        # Read, never create: looking at a profile shouldn't write one.
+        # Someone who has never saved theirs reads as empty defaults,
+        # the same way the app shell reads a saved theme.
+        "person_profile": read_profile(person),
         "person_role": role,
         "days": days,
         "windows": WINDOWS,
@@ -121,7 +130,7 @@ class TeamMemberView(OwnerRequiredMixin, TemplateView):
         context = super().get_context_data(**kwargs)
         person = self.person()
         context.update(profile_context(person, self.request), is_self=False)
-        context.setdefault("pay_form", CrewPayForm(instance=get_profile(person)))
+        context.setdefault("pay_form", CrewPayForm(instance=read_profile(person)))
         return context
 
     def post(self, request, *args, **kwargs):

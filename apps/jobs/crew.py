@@ -13,16 +13,27 @@ than saying so.
 from datetime import timedelta
 from decimal import Decimal
 
-from django.db import transaction
+from django.db import IntegrityError, transaction
 from django.db.models import Avg, Count, F, Q, Sum
 from django.db.models.functions import Coalesce
 from django.utils import timezone
 
-from apps.users.models import get_profile
+from apps.users.models import UserProfile
 
 from .models import Job, JobAssignment, TimeEntry
 
 ZERO_HOURS = Decimal("0.00")
+
+
+def profiles_for(people):
+    """Everyone's profile, by user id, reading only.
+
+    A page that merely lists people must not create rows for them — the
+    same rule the app shell follows when it reads a saved theme. Anyone
+    without one gets unsaved defaults: no rate, no working days.
+    """
+    saved = {profile.user_id: profile for profile in UserProfile.objects.filter(user__in=people)}
+    return {person.pk: saved.get(person.pk) or UserProfile(user=person) for person in people}
 
 
 def open_entry(user):
@@ -36,9 +47,15 @@ def clock_in(user, job=None, notes="", now=None):
     a phone, not an exceptional one."""
     if open_entry(user) is not None:
         return None, "You're already clocked in. Clock out first."
-    entry = TimeEntry.objects.create(
-        user=user, job=job, notes=notes, started_at=now or timezone.now()
-    )
+    try:
+        entry = TimeEntry.objects.create(
+            user=user, job=job, notes=notes, started_at=now or timezone.now()
+        )
+    except IntegrityError:
+        # Two taps in the same instant: the check above passed for both
+        # and the constraint caught the second. Same answer as the
+        # check, not a crash.
+        return None, "You're already clocked in. Clock out first."
     return entry, None
 
 
@@ -105,12 +122,13 @@ def payroll(crew, first, last):
 
     start, end = day_bounds(first, last)
     rows = []
+    profiles = profiles_for(crew)
     for person in crew:
         entries = TimeEntry.objects.filter(
             user=person, started_at__gte=start, started_at__lt=end, ended_at__isnull=False
         )
         hours = hours_in_period(entries)
-        rate = get_profile(person).hourly_rate
+        rate = profiles[person.pk].hourly_rate
         rows.append(
             {
                 "person": person,
