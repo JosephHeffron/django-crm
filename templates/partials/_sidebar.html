@@ -9,7 +9,7 @@
     <svg class="icon" aria-hidden="true"><use href="#icon-menu"/></svg>
   </button>
   <a class="brand" href="{% url 'core:index' %}">
-    <img class="brand-mark" src="{% static 'pwa/icons/icon.svg' %}" alt="" width="32" height="32">
+    <img class="brand-mark{% if brand_logo_url %} is-logo{% endif %}" src="{% if brand_logo_url %}{{ brand_logo_url }}{% else %}{% static 'pwa/icons/icon.svg' %}{% endif %}" alt="" width="32" height="32">
     <span class="brand-text">
       <span class="brand-name">{{ brand_name }}</span>
       <span class="brand-sub">Workspace</span>

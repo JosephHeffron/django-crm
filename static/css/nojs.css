@@ -28,7 +28,8 @@
 
 .sidebar .sidebar-close,
 .sidebar .sidebar-toggle,
-.topbar .js-only {
+.topbar .js-only,
+button.js-only {
   display: none;
 }
 

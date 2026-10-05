@@ -145,6 +145,7 @@ member of), so a direct message never leaks onto a contact page.
 | Profile (`/profile/`, edit) | own | own | own |
 | Team (`/team/`, a teammate's profile) | yes | 403 | 403 |
 | Services (`/settings/services/`) | view and edit | 403 | 403 |
+| Business Settings (`/settings/business/`) and data export | yes | 403 | 403 |
 | Contacts (`/contacts/`, a contact's page) | yes | yes | 403 |
 | Tasks hub (`/tasks/`: tasks, follow-ups, quotes, plans, notes) | yes | yes | 403 |
 

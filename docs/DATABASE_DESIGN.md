@@ -465,6 +465,13 @@ Channel 1──* ChannelMembership *──1 User;  Channel 1──* Message
   amount (> 0), received_on, method (cash/check/card/transfer/other),
   recorded_by.
 - **Expense**: date, amount, category, description, recorded_by.
+- **BusinessSettings** (`apps.core`, Phase 17.5): a single row (CheckConstraint
+  `id = 1`; read with `load()`, which never writes) — name (blank falls back
+  to `CRM_BRAND_NAME`), logo (always a re-encoded ≤512px square PNG under
+  `media/branding/`, served by `/branding/logo/`), contact email and phone,
+  currency (USD / CAD — drives every money figure). **BusinessLink**:
+  platform (one row per main platform — partial unique constraint), label
+  (required for "other" — CheckConstraint), url, position.
 - **Channel** (`apps.messaging`): name, slug (unique), kind
   (public/direct; `customer_sms` reserved), audience (everyone / sales —
   who may read a public channel; #sales is sales-only, messaging/0003),

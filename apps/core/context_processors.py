@@ -1,4 +1,5 @@
 from django.conf import settings
+from django.urls import reverse
 
 from apps.messaging.services import unread_count
 from apps.users.models import UserProfile
@@ -7,6 +8,12 @@ from apps.users.roles import user_role
 from .navigation import build_navigation
 
 SIDEBAR_COOKIE = "crm_sidebar"
+
+
+def logo_url(business):
+    # The version query changes with every save, so a new logo shows at
+    # once even though the logo response is cacheable.
+    return f"{reverse('core:business_logo')}?v={int(business.updated_at.timestamp())}"
 
 
 def app_shell(request):
@@ -18,7 +25,12 @@ def app_shell(request):
     Error pages (404/403) render through this too, where
     request.resolver_match may be None — hence the defensive getattr.
     """
-    context = {"brand_name": settings.CRM_BRAND_NAME, "support_email": settings.CRM_SUPPORT_EMAIL}
+    business = getattr(request, "business", None)
+    context = {
+        "brand_name": business.display_name if business else settings.CRM_BRAND_NAME,
+        "brand_logo_url": logo_url(business) if business and business.logo else "",
+        "support_email": settings.CRM_SUPPORT_EMAIL,
+    }
     user = getattr(request, "user", None)
     if user is None or not user.is_authenticated:
         return context

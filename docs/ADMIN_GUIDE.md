@@ -112,6 +112,12 @@ and **Report a bug** links and in the help (?) button. Left blank, those
 links are hidden. Keep the address in `.env` only — the repository is
 public.
 
+**Business name, logo, and currency** are set by the Owner in the app
+(gear → Business settings) and stored in the database; the logo file
+lives under `media/branding/`, so it's covered by the existing
+`media_files` backup. `CRM_BRAND_NAME` remains the default name until
+one is set there.
+
 ## Deploying an update
 
 ```

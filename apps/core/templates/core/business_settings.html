@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Business Settings{% endblock %}
+
+{% block extra_head %}<script src="{% static 'js/settings.js' %}" defer></script>{% endblock %}
+
+{% block content %}
+  <div class="settings-shell">
+    <h1>Business Settings</h1>
+    <p class="page-subtitle">Manage your workspace, account, and preferences</p>
+
+    <form method="post" enctype="multipart/form-data" class="section-card" novalidate>
+      {% csrf_token %}
+      <div class="section-card-head"><svg class="icon" aria-hidden="true"><use href="#icon-building"/></svg><h2>Business Information</h2></div>
+
+      {{ form.non_field_errors }}
+      <div class="upload-box">
+        <div class="upload-preview" data-logo-preview>
+          {% if brand_logo_url %}<img src="{{ brand_logo_url }}" alt="Current logo" width="72" height="72">{% else %}<svg class="icon" aria-hidden="true"><use href="#icon-building"/></svg>{% endif %}
+          <canvas width="144" height="144" hidden data-logo-canvas aria-label="New logo preview"></canvas>
+        </div>
+        <div class="upload-body">
+          <p class="upload-title">Company Logo</p>
+          <label class="btn btn-secondary btn-sm upload-button" for="{{ logo_form.logo_file.id_for_label }}">
+            <svg class="icon" aria-hidden="true"><use href="#icon-upload"/></svg>Upload Logo
+          </label>
+          <input type="file" name="logo_file" id="{{ logo_form.logo_file.id_for_label }}" class="sr-only-file" accept="image/jpeg,image/png,image/gif,image/webp" data-logo-input>
+          {{ logo_form.crop_x }}{{ logo_form.crop_y }}{{ logo_form.crop_size }}
+          <p class="helptext">Max 5MB • Allowed: JPEG, PNG, GIF, WebP • You can crop after selecting</p>
+          <p class="muted upload-filename" data-logo-filename aria-live="polite"></p>
+          {{ logo_form.logo_file.errors }}
+          {% if brand_logo_url %}
+            <label class="checkbox-label">{{ logo_form.remove_logo }} Remove the current logo</label>
+          {% endif %}
+        </div>
+      </div>
+
+      {% include "partials/_field.html" with field=form.name %}
+      <p>
+        <label for="owner-name">Business Owner Name</label>
+        <input type="text" id="owner-name" value="{{ owner_name }}" readonly>
+        <span class="helptext">This is your registered name and cannot be changed</span>
+      </p>
+
+      <p class="subhead">Contact information</p>
+      <p class="muted section-note">Shown to customers. These values are stored separately from your login email and personal profile phone — updating them here does not change your account credentials or profile phone.</p>
+      <div class="field-row">
+        {% include "partials/_field.html" with field=form.contact_email %}
+        {% include "partials/_field.html" with field=form.contact_phone %}
+      </div>
+
+      <p class="muted section-note">Website &amp; social: one link per main platform, or add as many Other links as you need (each needs its own label).</p>
+      {{ links.management_form }}
+      {{ links.non_form_errors }}
+      <div class="link-rows" data-link-rows>
+        {% for link_form in links %}
+          {% include "core/_link_row.html" with link_form=link_form %}
+        {% endfor %}
+      </div>
+      <template data-link-template>{% include "core/_link_row.html" with link_form=links.empty_form %}</template>
+      <button type="button" class="btn btn-secondary btn-sm js-only" data-add-link><svg class="icon" aria-hidden="true"><use href="#icon-plus"/></svg>Add link</button>
+
+      <p class="subhead">Preferences</p>
+      {% include "partials/_field.html" with field=form.currency %}
+      <p class="helptext">Every amount in the app is shown in this currency.</p>
+
+      <div class="section-card-actions">
+        <button type="submit"><svg class="icon" aria-hidden="true"><use href="#icon-save"/></svg>Save changes</button>
+      </div>
+    </form>
+
+    <section class="section-card">
+      <div class="section-card-head"><svg class="icon" aria-hidden="true"><use href="#icon-download"/></svg><h2>Export Data</h2></div>
+      <form method="get" action="{% url 'core:business_export' %}" class="export-row">
+        <p class="muted export-text">Download customers, crew, jobs, and more as CSV (opens in Excel) or JSON.</p>
+        <div class="cluster">
+          <label for="export-dataset" class="sr-only">What to export</label>
+          <select id="export-dataset" name="dataset">
+            {% for key, label in datasets %}<option value="{{ key }}">{{ label }}</option>{% endfor %}
+          </select>
+          <label for="export-format" class="sr-only">File format</label>
+          <select id="export-format" name="format"><option value="csv">CSV</option><option value="json">JSON</option></select>
+          <button type="submit"><svg class="icon" aria-hidden="true"><use href="#icon-download"/></svg>Download Data</button>
+        </div>
+      </form>
+    </section>
+  </div>
+
+  <dialog class="crop-dialog" data-crop-dialog aria-labelledby="crop-title">
+    <h2 id="crop-title" class="card-title">Crop your logo</h2>
+    <p class="muted">Drag the square to choose the part to keep, and use the slider to change its size.</p>
+    <canvas width="320" height="320" data-crop-canvas></canvas>
+    <label for="crop-zoom">Size</label>
+    <input type="range" id="crop-zoom" min="10" max="100" value="100" data-crop-zoom>
+    <div class="section-card-actions">
+      <button type="button" class="btn-secondary" data-crop-cancel>Cancel</button>
+      <button type="button" data-crop-apply>Use this crop</button>
+    </div>
+  </dialog>
+{% endblock %}
