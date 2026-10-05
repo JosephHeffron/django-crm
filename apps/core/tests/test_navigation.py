@@ -153,7 +153,8 @@ class TopBarTests(NavTestCase):
         self.assertIn('placeholder="Search everything…"', html)
         create = html.split('aria-label="Create"', 1)[1].split("</details>", 1)[0]
         self.assertEqual(
-            re.findall(r"</svg>([^<]+)</a>", create), ["New customer", "New task", "Log activity"]
+            re.findall(r"</svg>([^<]+)</a>", create),
+            ["New job", "New estimate", "New customer", "New task", "Log activity"],
         )
 
     def test_cleaner_gets_no_search_box_or_create_menu(self):

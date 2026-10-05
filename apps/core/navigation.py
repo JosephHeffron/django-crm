@@ -140,6 +140,8 @@ BOTTOM_BAR = {
 }
 
 CREATE_MENU = (
+    NavLink("New job", "jobs:job_create", "calendar", SALES_ROLES, shortcut="n j"),
+    NavLink("New estimate", "jobs:quote_create", "briefcase", SALES_ROLES, shortcut="n e"),
     NavLink("New customer", "crm:contact_create", "user-plus", SALES_ROLES, shortcut="n c"),
     NavLink("New task", "crm:task_create", "check", SALES_ROLES, shortcut="n t"),
     NavLink("Log activity", "crm:activity_create", "activity", SALES_ROLES),
@@ -148,6 +150,7 @@ CREATE_MENU = (
 # The dashboard's shortcut grid (Phase 17.5 step 4). Every tile is a
 # page that exists; a role only sees the ones it may open.
 QUICK_ACTIONS = (
+    NavLink("New job", "jobs:job_create", "calendar", SALES_ROLES),
     NavLink("New customer", "crm:contact_create", "user-plus", SALES_ROLES),
     NavLink("New task", "crm:task_create", "check", SALES_ROLES),
     NavLink("Log activity", "crm:activity_create", "activity", SALES_ROLES),

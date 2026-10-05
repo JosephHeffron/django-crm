@@ -1,0 +1,11 @@
+{% comment %}
+  The Tasks hub's tab row on its own, so a hub page can keep the tabs
+  while carrying its own heading (Estimates does).
+{% endcomment %}
+<nav class="tabs" aria-label="Tasks sections">
+  {% for tab in hub_tabs %}
+    <a class="tab" href="{{ tab.url }}"{% if tab.current %} aria-current="page"{% endif %}>
+      {{ tab.label }}{% if tab.count %} <span class="badge badge-info">{{ tab.count }}</span>{% endif %}
+    </a>
+  {% endfor %}
+</nav>

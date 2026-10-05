@@ -124,23 +124,58 @@ Estimates accepted, jobs finished, and invoices paid join the list as
 those workflows arrive in the next phases. Team messages deliberately
 don't appear here: the Inbox carries its own unread count.
 
-## Calendar and jobs
+## Scheduling
 
-**Calendar** shows jobs by **Day**, **Week** (the default, starting
-Monday), or **Month**, colored by service, with **Prev** / **Today** /
-**Next** to move around. Owners and Sales Reps also see quote site
-visits (dashed, gray) and can pick one crew member to see just their
-schedule. On a phone the month view shows how many jobs each day has —
-tap a date for the day's details.
+**Scheduling** shows jobs by **Day**, **Week** (the default, starting
+Monday), or **Month**, colored by service, with arrows and **Today** to
+move around. Owners and Sales Reps also see estimate site visits
+(dashed, gray) and can pick one crew member to see just their schedule.
+
+Each day carries a row of **dots**, one per booking, colored by service.
+A month cell only has room for two jobs, so the dots are how you tell a
+quiet day from a full one at a glance; a day with more than six shows
+"+3" and the rest. The day view puts the same thing in words above the
+list: how many jobs, how many are finished, and how many site visits.
 
 Tap a job for its page: when and where, the customer's phone (tap to
 call) and address (tap for directions), the crew and hours, the work,
-and notes. Owners and Sales Reps also see prices and the quote it came
-from; the Owner also sees its invoices and whether they're paid.
+and notes. Owners and Sales Reps also see prices and the estimate it
+came from; the Owner also sees its invoices and whether they're paid.
 
-A **quote** page (from the calendar or dashboard) shows its status,
-line items and total, the site visit, and any jobs booked from it.
-Creating and editing quotes and jobs arrives in Phase 18.
+### Booking a job (Owner and Sales Reps)
+
+**New job** on Scheduling, in the **Create** menu, or on the dashboard.
+You pick the customer and, if they have more than one, the address;
+when it starts and ends; the service, which sets its color on the
+schedule; and who's doing it. Ticking crew members puts the job on
+their own schedule.
+
+**The work** is the list of what's being charged for. Picking a service
+fills in its usual price, which you can change. You can leave the list
+empty while you're only booking the time and price it later.
+
+Opening a job and choosing **Edit** does the same thing again, so that's
+also how you move a job to another day or hand it to a different crew.
+Hours already logged against a crew member survive the change, and
+dropping someone from the crew leaves everyone else's hours alone. A
+Cleaner sees their schedule but doesn't set it.
+
+## Estimates
+
+**Estimates** lists what you've quoted and where each one stands, with
+filters for status and for your own. **New estimate** writes one: the
+customer, the lines of work and their prices, and when you're going to
+go and look at it. A booked site visit shows on the schedule.
+
+**Status** is how you move it along. Taking it past Draft records today
+as the day it went out, and marking it Accepted records today as the day
+it was won; neither date moves if you edit the estimate afterwards, so
+a corrected and re-sent estimate keeps the day the customer first saw
+it.
+
+Turning an accepted estimate into a booked job is still a manual step —
+book the job from Scheduling. The one-click conversion arrives in
+Phase 18.
 
 ## Business Settings (Owner)
 

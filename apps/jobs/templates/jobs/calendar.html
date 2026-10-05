@@ -1,26 +1,40 @@
 {% extends "base.html" %}
 
-{% block title %}Calendar{% endblock %}
+{% block title %}Scheduling{% endblock %}
 
 {% block content %}
-  <div class="page-header">
+  <div class="dash-hero">
     <div>
-      <h1>Calendar</h1>
+      <h1>Scheduling</h1>
       <p class="page-subtitle">{{ cal.title }}</p>
     </div>
+    {% if can_schedule %}
+      <div class="dash-hero-actions">
+        <a class="btn" href="{% url 'jobs:job_create' %}{% if cal.view == 'day' %}?date={{ cal.anchor|date:'Y-m-d' }}{% endif %}">
+          <svg class="icon" aria-hidden="true"><use href="#icon-plus-circle"/></svg>New job
+        </a>
+      </div>
+    {% endif %}
   </div>
 
   <div class="cal-toolbar">
     <div class="cluster">
-      <a class="btn btn-secondary btn-sm" href="{{ previous_url }}" aria-label="Previous {{ cal.view }}">‹ Prev</a>
-      <a class="btn btn-secondary btn-sm" href="{{ today_url }}">Today</a>
-      <a class="btn btn-secondary btn-sm" href="{{ next_url }}" aria-label="Next {{ cal.view }}">Next ›</a>
+      <a class="icon-btn" href="{{ previous_url }}" aria-label="Previous {{ cal.view }}">
+        <svg class="icon" aria-hidden="true"><use href="#icon-chevron-left"/></svg>
+      </a>
+      <span class="date-chip">{{ cal.title }}</span>
+      <a class="icon-btn" href="{{ next_url }}" aria-label="Next {{ cal.view }}">
+        <svg class="icon" aria-hidden="true"><use href="#icon-chevron-right"/></svg>
+      </a>
+      <a class="btn btn-outline btn-sm" href="{{ today_url }}">Today</a>
     </div>
-    <nav class="tabs cal-views" aria-label="Calendar view">
+
+    <nav class="segmented cal-views" aria-label="Calendar view">
       {% for label, url, current in view_links %}
-        <a class="tab" href="{{ url }}"{% if current %} aria-current="page"{% endif %}>{{ label }}</a>
+        <a href="{{ url }}"{% if current %} aria-current="page"{% endif %}>{{ label }}</a>
       {% endfor %}
     </nav>
+
     {% if crew_members %}
       <form method="get" class="filter-form cal-filter">
         <input type="hidden" name="view" value="{{ cal.view }}">
@@ -32,7 +46,7 @@
             <option value="{{ member.pk }}"{% if member.pk == crew_id %} selected{% endif %}>{{ member.get_full_name|default:member.get_username }}</option>
           {% endfor %}
         </select>
-        <button type="submit" class="btn-sm">Show</button>
+        <button type="submit" class="btn-secondary btn-sm">Show</button>
       </form>
     {% endif %}
   </div>
@@ -40,6 +54,7 @@
   {% if cal.view == "day" %}
     {% with day=days.0 %}
       {% if day.events %}
+        {% include "jobs/_day_summary.html" with day=day %}
         <ul class="agenda card">
           {% for event in day.events %}
             <li class="agenda-item {{ event.tone_class }}">
@@ -56,7 +71,7 @@
           {% endfor %}
         </ul>
       {% else %}
-        {% include "partials/_empty_state.html" with icon="calendar" title="Nothing scheduled" text="No jobs or site visits on this day." %}
+        {% include "partials/_empty_state.html" with icon="calendar" title="Nothing scheduled" text="No jobs or site visits on this day." action_url=new_job_url action_label=new_job_label %}
       {% endif %}
     {% endwith %}
 
@@ -68,6 +83,7 @@
             <span>{{ day.date|date:"D" }}</span>
             <span class="cal-day-num">{{ day.date|date:"j" }}</span>
           </a>
+          {% if day.events %}{% include "jobs/_indicators.html" with indicators=day.indicators %}{% endif %}
           {% for event in day.events %}
             {% include "jobs/_event.html" %}
           {% empty %}
@@ -86,14 +102,14 @@
         <div class="cal-row" role="row">
           {% for day in week %}
             <div class="cal-cell{% if day.is_today %} is-today{% endif %}{% if not day.in_month %} is-outside{% endif %}" role="cell">
-              <a class="cal-date" href="{{ day.url }}" aria-label="{{ day.date|date:'l, F j' }}: {{ day.events|length }} event{{ day.events|length|pluralize }}">{{ day.date|date:"j" }}</a>
-              {% for event in day.events|slice:":3" %}
+              <a class="cal-date" href="{{ day.url }}" aria-label="{{ day.date|date:'l, F j' }}: {{ day.events|length }} booking{{ day.events|length|pluralize }}">{{ day.date|date:"j" }}</a>
+              {% if day.events %}{% include "jobs/_indicators.html" with indicators=day.indicators %}{% endif %}
+              {% for event in day.events|slice:":2" %}
                 {% include "jobs/_event.html" %}
               {% endfor %}
-              {% if day.events|length > 3 %}
-                <a class="cal-more" href="{{ day.url }}">+{{ day.events|length|add:"-3" }} more</a>
+              {% if day.events|length > 2 %}
+                <a class="cal-more" href="{{ day.url }}">+{{ day.events|length|add:"-2" }} more</a>
               {% endif %}
-              {% if day.events %}<span class="cal-count" aria-hidden="true">{{ day.events|length }}</span>{% endif %}
             </div>
           {% endfor %}
         </div>
@@ -102,6 +118,6 @@
   {% endif %}
 
   {% if not has_events and cal.view != "day" %}
-    <p class="muted section-gap">Nothing scheduled in this {{ cal.view }}.</p>
+    {% include "partials/_empty_state.html" with icon="calendar" title="Nothing scheduled" text="Jobs you book show up here on the day they're due." action_url=new_job_url action_label=new_job_label %}
   {% endif %}
 {% endblock %}

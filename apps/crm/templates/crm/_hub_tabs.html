@@ -7,10 +7,4 @@
     <a class="btn" href="{% url 'crm:task_create' %}">Add task</a>
   </div>
 </div>
-<nav class="tabs" aria-label="Tasks sections">
-  {% for tab in hub_tabs %}
-    <a class="tab" href="{{ tab.url }}"{% if tab.current %} aria-current="page"{% endif %}>
-      {{ tab.label }}{% if tab.count %} <span class="badge badge-info">{{ tab.count }}</span>{% endif %}
-    </a>
-  {% endfor %}
-</nav>
+{% include "crm/_hub_tabnav.html" %}

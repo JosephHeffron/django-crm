@@ -6,10 +6,15 @@
 {% block content %}
   <div class="page-header">
     <div>
-      <h1>Quote {{ quote.number }}</h1>
+      <h1>Estimate {{ quote.number }}</h1>
       <p class="page-subtitle"><a href="{{ quote.contact.get_absolute_url }}">{{ quote.contact }}</a> · prepared by {{ quote.prepared_by.get_full_name|default:quote.prepared_by.get_username }}</p>
     </div>
-    {% include "jobs/_status_badge.html" with status=quote.status label=quote.get_status_display %}
+    <div class="cluster">
+      {% include "jobs/_status_badge.html" with status=quote.status label=quote.get_status_display %}
+      <a class="btn btn-secondary btn-sm" href="{% url 'jobs:quote_update' quote.pk %}">
+        <svg class="icon" aria-hidden="true"><use href="#icon-settings"/></svg>Edit
+      </a>
+    </div>
   </div>
 
   <div class="grid-2">

@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% load static crm_format %}
+
+{% block title %}{% if object %}Edit {{ object.number }}{% else %}New job{% endif %}{% endblock %}
+
+{% block extra_head %}<script src="{% static 'js/lines.js' %}" defer></script>{% endblock %}
+
+{% block content %}
+  <div class="settings-shell">
+    <h1>{% if object %}Edit {{ object.number }}{% else %}Schedule a job{% endif %}</h1>
+    <p class="page-subtitle">{% if object %}Move it, change the work, or swap the crew{% else %}Who it's for, what you're doing, and when{% endif %}</p>
+
+    <form method="post" novalidate>
+      {% csrf_token %}
+      {{ form.non_field_errors }}
+
+      <section class="section-card">
+        <div class="section-card-head"><svg class="icon" aria-hidden="true"><use href="#icon-user"/></svg><h2>Customer and address</h2></div>
+        <div class="field-row">
+          {% include "partials/_field.html" with field=form.contact %}
+          {% include "partials/_field.html" with field=form.service_property %}
+        </div>
+        <p class="muted section-note">Leave the address blank if the customer has only one, or if you'll fill it in later.</p>
+      </section>
+
+      <section class="section-card">
+        <div class="section-card-head"><svg class="icon" aria-hidden="true"><use href="#icon-calendar"/></svg><h2>When</h2></div>
+        <div class="field-row">
+          {% include "partials/_field.html" with field=form.scheduled_start %}
+          {% include "partials/_field.html" with field=form.scheduled_end %}
+        </div>
+        <div class="field-row">
+          {% include "partials/_field.html" with field=form.primary_service_type %}
+          {% include "partials/_field.html" with field=form.status %}
+        </div>
+        <p class="helptext">The service decides the job's color on the schedule.</p>
+      </section>
+
+      <section class="section-card">
+        <div class="section-card-head"><svg class="icon" aria-hidden="true"><use href="#icon-users"/></svg><h2>Crew</h2></div>
+        {% if form.crew.field.queryset %}
+          <fieldset class="crew-picker">
+            <legend class="sr-only">{{ form.crew.label }}</legend>
+            {% for choice in form.crew %}
+              <label class="crew-choice">{{ choice.tag }}<span>{{ choice.choice_label }}</span></label>
+            {% endfor %}
+          </fieldset>
+          <p class="helptext">{{ form.crew.help_text }}</p>
+          {{ form.crew.errors }}
+        {% else %}
+          {% include "partials/_empty_state.html" with icon="users" title="No crew members yet" text="Add people to the team and they'll appear here to assign." compact=True %}
+        {% endif %}
+      </section>
+
+      <section class="section-card">
+        <div class="section-card-head"><svg class="icon" aria-hidden="true"><use href="#icon-dollar"/></svg><h2>The work</h2></div>
+        <p class="muted section-note">What's being charged for. Leave it empty while you're just booking the time — you can price it later.</p>
+        {{ lines.management_form }}
+        {{ lines.non_form_errors }}
+        <div class="line-rows" data-line-rows>
+          {% for line in lines %}
+            {% include "jobs/_line_row.html" with line=line %}
+          {% endfor %}
+        </div>
+        <template data-line-template>{% include "jobs/_line_row.html" with line=lines.empty_form %}</template>
+        <button type="button" class="btn btn-secondary btn-sm js-only" data-add-line><svg class="icon" aria-hidden="true"><use href="#icon-plus"/></svg>Add a line</button>
+      </section>
+
+      <section class="section-card">
+        <div class="section-card-head"><svg class="icon" aria-hidden="true"><use href="#icon-message"/></svg><h2>Details</h2></div>
+        {% include "partials/_field.html" with field=form.sales_rep %}
+        {% include "partials/_field.html" with field=form.notes %}
+      </section>
+
+      <div class="form-actions">
+        <button type="submit"><svg class="icon" aria-hidden="true"><use href="#icon-save"/></svg>{% if object %}Save changes{% else %}Schedule it{% endif %}</button>
+        <a class="btn btn-secondary" href="{% if object %}{{ object.get_absolute_url }}{% else %}{% url 'jobs:calendar' %}{% endif %}">Cancel</a>
+      </div>
+    </form>
+  </div>
+{% endblock %}
