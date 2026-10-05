@@ -15,7 +15,7 @@ actually verified.
 > (browser-verified CSP review) is also complete** — a headless-Chromium
 > check found zero violations, including after a real Sourcery-caught
 > bug (an un-nonced inline style on the production 500 page) was fixed.
-> Phase 17 (field-service foundation) is complete. Phase 17.5 (UI restyle) is in progress — steps 1–4 of 11 done.
+> Phase 17 (field-service foundation) is complete. Phase 17.5 (UI restyle) is in progress — steps 1–5 of 11 done.
 > Note: the GitHub repo, switched from public to private earlier in the
 > project, is now **public again** — Phase 13 unit 1's audit found
 > branch protection and secret scanning had been silently disabled
@@ -40,7 +40,7 @@ The original 14-phase roadmap (Phases 0-14) is fully complete — see
 "Project complete," below, for the summary, and "Completed" for full
 phase-by-phase detail. The post-release roadmap is now underway:
 Phases 15-17 are complete; Phase 17.5 (UI restyle) is in progress
-(steps 1–4 done) — see "Post-release roadmap progress,"
+(steps 1–5 done) — see "Post-release roadmap progress,"
 below, for current status. This section deliberately stays short and points at
 those two rather than duplicating them, so it can't drift out of sync
 with them the way an earlier version of this section once did (it
@@ -791,7 +791,7 @@ roadmap completed:
   (Sourcery budget exhausted): one defect fixed before merge — a
   superuser owner couldn't be sent a direct message. 494 tests. Full
   detail in `logs/claude/phase-17-unit3d-profile-messages.md`.
-- **Phase 17.5 — UI restyle (in progress — steps 1–4 of 11 done).**
+- **Phase 17.5 — UI restyle (in progress — steps 1–5 of 11 done).**
   Matching the owner's reference design (ADR 0010); map on
   OpenStreetMap (ADR 0011). Reference screenshots hold real people's
   data and are kept outside the repo. **Step 1 (PR #106) — done:** new
@@ -840,19 +840,32 @@ roadmap completed:
   fixed before merge (a stored notification link was followed verbatim;
   a hand-rolled "next" check replaced with Django's). 586 tests. Full
   detail in `logs/claude/phase-17.5-step4-dashboard.md`.
+  **Step 5 (PR #116) — done:** Scheduling and Estimates. The calendar
+  becomes **Scheduling** in the new style (segmented view switcher, date
+  chip, crew filter) and gains per-day indicators — one dot per booking,
+  colored by service, capped at six — because a month cell only fits two
+  events. **Booking a job** is new: customer, address, time, service,
+  crew and the lines of work, saved in one transaction, with the price
+  filled in from the chosen service; editing is how a job moves day or
+  changes hands, and hours already logged survive it. **Estimates** is
+  its own page rather than wearing the Tasks heading, sharing the same
+  line-item editor, with sent and accepted dates stamped from the
+  status. The dashboard's "New job" button now works. Self-reviewed: a
+  job marked Completed recorded no date, so every count of finished work
+  ignored it — fixed before merge. 633 tests. Full detail in
+  `logs/claude/phase-17.5-step5-scheduling-estimates.md`.
 - Phases 18-25: not yet started (re-sequenced in `docs/ROADMAP.md`).
 
 ## Currently working on
 
-Nothing in flight — Phase 17.5 step 4 just closed out.
+Nothing in flight — Phase 17.5 step 5 just closed out.
 
 ## Next
 
-1. Phase 17.5 step 5 — Scheduling (with indicators) and Estimates.
-   This is where creating a job lives, so it also gives the dashboard
-   its "Add New Job" button, deliberately left out of step 4 rather
-   than shipped as a button that goes nowhere.
-2. Then steps 6–11 (ADR 0010, ROADMAP Phase 17.5), then Phase 18.
+1. Phase 17.5 step 6 — Finance: Invoices, Payments, Expenses, Profit.
+2. Then steps 7–11 (ADR 0010, ROADMAP Phase 17.5), then Phase 18, which
+   picks up what step 5 deliberately left: turning an accepted estimate
+   into a job in one click, and drag-to-reschedule.
 
 ## Known issues
 
