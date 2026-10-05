@@ -158,9 +158,9 @@ removed from the dev database afterwards.
 
 ## Git
 
-Branch: `feature/restyle-dashboard`
-Commits: `bb6d056` (the dashboard), self-review fixes to follow
-Merged to `main`: pending
+Branch: `feature/restyle-dashboard` (PR #114)
+Commits: `bb6d056` (the dashboard), `66a95a1` (self-review fixes)
+Merged to `main`: `4976c05`
 
 ## Next
 
