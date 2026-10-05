@@ -153,6 +153,8 @@ member of), so a direct message never leaks onto a contact page.
 | Record a payment (`/invoices/<pk>/payments/new/`), Payments | yes | 403 | 403 |
 | Expenses (`/expenses/`, create, edit) | yes | 403 | 403 |
 | Time clock (`/time-clock/`) | own | own | own |
+| Map (`/map/`) | yes | yes | 403 |
+| Place an address (`/map/properties/<pk>/locate/`) | yes | yes | 403 |
 | Assignments (`/crew/assignments/`) | yes | yes | 403 |
 | Payroll (`/crew/payroll/`) | yes | 403 | 403 |
 | Performance (`/crew/performance/`) | yes | 403 | 403 |

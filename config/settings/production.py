@@ -67,7 +67,10 @@ SECURE_CSP = {
     "default-src": [CSP.NONE],
     "script-src": [CSP.SELF, CSP.NONCE],
     "style-src": [CSP.SELF, CSP.NONCE],
-    "img-src": [CSP.SELF],
+    # The Map page's tiles, and nothing else from off this server
+    # (ADR 0011). Named exactly: a wildcard would let any image source
+    # in, and the map needs one host.
+    "img-src": [CSP.SELF, "https://tile.openstreetmap.org"],
     "font-src": [CSP.SELF],
     "connect-src": [CSP.SELF],
     "form-action": [CSP.SELF],

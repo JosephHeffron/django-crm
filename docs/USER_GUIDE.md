@@ -199,6 +199,33 @@ Open the **gear → Business settings**:
   invoices, payments, expenses, or the team list as CSV (opens in Excel)
   or JSON.
 
+## Map
+
+**Map** shows your customers' addresses as pins, with the ones booked
+this week in blue, finished jobs in green, and the rest grey. Tap a pin
+for the customer, the address, and the next job booked there. The same
+list appears below the map, so nothing is reachable only by pointing at
+it.
+
+### Placing an address
+
+An address has to be placed before it can be a pin. **Still to place**
+lists the ones that aren't, and **Look it up** asks OpenStreetMap where
+it is.
+
+**What gets sent, and to whom.** Looking up an address sends *that
+address* to the OpenStreetMap Foundation's servers. Never a name, never
+a phone number, never anything about the job. Each address is sent once
+and the answer is kept, so it isn't sent again unless you edit it.
+Viewing the map also asks OpenStreetMap for the map images, which tells
+them roughly which area you're looking at.
+
+If an address can't be found, or you'd rather not send it at all, you
+can place the pin yourself and nothing leaves this machine.
+
+The map needs internet access. The rest of the app doesn't, and if the
+map is unavailable the addresses still list.
+
 ## Time clock
 
 **Crew → Time clock** is where you start and stop work. It shows whether

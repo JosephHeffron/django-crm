@@ -31,6 +31,12 @@ urlpatterns = [
     path("crew/assignments/", views.AssignmentsView.as_view(), name="assignments"),
     path("crew/payroll/", views.PayrollView.as_view(), name="payroll"),
     path("crew/performance/", views.PerformanceView.as_view(), name="performance"),
+    path("map/", views.MapView.as_view(), name="map"),
+    path(
+        "map/properties/<int:pk>/locate/",
+        views.PropertyLocateView.as_view(),
+        name="property_locate",
+    ),
     path("settings/services/", views.ServiceListView.as_view(), name="service_list"),
     path(
         "settings/services/<int:pk>/edit/",

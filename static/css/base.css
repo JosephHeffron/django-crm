@@ -3799,3 +3799,95 @@ a.hub-card:hover {
   font-size: var(--text-sm);
   color: var(--color-text-muted);
 }
+
+/* ---------- Map (Phase 17.5 step 8) ---------- */
+
+.map-card {
+  overflow: hidden;
+}
+
+.map-canvas {
+  height: min(60vh, 32rem);
+  width: 100%;
+  background: var(--color-surface-2);
+}
+
+/* Leaflet draws its own chrome; keep it in the app's palette. */
+.leaflet-container {
+  font: inherit;
+  background: var(--color-surface-2);
+}
+
+.leaflet-popup-content-wrapper,
+.leaflet-popup-tip {
+  background: var(--color-surface);
+  color: var(--color-text);
+  box-shadow: var(--shadow-lg);
+}
+
+.leaflet-popup-content a {
+  font-weight: var(--weight-medium);
+}
+
+.leaflet-bar a {
+  background: var(--color-surface);
+  color: var(--color-text);
+  border-bottom-color: var(--color-border);
+}
+
+.leaflet-bar a:hover {
+  background: var(--color-surface-2);
+  color: var(--color-text);
+}
+
+.leaflet-control-attribution {
+  background: var(--color-surface);
+  color: var(--color-text-muted);
+}
+
+.leaflet-control-attribution a {
+  color: var(--color-link);
+}
+
+.map-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+  margin: 0;
+  padding: var(--space-3) var(--space-5);
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+}
+
+.map-key {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.map-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: var(--radius-full);
+  background: var(--color-slate);
+}
+
+.map-dot.is-scheduled {
+  background: var(--color-primary);
+}
+
+.map-dot.is-done {
+  background: var(--color-success);
+}
+
+.map-fallback {
+  margin: 0;
+  padding: var(--space-5);
+}
+
+.locate-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+}

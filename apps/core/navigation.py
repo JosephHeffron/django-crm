@@ -147,6 +147,11 @@ SECTIONS = (
         ),
     ),
     NavSection(
+        "Map",
+        "map",
+        link=NavLink("Map", "jobs:map", "map-pin", SALES_ROLES, ("jobs:map",), shortcut="g m"),
+    ),
+    NavSection(
         "Finance",
         "finance",
         children=(

@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Map{% endblock %}
+
+{% block extra_head %}
+  <link rel="stylesheet" href="{% static 'vendor/leaflet/leaflet.css' %}">
+  <script src="{% static 'vendor/leaflet/leaflet.js' %}" defer></script>
+  <script src="{% static 'js/map.js' %}" defer></script>
+{% endblock %}
+
+{% block content %}
+  <div class="dash-hero">
+    <div>
+      <h1>Map</h1>
+      <p class="page-subtitle">{{ pin_count }} address{{ pin_count|pluralize:"es" }} placed · {{ week_jobs }} job{{ week_jobs|pluralize }} booked {{ week_first|date:"M j" }} – {{ week_last|date:"M j" }}</p>
+    </div>
+  </div>
+
+  {% if pin_count %}
+    <section class="card card-flush map-card">
+      <div class="map-canvas" id="map" data-map data-pins="{{ pins_json }}"
+           role="application" aria-label="Customer addresses on a map"></div>
+      <noscript>
+        <p class="map-fallback">The map needs JavaScript. The addresses are listed below.</p>
+      </noscript>
+      {% if pins_capped %}
+        <p class="map-fallback muted">Showing the first {{ pin_count }} addresses; {{ pins_capped }} more are placed but not drawn.</p>
+      {% endif %}
+      <p class="map-legend">
+        <span class="map-key"><span class="map-dot is-scheduled"></span>Booked this week</span>
+        <span class="map-key"><span class="map-dot is-done"></span>Finished</span>
+        <span class="map-key"><span class="map-dot"></span>No job this week</span>
+      </p>
+    </section>
+  {% else %}
+    {% include "partials/_empty_state.html" with icon="map-pin" title="Nothing on the map yet" text="Addresses appear here once they've been placed. Start with the list below." %}
+  {% endif %}
+
+  <div class="grid-2 is-top section-gap">
+    <section class="card">
+      <div class="card-head">
+        <h2 class="card-title">Still to place</h2>
+        <span class="muted">{{ unplaced_count }}</span>
+      </div>
+      {% if unplaced %}
+        <p class="muted section-note">
+          Looking an address up sends it to OpenStreetMap — the address only,
+          never a name or phone number. You can also drop the pin yourself.
+        </p>
+        <ul class="list-plain">
+          {% for item in unplaced %}
+            <li class="locate-row">
+              <span>
+                <strong>{{ item.contact }}</strong><br>
+                <span class="muted">{{ item }}</span>
+              </span>
+              <form method="post" action="{% url 'jobs:property_locate' item.pk %}">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-secondary btn-sm">
+                  <svg class="icon" aria-hidden="true"><use href="#icon-search"/></svg>Look it up
+                </button>
+              </form>
+            </li>
+          {% endfor %}
+        </ul>
+        {% if unplaced_more %}
+          <p class="muted">…and {{ unplaced_more }} more. The <code>locate_properties</code> command works through them a second apart.</p>
+        {% endif %}
+      {% else %}
+        {% include "partials/_empty_state.html" with icon="check" title="Every address is placed" text="New customers show up here when you add them." compact=True %}
+      {% endif %}
+    </section>
+
+    <section class="card">
+      <h2 class="card-title">On the map</h2>
+      {% if pin_count %}
+        <ul class="list-plain">
+          {% for pin in pins %}
+            <li>
+              <a href="{{ pin.url }}">{{ pin.title }}</a>
+              <span class="muted">— {{ pin.address }}</span>
+              {% if pin.when %}<span class="badge badge-info">{{ pin.service }} · {{ pin.when }}</span>{% endif %}
+            </li>
+          {% endfor %}
+        </ul>
+        <p class="muted section-note">Tap a pin for the same thing on the map. This list is what you get without JavaScript, or without internet.</p>
+      {% else %}
+        <p class="muted">Nothing placed yet.</p>
+      {% endif %}
+      <p class="muted section-note">
+        Map images come from OpenStreetMap, so the map needs internet access.
+        Everything else in the app works without it.
+      </p>
+    </section>
+  </div>
+{% endblock %}

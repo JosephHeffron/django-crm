@@ -8,7 +8,7 @@ from django.test import TestCase, override_settings
 
 from apps.core.management.commands.seed_demo import DEMO_PREFIX, DEMO_USERS
 from apps.core.models import Goal, Notification
-from apps.crm.models import Contact, Task
+from apps.crm.models import Contact, Property, Task
 from apps.crm.tests._helpers import grant_role
 from apps.jobs.models import Invoice, Job, Quote, ServiceType, TimeEntry
 from apps.messaging.models import Channel, ChannelMembership, Message
@@ -65,6 +65,9 @@ class SeedDemoTests(TestCase):
         self.assertTrue(all(target > 0 for target in Goal.objects.values_list("target", flat=True)))
         # Crew have a rate and clocked time, so Payroll isn't an empty page.
         self.assertTrue(TimeEntry.objects.filter(ended_at__isnull=False).exists())
+        # Addresses are placed locally, so the Map has pins and no
+        # made-up address is ever sent to OpenStreetMap.
+        self.assertFalse(Property.objects.filter(latitude__isnull=True).exists())
         rates = UserProfile.objects.filter(
             user__username__startswith=DEMO_PREFIX, hourly_rate__isnull=False
         )
