@@ -1,4 +1,6 @@
+import json
 from datetime import datetime, time, timedelta
+from decimal import InvalidOperation
 
 from django.contrib import messages
 from django.contrib.auth import get_user_model
@@ -11,11 +13,14 @@ from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse, reverse_lazy
 from django.utils import timezone
 from django.utils.dateparse import parse_date
+from django.views import View
 from django.views.generic import CreateView, DetailView, ListView, TemplateView, UpdateView
 
 from apps.core.pagination import PerPageMixin
 from apps.core.templatetags.crm_format import money
+from apps.crm import geocoding
 from apps.crm.hub import TasksHubMixin
+from apps.crm.models import Property
 from apps.users.roles import (
     ALL_ROLES,
     OWNER_ONLY,
@@ -59,6 +64,9 @@ User = get_user_model()
 
 # How long a new invoice is given to be paid, unless the date is changed.
 INVOICE_TERMS_DAYS = 14
+
+# How many unplaced addresses the map lists before it stops.
+MAP_UNPLACED_LISTED = 25
 
 # How many upcoming jobs the time clock offers to clock onto.
 TIME_CLOCK_JOB_CHOICES = 25
@@ -837,6 +845,108 @@ def crew_members(include_sales=False):
         .distinct()
         .order_by("first_name", "last_name", "username")
     )
+
+
+def _when(job):
+    if job is None:
+        return ""
+    return timezone.localtime(job.scheduled_start).strftime("%a %b %-d, %-I:%M %p")
+
+
+class MapView(SalesRoleRequiredMixin, TemplateView):
+    """Customers and the week's jobs as pins (ADR 0011).
+
+    Pins come from addresses already placed; nothing is looked up while
+    this page renders, because Nominatim allows one request a second and
+    no page should wait on a third party. Addresses still to place are
+    listed so they can be done deliberately, by hand or by command.
+    """
+
+    template_name = "jobs/map.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        today = timezone.localdate()
+        first, last = crew.week_bounds(today)
+        start, end = day_bounds(first, last)
+        week = (
+            jobs_for(self.request.user)
+            .filter(scheduled_start__gte=start, scheduled_start__lt=end)
+            .exclude(status=Job.Status.CANCELLED)
+            .select_related("contact", "service_property", "primary_service_type")
+            .order_by("scheduled_start")
+        )
+        jobs_by_property = {}
+        for job in week:
+            if job.service_property_id:
+                jobs_by_property.setdefault(job.service_property_id, []).append(job)
+
+        located = Property.objects.filter(latitude__isnull=False).select_related("contact")
+        pins = []
+        for service_property in located:
+            jobs_here = jobs_by_property.get(service_property.pk, [])
+            next_job = jobs_here[0] if jobs_here else None
+            pins.append(
+                {
+                    "lat": float(service_property.latitude),
+                    "lng": float(service_property.longitude),
+                    "title": str(service_property.contact),
+                    "address": str(service_property),
+                    "url": service_property.contact.get_absolute_url(),
+                    "status": next_job.status if next_job else "",
+                    "when": _when(next_job),
+                    "service": next_job.primary_service_type.name if next_job else "",
+                    "jobs": len(jobs_here),
+                }
+            )
+        unplaced = [p for p in Property.objects.select_related("contact") if p.needs_locating]
+        context.update(
+            pins=pins,
+            pins_json=json.dumps(pins),
+            pin_count=len(pins),
+            unplaced=unplaced[:MAP_UNPLACED_LISTED],
+            unplaced_count=len(unplaced),
+            unplaced_more=max(0, len(unplaced) - MAP_UNPLACED_LISTED),
+            week_first=first,
+            week_last=last,
+            week_jobs=len(week),
+        )
+        return context
+
+
+class PropertyLocateView(SalesRoleRequiredMixin, PermissionRequiredMixin, View):
+    """Place one address: look it up, or drop the pin where the Owner
+    says. POST only — it writes, and the lookup leaves this server."""
+
+    permission_required = "crm.change_property"
+
+    def post(self, request, pk, *args, **kwargs):
+        service_property = get_object_or_404(Property, pk=pk)
+        latitude, longitude = request.POST.get("lat", ""), request.POST.get("lng", "")
+        if latitude and longitude:
+            try:
+                geocoding.place_by_hand(service_property, latitude, longitude)
+            except (InvalidOperation, TypeError, ValueError):
+                messages.warning(request, "That doesn't look like a point on the map.")
+            else:
+                messages.success(request, f"Pinned {service_property}.")
+            return redirect("jobs:map")
+        try:
+            result = geocoding.locate(service_property)
+        except geocoding.LookupError_:
+            messages.warning(
+                request,
+                "Couldn't reach OpenStreetMap just now. Try again, or drop the pin yourself.",
+            )
+        else:
+            if result == "located":
+                messages.success(request, f"Found {service_property}.")
+            else:
+                messages.warning(
+                    request,
+                    f"OpenStreetMap doesn't know {service_property}. Drop the pin yourself.",
+                )
+        return redirect("jobs:map")
 
 
 class ServiceListView(OwnerRequiredMixin, ListView):

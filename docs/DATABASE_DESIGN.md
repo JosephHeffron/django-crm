@@ -432,7 +432,11 @@ Channel 1──* ChannelMembership *──1 User;  Channel 1──* Message
   string rather than a migration. Only the Owner sets either.
 - **Property**: contact FK (CASCADE — an address has no meaning without
   its contact), label, street, city, state, postal_code, notes,
-  is_primary.
+  is_primary, and (Phase 17.5 step 8, ADR 0011) latitude?, longitude?,
+  located_at? and located_address — the address as it read when it was
+  placed, so an edit re-opens the lookup without comparing field by
+  field. Placed once through Nominatim or by hand, never while a page
+  renders.
 - **Tag**: name (unique), slug.
 - **Note**: author, body, contact?, job?, pinned, created/updated.
 - **BusinessPlan**: title, description, owner (user), due_date?, status

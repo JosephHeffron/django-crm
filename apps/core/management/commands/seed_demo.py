@@ -358,7 +358,7 @@ class DemoSeeder:
     def add_property(self, contact, primary, label="Home"):
         town, postal = self.rng.choice(TOWNS)
         number, street = self.rng.randint(12, 980), self.rng.choice(STREETS)
-        return Property.objects.create(
+        address = Property(
             contact=contact,
             label=label,
             street=f"{number} {street} {self.rng.choice(STREET_SUFFIXES)}",
@@ -370,6 +370,17 @@ class DemoSeeder:
             ),
             is_primary=primary,
         )
+        # Scattered around Rochester, NY, so the Map page has pins
+        # without a single address ever leaving this machine. These
+        # streets don't exist; looking them up would find nothing and
+        # would send made-up addresses to a public service for no
+        # reason (ADR 0011).
+        address.latitude = Decimal(f"{43.15 + self.rng.uniform(-0.09, 0.09):.6f}")
+        address.longitude = Decimal(f"{-77.61 + self.rng.uniform(-0.12, 0.12):.6f}")
+        address.located_at = self.now
+        address.located_address = str(address)[:400]
+        address.save()
+        return address
 
     def make_job(self, contact, slugs, day, hour, status, quote=None):
         lines = [self.line_for(slug) for slug in dict.fromkeys(slugs)]

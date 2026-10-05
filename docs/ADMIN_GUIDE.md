@@ -81,6 +81,31 @@ afterward. `curl .../health/` and `podman ps` are the checks that
 actually reflect current reality; see `docs/LOGGING_REVIEW.md` and
 `logs/claude/phase-10-deploy-script.md` for why.)
 
+**Place service addresses on the map** (Phase 17.5 step 8, ADR 0011).
+The Map page shows addresses that have coordinates; getting them calls
+OpenStreetMap's Nominatim, which allows one request a second, so it is a
+command rather than something a page waits on:
+```
+podman exec -it crm-web python manage.py locate_properties --limit 50
+```
+It only touches addresses with no coordinates, unless you pass `--redo`.
+Addresses Nominatim can't find are named in the output, and anyone can
+drop those pins by hand on the Map page instead. Each address is sent
+once; the answer is stored. Run it after importing customers, or on a
+timer beside the follow-up generator.
+
+Two things about the map reach the internet, and nothing else does:
+the address lookups above, and the map images staff browsers fetch from
+`tile.openstreetmap.org` (which the production CSP names explicitly, and
+nothing else). If the machine is offline the Map page says so and the
+rest of the app is unaffected.
+
+**Leaflet is vendored**, not installed from a CDN —
+`static/vendor/leaflet/` with its version, licence and checksums in the
+README there. Dependabot does not see it, so updating is a deliberate
+step: replace the files, re-run the checksums, record them in the same
+commit.
+
 **View logs** (gunicorn, Caddy, PostgreSQL, and Django's own
 application logging all reach here — see `docs/LOGGING_REVIEW.md`):
 ```

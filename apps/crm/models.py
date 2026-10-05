@@ -1,6 +1,7 @@
 from django.conf import settings
 from django.contrib.contenttypes.fields import GenericForeignKey
 from django.contrib.contenttypes.models import ContentType
+from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 from django.urls import reverse
 from django.utils import timezone
@@ -139,6 +140,28 @@ class Property(models.Model):
     postal_code = models.CharField(max_length=20)
     notes = models.TextField(blank=True, help_text="Gate code, dog in yard, access notes…")
     is_primary = models.BooleanField(default=False)
+    # Where this address is on the map (Phase 17.5 step 8, ADR 0011).
+    # Looked up once through Nominatim, or dropped by hand on the map;
+    # `located_at` records when, so an address that changes is looked up
+    # again and one that's already placed never is.
+    latitude = models.DecimalField(
+        max_digits=9,
+        decimal_places=6,
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(-90), MaxValueValidator(90)],
+    )
+    longitude = models.DecimalField(
+        max_digits=9,
+        decimal_places=6,
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(-180), MaxValueValidator(180)],
+    )
+    located_at = models.DateTimeField(null=True, blank=True)
+    # The address as it was when it was placed, so an edit re-opens the
+    # lookup without having to compare field by field.
+    located_address = models.CharField(max_length=400, blank=True, editable=False)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -154,6 +177,16 @@ class Property(models.Model):
 
     def __str__(self):
         return f"{self.street}, {self.city}, {self.state} {self.postal_code}"
+
+    @property
+    def is_located(self):
+        return self.latitude is not None and self.longitude is not None
+
+    @property
+    def needs_locating(self):
+        """True when nobody has placed this address, or it has been
+        edited since it was placed."""
+        return not self.is_located or self.located_address != str(self)
 
 
 class Lead(models.Model):
