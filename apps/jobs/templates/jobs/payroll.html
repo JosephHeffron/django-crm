@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% load crm_format %}
+
+{% block title %}Payroll{% endblock %}
+
+{% block content %}
+  <div class="dash-hero">
+    <div>
+      <h1>Payroll</h1>
+      <p class="page-subtitle">{{ period.label }} · {{ period.first|date:"M j" }} – {{ period.last|date:"M j, Y" }}</p>
+    </div>
+  </div>
+
+  <div class="cal-toolbar">
+    <nav class="segmented" aria-label="Period">
+      {% for key, label, current in presets %}
+        <a href="?range={{ key }}"{% if current %} aria-current="page"{% endif %}>{{ label }}</a>
+      {% endfor %}
+    </nav>
+    <form method="get" class="filter-form cal-filter">
+      <input type="hidden" name="range" value="custom">
+      <label for="id_start" class="sr-only">From</label>
+      <input type="date" id="id_start" name="start" value="{% if period.preset == 'custom' %}{{ period.first|date:'Y-m-d' }}{% endif %}" required>
+      <label for="id_end" class="sr-only">To</label>
+      <input type="date" id="id_end" name="end" value="{% if period.preset == 'custom' %}{{ period.last|date:'Y-m-d' }}{% endif %}" required>
+      <button type="submit" class="btn-secondary btn-sm">Show range</button>
+    </form>
+  </div>
+
+  {% if period_error %}
+    <ul class="messages" role="status"><li class="message warning">{{ period_error }} Showing this month instead.</li></ul>
+  {% endif %}
+
+  <div class="stat-grid">
+    <div class="stat-card is-tinted accent-blue">
+      <div class="stat-label">To pay</div>
+      <div class="stat-value">{{ total|money }}</div>
+      <div class="stat-meta">For clocked hours in this period</div>
+    </div>
+  </div>
+
+  {% if missing_rates %}
+    <div class="info-banner">
+      <svg class="icon" aria-hidden="true"><use href="#icon-alert"/></svg>
+      <p><strong>No hourly rate set for {% for person in missing_rates %}{{ person.get_full_name|default:person.get_username }}{% if not forloop.last %}, {% endif %}{% endfor %}.</strong>
+        Their hours are counted but their pay can't be — set a rate on
+        <a href="{% url 'people:team' %}">the team page</a>.</p>
+    </div>
+  {% endif %}
+
+  <div class="table-responsive card card-flush">
+    <table class="data-table stack-mobile">
+      <thead><tr><th>Person</th><th class="text-right">Hours</th><th class="text-right">Rate</th><th class="text-right">Pay</th><th>Entries</th></tr></thead>
+      <tbody>
+        {% for row in rows %}
+          <tr>
+            <td data-label="Person"><a href="{% url 'people:member' row.person.get_username %}">{{ row.person.get_full_name|default:row.person.get_username }}</a></td>
+            <td data-label="Hours" class="text-right">{{ row.hours|floatformat:"-2" }}</td>
+            <td data-label="Rate" class="text-right">{% if row.rate %}{{ row.rate|money }}{% else %}<span class="badge badge-warning">Not set</span>{% endif %}</td>
+            <td data-label="Pay" class="text-right">{% if row.pay is not None %}{{ row.pay|money }}{% else %}—{% endif %}</td>
+            <td data-label="Entries">{{ row.entries }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+      <tfoot><tr class="total-row"><td colspan="3">Total</td><td class="text-right">{{ total|money }}</td><td></td></tr></tfoot>
+    </table>
+  </div>
+  <p class="muted section-note">Payroll pays for clocked time. Hours someone types onto a job aren't paid unless they clocked them.</p>
+{% endblock %}

@@ -49,6 +49,47 @@ class UserProfile(models.Model):
     # done; this is the "hide it anyway" choice (apps/core/onboarding.py).
     onboarding_dismissed = models.BooleanField(default=False)
 
+    # Crew pay and availability (Phase 17.5 step 7). The Owner sets
+    # both; nobody else sees another person's rate.
+    hourly_rate = models.DecimalField(
+        max_digits=7,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(0)],
+        help_text="What this person is paid per hour. Payroll needs it.",
+    )
+    # The weekdays they normally work, as digits (Monday is 0): "01234"
+    # is a weekday crew. Stored as text rather than seven booleans so
+    # adding a day is editing a string, not a migration.
+    working_days = models.CharField(max_length=7, blank=True)
+
+    WEEKDAYS = (
+        (0, "Mon"),
+        (1, "Tue"),
+        (2, "Wed"),
+        (3, "Thu"),
+        (4, "Fri"),
+        (5, "Sat"),
+        (6, "Sun"),
+    )
+
+    @property
+    def working_day_numbers(self):
+        return {int(day) for day in self.working_days if day.isdigit()}
+
+    @property
+    def working_days_display(self):
+        days = self.working_day_numbers
+        if not days:
+            return ""
+        return ", ".join(label for number, label in self.WEEKDAYS if number in days)
+
+    def works_on(self, day):
+        """Whether this person normally works that date. With no days
+        set we don't know, so we don't claim they don't."""
+        return not self.working_days or day.weekday() in self.working_day_numbers
+
     def __str__(self):
         return f"Profile for {self.user}"
 

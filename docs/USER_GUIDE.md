@@ -199,6 +199,53 @@ Open the **gear → Business settings**:
   invoices, payments, expenses, or the team list as CSV (opens in Excel)
   or JSON.
 
+## Time clock
+
+**Crew → Time clock** is where you start and stop work. It shows whether
+you're on the clock, your hours today, your hours this week, and every
+stretch you've clocked since Monday. Everyone with a role has one — the
+Owner and Sales Reps do paid work too — and you only ever see your own.
+
+**Clock in** can name the job you're starting, which puts your hours on
+it when you clock out, so the job's record and the clock can't tell two
+different stories. If you clock onto a job you weren't assigned to, you
+are now: you did the work. Leave the job blank for travel, the shop, or
+a supply run — that time is still paid, it just isn't charged to a job.
+
+You can only have one clock running. Clocking in twice says so instead
+of starting a second one.
+
+## Crew (Owner and Sales Reps)
+
+**Assignments** lays out a week, one card per crew member, with the jobs
+they're booked on and the hours logged against each. Jobs nobody is on
+are called out at the top, with a link straight to the job so you can
+put someone on them. If you've set the days someone normally works, a
+job booked outside those days is flagged.
+
+### Payroll (Owner)
+
+**Payroll** is clocked hours times each person's rate, for today, this
+week, this month, the year to date, or any range. Someone with no rate
+set is still listed with their hours and a warning, because quietly
+paying them nothing would be worse than saying so.
+
+Payroll pays for **clocked** time. Hours typed onto a job aren't paid
+unless they were clocked.
+
+### Performance (Owner)
+
+**Performance** is how the crew's work looks over a period: jobs
+finished, hours clocked, what those jobs were worth in total, what that
+works out to per hour, and the average customer rating. Work value is
+what the jobs were worth, not what anyone was paid.
+
+### Pay and working days (Owner)
+
+Open someone from **Team** to set their hourly rate and the days they
+normally work. Only you can see or set it. The team list shows both at
+a glance.
+
 ## Invoices, Payments and Expenses (Owner)
 
 The **Finance** menu holds four pages, all Owner-only.

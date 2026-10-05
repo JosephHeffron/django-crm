@@ -27,6 +27,10 @@ urlpatterns = [
     path("expenses/", views.ExpenseListView.as_view(), name="expense_list"),
     path("expenses/new/", views.ExpenseCreateView.as_view(), name="expense_create"),
     path("expenses/<int:pk>/edit/", views.ExpenseUpdateView.as_view(), name="expense_update"),
+    path("time-clock/", views.TimeClockView.as_view(), name="time_clock"),
+    path("crew/assignments/", views.AssignmentsView.as_view(), name="assignments"),
+    path("crew/payroll/", views.PayrollView.as_view(), name="payroll"),
+    path("crew/performance/", views.PerformanceView.as_view(), name="performance"),
     path("settings/services/", views.ServiceListView.as_view(), name="service_list"),
     path(
         "settings/services/<int:pk>/edit/",

@@ -152,6 +152,11 @@ member of), so a direct message never leaks onto a contact page.
 | Invoices (`/invoices/`, create, edit) | yes | 403 | 403 |
 | Record a payment (`/invoices/<pk>/payments/new/`), Payments | yes | 403 | 403 |
 | Expenses (`/expenses/`, create, edit) | yes | 403 | 403 |
+| Time clock (`/time-clock/`) | own | own | own |
+| Assignments (`/crew/assignments/`) | yes | yes | 403 |
+| Payroll (`/crew/payroll/`) | yes | 403 | 403 |
+| Performance (`/crew/performance/`) | yes | 403 | 403 |
+| Set someone's pay rate and working days (`/team/<username>/`) | yes | 403 | 403 |
 | Setup checklist (dashboard, `/onboarding/dismiss/`) | yes | not shown | not shown |
 | Notifications (`/notifications/`) | own | own | own |
 | Contacts (`/contacts/`, a contact's page) | yes | yes | 403 |

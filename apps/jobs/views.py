@@ -6,6 +6,7 @@ from django.contrib.auth.mixins import PermissionRequiredMixin
 from django.db import transaction
 from django.db.models import Sum, Value
 from django.db.models.functions import Coalesce
+from django.http import HttpResponseBadRequest
 from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse, reverse_lazy
 from django.utils import timezone
@@ -15,6 +16,7 @@ from django.views.generic import CreateView, DetailView, ListView, TemplateView,
 from apps.core.pagination import PerPageMixin
 from apps.core.templatetags.crm_format import money
 from apps.crm.hub import TasksHubMixin
+from apps.users.models import get_profile
 from apps.users.roles import (
     ALL_ROLES,
     OWNER_ONLY,
@@ -26,9 +28,9 @@ from apps.users.roles import (
     user_role,
 )
 
-from . import reports
+from . import crew, reports
 from .access import invoices_for, jobs_for, quotes_for
-from .calendar import DEFAULT_VIEW, VIEWS, calendar_days, calendar_range
+from .calendar import DEFAULT_VIEW, VIEWS, calendar_days, calendar_range, day_bounds
 from .forms import (
     ExpenseForm,
     InvoiceForm,
@@ -58,6 +60,9 @@ User = get_user_model()
 
 # How long a new invoice is given to be paid, unless the date is changed.
 INVOICE_TERMS_DAYS = 14
+
+# How many upcoming jobs the time clock offers to clock onto.
+TIME_CLOCK_JOB_CHOICES = 25
 
 
 class CalendarView(RoleRequiredMixin, TemplateView):
@@ -656,6 +661,182 @@ class ExpenseCreateView(ExpenseFormMixin, CreateView):
 
 class ExpenseUpdateView(ExpenseFormMixin, UpdateView):
     permission_required = "jobs.change_expense"
+
+
+class TimeClockView(RoleRequiredMixin, TemplateView):
+    """Clock in and out. Everyone with a role has one — the Owner and a
+    Sales Rep do paid work too — and everyone only ever sees their own.
+    """
+
+    allowed_roles = ALL_ROLES
+    template_name = "jobs/time_clock.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        today = timezone.localdate()
+        first, last = crew.week_bounds(today)
+        week = crew.entries_for(self.request.user, first, last)
+        context.update(
+            running=crew.open_entry(self.request.user),
+            today_entries=crew.entries_for(self.request.user, today, today),
+            week_entries=week,
+            week_hours=crew.hours_in_period(week),
+            today_hours=crew.hours_in_period(crew.entries_for(self.request.user, today, today)),
+            week_first=first,
+            week_last=last,
+            jobs=jobs_for(self.request.user)
+            .filter(status__in=(Job.Status.SCHEDULED, Job.Status.IN_PROGRESS))
+            .select_related("contact", "primary_service_type")
+            .order_by("scheduled_start")[:TIME_CLOCK_JOB_CHOICES],
+        )
+        return context
+
+    def post(self, request, *args, **kwargs):
+        action = request.POST.get("action")
+        if action == "in":
+            job = None
+            pk = request.POST.get("job", "")
+            if pk.isdigit():
+                job = jobs_for(request.user).filter(pk=int(pk)).first()
+            notes = request.POST.get("notes", "")[:255]
+            _, error = crew.clock_in(request.user, job=job, notes=notes)
+            message = "Clocked in." if error is None else error
+        elif action == "out":
+            entry, error = crew.clock_out(request.user)
+            if error is None:
+                where = f" on {entry.job.number}" if entry.job_id else ""
+                message = f"Clocked out after {entry.hours} hours{where}."
+            else:
+                message = error
+        else:
+            return HttpResponseBadRequest("Unknown action")
+        if error is None:
+            messages.success(request, message)
+        else:
+            messages.warning(request, message)
+        return redirect("jobs:time_clock")
+
+
+class AssignmentsView(SalesRoleRequiredMixin, TemplateView):
+    """Who's on what, for the week — the Owner and Sales Reps planning
+    the crew's time."""
+
+    template_name = "jobs/assignments.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        today = timezone.localdate()
+        anchor = _parse_day(self.request.GET.get("week")) or today
+        first, last = crew.week_bounds(anchor)
+        start, end = day_bounds(first, last)
+        people = crew_members()
+        assignments = (
+            JobAssignment.objects.filter(
+                job__scheduled_start__gte=start, job__scheduled_start__lt=end
+            )
+            .exclude(job__status=Job.Status.CANCELLED)
+            .select_related("job", "job__contact", "job__primary_service_type")
+            .order_by("job__scheduled_start")
+        )
+        by_person = {person.pk: [] for person in people}
+        for assignment in assignments:
+            by_person.setdefault(assignment.user_id, []).append(assignment)
+        rows = []
+        for person in people:
+            own = by_person.get(person.pk, [])
+            profile = get_profile(person)
+            rows.append(
+                {
+                    "person": person,
+                    "assignments": own,
+                    "hours": sum((a.hours_worked or 0) for a in own),
+                    "working_days": profile.working_days_display,
+                    "off_days": [
+                        a
+                        for a in own
+                        if not profile.works_on(timezone.localdate(a.job.scheduled_start))
+                    ],
+                }
+            )
+        unassigned = (
+            jobs_for(self.request.user)
+            .filter(scheduled_start__gte=start, scheduled_start__lt=end, assignments__isnull=True)
+            .exclude(status=Job.Status.CANCELLED)
+            .select_related("contact", "primary_service_type")
+            .order_by("scheduled_start")
+        )
+        context.update(
+            rows=rows,
+            unassigned=unassigned,
+            week_first=first,
+            week_last=last,
+            previous_week=(first - timedelta(days=7)).isoformat(),
+            next_week=(first + timedelta(days=7)).isoformat(),
+            this_week=today.isoformat(),
+        )
+        return context
+
+
+class PayrollView(OwnerRequiredMixin, TemplateView):
+    """Hours clocked in a period times each person's rate."""
+
+    template_name = "jobs/payroll.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        today = timezone.localdate()
+        period, error = reports.report_period(
+            self.request.GET.get("range", "week"),
+            _parse_day(self.request.GET.get("start")),
+            _parse_day(self.request.GET.get("end")),
+            today,
+        )
+        rows = crew.payroll(crew_members(include_sales=True), period.first, period.last)
+        context.update(
+            period=period,
+            period_error=error,
+            presets=[(key, label, key == period.preset) for key, label in reports.PRESETS.items()],
+            rows=rows,
+            total=crew.payroll_total(rows),
+            missing_rates=[row["person"] for row in rows if row["rate"] is None and row["hours"]],
+        )
+        return context
+
+
+class PerformanceView(OwnerRequiredMixin, TemplateView):
+    """How the crew's work looks over a period."""
+
+    template_name = "jobs/performance.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        today = timezone.localdate()
+        period, error = reports.report_period(
+            self.request.GET.get("range", "month"),
+            _parse_day(self.request.GET.get("start")),
+            _parse_day(self.request.GET.get("end")),
+            today,
+        )
+        context.update(
+            period=period,
+            period_error=error,
+            presets=[(key, label, key == period.preset) for key, label in reports.PRESETS.items()],
+            rows=crew.performance(crew_members(), period.first, period.last),
+        )
+        return context
+
+
+def crew_members(include_sales=False):
+    """Everyone who does the work. Payroll also covers the people who
+    sell it, who clock time like anyone else."""
+    names = [Role.CLEANER.value]
+    if include_sales:
+        names += [Role.OWNER.value, Role.SALES_REP.value]
+    return (
+        User.objects.filter(is_active=True, groups__name__in=names)
+        .distinct()
+        .order_by("first_name", "last_name", "username")
+    )
 
 
 class ServiceListView(OwnerRequiredMixin, ListView):
