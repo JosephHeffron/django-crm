@@ -98,6 +98,28 @@ A **quote** page (from the calendar or dashboard) shows its status,
 line items and total, the site visit, and any jobs booked from it.
 Creating and editing quotes and jobs arrives in Phase 18.
 
+## Business Settings (Owner)
+
+Open the **gear → Business settings**:
+
+- **Company Logo** — choose a JPEG, PNG, GIF, or WebP up to 5 MB. A crop
+  box opens: drag the square (or use the arrow keys) and the slider to
+  pick what to keep, then **Use this crop** and **Save changes**. The logo
+  appears in the sidebar, on the sign-in page, and (later) on estimates
+  and invoices. Check **Remove the current logo** to go back to the
+  default icon.
+- **Business name** — shown everywhere in place of the default name.
+  Leave it blank if you work under your own name.
+- **Contact Email / Phone** and **website & social links** — what
+  customers see. They're separate from your own login and profile.
+  One link per platform (Website, Google, Facebook…), plus any number of
+  **Other** links, each with a label.
+- **Currency** — US or Canadian dollars; every amount in the app follows
+  it.
+- **Export Data** — download customers, companies, jobs, estimates,
+  invoices, payments, expenses, or the team list as CSV (opens in Excel)
+  or JSON.
+
 ## Financials (Owner)
 
 **Financials** shows the money side for **Today**, **This week**,

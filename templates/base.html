@@ -42,7 +42,7 @@
     <div class="auth-card">
       <div class="auth-brand">
         <span class="brand">
-          <img class="brand-mark" src="{% static 'pwa/icons/icon.svg' %}" alt="" width="28" height="28">
+          <img class="brand-mark{% if brand_logo_url %} is-logo{% endif %}" src="{% if brand_logo_url %}{{ brand_logo_url }}{% else %}{% static 'pwa/icons/icon.svg' %}{% endif %}" alt="" width="28" height="28">
           <span>{{ brand_name }}</span>
         </span>
       </div>

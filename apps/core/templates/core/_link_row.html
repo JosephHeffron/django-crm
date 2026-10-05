@@ -1,0 +1,8 @@
+<div class="link-row" data-link-row>
+  {{ link_form.id }}
+  <p><label for="{{ link_form.platform.id_for_label }}">{{ link_form.platform.label }}</label> {{ link_form.platform }}</p>
+  <p><label for="{{ link_form.label.id_for_label }}">{{ link_form.label.label }}</label> {{ link_form.label }}</p>
+  <p class="link-url"><label for="{{ link_form.url.id_for_label }}">{{ link_form.url.label }}</label> {{ link_form.url }}</p>
+  {% if link_form.instance.pk %}<label class="checkbox-label link-remove">{{ link_form.DELETE }} Remove</label>{% endif %}
+  {% if link_form.errors %}<div class="link-errors">{% for field in link_form %}{{ field.errors }}{% endfor %}</div>{% endif %}
+</div>

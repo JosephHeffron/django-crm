@@ -13,4 +13,7 @@ urlpatterns = [
     path("sw.js", views.ServiceWorkerView.as_view(), name="service_worker"),
     path("offline/", views.OfflineView.as_view(), name="offline"),
     path("styleguide/", views.StyleguideView.as_view(), name="styleguide"),
+    path("settings/business/", views.BusinessSettingsView.as_view(), name="business_settings"),
+    path("settings/business/export/", views.BusinessExportView.as_view(), name="business_export"),
+    path("branding/logo/", views.BusinessLogoView.as_view(), name="business_logo"),
 ]

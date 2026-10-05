@@ -4,7 +4,7 @@
     <svg class="icon" aria-hidden="true"><use href="#icon-menu"/></svg>
   </a>
   <a class="brand topbar-brand" href="{% url 'core:index' %}">
-    <img class="brand-mark" src="{% static 'pwa/icons/icon.svg' %}" alt="" width="28" height="28">
+    <img class="brand-mark{% if brand_logo_url %} is-logo{% endif %}" src="{% if brand_logo_url %}{{ brand_logo_url }}{% else %}{% static 'pwa/icons/icon.svg' %}{% endif %}" alt="" width="28" height="28">
     <span class="brand-name">{{ brand_name }}</span>
   </a>
 

@@ -5,12 +5,20 @@ from datetime import timedelta
 
 from django import forms
 from django.conf import settings
+from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
+from django.core.exceptions import ValidationError
 from django.core.paginator import Paginator
-from django.db import connection
+from django.db import connection, transaction
 from django.db.models import Count, F, Q, Sum
-from django.http import JsonResponse
-from django.shortcuts import render
+from django.http import (
+    FileResponse,
+    Http404,
+    HttpResponseBadRequest,
+    JsonResponse,
+    StreamingHttpResponse,
+)
+from django.shortcuts import redirect, render
 from django.urls import reverse
 from django.utils import timezone
 from django.views import View
@@ -24,7 +32,10 @@ from apps.jobs.reports import invoiced_revenue, outstanding
 from apps.messaging.services import unread_count
 from apps.users.roles import OwnerRequiredMixin, Role, SalesRoleRequiredMixin, user_role
 
-from . import pwa
+from . import export, pwa
+from .branding import process_logo
+from .forms import BusinessSettingsForm, LinkFormSet, LogoForm
+from .models import BusinessLink
 
 logger = logging.getLogger(__name__)
 
@@ -220,7 +231,9 @@ class ManifestView(View):
     without credentials — and contains nothing sensitive."""
 
     def get(self, request, *args, **kwargs):
-        return JsonResponse(pwa.manifest(), content_type="application/manifest+json")
+        business = getattr(request, "business", None)
+        name = business.name if business is not None else ""
+        return JsonResponse(pwa.manifest(name), content_type="application/manifest+json")
 
 
 class ServiceWorkerView(View):
@@ -372,3 +385,97 @@ class SearchSuggestView(SalesRoleRequiredMixin, View):
             ]
         )
         return JsonResponse({"results": rows[:SUGGEST_LIMIT]})
+
+
+class BusinessSettingsView(OwnerRequiredMixin, TemplateView):
+    """Business Information (name, logo, contact details, links,
+    currency) and Export Data. Owner only (ADR 0008)."""
+
+    template_name = "core/business_settings.html"
+
+    def forms(self, data=None, files=None):
+        # load() gives the saved row, or unsaved defaults (pk=1) that the
+        # first save inserts.
+        business = self.request.business
+        return (
+            BusinessSettingsForm(data, instance=business),
+            LogoForm(data, files),
+            LinkFormSet(data, queryset=BusinessLink.objects.all(), prefix="links"),
+        )
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        if "form" not in kwargs:
+            context["form"], context["logo_form"], context["links"] = self.forms()
+        context["owner_name"] = (
+            self.request.user.get_full_name() or self.request.user.get_username()
+        )
+        context["datasets"] = [(key, label) for key, (label, _) in export.DATASETS.items()]
+        return context
+
+    def post(self, request, *args, **kwargs):
+        form, logo_form, links = self.forms(request.POST, request.FILES)
+        new_logo = None
+        if form.is_valid() and logo_form.is_valid():
+            upload = logo_form.cleaned_data.get("logo_file")
+            if upload:
+                try:
+                    new_logo = process_logo(upload, logo_form.crop())
+                except ValidationError as error:
+                    logo_form.add_error("logo_file", error)
+        if not (form.is_valid() and logo_form.is_valid() and links.is_valid()):
+            return self.render_to_response(
+                self.get_context_data(form=form, logo_form=logo_form, links=links)
+            )
+
+        business = form.save(commit=False)
+        old_logo = business.logo.name if business.logo else ""
+        if new_logo is not None:
+            business.logo.save("logo.png", new_logo, save=False)
+        elif logo_form.cleaned_data.get("remove_logo"):
+            business.logo = ""
+        with transaction.atomic():
+            business.save()
+            for position, link in enumerate(links.save(commit=False)):
+                link.position = position
+                link.save()
+            for link in links.deleted_objects:
+                link.delete()
+        # Remove the replaced file only once the new state is saved.
+        if old_logo and old_logo != (business.logo.name if business.logo else ""):
+            business.logo.storage.delete(old_logo)
+        messages.success(request, "Business settings saved.")
+        return redirect("core:business_settings")
+
+
+class BusinessExportView(OwnerRequiredMixin, View):
+    """Download one dataset as CSV or JSON (apps/core/export.py)."""
+
+    def get(self, request, *args, **kwargs):
+        dataset = request.GET.get("dataset", "")
+        fmt = request.GET.get("format", "csv")
+        if dataset not in export.DATASETS or fmt not in export.FORMATS:
+            return HttpResponseBadRequest("Unknown dataset or format")
+        rows = export.DATASETS[dataset][1]()
+        if fmt == "csv":
+            body, content_type = export.stream_csv(rows), "text/csv; charset=utf-8"
+        else:
+            body, content_type = export.stream_json(rows), "application/json"
+        response = StreamingHttpResponse(body, content_type=content_type)
+        filename = f"{dataset}-{timezone.localdate().isoformat()}.{fmt}"
+        response["Content-Disposition"] = f'attachment; filename="{filename}"'
+        return response
+
+
+class BusinessLogoView(View):
+    """The uploaded logo. Public: the login page shows it too, and a logo
+    isn't private. Cacheable — the URL carries a version (?v=) that
+    changes on every save."""
+
+    def get(self, request, *args, **kwargs):
+        business = request.business
+        if not business.logo:
+            raise Http404("No logo")
+        response = FileResponse(business.logo.open("rb"), content_type="image/png")
+        response["Cache-Control"] = "public, max-age=86400"
+        return response

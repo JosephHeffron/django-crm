@@ -146,6 +146,7 @@ CREATE_MENU = (
 )
 
 GEAR_MENU = (
+    NavLink("Business settings", "core:business_settings", "building", OWNER_ONLY),
     NavLink("Your profile", "people:profile", "user", ALL_ROLES),
     NavLink("Account settings", "people:profile_edit", "settings", ALL_ROLES),
     NavLink("Company management", "people:team", "users", OWNER_ONLY),

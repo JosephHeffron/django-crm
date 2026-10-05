@@ -3,12 +3,15 @@ from decimal import Decimal, InvalidOperation
 
 from django import template
 
+from apps.core.business import currency_symbol
+
 register = template.Library()
 
 
 @register.filter
 def money(value):
-    """Dollars with thousands separators: 1234.5 → "$1,234.50"."""
+    """Amount in the business's currency with thousands separators:
+    1234.5 → "$1,234.50" (or "CA$1,234.50")."""
     if value is None or value == "":
         return "—"
     try:
@@ -16,7 +19,7 @@ def money(value):
     except (InvalidOperation, TypeError, ValueError):
         return value
     sign = "-" if amount < 0 else ""
-    return f"{sign}${abs(amount):,.2f}"
+    return f"{sign}{currency_symbol()}{abs(amount):,.2f}"
 
 
 PAYMENT_STATUS_LABELS = {
