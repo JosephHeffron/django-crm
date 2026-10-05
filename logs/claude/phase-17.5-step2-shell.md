@@ -109,8 +109,8 @@ theme add two queries per page; the suggestion endpoint is sales-only.
 ## Git
 
 Branch: `feature/restyle-shell`
-Commit: pending
-Merged to `main`: pending
+Commits: `478b440` (feature), `f90cce6` (self-review fixes)
+Merged to `main`: PR #108, merge commit `2b5d3a1`
 
 ## Next
 
