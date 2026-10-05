@@ -116,11 +116,19 @@ Not changed: Sourcery's editor hint to use an assignment expression in
 `BusinessSettingsView.post` — this codebase uses none anywhere, so the
 explicit assignment stays.
 
+Re-verified in the browser after the fixes, under production settings:
+a link added into the blank row saved last
+(`website, facebook, yelp, instagram`); a crop field overwritten with
+text still saved and showed the logo; the invoice export quoted no
+numeric balance; no horizontal overflow at 390px; zero CSP violations
+and no console errors. The sample settings, links, and logo file were
+removed from the dev database afterwards.
+
 ## Git
 
-Branch: `feature/business-settings`
-Commit: pending
-Merged to `main`: pending
+Branch: `feature/business-settings` (PR #112)
+Commits: `b40ba92` (the feature), `f4d8d15` (self-review fixes)
+Merged to `main`: `bce0167`
 
 ## Next
 

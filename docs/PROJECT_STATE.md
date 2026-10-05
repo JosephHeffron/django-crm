@@ -15,7 +15,7 @@ actually verified.
 > (browser-verified CSP review) is also complete** — a headless-Chromium
 > check found zero violations, including after a real Sourcery-caught
 > bug (an un-nonced inline style on the production 500 page) was fixed.
-> Phase 17 (field-service foundation) is complete. Phase 17.5 (UI restyle) is in progress — steps 1–2 of 11 done.
+> Phase 17 (field-service foundation) is complete. Phase 17.5 (UI restyle) is in progress — steps 1–3 of 11 done.
 > Note: the GitHub repo, switched from public to private earlier in the
 > project, is now **public again** — Phase 13 unit 1's audit found
 > branch protection and secret scanning had been silently disabled
@@ -40,7 +40,7 @@ The original 14-phase roadmap (Phases 0-14) is fully complete — see
 "Project complete," below, for the summary, and "Completed" for full
 phase-by-phase detail. The post-release roadmap is now underway:
 Phases 15-17 are complete; Phase 17.5 (UI restyle) is in progress
-(steps 1–2 done) — see "Post-release roadmap progress,"
+(steps 1–3 done) — see "Post-release roadmap progress,"
 below, for current status. This section deliberately stays short and points at
 those two rather than duplicating them, so it can't drift out of sync
 with them the way an earlier version of this section once did (it
@@ -791,7 +791,7 @@ roadmap completed:
   (Sourcery budget exhausted): one defect fixed before merge — a
   superuser owner couldn't be sent a direct message. 494 tests. Full
   detail in `logs/claude/phase-17-unit3d-profile-messages.md`.
-- **Phase 17.5 — UI restyle (in progress — steps 1–2 of 11 done).**
+- **Phase 17.5 — UI restyle (in progress — steps 1–3 of 11 done).**
   Matching the owner's reference design (ADR 0010); map on
   OpenStreetMap (ADR 0011). Reference screenshots hold real people's
   data and are kept outside the repo. **Step 1 (PR #106) — done:** new
@@ -809,19 +809,34 @@ roadmap completed:
   Self-reviewed: two defects fixed before merge (the palette reopened
   on Escape; an unchecked shortcut key). 507 tests. Full detail in
   `logs/claude/phase-17.5-step2-shell.md`.
+  **Step 3 (PR #112) — done:** Business Settings for the Owner at
+  `/settings/business/` — business name, logo (cropped in the browser,
+  then validated and re-encoded server-side as a ≤512px PNG with no
+  metadata; the uploaded bytes are never stored), customer-facing
+  contact email and phone, website and social links (one per main
+  platform plus labeled Other links), and the currency (USD/CAD) that
+  the `money` filter follows everywhere. The name and logo replace the
+  install brand across the shell, the sign-in page, and the PWA
+  manifest. Export Data streams any dataset as CSV or JSON with
+  spreadsheet-formula cells neutralized. Settings load once per
+  request; reading never writes the row. Self-reviewed: three defects
+  fixed before merge (an added link sorted second; an unreadable hidden
+  crop value silently discarded the save; a negative amount exported as
+  text). 530 tests. Full detail in
+  `logs/claude/phase-17.5-step3-business-settings.md`.
 - Phases 18-25: not yet started (re-sequenced in `docs/ROADMAP.md`).
 
 ## Currently working on
 
-Nothing in flight — Phase 17.5 step 2 just closed out.
+Nothing in flight — Phase 17.5 step 3 just closed out.
 
 ## Next
 
-1. Phase 17.5 step 3 — Business Settings (business name, logo with
-   crop, contact details, website links) and currency as a business
-   setting, so the sidebar and documents show the business's own name
-   and logo.
-2. Then steps 4–11 (ADR 0010, ROADMAP Phase 17.5), then Phase 18.
+1. Phase 17.5 step 4 — the Dashboard to the reference layout:
+   onboarding checklist, greeting, overview cards with revenue charts,
+   Add New Job, Jobs Today, quick actions and goals, which needs
+   notifications and goals models.
+2. Then steps 5–11 (ADR 0010, ROADMAP Phase 17.5), then Phase 18.
 
 ## Known issues
 
