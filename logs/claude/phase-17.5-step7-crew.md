@@ -129,8 +129,8 @@ Back and won't replay a stale page.
 ## Git
 
 Branch: `feature/restyle-crew` (PR #120)
-Commits: `9eab150` (the step), self-review fixes to follow
-Merged to `main`: pending
+Commits: `9eab150` (the step), `c11f56d` (self-review fixes)
+Merged to `main`: `60ffebe`
 
 ## Next
 
