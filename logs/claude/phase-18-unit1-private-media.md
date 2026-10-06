@@ -231,6 +231,35 @@ $ Caddy, twice: once proving the original fix broken (200 + file body),
   copy of the real Caddyfile, not a simplified reproduction.
 $ `caddy validate` on both files — "Valid configuration".
 $ `CI=1` with Caddy off `PATH` — fails, as intended.
+$ Browser check under production settings (Playwright, Chromium,
+  synthetic photos on a demo job, sessions minted rather than using any
+  real password):
+
+| as | result |
+| --- | --- |
+| the crew member assigned to the job | 200, `image/jpeg`, 9,987 bytes |
+| a crew member not on the job | 404 |
+| the Owner | 200, `image/jpeg` |
+| signed out | 302 to sign-in |
+| a teammate on an avatar | 200 |
+| `/media/private/photos/<uuid>.jpg` directly | 404 |
+
+  Both the photo and the avatar render at their real 900×600 in an
+  `<img>` on an ordinary app page, with **zero** CSP violations — the
+  way unit 2 will show them. Headers as intended: `inline`, `nosniff`,
+  `private, max-age=0, no-store`, `same-origin`.
+
+  One thing worth knowing: *navigating straight to a photo URL* does
+  log CSP violations, six of them. They come from Chromium's own
+  image-viewer document, which our response's CSP header also applies
+  to, so its inline styles are blocked. The image still displays; only
+  the viewer's own background styling is lost. Not changed — dropping
+  CSP from media responses to tidy up a browser's internal page would
+  weaken a real defence for nothing. Recorded so it isn't mistaken for
+  a regression later.
+
+  The synthetic photos, the avatar and the minted sessions were removed
+  afterwards; the dev database is as it was.
 $ `ruff` / `ruff format --check` / bandit (CI flags) /
   `makemigrations --check` — clean.
 
