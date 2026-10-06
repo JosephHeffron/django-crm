@@ -46,10 +46,16 @@ def send_private_file(file_field, content_type=None):
         raise Http404("No file")
     try:
         handle = file_field.open("rb")
-    except (FileNotFoundError, OSError) as error:
+    except FileNotFoundError as error:
         # The row survives a file that's gone (a restore that missed the
         # media volume, say). Saying "not found" is the truth.
         raise Http404("The file is missing") from error
+    # Any other OSError — a permission problem, a volume that isn't
+    # mounted, a read error — is deliberately NOT turned into a 404.
+    # Those are server faults, and dressing them as "not found" would
+    # make a misconfigured media volume look to everyone like the
+    # photos were simply never uploaded, with nothing in the logs
+    # saying otherwise. Let it raise, so it's a 500 and gets recorded.
     response = FileResponse(handle, content_type=content_type)
     for name, value in HEADERS.items():
         response[name] = value

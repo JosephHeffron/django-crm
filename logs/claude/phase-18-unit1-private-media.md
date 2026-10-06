@@ -39,7 +39,8 @@ writing photos.
   the crew member on the job, a crew member on a different job, the
   Owner, no role, an unknown photo, a missing file, an estimate photo,
   the headers, that the stored name is the UUID and never the uploaded
-  filename, avatars, and **that both Caddyfiles still refuse the path
+  filename, avatars, that a storage fault is not disguised as a
+  missing photo, and **that both Caddyfiles still refuse the path
   — asserted against `caddy adapt`, the configuration Caddy actually
   runs, not the text of the file** (see the two review findings below
   for why that distinction cost three attempts).
@@ -148,9 +149,21 @@ delivery. They now assert the JPEG bytes, via one helper so a bare
 status check doesn't creep back. Mutation-checked by making the view
 return an empty body — four tests fail where two used to pass.
 
+## Review finding, third round — a broken volume looked like a missing photo
+
+`send_private_file` caught `OSError` and returned 404. Sourcery pointed
+out that this covers permission errors, I/O errors and an unmounted
+volume, so a misconfigured media volume would show every photo as
+"not found" to every user, with nothing in the logs saying otherwise.
+Only `FileNotFoundError` means the file is genuinely gone; the rest are
+server faults and now propagate, so they're a 500 and get recorded.
+
+Mutation-checked: restoring the broad `except OSError` fails the two
+new tests (a permission error and a read error).
+
 ## Verification
 
-$ `manage.py test` — 804 tests, OK (783 before, 21 new). No migrations:
+$ `manage.py test` — 807 tests, OK (783 before, 24 new). No migrations:
   the Photo model has existed since Phase 17.
 $ Caddy, twice: once proving the original fix broken (200 + file body),
   once proving the current one works (the table above). Both runs used a

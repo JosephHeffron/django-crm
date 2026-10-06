@@ -4,7 +4,7 @@ import os
 import shutil
 import subprocess
 import tempfile
-from unittest import skipIf
+from unittest import mock, skipIf
 
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase, override_settings
@@ -106,6 +106,36 @@ class PhotoAccessTests(MediaTestCase):
         self.assertEqual(self.client.get(url).status_code, 404)  # crew don't see estimates
         self.client.login(username="boss", password=PASSWORD)
         self.assertSentTheImage(self.client.get(url))
+
+
+class StorageFailureTests(MediaTestCase):
+    """A broken media volume must not look like a missing photo."""
+
+    def setUp(self):
+        super().setUp()
+        self.client.login(username="boss", password=PASSWORD)
+
+    def test_a_file_that_is_gone_is_not_found(self):
+        self.photo.image.storage.delete(self.photo.image.name)
+        self.assertEqual(self.client.get(self.url).status_code, 404)
+
+    def test_a_permission_error_is_not_dressed_up_as_not_found(self):
+        # Otherwise an unreadable media volume reads, to everyone, as
+        # "the photos were never uploaded", and nothing says otherwise.
+        def refuse(*args, **kwargs):
+            raise PermissionError(13, "Permission denied")
+
+        with mock.patch.object(Photo.image.field.storage, "open", refuse):
+            with self.assertRaises(PermissionError):
+                self.client.get(self.url)
+
+    def test_a_read_error_is_not_dressed_up_as_not_found(self):
+        def fail(*args, **kwargs):
+            raise OSError(5, "Input/output error")
+
+        with mock.patch.object(Photo.image.field.storage, "open", fail):
+            with self.assertRaises(OSError):
+                self.client.get(self.url)
 
 
 class PhotoHeaderTests(MediaTestCase):
