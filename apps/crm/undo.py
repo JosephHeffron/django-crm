@@ -33,6 +33,18 @@ RESTORABLE = (
 )
 
 
+# Fields that carry other state with them: converting a lead writes a
+# contact, a company and a quote, and putting the word back would say it
+# never happened while all of that still exists. The log records one
+# field; these changes are never one field.
+LIFECYCLE_FIELDS = {
+    ("crm", "lead", "status"),
+    ("crm", "deal", "stage"),
+    ("crm", "contact", "status"),
+    ("crm", "task", "status"),
+}
+
+
 class CannotUndo(Exception):
     """With the reason, in words meant for the person reading it."""
 
@@ -60,6 +72,13 @@ def why_not(entry):
         if not isinstance(field, RESTORABLE):
             label = getattr(field, "verbose_name", name)
             return f"“{label}” isn't something that can be put back automatically."
+        key = (model._meta.app_label, model._meta.model_name, name)
+        if key in LIFECYCLE_FIELDS:
+            label = getattr(field, "verbose_name", name)
+            return (
+                f"“{label}” decides what else exists, so putting it back on its own "
+                "would leave behind the records it created. Change it on the record itself."
+            )
     return None
 
 
@@ -75,37 +94,50 @@ def _as_stored(field, text):
     return text
 
 
+def _auto_now_fields(model):
+    """Fields Django stamps on save — they only update when they're
+    named in `update_fields`."""
+    return [field.name for field in model._meta.fields if getattr(field, "auto_now", False)]
+
+
 def undo(entry, user):
     """Put a change back. Returns the fields restored.
 
     Raises CannotUndo with a readable reason — including when somebody
     has edited the record since, because undoing then would quietly
     discard their work.
+
+    The row is locked and re-read inside the transaction before anything
+    is compared. Checking a copy fetched earlier would leave a gap for
+    another edit to land in and be overwritten, which is the one outcome
+    this whole feature exists to avoid.
     """
     reason = why_not(entry)
     if reason:
         raise CannotUndo(reason)
 
-    record = entry.record
-    model = type(record)
-    restored, moved_on = {}, []
-    for name, (old, new) in entry.changes.items():
-        field = _field(model, name)
-        current = getattr(record, name)
-        if str(current) != str(new):
-            moved_on.append(getattr(field, "verbose_name", name))
-            continue
-        restored[name] = _as_stored(field, old)
-    if moved_on:
-        names = ", ".join(str(name) for name in moved_on)
-        raise CannotUndo(f"Somebody has changed {names} since. Undoing would lose that.")
-    if not restored:
-        raise CannotUndo("Nothing left to put back.")
-
+    model = type(entry.record)
     with transaction.atomic():
+        record = model.objects.select_for_update().filter(pk=entry.object_id).first()
+        if record is None:
+            raise CannotUndo("The record this changed is gone.")
+
+        restored, moved_on = {}, []
+        for name, (was, became) in entry.changes.items():
+            field = _field(model, name)
+            if str(getattr(record, name)) != str(became):
+                moved_on.append(getattr(field, "verbose_name", name))
+                continue
+            restored[name] = _as_stored(field, was)
+        if moved_on:
+            names = ", ".join(str(name) for name in moved_on)
+            raise CannotUndo(f"Somebody has changed {names} since. Undoing would lose that.")
+        if not restored:
+            raise CannotUndo("Nothing left to put back.")
+
         for name, value in restored.items():
             setattr(record, name, value)
-        record.save(update_fields=list(restored))
+        record.save(update_fields=list(restored) + _auto_now_fields(model))
         AuditLogEntry.objects.create(
             content_type=entry.content_type,
             object_id=entry.object_id,

@@ -103,9 +103,11 @@ class TeamListView(OwnerRequiredMixin, TemplateView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         people = (
-            User.objects.filter(is_active=True)
+            # Everyone, including anyone whose sign-in is off — they're
+            # still on the team, and this is where it's turned back on.
+            User.objects.all()
             .select_related("profile")
-            .order_by("first_name", "last_name", "username")
+            .order_by("-is_active", "first_name", "last_name", "username")
         )
         roles = roles_for(people)
         context["team"] = [(person, roles[person.pk]) for person in people]
@@ -119,7 +121,10 @@ class TeamMemberView(OwnerRequiredMixin, TemplateView):
     template_name = "users/profile.html"
 
     def person(self):
-        return get_object_or_404(User, username=self.kwargs["username"], is_active=True)
+        # Inactive people included: turning someone's sign-in off would
+        # otherwise remove them from the only page that can turn it back
+        # on, which is a one-way door.
+        return get_object_or_404(User, username=self.kwargs["username"])
 
     def get(self, request, *args, **kwargs):
         if kwargs["username"] == request.user.get_username():
@@ -149,6 +154,12 @@ class TeamMemberView(OwnerRequiredMixin, TemplateView):
         return redirect("people:member", username=person.get_username())
 
     def _save_access(self, request, person):
+        if person == request.user:
+            # The GET redirects you to your own profile; a POST has to
+            # refuse too, or you could take away your own access and
+            # have no way back in.
+            messages.warning(request, "You can't change your own access from here.")
+            return redirect("people:profile")
         form = MemberAccessForm(request.POST, person=person)
         if not form.is_valid():
             return self.render_to_response(self.get_context_data(access_form=form))

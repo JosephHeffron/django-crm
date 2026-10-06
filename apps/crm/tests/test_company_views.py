@@ -21,7 +21,7 @@ class CompanyListViewTests(TestCase):
 
     def test_empty_list_shows_no_companies_message(self):
         response = self.client.get(reverse("crm:company_list"))
-        self.assertContains(response, "No companies found")
+        self.assertContains(response, "No companies yet")
 
     def test_list_shows_companies(self):
         Company.objects.create(name="Acme Corp", created_by=self.user)
@@ -39,7 +39,7 @@ class CompanyListViewTests(TestCase):
     def test_search_with_no_matches(self):
         Company.objects.create(name="Acme Corp", created_by=self.user)
         response = self.client.get(reverse("crm:company_list"), {"q": "Nonexistent"})
-        self.assertContains(response, "No companies found")
+        self.assertContains(response, "No companies yet")
 
     def test_status_filter_active_only(self):
         Company.objects.create(name="Active Co", created_by=self.user, is_active=True)

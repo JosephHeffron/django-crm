@@ -22,7 +22,7 @@ class ActivityListViewTests(TestCase):
 
     def test_empty_list_shows_no_activities_message(self):
         response = self.client.get(reverse("crm:activity_list"))
-        self.assertContains(response, "No activities found")
+        self.assertContains(response, "Nothing logged yet")
 
     def test_list_shows_activities(self):
         Activity.objects.create(
