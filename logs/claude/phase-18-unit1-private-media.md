@@ -40,9 +40,9 @@ writing photos.
   Owner, no role, an unknown photo, a missing file, an estimate photo,
   the headers, that the stored name is the UUID and never the uploaded
   filename, avatars, and **that both Caddyfiles still refuse the path
-  with a handler placed ahead of the one that serves files** (see the
-  review finding below for why the ordering, not the mere presence, is
-  what's asserted).
+  — asserted against `caddy adapt`, the configuration Caddy actually
+  runs, not the text of the file** (see the two review findings below
+  for why that distinction cost three attempts).
 
 ## Decisions
 
@@ -55,10 +55,12 @@ writing photos.
 - **A test reads the Caddyfiles.** The whole point of the view is that
   the proxy doesn't serve these files; a config change that undid it
   would otherwise pass every test in the suite.
-- **The proxy test asserts the ordering, not the strings.** The first
-  version only checked that `/media/private/*` and a `respond 404`
-  appeared somewhere in each file. That passed against a config which
-  served every private photo — see below.
+- **The proxy test asserts the adapted config, not the file's text.**
+  Two earlier versions searched the text and were both worthless: the
+  first passed while every private photo was served, and the second
+  would have passed with the block commented out. Worth a pinned
+  binary in CI because this is the one control between a customer's
+  job photos and anyone with the URL.
 
 ## Review finding — the first fix did not work
 
@@ -84,10 +86,18 @@ Two things were wrong, and the second is the worse one:
    guards is broken is worse than no test, because it buys confidence
    it has not earned.
 
-The fix is an ordered `handle_path /media/private/* { respond 404 }`
-block placed before `handle_path /media/*` in both files. `handle_path`
-blocks *are* matched in written order relative to each other, which is
-what makes this work where the matcher didn't.
+The fix is a `handle_path /media/private/* { respond 404 }` block in
+both files.
+
+**And the reason I first gave for why that works was also wrong.** I
+wrote that `handle_path` blocks match in written order. They don't:
+`caddy adapt` on the real file shows `/media/private/*` sorted ahead of
+`/static/*`, which is not where it sits in the file. Tested directly by
+moving the private block *below* `handle_path /media/*` and adapting
+again — it still came out first. Caddy orders handle/handle_path blocks
+by **path specificity**, so the longer, more specific path wins
+wherever it is written. The code comments in both Caddyfiles now say
+that, and say not to rely on their position in the file.
 
 Re-verified against a copy of the real Caddyfile:
 
@@ -99,19 +109,54 @@ Re-verified against a copy of the real Caddyfile:
 | public logo | 200, served |
 | any other path | reached the app |
 
-The rewritten test asserts the shape that matters: a `handle_path` for
-the private path, before the general one, containing `respond 404` and
-no `file_server`. Checked by mutation — restoring the matcher form
-makes all three assertions fail; the fixed config passes them.
+## Review finding, second round — the rewritten test was still weak
+
+Sourcery then pointed out that the rewritten test still only searched
+the file's text, so **commenting the block out would leave the text in
+place and pass every assertion** while the general handler served
+private media. Correct, and it is the same error a third time: reading
+intent instead of behaviour.
+
+The guards now run `caddy adapt` and assert on the configuration Caddy
+will actually use — route order, and that the private route ends in a
+`static_response` with no `file_server` or `reverse_proxy`. A
+commented-out block simply isn't in that output. A comment-stripping
+text check stays as a weaker guard that needs no binary, and the
+stripper has its own test.
+
+Mutation-checked, four ways the control could break:
+
+| mutation | result |
+| --- | --- |
+| the original `respond` matcher form | fails |
+| the block commented out | fails |
+| the block deleted | fails |
+| the block serving files instead of answering | fails |
+| the real config | passes |
+
+**Skipping is the remaining hole**, since the strong guards need the
+`caddy` binary. CI now installs it (pinned 2.11.7, SHA-512 verified,
+same approach as `static/vendor/leaflet/`), and a test fails when `CI`
+is set but the binary is absent — so a broken install is loud instead
+of three quiet skips. Verified by running the suite with `CI=1` and
+Caddy removed from `PATH`: it fails with "CI must install caddy or the
+proxy guards do not run".
+
+Sourcery's second, medium finding was also right: two success tests
+asserted only a 200, so an empty response would have passed as photo
+delivery. They now assert the JPEG bytes, via one helper so a bare
+status check doesn't creep back. Mutation-checked by making the view
+return an empty body — four tests fail where two used to pass.
 
 ## Verification
 
-$ `manage.py test` — 801 tests, OK (783 before, 18 new). No migrations:
+$ `manage.py test` — 804 tests, OK (783 before, 21 new). No migrations:
   the Photo model has existed since Phase 17.
 $ Caddy, twice: once proving the original fix broken (200 + file body),
   once proving the current one works (the table above). Both runs used a
   copy of the real Caddyfile, not a simplified reproduction.
 $ `caddy validate` on both files — "Valid configuration".
+$ `CI=1` with Caddy off `PATH` — fails, as intended.
 $ `ruff` / `ruff format --check` / bandit (CI flags) /
   `makemigrations --check` — clean.
 

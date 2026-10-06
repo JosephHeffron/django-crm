@@ -42,11 +42,19 @@
 	# checks who's asking and whether they may see the job the photo
 	# belongs to (apps/jobs/media.py).
 	#
-	# This has to be a handle_path block ahead of the general one, not a
-	# `respond` matcher: Caddy runs directives in its own order, not the
-	# order they're written, and `handle_path` runs before `respond` —
-	# so a matcher placed above would never have been reached. Verified
-	# by running Caddy against this config and fetching the path.
+	# This has to be a handle_path block, not a `respond` matcher.
+	# Caddy sorts directives into its own order rather than running them
+	# top to bottom, and `handle_path` sorts ahead of `respond`, so a
+	# matcher written above the block below never ran — the first
+	# version of this fix did exactly that, and served every private
+	# photo with a 200.
+	#
+	# What makes this work is specificity, not position: Caddy orders
+	# handle/handle_path blocks by how specific their path is, so
+	# /media/private/* is tried before /media/* even though it could be
+	# written after it. Don't rely on the order of these two blocks in
+	# this file; `caddy adapt` shows the order that counts, and
+	# apps/jobs/tests/test_private_media.py asserts it.
 	handle_path /media/private/* {
 		respond 404
 	}
