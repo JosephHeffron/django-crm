@@ -71,7 +71,8 @@ explicitly deferred until this scope is working reliably on the Raspberry Pi.
 The initial release scope above is done. The phases below pick up the
 functionality it deliberately deferred, plus hardening work identified
 along the way (`docs/PRODUCTION_READINESS.md`'s still-open findings).
-Phases 15-17.5 are complete; Phase 18 is next. From Phase 17 the roadmap pivots the CRM to
+Phases 15-17.5 are complete. Phase 18 is underway: unit 1
+(private media) is merged. From Phase 17 the roadmap pivots the CRM to
 the owner's exterior home-services business (service catalog, quotes,
 crew-scheduled jobs, invoicing, follow-up automation, team messaging,
 mobile-first PWA) — see `docs/decisions/0008-roles-and-row-level-scoping.md`
@@ -140,6 +141,9 @@ insufficient.
       a non-drag alternative), before/after camera photo upload with
       login-gated serving, and removal of the retired Lead/Deal models.
       (Absorbs the earlier "attachments" item.)
+      - [x] Unit 1 — login-gated serving of everything under
+            `media/private/`, and the reverse proxy refusing the path
+            (PR #130).
 - [ ] **Phase 19 — Follow-up automation and tasks hub.** Daily
       follow-up generation via a systemd timer (same pattern as the
       backup timer), per-service intervals, completion logging a

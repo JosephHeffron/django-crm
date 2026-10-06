@@ -16,6 +16,14 @@ actually verified.
 > check found zero violations, including after a real Sourcery-caught
 > bug (an un-nonced inline style on the production 500 page) was fixed.
 > Phase 17 (field-service foundation) is complete. Phase 17.5 (UI restyle) is complete — all 11 steps done.
+> **Phase 18 (quotes and jobs workflow) is underway: unit 1 (private
+> media) is merged** (PR #130, 815 tests). It closed a live exposure —
+> job photos and profile pictures under `media/private/` were served
+> straight from disk by Caddy and readable by anyone with the URL.
+> Worth reading the phase log before trusting a config test: the first
+> fix did not work and the test guarding it passed anyway, twice, for
+> the same reason (it searched the Caddyfile's text instead of the
+> configuration Caddy actually runs).
 > Note: the GitHub repo, switched from public to private earlier in the
 > project, is now **public again** — Phase 13 unit 1's audit found
 > branch protection and secret scanning had been silently disabled
@@ -39,7 +47,8 @@ actually verified.
 The original 14-phase roadmap (Phases 0-14) is fully complete — see
 "Project complete," below, for the summary, and "Completed" for full
 phase-by-phase detail. The post-release roadmap is now underway:
-Phases 15-17.5 are complete — see "Post-release roadmap progress,"
+Phases 15-17.5 are complete and Phase 18 is underway — see
+"Post-release roadmap progress,"
 below, for current status. This section deliberately stays short and points at
 those two rather than duplicating them, so it can't drift out of sync
 with them the way an earlier version of this section once did (it
@@ -930,19 +939,71 @@ roadmap completed:
   someone's sign-in removed them from the only page that could turn it
   back on). 783 tests. Full detail in
   `logs/claude/phase-17.5-step11-remaining.md`.
-- Phases 18-25: not yet started (re-sequenced in `docs/ROADMAP.md`).
+- Phase 18 unit 1 — **private media**. `media/private/` (job photos,
+  profile pictures) is no longer served from disk. Both now need a
+  signed-in account with a role, but they are scoped differently, and
+  the difference matters: a **job or estimate photo**
+  (`apps/jobs/media.py`) is shown only to someone who may see the job
+  or estimate it belongs to, so a cleaner sees the jobs they're on and
+  no others, with out of scope being 404 and never 403. A **profile
+  picture** (`AvatarView` in `apps/users/views.py`) is shown to anyone
+  with any role, deliberately — colleagues work together — and is not
+  scoped per person. Verified in Chromium under production
+  settings: the assigned crew member gets the image, a crew member on
+  another job gets 404, signed out goes to sign-in, and the raw
+  `/media/private/` path is refused — with photos rendering in an
+  `<img>` on an ordinary page at zero CSP violations.
+
+  Review found four real defects, and two of them were in the guard
+  rather than the feature: the proxy fix did not work (Caddy sorts
+  directives into its own order, so a `respond` matcher above the
+  general block never ran), and the test passed anyway because it
+  grepped for strings — then its replacement would still have passed
+  with the block commented out. The guards now run `caddy adapt` and
+  assert the effective configuration, mutation-checked four ways, and
+  CI installs a pinned Caddy so they cannot silently skip. Also: a
+  storage permission error was being disguised as "photo not found",
+  and the content type came from the host's MIME database, which
+  differs between this workstation, CI and the Pi. 815 tests. Full
+  detail, including what it means for unit 2, in
+  `logs/claude/phase-18-unit1-private-media.md`.
+- Phase 18 units 2-5 and Phases 19-25: not yet started (re-sequenced in
+  `docs/ROADMAP.md`).
 
 ## Currently working on
 
-Nothing in flight — Phase 17.5 is complete.
+Nothing in flight — Phase 18 unit 1 is merged (PR #130).
 
 ## Next
 
-1. Phase 18 — quotes and jobs workflow. It picks up the two things the
-   restyle deliberately left: turning an accepted estimate into a job in
-   one click, and drag-to-reschedule with a keyboard alternative. It
-   also removes the retired Lead and Deal models, whose pages the
-   restyle left alone for that reason.
+1. **Phase 18 unit 2 — uploading and showing photos.** Unit 1 built
+   only the serving side; nothing displays or uploads a photo yet.
+   Scope is both parents the `Photo` model and the serving view already
+   support: before and after photos on a job, taken on a phone, **and
+   reference photos on an estimate**, which `docs/ROADMAP.md` lists
+   under the quote builder.
+
+   Two constraints found while verifying unit 1, both recorded in
+   `logs/claude/phase-18-unit1-private-media.md`: Pillow has no HEIF
+   support in this environment, so an `ImageField` upload of a HEIC
+   file is rejected at validation — and iPhones shoot HEIC by default.
+   Most desktop browsers also cannot render HEIC even when labelled
+   correctly. So unit 2 has to choose between relying on iOS converting
+   to JPEG on upload and adding `pillow-heif`. CLAUDE.md's
+   justification checklist is written for new *infrastructure*
+   dependencies rather than a Python library, but the same questions
+   are worth answering here, since this one would ship to the Pi.
+2. Phase 18 unit 3 — turning an accepted estimate into a job in one
+   click.
+3. Phase 18 unit 4 — drag-to-reschedule on the calendar, with a
+   keyboard alternative.
+4. Phase 18 unit 5 — removing the retired Lead and Deal models, whose
+   pages the restyle left alone for that reason.
+
+Before calling Phase 18 done, check the remaining items in its
+`docs/ROADMAP.md` entry against what Phase 17.5 actually delivered —
+quote status transitions, and scheduling with crew assignment — rather
+than assuming the restyle covered them.
 
 ## Known issues
 
