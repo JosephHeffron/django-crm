@@ -22,11 +22,12 @@ here rather than only on the real machine.
 
 Two deliberate limits, both reviewed:
 
-- the content type is left to `FileResponse`, which guesses it from the
-  stored filename. That works because uploads keep the real extension
-  (`private/photos/<uuid>.jpg`), and `nosniff` then needs it to be
-  right — so a test asserts the guess really comes out as an image
-  type rather than `application/octet-stream`;
+- the content type is decided here, from the stored extension, rather
+  than left to `FileResponse`. It guesses via `mimetypes`, which reads
+  the host's MIME database — and that differs between this
+  workstation, CI and the Pi. With `nosniff` the type we send is the
+  type the browser uses, so it must not depend on which machine is
+  serving;
 - `FileResponse` streams, so a read error *after* the headers have gone
   out truncates the body instead of becoming a 500. Reading the whole
   file first would narrow that window but not close it, and it would
@@ -35,6 +36,8 @@ Two deliberate limits, both reviewed:
   short body is detectable by the client rather than silently wrong.
 """
 
+from pathlib import PurePath
+
 from django.http import FileResponse, Http404
 from django.views import View
 
@@ -42,6 +45,33 @@ from apps.users.roles import ALL_ROLES, RoleRequiredMixin
 
 from .access import jobs_for, quotes_for
 from .models import Photo
+
+# The type sent for each extension uploads are allowed to store.
+# Explicit rather than `mimetypes.guess_type`, which consults the
+# host's MIME database: `.heic` is known on this Fedora workstation and
+# may not be on another machine, and with `nosniff` a wrong or missing
+# type means the browser downloads the photo instead of showing it.
+# `test_every_uploadable_suffix_has_a_type` keeps this in step with the
+# upload allowlists in apps/jobs/models.py and apps/users/models.py.
+CONTENT_TYPES = {
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".png": "image/png",
+    ".webp": "image/webp",
+    ".heic": "image/heic",
+    ".heif": "image/heif",
+}
+
+
+def content_type_for(name):
+    """The type to send for a stored file, by extension.
+
+    Unknown extensions get `application/octet-stream` on purpose:
+    claiming a type we don't know is worse than declining to guess.
+    The upload paths force a known suffix, so this shouldn't arise.
+    """
+    return CONTENT_TYPES.get(PurePath(name).suffix.lower(), "application/octet-stream")
+
 
 # What a browser should do with these: show them, never run them, and
 # never hand them to another site.
@@ -70,7 +100,7 @@ def send_private_file(file_field, content_type=None):
     # make a misconfigured media volume look to everyone like the
     # photos were simply never uploaded, with nothing in the logs
     # saying otherwise. Let it raise, so it's a 500 and gets recorded.
-    response = FileResponse(handle, content_type=content_type)
+    response = FileResponse(handle, content_type=content_type or content_type_for(file_field.name))
     for name, value in HEADERS.items():
         response[name] = value
     return response

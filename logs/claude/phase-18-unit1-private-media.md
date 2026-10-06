@@ -172,11 +172,10 @@ cheap either way:
   level, and the avatar tests fetch a real picture and assert its JPEG
   bytes. No change.
 - **"Private images download instead of display"** (Medium) — claimed
-  `content_type=None` yields `application/octet-stream`, which with
-  `nosniff` would force a download. `FileResponse` guesses from the
-  stored filename, and the response really carries `image/jpeg`
-  (printed it to be sure). No change — but nothing *tested* it, and
-  `nosniff` makes the guess load-bearing, so now three tests do.
+  `content_type=None` yields `application/octet-stream`. It doesn't:
+  `FileResponse` guesses from the stored filename and the response
+  really carried `image/jpeg` (printed it to be sure). But a follow-up
+  round sharpened this into something real, below.
 - **"Storage read errors truncate images"** (Medium) — true, and
   accepted. `FileResponse` streams, so a read error after the headers
   are out truncates the body rather than becoming a 500. Reading the
@@ -187,9 +186,45 @@ cheap either way:
   asserts it matches the body. The module docstring records both
   limits and why.
 
+## Review finding, fifth round — the content type came from the host
+
+Sourcery's HEIC variant of the content-type point is the one that
+actually bites, and it changed my mind. `FileResponse` guesses via
+`mimetypes`, which reads the **host's** MIME database. That differs
+between this Fedora workstation, the Ubuntu CI runner and the Pi — and
+with `nosniff`, the type we send is the type the browser uses. So the
+same photo could display on one machine and download on another, for
+no reason visible in the code.
+
+`ALLOWED_PHOTO_SUFFIXES` does permit `.heic`, so that path is
+reachable, not hypothetical.
+
+`media.py` now decides the type itself from a small explicit map, and a
+test asserts the answer doesn't change when `mimetypes.types_map` is
+emptied. Mutation-checked: going back to letting `FileResponse` guess
+fails that test — and *only* that test, because this host happens to
+know `.heic`, which is the whole point.
+
+One test ties `CONTENT_TYPES` to `ALLOWED_PHOTO_SUFFIXES`, so adding an
+upload format without adding its type fails rather than quietly serving
+`application/octet-stream`.
+
+**For unit 2 (phone uploads):** Pillow 12.3.0 here has no HEIF support
+registered, so an `ImageField` form upload of a HEIC file is rejected
+at validation — only `objects.create()` can store one. iPhones shoot
+HEIC by default. Unit 2 has to decide between relying on iOS converting
+to JPEG on upload (which Safari generally does for file inputs) and
+adding `pillow-heif`, a new dependency that CLAUDE.md requires be
+justified. Also note most desktop browsers can't render HEIC even when
+correctly labelled, so storing it unconverted would hurt the Owner
+viewing photos on a laptop. Recorded here so it isn't discovered late.
+
+The repeat of the streaming-truncation point is answered on the PR and
+unchanged: accepted, with the reasoning recorded.
+
 ## Verification
 
-$ `manage.py test` — 810 tests, OK (783 before, 27 new). No migrations:
+$ `manage.py test` — 815 tests, OK (783 before, 32 new). No migrations:
   the Photo model has existed since Phase 17.
 $ Caddy, twice: once proving the original fix broken (200 + file body),
   once proving the current one works (the table above). Both runs used a

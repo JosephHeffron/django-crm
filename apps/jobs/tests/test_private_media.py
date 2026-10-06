@@ -1,5 +1,6 @@
 import io
 import json
+import mimetypes
 import os
 import shutil
 import subprocess
@@ -12,7 +13,8 @@ from django.urls import reverse
 from PIL import Image
 
 from apps.crm.tests._helpers import grant_role
-from apps.jobs.models import Photo
+from apps.jobs.media import CONTENT_TYPES, content_type_for
+from apps.jobs.models import ALLOWED_PHOTO_SUFFIXES, Photo
 from apps.users.models import get_profile
 from apps.users.roles import Role
 
@@ -281,6 +283,57 @@ def adapted_routes(name):
 
 
 CADDY = shutil.which("caddy")
+
+
+class ContentTypeTests(MediaTestCase):
+    """`nosniff` means the type we send is the type the browser uses."""
+
+    def setUp(self):
+        super().setUp()
+        self.client.login(username="boss", password=PASSWORD)
+
+    def test_each_stored_extension_maps_to_its_image_type(self):
+        self.assertEqual(content_type_for("private/photos/x.jpg"), "image/jpeg")
+        self.assertEqual(content_type_for("private/photos/x.JPG"), "image/jpeg")
+        self.assertEqual(content_type_for("private/photos/x.png"), "image/png")
+        self.assertEqual(content_type_for("private/photos/x.webp"), "image/webp")
+        self.assertEqual(content_type_for("private/photos/x.heic"), "image/heic")
+
+    def test_an_unknown_extension_claims_nothing(self):
+        self.assertEqual(content_type_for("x.bin"), "application/octet-stream")
+        self.assertEqual(content_type_for("x"), "application/octet-stream")
+
+    def test_every_uploadable_suffix_has_a_type(self):
+        """Adding a format to uploads without adding its type here would
+        serve it as octet-stream, which `nosniff` turns into a download
+        instead of a photo."""
+        for suffix in ALLOWED_PHOTO_SUFFIXES:
+            self.assertIn(suffix, CONTENT_TYPES, f"{suffix} can be uploaded but has no type")
+
+    def test_a_heic_photo_is_served_as_an_image_on_any_host(self):
+        """`mimetypes` knows .heic here and may not on the Pi, so the
+        type must not come from the host's MIME database.
+
+        Stored directly: Pillow has no HEIF support, so an ImageField
+        form upload would reject it. The row is what matters for
+        serving, and the extension allowlist does permit .heic.
+        """
+        photo = Photo.objects.create(
+            job=self.job, kind=Photo.Kind.AFTER, image=image(), uploaded_by=self.owner
+        )
+        stored = photo.image.name.replace(".jpg", ".heic")
+        photo.image.storage.save(stored, photo.image.storage.open(photo.image.name))
+        Photo.objects.filter(pk=photo.pk).update(image=stored)
+        response = self.client.get(reverse("jobs:photo", args=[photo.uuid]))
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response["Content-Type"], "image/heic")
+
+    def test_the_type_does_not_come_from_the_host_mime_database(self):
+        # Same assertion, made directly: blank the host's table and the
+        # answer must not change.
+        with mock.patch.dict(mimetypes.types_map, clear=True):
+            self.assertEqual(content_type_for("x.heic"), "image/heic")
+            self.assertEqual(self.client.get(self.url)["Content-Type"], "image/jpeg")
 
 
 class ProxyConfigTests(TestCase):
