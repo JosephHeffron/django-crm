@@ -7,6 +7,7 @@ import subprocess
 import tempfile
 from unittest import mock, skipIf
 
+from django.core.files.storage import Storage
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase, override_settings
 from django.urls import reverse
@@ -110,6 +111,28 @@ class PhotoAccessTests(MediaTestCase):
         self.assertSentTheImage(self.client.get(url))
 
 
+class NoLocalPathStorage(Storage):
+    """Stands in for object storage: no local paths, no directories.
+
+    `path()` raising NotImplementedError is how Django says a backend
+    isn't on a filesystem, and `exists()` answering no for a prefix is
+    exactly the behaviour that would turn every missing photo into a
+    server error if the directory check believed it.
+    """
+
+    def __init__(self, error=NotImplementedError):
+        self.error = error
+
+    def _open(self, name, mode="rb"):
+        raise FileNotFoundError(name)
+
+    def path(self, name):
+        raise self.error("this backend doesn't use local files")
+
+    def exists(self, name):
+        return False
+
+
 class StorageFailureTests(MediaTestCase):
     """A broken media volume must not look like a missing photo."""
 
@@ -125,13 +148,27 @@ class StorageFailureTests(MediaTestCase):
         """Every photo would 404 at once, and nobody would be told why.
 
         A whole directory gone means the volume isn't there, not that
-        somebody deleted one file.
+        somebody deleted one file. Done for real rather than with a
+        mock: the directory under MEDIA_ROOT is actually removed, which
+        is what an unmounted volume looks like from here.
         """
-        self.photo.image.storage.delete(self.photo.image.name)
-        with mock.patch.object(Photo.image.field.storage, "exists", return_value=False):
-            with self.assertRaises(OSError) as caught:
-                self.client.get(self.url)
+        directory = os.path.dirname(self.photo.image.storage.path(self.photo.image.name))
+        shutil.rmtree(directory)
+        self.assertFalse(os.path.isdir(directory))
+        with self.assertRaises(OSError) as caught:
+            self.client.get(self.url)
         self.assertIn("not mounted", str(caught.exception))
+
+    def test_a_storage_with_no_local_path_still_says_not_found(self):
+        """Object storage has no directories to be missing.
+
+        Asking it whether a prefix "exists" answers no for every key,
+        which would turn every missing photo into a server error. A
+        storage that raises NotImplementedError for `path()` must be
+        left alone.
+        """
+        with mock.patch.object(Photo.image.field, "storage", NoLocalPathStorage()):
+            self.assertEqual(self.client.get(self.url).status_code, 404)
 
     def test_a_missing_file_is_logged_so_somebody_can_find_out(self):
         self.photo.image.storage.delete(self.photo.image.name)
@@ -145,12 +182,8 @@ class StorageFailureTests(MediaTestCase):
         The file has to be gone for the check to run at all — with the
         file present, `open()` succeeds and none of this is reached.
         """
-        self.photo.image.storage.delete(self.photo.image.name)
-
-        def explode(*args, **kwargs):
-            raise RuntimeError("this storage has no notion of directories")
-
-        with mock.patch.object(Photo.image.field.storage, "exists", explode):
+        storage = NoLocalPathStorage(error=RuntimeError)
+        with mock.patch.object(Photo.image.field, "storage", storage):
             self.assertEqual(self.client.get(self.url).status_code, 404)
 
     def test_a_permission_error_is_not_dressed_up_as_not_found(self):

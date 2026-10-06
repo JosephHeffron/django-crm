@@ -37,6 +37,7 @@ Two deliberate limits, both reviewed:
 """
 
 import logging
+import os
 from pathlib import PurePath
 
 from django.http import FileResponse, Http404
@@ -69,15 +70,24 @@ CONTENT_TYPES = {
 def _directory_exists(file_field):
     """Is the folder this file should be in actually there?
 
-    Asked through the storage API rather than the filesystem, so it
-    holds for whatever storage is configured. A storage that can't
-    answer gets the benefit of the doubt: this exists to recognise an
-    unmounted volume, not to add a new way for a photo to fail.
+    Only a storage backed by a real filesystem is asked, which is the
+    only kind that can have an unmounted volume. `storage.path()` is
+    how Django says whether there's a local path at all: object storage
+    raises `NotImplementedError`, and has no directories to be missing
+    — asking `storage.exists()` for a prefix there would answer "no"
+    for every key and turn every missing photo into a server error.
+
+    Anything we can't ask gets the benefit of the doubt. This exists to
+    recognise an unmounted volume, not to add a new way for a photo to
+    fail.
     """
-    parent = str(PurePath(file_field.name).parent)
     try:
-        return file_field.storage.exists(parent)
-    except Exception:  # noqa: BLE001 - never let the check itself break serving
+        directory = file_field.storage.path(str(PurePath(file_field.name).parent))
+    except Exception:  # noqa: BLE001 - no local path, or it won't say
+        return True
+    try:
+        return os.path.isdir(directory)
+    except OSError:
         return True
 
 

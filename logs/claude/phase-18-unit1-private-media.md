@@ -170,12 +170,34 @@ isn't the error number, it's one file versus all of them: if the
 *directory* the photos live in doesn't exist, the volume is unmounted
 or mounted empty and every private file is about to return 404, which
 is a server fault. So a missing directory raises and a missing file
-returns 404 and is logged. The directory check goes through the storage
-API, and a storage that can't answer gets the benefit of the doubt —
-it exists to recognise an unmounted volume, not to add a new way for a
-photo to fail. Mutation-checked, and one of its tests was hollow on
-first writing (it left the file in place, so the check never ran); the
-file is now deleted first.
+returns 404 and is logged.
+
+Review caught one more thing on that fix, and it was right: asking
+`storage.exists()` for the parent "directory" is meaningless on object
+storage, which has no directories and answers no for every prefix — so
+on such a backend **every** missing photo would have become a 500. The
+check is now gated on the storage having a real local path
+(`storage.path()`, which object storage answers with
+`NotImplementedError`), which is also the only kind of storage that can
+have an unmounted volume in the first place. Anything that can't be
+asked gets the benefit of the doubt.
+
+Mutation-checked both ways: removing the directory check fails the
+unmounted-volume test, and going back to `storage.exists()` fails the
+object-storage tests with exactly the 500 the review predicted.
+
+Two notes on the tests, since both were mistakes of the same family as
+the Caddy ones:
+
+- one was hollow as first written — it left the file in place, so
+  `open()` succeeded and the check never ran. It deletes the file
+  first now;
+- the object-storage case was first written by patching
+  `storage.path`, which also broke `storage.open`, so the test failed
+  for the wrong reason. It uses a small fake `Storage` instead, which
+  is closer to the thing being described.
+  The unmounted-volume case needs no mock at all: it removes the real
+  directory under `MEDIA_ROOT`.
 
 Mutation-checked: restoring the broad `except OSError` fails the two
 new tests (a permission error and a read error).
@@ -243,7 +265,7 @@ unchanged: accepted, with the reasoning recorded.
 
 ## Verification
 
-$ `manage.py test` — 818 tests, OK (783 before, 35 new). No migrations:
+$ `manage.py test` — 819 tests, OK (783 before, 36 new). No migrations:
   the Photo model has existed since Phase 17.
 $ Caddy, twice: once proving the original fix broken (200 + file body),
   once proving the current one works (the table above). Both runs used a
