@@ -913,8 +913,8 @@ roadmap completed:
   showing only what a role can open, **Company management** that sets
   someone's role and whether they can sign in (admin-only until now;
   turning off sign-in keeps every record they made), an **activity log
-  with undo**, a **Customize** hub, and **What's new** read from
-  `CHANGELOG.md`. Undo is deliberately narrow and says so: the log
+  with undo**, a **Customize** hub of services and tags, and **What's
+  new** read from `CHANGELOG.md` so a release note is written once. Undo is deliberately narrow and says so: the log
   stores changes as text, so it restores a name or a phone number
   exactly, refuses a date or a linked record rather than guessing,
   refuses a field that decides what else exists, and refuses when
@@ -944,8 +944,6 @@ Nothing in flight — Phase 17.5 is complete.
    one click, and drag-to-reschedule with a keyboard alternative. It
    also removes the retired Lead and Deal models, whose pages the
    restyle left alone for that reason.
-3. Then Phase 18, which picks up what step 5 deliberately left: turning
-   an accepted estimate into a job in one click, and drag-to-reschedule.
 
 ## Known issues
 
