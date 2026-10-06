@@ -39,8 +39,7 @@ actually verified.
 The original 14-phase roadmap (Phases 0-14) is fully complete — see
 "Project complete," below, for the summary, and "Completed" for full
 phase-by-phase detail. The post-release roadmap is now underway:
-Phases 15-17 are complete; Phase 17.5 (UI restyle) is in progress
-(complete) — see "Post-release roadmap progress,"
+Phases 15-17.5 are complete — see "Post-release roadmap progress,"
 below, for current status. This section deliberately stays short and points at
 those two rather than duplicating them, so it can't drift out of sync
 with them the way an earlier version of this section once did (it
