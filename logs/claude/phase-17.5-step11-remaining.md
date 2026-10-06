@@ -105,8 +105,8 @@ out:
 ## Git
 
 Branch: `feature/restyle-remaining` (PR #127)
-Commits: the step, plus the review fixes above
-Merged to `main`: pending
+Commits: `06fbe69` (the step), `cfd6dd5` (nine review fixes)
+Merged to `main`: `4c133f2`
 
 ## Next
 

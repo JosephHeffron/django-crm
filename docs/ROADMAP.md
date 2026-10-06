@@ -71,8 +71,7 @@ explicitly deferred until this scope is working reliably on the Raspberry Pi.
 The initial release scope above is done. The phases below pick up the
 functionality it deliberately deferred, plus hardening work identified
 along the way (`docs/PRODUCTION_READINESS.md`'s still-open findings).
-Phases 15-17 are complete; Phase 17.5 (UI restyle) is in progress —
-see `docs/PROJECT_STATE.md` for which of its eleven steps are done. From Phase 17 the roadmap pivots the CRM to
+Phases 15-17.5 are complete; Phase 18 is next. From Phase 17 the roadmap pivots the CRM to
 the owner's exterior home-services business (service catalog, quotes,
 crew-scheduled jobs, invoicing, follow-up automation, team messaging,
 mobile-first PWA) — see `docs/decisions/0008-roles-and-row-level-scoping.md`
@@ -117,7 +116,7 @@ insufficient.
       seeded data. Done across PRs #90–#104 (unit 2 and unit 3 each
       split into smaller PRs to stay reviewable); full detail in
       `logs/claude/phase-17-*.md`.
-- [ ] **Phase 17.5 — UI restyle.** Match the owner's reference design
+- [x] **Phase 17.5 — UI restyle (complete).** Match the owner's reference design
       (ADR 0010): new tokens (Inter, rounded cards, pill buttons, accent
       colors, persisted dark mode), shared components, a floating
       sidebar with flyouts (Customers, Crew, Job, Finance), a top bar
@@ -133,7 +132,8 @@ insufficient.
       export) or shown as "not available yet"; subscription-only
       screens are skipped. Numbered 17.5 so existing Phase 18+
       references stay valid. Before Phase 18, so its forms are built in
-      the new style.
+      the new style. Done in eleven steps; full detail in
+      `logs/claude/phase-17.5-step*.md`.
 - [ ] **Phase 18 — Quotes and jobs workflow.** Quote builder (catalog
       line items, photos), status transitions, accepted quote → job,
       scheduling and crew assignment, calendar drag-to-reschedule (with
