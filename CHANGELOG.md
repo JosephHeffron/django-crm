@@ -129,3 +129,17 @@ for meaningful changes — not for every small fix or documentation tweak.
 - #sales is readable by the Owner and sales reps only.
 - The audit history no longer records fields whose value didn't
   actually change, and records tag changes by name.
+
+### Security
+- Job photos and profile pictures are no longer served from disk.
+  Everything under `media/private/` now goes through a login-gated
+  view that also checks whether the person may see the job or estimate
+  the file belongs to — a cleaner sees photos of the jobs they're on
+  and no one else's. Before this, anyone with the URL could read them
+  without signing in. The reverse proxy refuses the path outright, and
+  that refusal is asserted against the configuration Caddy actually
+  runs rather than the text of the config file.
+- A storage failure no longer looks like a missing photo. Only a file
+  that is genuinely gone returns "not found"; a permissions problem or
+  an unmounted media volume raises instead of telling every user the
+  photos were never uploaded.

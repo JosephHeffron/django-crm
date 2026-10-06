@@ -266,9 +266,18 @@ $ `ruff` / `ruff format --check` / bandit (CI flags) /
 ## Git
 
 Branch: `feature/private-media`
-Commit: pending
-Merged to `main`: pending
+Commits: `465db96` (the view and the first, broken proxy fix),
+`66408fa` (the proxy fix that works), `2e2692c` (assert the adapted
+config; Caddy in CI), `6045eac` (storage faults surface),
+`626cdc2` + `804e6d2` (content-type tests), `51b601a` (decide the
+content type here), `c552a61` (browser verification).
+PR: #130. Merged to `main` as `958fa6b`.
 
 ## Next
 
 Phase 18 unit 2 — uploading before and after photos from a phone.
+Nothing displays photos yet; this unit built only the serving side.
+Read the HEIC note under the fifth review round first: Pillow here
+can't open HEIC, iPhones shoot it by default, and most desktop browsers
+can't render it even when labelled right. That's a dependency decision
+for unit 2, not a detail.
