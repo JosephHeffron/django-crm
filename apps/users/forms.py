@@ -1,6 +1,7 @@
 from django import forms
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
+from django.db import transaction
 
 from .models import UserProfile
 from .roles import Role, user_role
@@ -101,11 +102,17 @@ class MemberAccessForm(forms.Form):
         super().__init__(*args, **kwargs)
 
     def save(self):
+        """One transaction, with the row locked: the role and the
+        sign-in flag are one decision, and two owners saving at once
+        must not leave someone holding two roles or half a change."""
         role = self.cleaned_data["role"]
-        groups = Group.objects.filter(name__in=[r.value for r in Role])
-        self.person.groups.remove(*groups)
-        if role:
-            self.person.groups.add(Group.objects.get(name=role))
-        self.person.is_active = self.cleaned_data["is_active"]
-        self.person.save(update_fields=["is_active"])
-        return self.person
+        with transaction.atomic():
+            person = get_user_model().objects.select_for_update().get(pk=self.person.pk)
+            groups = Group.objects.filter(name__in=[r.value for r in Role])
+            person.groups.remove(*groups)
+            if role:
+                person.groups.add(Group.objects.get(name=role))
+            person.is_active = self.cleaned_data["is_active"]
+            person.save(update_fields=["is_active"])
+        self.person = person
+        return person

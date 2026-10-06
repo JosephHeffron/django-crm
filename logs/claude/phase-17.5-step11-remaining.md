@@ -61,17 +61,51 @@ After the fixes the sweep is clean: **480 pages, zero problems**.
 
 ## Verification
 
-$ `manage.py test` — 775 tests, OK. No migrations.
+$ `manage.py test` — 783 tests, OK. No migrations.
 $ `ruff` / `ruff format --check` / bandit (CI flags) /
   `makemigrations --check` — clean.
 $ Playwright under production settings: 480 page loads (40 routes × 3
   roles × 2 themes × 2 widths), zero overflow, zero CSP violations, zero
   console errors, every page with a heading.
 
+## Review (PR #127)
+
+Sourcery reviewed step 10's code on this branch (step 11 was stacked on
+it) and found nine issues. All nine were real; all are fixed here, each
+with a test. Two of them were the kind that costs data or locks a person
+out:
+
+1. **(Critical) Undo could overwrite a newer edit.** It compared the
+   record it had fetched earlier, then wrote inside a transaction — a
+   gap an edit could land in and be lost, which is the one outcome undo
+   exists to avoid. The row is now locked and re-read inside the
+   transaction before anything is compared.
+2. **(High) Turning off someone's sign-in was a one-way door.** The team
+   list and the member page both filtered to active users, so the person
+   vanished from the only page that could turn it back on. Both now
+   include them, marked.
+3. **(High) An Owner could take away their own access.** The GET
+   redirects you to your own profile; the POST didn't, so you could
+   strip your own role with no way back in.
+4. **(High) Undo of a lifecycle field would have lied.** Putting a
+   lead's status back to "qualified" would say the conversion never
+   happened while the contact, company and quote it created still
+   exist. Those fields are now refused by name, with the reason.
+5. **(High) Two owners saving a role at once** could leave somebody
+   holding two, and **(Medium)** a failure between the two writes could
+   leave half a change. Both are now one transaction with the row
+   locked.
+6. **(Medium) Undo left a stale "updated" time** — `auto_now` only fires
+   when the field is in `update_fields`.
+7. **(Medium) The activity log fetched one record per row** to ask
+   whether it could be undone; the generic relation is prefetched now.
+8. **(Medium) A changelog note that wrapped lost everything after its
+   first line.**
+
 ## Git
 
-Branch: `feature/restyle-remaining`
-Commit: pending
+Branch: `feature/restyle-remaining` (PR #127)
+Commits: the step, plus the review fixes above
 Merged to `main`: pending
 
 ## Next

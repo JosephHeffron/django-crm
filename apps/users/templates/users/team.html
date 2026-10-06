@@ -18,7 +18,10 @@
         {% for person, role in team %}
           <tr>
             <td data-label="Name"><a href="{% url 'people:member' person.username %}">{{ person.get_full_name|default:person.username }}</a></td>
-            <td data-label="Role">{% if role %}{{ role }}{% else %}<span class="badge badge-warning">No role</span>{% endif %}</td>
+            <td data-label="Role">
+              {% if role %}{{ role }}{% else %}<span class="badge badge-warning">No role</span>{% endif %}
+              {% if not person.is_active %}<span class="badge">Can't sign in</span>{% endif %}
+            </td>
             <td data-label="Title">{{ person.profile.title|default:"—" }}</td>
             <td data-label="Phone">{% if person.profile.phone %}<a href="tel:{{ person.profile.phone }}">{{ person.profile.phone }}</a>{% else %}—{% endif %}</td>
             <td data-label="Rate" class="text-right">{% if person.profile.hourly_rate %}{{ person.profile.hourly_rate|money }}{% else %}<span class="muted">Not set</span>{% endif %}</td>

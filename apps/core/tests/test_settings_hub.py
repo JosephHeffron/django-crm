@@ -1,6 +1,8 @@
 from django.contrib.auth.models import Group
 from django.contrib.contenttypes.models import ContentType
+from django.db import connection
 from django.test import TestCase
+from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
 
 from apps.core import changelog
@@ -98,6 +100,17 @@ class WhatsNewTests(TestCase):
         releases = changelog._parse("## [0.1.0] - 2026-01-01\n\nJust prose, no list.\n")
         self.assertEqual(releases, [])
 
+    def test_a_wrapped_note_keeps_its_second_line(self):
+        releases = changelog._parse(
+            "## [1.0] - 2026-01-01\n\n### Added\n"
+            "- A note long enough that it wraps\n  onto a second line\n"
+            "- A short one\n"
+        )
+        self.assertEqual(
+            releases[0]["groups"][0]["entries"],
+            ["A note long enough that it wraps onto a second line", "A short one"],
+        )
+
     def test_a_missing_file_is_not_a_crash(self):
         with self.settings(BASE_DIR="/nowhere/at/all"):
             self.assertEqual(changelog.releases(), [])
@@ -183,6 +196,62 @@ class ActivityLogTests(TestCase):
         self.assertEqual((self.contact.first_name, self.contact.phone), ("Pat", ""))
 
 
+class UndoSafetyTests(TestCase):
+    """The parts of undo that exist to stop it losing work."""
+
+    def setUp(self):
+        self.owner = grant_role(f.user("boss"), Role.OWNER)
+        self.client.login(username="boss", password=PASSWORD)
+        self.contact = f.contact(self.owner, "Pat", "Homeowner")
+
+    def entry(self, **changes):
+        return AuditLogEntry.objects.create(
+            content_type=ContentType.objects.get_for_model(self.contact),
+            object_id=self.contact.pk,
+            user=self.owner,
+            action=AuditLogEntry.Action.UPDATED,
+            changes=changes,
+        )
+
+    def test_a_field_that_decides_what_else_exists_is_refused(self):
+        # Putting "customer" back to "lead" would say the conversion
+        # never happened while everything it created still exists.
+        entry = self.entry(status=["lead", "customer"])
+        self.assertIn("decides what else exists", undo.why_not(entry))
+
+    def test_undo_touches_the_updated_time(self):
+        Contact.objects.filter(pk=self.contact.pk).update(first_name="Patricia")
+        self.contact.refresh_from_db()
+        before = self.contact.updated_at
+        entry = self.entry(first_name=["Pat", "Patricia"])
+        undo.undo(entry, self.owner)
+        self.contact.refresh_from_db()
+        self.assertGreater(self.contact.updated_at, before)
+
+    def test_undo_reads_the_record_inside_its_own_transaction(self):
+        # The check and the write have to see the same row, or an edit
+        # landing between them is overwritten.
+        Contact.objects.filter(pk=self.contact.pk).update(first_name="Patricia")
+        entry = self.entry(first_name=["Pat", "Patricia"])
+        with CaptureQueriesContext(connection) as captured:
+            undo.undo(entry, self.owner)
+        self.assertTrue(
+            any("FOR UPDATE" in query["sql"].upper() for query in captured),
+            "the row should be locked while it's checked and written",
+        )
+
+    def test_the_log_does_not_fetch_a_record_per_row(self):
+        for index in range(6):
+            self.entry(**{"first_name": [f"Old {index}", "Pat"]})
+        with CaptureQueriesContext(connection) as few:
+            self.client.get(LOG)
+        for index in range(12):
+            self.entry(**{"last_name": [f"Old {index}", "Homeowner"]})
+        with CaptureQueriesContext(connection) as many:
+            self.client.get(LOG)
+        self.assertEqual(len(few), len(many))
+
+
 class MemberAccessTests(TestCase):
     def setUp(self):
         self.owner = grant_role(f.user("boss"), Role.OWNER)
@@ -221,6 +290,28 @@ class MemberAccessTests(TestCase):
         self.assertEqual(response.status_code, 403)
         self.rep.refresh_from_db()
         self.assertEqual(user_role(self.rep), Role.SALES_REP)
+
+    def test_somebody_whose_sign_in_is_off_is_still_reachable(self):
+        # Otherwise turning it off is a one-way door: they vanish from
+        # the only page that can turn it back on.
+        self.client.post(self.url, {"role": Role.SALES_REP.value})
+        self.rep.refresh_from_db()
+        self.assertFalse(self.rep.is_active)
+        self.assertEqual(self.client.get(self.url).status_code, 200)
+        self.assertContains(self.client.get(reverse("people:team")), "rep")
+
+    def test_sign_in_can_be_turned_back_on(self):
+        self.client.post(self.url, {"role": Role.SALES_REP.value})
+        self.client.post(self.url, {"role": Role.SALES_REP.value, "is_active": "on"})
+        self.rep.refresh_from_db()
+        self.assertTrue(self.rep.is_active)
+
+    def test_an_owner_cannot_take_away_their_own_access(self):
+        own = reverse("people:member", args=["boss"])
+        response = self.client.post(own, {"role": "", "is_active": "on"}, follow=True)
+        self.assertContains(response, "change your own access")  # the apostrophe is escaped
+        self.owner.refresh_from_db()
+        self.assertEqual(user_role(self.owner), Role.OWNER)
 
     def test_the_roles_offered_are_the_ones_the_app_knows(self):
         response = self.client.get(self.url)
