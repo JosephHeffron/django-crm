@@ -108,8 +108,8 @@ summary.
 ## Git
 
 Branch: `feature/restyle-reports` (PR #124)
-Commits: `ef16c6a` (the step), review fixes to follow
-Merged to `main`: pending
+Commits: `ef16c6a` (the step), `9760567` (review fixes)
+Merged to `main`: `b2dd73c`
 
 ## Next
 

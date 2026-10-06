@@ -15,7 +15,7 @@ actually verified.
 > (browser-verified CSP review) is also complete** — a headless-Chromium
 > check found zero violations, including after a real Sourcery-caught
 > bug (an un-nonced inline style on the production 500 page) was fixed.
-> Phase 17 (field-service foundation) is complete. Phase 17.5 (UI restyle) is in progress — steps 1–8 of 11 done.
+> Phase 17 (field-service foundation) is complete. Phase 17.5 (UI restyle) is in progress — steps 1–9 of 11 done.
 > Note: the GitHub repo, switched from public to private earlier in the
 > project, is now **public again** — Phase 13 unit 1's audit found
 > branch protection and secret scanning had been silently disabled
@@ -40,7 +40,7 @@ The original 14-phase roadmap (Phases 0-14) is fully complete — see
 "Project complete," below, for the summary, and "Completed" for full
 phase-by-phase detail. The post-release roadmap is now underway:
 Phases 15-17 are complete; Phase 17.5 (UI restyle) is in progress
-(steps 1–8 done) — see "Post-release roadmap progress,"
+(steps 1–9 done) — see "Post-release roadmap progress,"
 below, for current status. This section deliberately stays short and points at
 those two rather than duplicating them, so it can't drift out of sync
 with them the way an earlier version of this section once did (it
@@ -791,7 +791,7 @@ roadmap completed:
   (Sourcery budget exhausted): one defect fixed before merge — a
   superuser owner couldn't be sent a direct message. 494 tests. Full
   detail in `logs/claude/phase-17-unit3d-profile-messages.md`.
-- **Phase 17.5 — UI restyle (in progress — steps 1–8 of 11 done).**
+- **Phase 17.5 — UI restyle (in progress — steps 1–9 of 11 done).**
   Matching the owner's reference design (ADR 0010); map on
   OpenStreetMap (ADR 0011). Reference screenshots hold real people's
   data and are kept outside the repo. **Step 1 (PR #106) — done:** new
@@ -896,15 +896,31 @@ roadmap completed:
   project's own performance rules, and two of the tests written for it
   proved nothing — both fixed before merge. 724 tests. Full detail in
   `logs/claude/phase-17.5-step8-map.md`.
+  **Step 9 (PR #124) — done:** **Reports** — eleven questions (revenue
+  by service and by rep, profit over time, expenses, crew hours and pay,
+  jobs by status and service, new customers, where they come from,
+  estimate outcomes, follow-ups), each over a period you pick, with
+  totals and a CSV. A report declares its columns and what each holds,
+  so the page and the file render from one description. Money reuses the
+  Profit definitions. A money report asked for by a rep is a 404, not a
+  403. Sourcery reviewed this one properly: nine findings, eight real,
+  all fixed before merge (a custom range never reached the download;
+  leads counted as customers; a past period dropped people who had left;
+  an empty period downloaded as zero bytes; shares could disagree with
+  totals; two columns shared a label; and two of the tests were wrong).
+  751 tests. Full detail in `logs/claude/phase-17.5-step9-reports.md`.
 - Phases 18-25: not yet started (re-sequenced in `docs/ROADMAP.md`).
 
 ## Currently working on
 
-Nothing in flight — Phase 17.5 step 8 just closed out.
+Phase 17.5 step 10 (Settings) is in progress.
 
 ## Next
 
-1. Phase 17.5 step 9 — Reports.
+1. Phase 17.5 step 10 — Settings: Account, Company Management with
+   member access, the activity log with undo, the Customize hub, and
+   What's New.
+2. Then step 11 — the remaining pages and a responsive pass.
 2. Then steps 8–11 (ADR 0010, ROADMAP Phase 17.5), then Phase 18, which
    picks up what step 5 deliberately left: turning an accepted estimate
    into a job in one click, and drag-to-reschedule.
