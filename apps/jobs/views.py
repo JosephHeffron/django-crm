@@ -1,6 +1,7 @@
 import json
 from datetime import datetime, time, timedelta
 from decimal import InvalidOperation
+from urllib.parse import urlencode
 
 from django.contrib import messages
 from django.contrib.auth import get_user_model
@@ -8,7 +9,7 @@ from django.contrib.auth.mixins import PermissionRequiredMixin
 from django.db import transaction
 from django.db.models import Sum, Value
 from django.db.models.functions import Coalesce
-from django.http import HttpResponseBadRequest
+from django.http import Http404, HttpResponseBadRequest, StreamingHttpResponse
 from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse, reverse_lazy
 from django.utils import timezone
@@ -16,6 +17,7 @@ from django.utils.dateparse import parse_date
 from django.views import View
 from django.views.generic import CreateView, DetailView, ListView, TemplateView, UpdateView
 
+from apps.core import export
 from apps.core.pagination import PerPageMixin
 from apps.core.templatetags.crm_format import money
 from apps.crm import geocoding
@@ -32,7 +34,7 @@ from apps.users.roles import (
     user_role,
 )
 
-from . import crew, reports
+from . import crew, reporting, reports
 from .access import invoices_for, jobs_for, quotes_for
 from .calendar import DEFAULT_VIEW, VIEWS, calendar_days, calendar_range, day_bounds
 from .forms import (
@@ -957,6 +959,73 @@ class PropertyLocateView(SalesRoleRequiredMixin, PermissionRequiredMixin, View):
                     f"OpenStreetMap doesn't know {service_property}. Drop the pin yourself.",
                 )
         return redirect("jobs:map")
+
+
+class ReportListView(SalesRoleRequiredMixin, TemplateView):
+    """The catalogue. Money reports are the Owner's; the rest are for
+    anyone who sells or schedules the work."""
+
+    template_name = "jobs/report_list.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        is_owner = user_role(self.request.user) in OWNER_ONLY
+        context["reports"] = reporting.visible(is_owner)
+        context["hidden"] = len(reporting.CATALOGUE) - len(context["reports"])
+        return context
+
+
+class ReportDetailMixin(SalesRoleRequiredMixin):
+    def report(self):
+        report = reporting.BY_SLUG.get(self.kwargs["slug"])
+        if report is None:
+            raise Http404("No such report")
+        if report.owner_only and user_role(self.request.user) not in OWNER_ONLY:
+            # A money report is the Owner's. 404, not 403, so the
+            # catalogue doesn't leak what else exists.
+            raise Http404("No such report")
+        return report
+
+    def period(self):
+        return reports.report_period(
+            self.request.GET.get("range", "month"),
+            _parse_day(self.request.GET.get("start")),
+            _parse_day(self.request.GET.get("end")),
+            timezone.localdate(),
+        )
+
+
+class ReportDetailView(ReportDetailMixin, TemplateView):
+    template_name = "jobs/report_detail.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        report = self.report()
+        period, error = self.period()
+        context.update(
+            report=report,
+            table=reporting.build(report, period),
+            period=period,
+            period_error=error,
+            presets=[(key, label, key == period.preset) for key, label in reports.PRESETS.items()],
+            query=urlencode({"range": period.preset}),
+        )
+        return context
+
+
+class ReportCsvView(ReportDetailMixin, View):
+    """The same figures the page shows, as a file you can keep."""
+
+    def get(self, request, *args, **kwargs):
+        report = self.report()
+        period, _ = self.period()
+        table = reporting.build(report, period)
+        response = StreamingHttpResponse(
+            export.stream_csv(reporting.csv_rows(table)), content_type="text/csv; charset=utf-8"
+        )
+        filename = f"{report.slug}-{period.first:%Y%m%d}-{period.last:%Y%m%d}.csv"
+        response["Content-Disposition"] = f'attachment; filename="{filename}"'
+        return response
 
 
 class ServiceListView(OwnerRequiredMixin, ListView):

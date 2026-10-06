@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+
+{% block title %}Reports{% endblock %}
+
+{% block content %}
+  <div class="dash-hero">
+    <div>
+      <h1>Reports</h1>
+      <p class="page-subtitle">Questions worth asking, over whatever stretch you choose</p>
+    </div>
+  </div>
+
+  <div class="hub-grid">
+    {% for report in reports %}
+      <a class="hub-card accent-blue" href="{% url 'jobs:report_detail' report.slug %}">
+        <span class="icon-circle"><svg class="icon" aria-hidden="true"><use href="#icon-{{ report.icon }}"/></svg></span>
+        <span>
+          <span class="hub-card-title">{{ report.title }}</span><br>
+          <span class="hub-card-text">{{ report.blurb }}</span>
+        </span>
+      </a>
+    {% endfor %}
+  </div>
+
+  {% if hidden %}
+    <p class="muted section-gap">{{ hidden }} more {{ hidden|pluralize:"report is,reports are" }} about money, which only the owner sees.</p>
+  {% endif %}
+{% endblock %}

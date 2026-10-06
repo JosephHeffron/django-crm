@@ -32,6 +32,9 @@ urlpatterns = [
     path("crew/payroll/", views.PayrollView.as_view(), name="payroll"),
     path("crew/performance/", views.PerformanceView.as_view(), name="performance"),
     path("map/", views.MapView.as_view(), name="map"),
+    path("reports/", views.ReportListView.as_view(), name="report_list"),
+    path("reports/<slug:slug>/", views.ReportDetailView.as_view(), name="report_detail"),
+    path("reports/<slug:slug>/csv/", views.ReportCsvView.as_view(), name="report_csv"),
     path(
         "map/properties/<int:pk>/locate/",
         views.PropertyLocateView.as_view(),

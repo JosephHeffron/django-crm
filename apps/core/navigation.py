@@ -147,6 +147,18 @@ SECTIONS = (
         ),
     ),
     NavSection(
+        "Reports",
+        "reports",
+        link=NavLink(
+            "Reports",
+            "jobs:report_list",
+            "trend-up",
+            SALES_ROLES,
+            ("jobs:report_",),
+            shortcut="g r",
+        ),
+    ),
+    NavSection(
         "Map",
         "map",
         link=NavLink("Map", "jobs:map", "map-pin", SALES_ROLES, ("jobs:map",), shortcut="g m"),
