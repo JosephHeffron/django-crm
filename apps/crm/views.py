@@ -142,7 +142,7 @@ def _audit_log_for(obj):
     ).select_related("user")
 
 
-class CompanyListView(SalesRoleRequiredMixin, ListView):
+class CompanyListView(SalesRoleRequiredMixin, PerPageMixin, ListView):
     model = Company
     template_name = "crm/company_list.html"
     context_object_name = "companies"
@@ -668,7 +668,7 @@ class DealUpdateView(SalesRoleRequiredMixin, PermissionRequiredMixin, UpdateView
         return response
 
 
-class ActivityListView(SalesRoleRequiredMixin, ListView):
+class ActivityListView(SalesRoleRequiredMixin, PerPageMixin, ListView):
     model = Activity
     template_name = "crm/activity_list.html"
     context_object_name = "activities"

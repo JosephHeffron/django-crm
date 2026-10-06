@@ -4,7 +4,11 @@
 
 {% block content %}
   <p><a href="{% url 'crm:company_list' %}">← Companies</a></p>
-  <h1>{{ company.name }}</h1>
+  <div class="page-header">
+    <div>
+      <h1>{{ company.name }}</h1>
+    </div>
+  </div>
   <p>{% if company.is_active %}Active{% else %}Inactive{% endif %}</p>
 
   <dl>

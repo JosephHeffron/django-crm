@@ -4,7 +4,11 @@
 
 {% block content %}
   <p><a href="{% url 'crm:task_list' %}">← Tasks</a></p>
-  <h1>{{ task.title }}</h1>
+  <div class="page-header">
+    <div>
+      <h1>{{ task.title }}</h1>
+    </div>
+  </div>
 
   <p>
     <a href="{% url 'crm:task_update' task.pk %}">Edit</a>

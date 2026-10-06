@@ -810,8 +810,13 @@ class ActivityLogView(OwnerRequiredMixin, PerPageMixin, ListView):
     paginate_by = 25
 
     def get_queryset(self):
-        return AuditLogEntry.objects.select_related("user", "content_type").order_by(
-            "-created_at", "-pk"
+        # `record` is a generic relation, so without prefetching it the
+        # page fetches one row per entry just to ask whether it can be
+        # undone (CLAUDE.md's performance rules).
+        return (
+            AuditLogEntry.objects.select_related("user", "content_type")
+            .prefetch_related("record")
+            .order_by("-created_at", "-pk")
         )
 
     def get_context_data(self, **kwargs):

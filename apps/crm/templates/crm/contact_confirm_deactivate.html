@@ -3,7 +3,11 @@
 {% block title %}Deactivate {{ object }}{% endblock %}
 
 {% block content %}
-  <h1>Deactivate {{ object }}?</h1>
+  <div class="page-header">
+    <div>
+      <h1>Deactivate {{ object }}?</h1>
+    </div>
+  </div>
   <p>It stays on record — you can reactivate it later by editing it.</p>
   <form method="post">
     {% csrf_token %}

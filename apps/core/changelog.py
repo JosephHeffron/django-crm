@@ -52,6 +52,12 @@ def _parse(text):
         entry = ENTRY.match(line.strip())
         if entry and group is not None:
             group["entries"].append(entry.group(1).strip())
+            continue
+        # A bullet that wraps belongs to the bullet above it. Without
+        # this, a note written across two lines loses everything after
+        # the first.
+        if group is not None and group["entries"] and line.strip():
+            group["entries"][-1] += " " + line.strip()
     return [release for release in releases if release["groups"]][:MAX_RELEASES]
 
 
