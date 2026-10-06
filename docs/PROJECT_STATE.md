@@ -4,7 +4,7 @@ Update this file at the end of every session (see `CLAUDE.md`'s Session
 Close Procedure). Do not describe anything as complete unless it was
 actually verified.
 
-> **Last updated 2026-09-29.** Repo is clean (`main` up to date, nothing
+> **Last updated 2026-10-06.** Repo is clean (`main` up to date, nothing
 > uncommitted). The original 14-phase roadmap is fully complete (see
 > "Project complete" below). The post-release roadmap
 > (`docs/ROADMAP.md`'s "Phase 15+") is now underway: **Phase 15
@@ -921,9 +921,8 @@ Phase 17.5 step 10 (Settings) is in progress.
    member access, the activity log with undo, the Customize hub, and
    What's New.
 2. Then step 11 — the remaining pages and a responsive pass.
-2. Then steps 8–11 (ADR 0010, ROADMAP Phase 17.5), then Phase 18, which
-   picks up what step 5 deliberately left: turning an accepted estimate
-   into a job in one click, and drag-to-reschedule.
+3. Then Phase 18, which picks up what step 5 deliberately left: turning
+   an accepted estimate into a job in one click, and drag-to-reschedule.
 
 ## Known issues
 
