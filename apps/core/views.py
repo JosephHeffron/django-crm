@@ -19,7 +19,7 @@ from django.http import (
     JsonResponse,
     StreamingHttpResponse,
 )
-from django.shortcuts import redirect, render
+from django.shortcuts import get_object_or_404, redirect, render
 from django.template.defaultfilters import pluralize
 from django.urls import reverse
 from django.utils import timezone
@@ -27,18 +27,26 @@ from django.utils.http import url_has_allowed_host_and_scheme
 from django.views import View
 from django.views.generic import ListView, TemplateView
 
+from apps.crm import undo as undo_service
 from apps.crm.followups import add_months
-from apps.crm.models import Activity, Company, Contact, Deal, Lead, Task
+from apps.crm.models import Activity, AuditLogEntry, Company, Contact, Deal, Lead, Tag, Task
 from apps.jobs import reports
 from apps.jobs.access import jobs_for, quotes_for
 from apps.jobs.calendar import day_bounds
-from apps.jobs.models import Job, JobAssignment, Quote
+from apps.jobs.models import Job, JobAssignment, Quote, ServiceType
 from apps.jobs.reports import invoiced_revenue, outstanding
 from apps.messaging.services import unread_count
 from apps.users.models import get_profile
-from apps.users.roles import OwnerRequiredMixin, Role, SalesRoleRequiredMixin, user_role
+from apps.users.roles import (
+    ALL_ROLES,
+    OwnerRequiredMixin,
+    Role,
+    RoleRequiredMixin,
+    SalesRoleRequiredMixin,
+    user_role,
+)
 
-from . import export, goals, notifications, onboarding, pwa
+from . import changelog, export, goals, notifications, onboarding, pwa
 from .branding import process_logo
 from .forms import BusinessSettingsForm, GoalsForm, LinkFormSet, LogoForm
 from .models import BusinessLink, Notification
@@ -699,6 +707,148 @@ class BusinessSettingsView(OwnerRequiredMixin, TemplateView):
             business.logo.storage.delete(old_logo)
         messages.success(request, "Business settings saved.")
         return redirect("core:business_settings")
+
+
+class SettingsHubView(RoleRequiredMixin, TemplateView):
+    """Everything behind the gear, on one page, filtered to what this
+    person may open. Needs a role, like every page it links to —
+    a hub of doors someone can't open is worse than no hub."""
+
+    allowed_roles = ALL_ROLES
+    template_name = "core/settings_hub.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        role = user_role(self.request.user)
+        is_owner = role in (Role.OWNER,)
+        cards = [
+            ("Your profile", "What your teammates see.", "user", "people:profile", True),
+            (
+                "Account settings",
+                "Your name, email, phone, and calendar color.",
+                "settings",
+                "people:profile_edit",
+                True,
+            ),
+            (
+                "Change password",
+                "Pick a new one.",
+                "key",
+                "users:password_change",
+                True,
+            ),
+            (
+                "Business settings",
+                "Your name and logo, contact details, links, and currency.",
+                "building",
+                "core:business_settings",
+                is_owner,
+            ),
+            (
+                "Monthly goals",
+                "What the dashboard measures the month against.",
+                "target",
+                "core:goals",
+                is_owner,
+            ),
+            (
+                "Company management",
+                "Who's on the team, what they can reach, and their pay.",
+                "users",
+                "people:team",
+                is_owner,
+            ),
+            (
+                "Customize",
+                "Your services, their prices, and their colors.",
+                "sparkles",
+                "core:customize",
+                is_owner,
+            ),
+            (
+                "Activity log",
+                "What changed, who changed it, and how to put it back.",
+                "history",
+                "core:activity_log",
+                is_owner,
+            ),
+            (
+                "What's new",
+                "What's changed in the app itself.",
+                "rocket",
+                "core:whats_new",
+                True,
+            ),
+        ]
+        context["cards"] = [
+            {"title": t, "text": text, "icon": icon, "url": reverse(url)}
+            for t, text, icon, url, shown in cards
+            if shown
+        ]
+        return context
+
+
+class CustomizeView(OwnerRequiredMixin, TemplateView):
+    """The things that shape how the app reads: services and tags."""
+
+    template_name = "core/customize.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["services"] = ServiceType.objects.all()
+        context["active_services"] = ServiceType.objects.filter(is_active=True).count()
+        context["tags"] = Tag.objects.annotate(uses=Count("contacts")).order_by("-uses", "name")
+        return context
+
+
+class ActivityLogView(OwnerRequiredMixin, PerPageMixin, ListView):
+    """What changed on customers and companies, newest first, with a way
+    to put an edit back (apps/crm/undo.py)."""
+
+    template_name = "core/activity_log.html"
+    context_object_name = "entries"
+    paginate_by = 25
+
+    def get_queryset(self):
+        return AuditLogEntry.objects.select_related("user", "content_type").order_by(
+            "-created_at", "-pk"
+        )
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        rows = []
+        for entry in context["entries"]:
+            rows.append({"entry": entry, "blocked": undo_service.why_not(entry)})
+        context["rows"] = rows
+        return context
+
+
+class ActivityUndoView(OwnerRequiredMixin, View):
+    """Put one recorded edit back. POST only — it writes."""
+
+    def post(self, request, pk, *args, **kwargs):
+        entry = get_object_or_404(AuditLogEntry, pk=pk)
+        try:
+            restored = undo_service.undo(entry, request.user)
+        except undo_service.CannotUndo as refusal:
+            messages.warning(request, str(refusal))
+        else:
+            fields = ", ".join(restored)
+            messages.success(request, f"Put back {fields} on {entry.record}.")
+        return redirect("core:activity_log")
+
+
+class WhatsNewView(RoleRequiredMixin, TemplateView):
+    """Releases, newest first, read from CHANGELOG.md so there's one
+    place to write them."""
+
+    allowed_roles = ALL_ROLES
+    template_name = "core/whats_new.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["releases"] = changelog.releases()
+        return context
 
 
 class BusinessExportView(OwnerRequiredMixin, View):

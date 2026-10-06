@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% load crm_format %}
+
+{% block title %}Customize{% endblock %}
+
+{% block content %}
+  <div class="dash-hero">
+    <div>
+      <p class="breadcrumb-header"><a href="{% url 'core:settings' %}">Settings</a></p>
+      <h1>Customize</h1>
+      <p class="page-subtitle">The services you offer and the labels you sort customers by</p>
+    </div>
+  </div>
+
+  <section class="section-card">
+    <div class="section-card-head"><svg class="icon" aria-hidden="true"><use href="#icon-sparkles"/></svg><h2>Services</h2></div>
+    <p class="muted section-note">{{ active_services }} offered. A service sets a job's color on the schedule, its usual price, and how often a follow-up comes round.</p>
+    <div class="table-responsive">
+      <table class="data-table stack-mobile">
+        <thead><tr><th>Service</th><th class="text-right">Usual price</th><th>Per</th><th>Follow-up</th><th>Offered</th><th><span class="sr-only">Actions</span></th></tr></thead>
+        <tbody>
+          {% for service in services %}
+            <tr>
+              <td data-label="Service"><span class="badge {{ service.tone_class }}">{{ service.name }}</span></td>
+              <td data-label="Usual price" class="text-right">{{ service.default_price|money }}</td>
+              <td data-label="Per">{{ service.get_pricing_unit_display }}</td>
+              <td data-label="Follow-up">{% if service.followup_interval_months %}Every {{ service.followup_interval_months }} months{% else %}Never{% endif %}</td>
+              <td data-label="Offered">{% if service.is_active %}<span class="badge badge-success">Yes</span>{% else %}<span class="badge">No</span>{% endif %}</td>
+              <td data-label="Actions" class="text-right"><a class="btn btn-text btn-sm" href="{% url 'jobs:service_update' service.pk %}">Edit</a></td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="section-card">
+    <div class="section-card-head"><svg class="icon" aria-hidden="true"><use href="#icon-filter"/></svg><h2>Tags</h2></div>
+    {% if tags %}
+      <p class="muted section-note">Labels you've put on customers, and how many wear each one.</p>
+      <div class="sg-row">
+        {% for tag in tags %}
+          <span class="chip">{{ tag.name }} <span class="muted">{{ tag.uses }}</span></span>
+        {% endfor %}
+      </div>
+    {% else %}
+      {% include "partials/_empty_state.html" with icon="filter" title="No tags yet" text="Tags are added from a customer's page, and show up here once they're in use." compact=True %}
+    {% endif %}
+  </section>
+{% endblock %}

@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+
+{% block title %}What's new{% endblock %}
+
+{% block content %}
+  <div class="dash-hero">
+    <div>
+      <p class="breadcrumb-header"><a href="{% url 'core:settings' %}">Settings</a></p>
+      <h1>What's new</h1>
+      <p class="page-subtitle">What's changed in the app itself</p>
+    </div>
+  </div>
+
+  {% if releases %}
+    {% for release in releases %}
+      <details class="release-card"{% if forloop.first %} open{% endif %}>
+        <summary>
+          <span class="release-version">{{ release.version }}</span>
+          {% if release.date %}<span class="muted">{{ release.date }}</span>{% endif %}
+        </summary>
+        {% for group in release.groups %}
+          <h3 class="release-group">{{ group.name }}</h3>
+          <ul class="list-plain">
+            {% for entry in group.entries %}<li>{{ entry }}</li>{% endfor %}
+          </ul>
+        {% endfor %}
+      </details>
+    {% endfor %}
+  {% else %}
+    {% include "partials/_empty_state.html" with icon="rocket" title="No release notes yet" text="Notes appear here as releases are written up." %}
+  {% endif %}
+{% endblock %}

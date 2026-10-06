@@ -11,7 +11,7 @@ from django.utils.http import url_has_allowed_host_and_scheme
 from django.views import View
 from django.views.generic import TemplateView
 
-from .forms import AccountForm, CrewPayForm, ProfileForm
+from .forms import AccountForm, CrewPayForm, MemberAccessForm, ProfileForm
 from .models import UserProfile, get_profile
 from .roles import (
     ALL_ROLES,
@@ -131,10 +131,14 @@ class TeamMemberView(OwnerRequiredMixin, TemplateView):
         person = self.person()
         context.update(profile_context(person, self.request), is_self=False)
         context.setdefault("pay_form", CrewPayForm(instance=read_profile(person)))
+        context.setdefault("access_form", MemberAccessForm(person=person))
+        context["is_self_account"] = person == self.request.user
         return context
 
     def post(self, request, *args, **kwargs):
         person = self.person()
+        if "role" in request.POST or "is_active" in request.POST:
+            return self._save_access(request, person)
         form = CrewPayForm(request.POST, instance=get_profile(person))
         if not form.is_valid():
             return self.render_to_response(self.get_context_data(pay_form=form))
@@ -142,6 +146,15 @@ class TeamMemberView(OwnerRequiredMixin, TemplateView):
         messages.success(
             request, f"Saved pay and working days for {person.get_full_name() or person}."
         )
+        return redirect("people:member", username=person.get_username())
+
+    def _save_access(self, request, person):
+        form = MemberAccessForm(request.POST, person=person)
+        if not form.is_valid():
+            return self.render_to_response(self.get_context_data(access_form=form))
+        form.save()
+        name = person.get_full_name() or person.get_username()
+        messages.success(request, f"Saved what {name} can reach.")
         return redirect("people:member", username=person.get_username())
 
 

@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+
+{% block title %}Activity log{% endblock %}
+
+{% block content %}
+  <div class="dash-hero">
+    <div>
+      <p class="breadcrumb-header"><a href="{% url 'core:settings' %}">Settings</a></p>
+      <h1>Activity log</h1>
+      <p class="page-subtitle">What changed on customers and companies, newest first</p>
+    </div>
+  </div>
+
+  {% if rows %}
+    <ul class="notice-list">
+      {% for row in rows %}
+        <li class="notice">
+          <span class="notice-icon"><svg class="icon" aria-hidden="true"><use href="#icon-history"/></svg></span>
+          <div class="notice-body">
+            <p class="notice-title">
+              {{ row.entry.get_action_display }}
+              {% if row.entry.record %}<a href="{{ row.entry.record.get_absolute_url }}">{{ row.entry.record }}</a>{% else %}a record that's since been removed{% endif %}
+            </p>
+            {% if row.entry.changes %}
+              <ul class="change-list">
+                {% for field, pair in row.entry.changes.items %}
+                  <li><strong>{{ field }}</strong>: <span class="muted">{{ pair.0|default:"—" }}</span> → {{ pair.1|default:"—" }}</li>
+                {% endfor %}
+              </ul>
+            {% endif %}
+            <p class="notice-when muted">
+              {{ row.entry.created_at|date:"M j, Y · g:i A" }}
+              {% if row.entry.user %}· {{ row.entry.user.get_full_name|default:row.entry.user.get_username }}{% endif %}
+            </p>
+          </div>
+          <div>
+            {% if row.blocked %}
+              <span class="muted undo-blocked">{{ row.blocked }}</span>
+            {% else %}
+              <form method="post" action="{% url 'core:activity_undo' row.entry.pk %}">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-secondary btn-sm">
+                  <svg class="icon" aria-hidden="true"><use href="#icon-undo"/></svg>Undo
+                </button>
+              </form>
+            {% endif %}
+          </div>
+        </li>
+      {% endfor %}
+    </ul>
+    {% include "partials/_pagination.html" %}
+  {% else %}
+    {% include "partials/_empty_state.html" with icon="history" title="Nothing recorded yet" text="Edits to customers and companies show up here as they happen." %}
+  {% endif %}
+
+  <p class="muted section-note">Undo puts an edit back, and records that it did. An edit can only be undone while the record still holds what that edit set — if somebody has changed it since, undoing would throw their work away.</p>
+{% endblock %}

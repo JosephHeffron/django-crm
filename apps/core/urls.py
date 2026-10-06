@@ -16,7 +16,16 @@ urlpatterns = [
     path("settings/business/", views.BusinessSettingsView.as_view(), name="business_settings"),
     path("settings/business/export/", views.BusinessExportView.as_view(), name="business_export"),
     path("branding/logo/", views.BusinessLogoView.as_view(), name="business_logo"),
+    path("settings/", views.SettingsHubView.as_view(), name="settings"),
     path("settings/goals/", views.GoalsView.as_view(), name="goals"),
+    path("settings/customize/", views.CustomizeView.as_view(), name="customize"),
+    path("settings/activity/", views.ActivityLogView.as_view(), name="activity_log"),
+    path(
+        "settings/activity/<int:pk>/undo/",
+        views.ActivityUndoView.as_view(),
+        name="activity_undo",
+    ),
+    path("whats-new/", views.WhatsNewView.as_view(), name="whats_new"),
     path("notifications/", views.NotificationListView.as_view(), name="notifications"),
     path(
         "notifications/<int:pk>/read/",
