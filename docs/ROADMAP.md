@@ -71,7 +71,8 @@ explicitly deferred until this scope is working reliably on the Raspberry Pi.
 The initial release scope above is done. The phases below pick up the
 functionality it deliberately deferred, plus hardening work identified
 along the way (`docs/PRODUCTION_READINESS.md`'s still-open findings).
-Phases 15-17 are complete; Phase 17.5 (UI restyle) is next. From Phase 17 the roadmap pivots the CRM to
+Phases 15-17 are complete; Phase 17.5 (UI restyle) is in progress —
+see `docs/PROJECT_STATE.md` for which of its eleven steps are done. From Phase 17 the roadmap pivots the CRM to
 the owner's exterior home-services business (service catalog, quotes,
 crew-scheduled jobs, invoicing, follow-up automation, team messaging,
 mobile-first PWA) — see `docs/decisions/0008-roles-and-row-level-scoping.md`
