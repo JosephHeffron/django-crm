@@ -3891,3 +3891,24 @@ a.hub-card:hover {
   justify-content: space-between;
   gap: var(--space-3);
 }
+
+/* ---------- Activity log (Phase 17.5 step 10) ---------- */
+
+.change-list {
+  list-style: none;
+  margin: var(--space-1) 0;
+  padding: 0;
+  font-size: var(--text-sm);
+}
+
+.undo-blocked {
+  display: block;
+  max-width: 16rem;
+  font-size: var(--text-xs);
+  text-align: right;
+}
+
+.release-group {
+  margin: var(--space-4) 0 var(--space-2);
+  font-size: var(--text-base);
+}

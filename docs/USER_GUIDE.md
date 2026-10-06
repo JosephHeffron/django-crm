@@ -199,6 +199,54 @@ Open the **gear → Business settings**:
   invoices, payments, expenses, or the team list as CSV (opens in Excel)
   or JSON.
 
+## Settings
+
+The **gear** opens **Settings**, a page of everything behind it, showing
+only what your role can open. From there:
+
+- **Your profile** and **Account settings** — your name, email, phone,
+  title and calendar color, and your password.
+- **Business settings**, **Monthly goals**, **Company management**,
+  **Customize**, **Activity log** — the Owner's.
+- **What's new** — what's changed in the app itself, newest release
+  first, read from the project's own changelog so there's one place it
+  gets written.
+
+### Company management (Owner)
+
+**Team** lists everyone, with their role, pay rate and working days.
+Open someone to set what they can reach:
+
+- **Role** decides which pages open for them. One role each, and it
+  takes effect the next time they load a page.
+- **No role** leaves them able to sign in and seeing nothing — useful
+  while you decide.
+- **Can sign in**, turned off, stops them signing in and keeps every
+  record they ever made. Nothing of theirs is deleted.
+
+### Customize (Owner)
+
+Your **services** — their usual price, what it's charged per, how often
+a follow-up comes round, and the colour each one gets on the schedule —
+and the **tags** you've put on customers, with how many wear each.
+
+### Activity log (Owner)
+
+What changed on customers and companies, newest first: what was edited,
+from what to what, by whom and when.
+
+**Undo** puts an edit back, and records that it did, so the log tells
+the whole story rather than appearing to have never happened.
+
+Two things it won't do, and says so instead:
+
+- it won't undo an edit if somebody has changed that field since,
+  because undoing would throw their work away;
+- it won't undo a change to a date or a linked record. The log stores
+  what changed as text, which is enough to put a name or a phone number
+  back exactly, and not enough to put a date or a linked record back
+  without guessing.
+
 ## Reports
 
 **Reports** is a short list of questions worth asking, each answered

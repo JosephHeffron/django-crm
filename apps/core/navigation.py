@@ -233,12 +233,15 @@ QUICK_ACTIONS = (
 )
 
 GEAR_MENU = (
+    NavLink("Settings", "core:settings", "settings", ALL_ROLES),
     NavLink("Business settings", "core:business_settings", "building", OWNER_ONLY),
     NavLink("Monthly goals", "core:goals", "target", OWNER_ONLY),
     NavLink("Your profile", "people:profile", "user", ALL_ROLES),
     NavLink("Account settings", "people:profile_edit", "settings", ALL_ROLES),
     NavLink("Company management", "people:team", "users", OWNER_ONLY),
-    NavLink("Customize", "jobs:service_list", "sparkles", OWNER_ONLY),
+    NavLink("Customize", "core:customize", "sparkles", OWNER_ONLY),
+    NavLink("Activity log", "core:activity_log", "history", OWNER_ONLY),
+    NavLink("What's new", "core:whats_new", "rocket", ALL_ROLES),
     NavLink("Change password", "users:password_change", "key", ALL_ROLES),
 )
 

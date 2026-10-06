@@ -1,7 +1,9 @@
 from django import forms
 from django.contrib.auth import get_user_model
+from django.contrib.auth.models import Group
 
 from .models import UserProfile
+from .roles import Role, user_role
 
 TONE_CHOICES = [
     (1, "Blue"),
@@ -64,3 +66,46 @@ class CrewPayForm(forms.ModelForm):
         if commit:
             profile.save()
         return profile
+
+
+class MemberAccessForm(forms.Form):
+    """What the Owner decides about a teammate: what they can reach, and
+    whether they can sign in at all (Phase 17.5 step 10).
+
+    Roles were admin-only until now. Keeping it to one role apiece
+    matches how the rest of the app asks the question (ADR 0008).
+    """
+
+    role = forms.ChoiceField(
+        choices=[("", "No role — can sign in but sees nothing")]
+        + [(role.value, role.value) for role in Role],
+        required=False,
+        label="Role",
+        help_text="What they can reach. Changing it takes effect the next time they load a page.",
+    )
+    is_active = forms.BooleanField(
+        required=False,
+        label="Can sign in",
+        help_text="Turning this off keeps all their work and history, and stops them signing in.",
+        widget=forms.CheckboxInput(attrs={"class": "switch"}),
+    )
+
+    def __init__(self, *args, person=None, **kwargs):
+        self.person = person
+        if person is not None and "initial" not in kwargs:
+            current = user_role(person)
+            kwargs["initial"] = {
+                "role": current.value if current else "",
+                "is_active": person.is_active,
+            }
+        super().__init__(*args, **kwargs)
+
+    def save(self):
+        role = self.cleaned_data["role"]
+        groups = Group.objects.filter(name__in=[r.value for r in Role])
+        self.person.groups.remove(*groups)
+        if role:
+            self.person.groups.add(Group.objects.get(name=role))
+        self.person.is_active = self.cleaned_data["is_active"]
+        self.person.save(update_fields=["is_active"])
+        return self.person

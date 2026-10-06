@@ -155,6 +155,11 @@ member of), so a direct message never leaks onto a contact page.
 | Time clock (`/time-clock/`) | own | own | own |
 | Map (`/map/`) | yes | yes | 403 |
 | Reports (`/reports/`) | every report | all but the money ones | 403 |
+| Settings hub (`/settings/`) | yes | yes | yes |
+| What's new (`/whats-new/`) | yes | yes | yes |
+| Customize (`/settings/customize/`) | yes | 403 | 403 |
+| Activity log and undo (`/settings/activity/`) | yes | 403 | 403 |
+| Set someone's role or sign-in (`/team/<username>/`) | yes | 403 | 403 |
 | A money report (`/reports/revenue-by-service/` and so on) | yes | 404 | 403 |
 | Place an address (`/map/properties/<pk>/locate/`) | yes | yes | 403 |
 | Assignments (`/crew/assignments/`) | yes | yes | 403 |

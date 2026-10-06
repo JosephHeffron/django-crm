@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+
+{% block title %}Settings{% endblock %}
+
+{% block content %}
+  <div class="dash-hero">
+    <div>
+      <h1>Settings</h1>
+      <p class="page-subtitle">Everything behind the gear, in one place</p>
+    </div>
+  </div>
+
+  <div class="hub-grid">
+    {% for card in cards %}
+      <a class="hub-card accent-blue" href="{{ card.url }}">
+        <span class="icon-circle"><svg class="icon" aria-hidden="true"><use href="#icon-{{ card.icon }}"/></svg></span>
+        <span>
+          <span class="hub-card-title">{{ card.title }}</span><br>
+          <span class="hub-card-text">{{ card.text }}</span>
+        </span>
+      </a>
+    {% endfor %}
+  </div>
+{% endblock %}

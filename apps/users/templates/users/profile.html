@@ -64,6 +64,26 @@
     </div>
   {% endif %}
 
+  {% if not is_self and access_form %}
+    <form method="post" class="section-card section-gap" novalidate>
+      {% csrf_token %}
+      <div class="section-card-head"><svg class="icon" aria-hidden="true"><use href="#icon-lock"/></svg><h2>What they can reach</h2></div>
+      <p class="muted section-note">Only you can set this. A role decides which pages open for them; turning off sign-in keeps every record they made.</p>
+      {{ access_form.non_field_errors }}
+      {% include "partials/_field.html" with field=access_form.role %}
+      <label class="toggle-row">
+        <span>
+          <span class="toggle-label">{{ access_form.is_active.label }}</span>
+          <span class="helptext">{{ access_form.is_active.help_text }}</span>
+        </span>
+        {{ access_form.is_active }}
+      </label>
+      <div class="section-card-actions">
+        <button type="submit"><svg class="icon" aria-hidden="true"><use href="#icon-save"/></svg>Save access</button>
+      </div>
+    </form>
+  {% endif %}
+
   {% if not is_self and pay_form %}
     <form method="post" class="section-card section-gap" novalidate>
       {% csrf_token %}
