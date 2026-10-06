@@ -1000,28 +1000,28 @@ hr {
 
 /* ---------- Page structure ---------- */
 
-.page-header {
+/* One page heading, two names. `dash-hero` arrived with the restyled
+   pages and `page-header` was already on the rest; they had drifted a
+   couple of pixels apart, which is exactly the sort of difference
+   nobody can name but everybody sees. Same rule for both. */
+.page-header,
+.dash-hero {
   display: flex;
   flex-wrap: wrap;
-  align-items: center;
+  align-items: flex-end;
   justify-content: space-between;
-  gap: var(--space-3);
+  gap: var(--space-4);
   margin-bottom: var(--space-5);
 }
 
-.page-header h1 {
+.page-header h1,
+.dash-hero h1 {
   margin: 0;
 }
 
 .page-subtitle {
   margin: var(--space-1) 0 0;
   color: var(--color-text-muted);
-}
-
-.page-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2);
 }
 
 .card {
@@ -3276,19 +3276,7 @@ a.hub-card:hover {
 
 /* ---------- Dashboard (Phase 17.5 step 4) ---------- */
 
-.dash-hero {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: var(--space-4);
-  margin-bottom: var(--space-5);
-}
-
-.dash-hero h1 {
-  margin: 0;
-}
-
+.page-actions,
 .dash-hero-actions {
   display: flex;
   flex-wrap: wrap;
@@ -3664,10 +3652,12 @@ a.hub-card:hover {
 }
 
 @media (max-width: 36rem) {
+  .page-actions,
   .dash-hero-actions {
     width: 100%;
   }
 
+  .page-actions .btn,
   .dash-hero-actions .btn {
     flex: 1;
     justify-content: center;

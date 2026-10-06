@@ -3,7 +3,12 @@
 {% block title %}Log activity{% endblock %}
 
 {% block content %}
-  <h1>Log activity</h1>
+  <div class="page-header">
+    <div>
+      <h1>Log activity</h1>
+      <p class="page-subtitle">A call, a visit, an email or a note against a customer</p>
+    </div>
+  </div>
   <form method="post">
     {% csrf_token %}
     {{ form.as_p }}

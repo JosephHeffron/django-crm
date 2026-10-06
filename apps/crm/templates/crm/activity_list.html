@@ -3,9 +3,17 @@
 {% block title %}Activities{% endblock %}
 
 {% block content %}
-  <h1>Activities</h1>
-
-  <p><a href="{% url 'crm:activity_create' %}">Log activity</a></p>
+  <div class="page-header">
+    <div>
+      <h1>Activities</h1>
+      <p class="page-subtitle">Every call, visit, email and note logged against a customer</p>
+    </div>
+    <div class="page-actions">
+      <a class="btn" href="{% url 'crm:activity_create' %}">
+        <svg class="icon" aria-hidden="true"><use href="#icon-plus-circle"/></svg>Log activity
+      </a>
+    </div>
+  </div>
 
   <form method="get" class="filter-form">
     <label for="id_type" class="sr-only">Activity type</label>
@@ -15,51 +23,37 @@
         <option value="{{ value }}" {% if activity_type == value %}selected{% endif %}>{{ label }}</option>
       {% endfor %}
     </select>
-    <button type="submit">Filter</button>
+    <button type="submit" class="btn-secondary">Filter</button>
   </form>
 
   {% if activities %}
-    <table class="data-table">
-      <thead>
-        <tr>
-          <th>When</th>
-          <th>Type</th>
-          <th>Subject</th>
-          <th>Related to</th>
-          <th>By</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for activity in activities %}
-          <tr>
-            <td>{{ activity.created_at }}</td>
-            <td>{{ activity.get_activity_type_display }}</td>
-            <td>{{ activity.subject }}</td>
-            <td>
-              {% if activity.company %}<a href="{{ activity.company.get_absolute_url }}">{{ activity.company.name }}</a>{% endif %}
-              {% if activity.contact %}<a href="{{ activity.contact.get_absolute_url }}">{{ activity.contact }}</a>{% endif %}
-              {% if activity.lead %}<a href="{{ activity.lead.get_absolute_url }}">{{ activity.lead.name }}</a>{% endif %}
-              {% if activity.deal %}<a href="{{ activity.deal.get_absolute_url }}">{{ activity.deal.title }}</a>{% endif %}
-              {% if not activity.company and not activity.contact and not activity.lead and not activity.deal %}—{% endif %}
-            </td>
-            <td>{{ activity.created_by }}</td>
-          </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-
-    {% if is_paginated %}
-      <nav class="pagination">
-        {% if page_obj.has_previous %}
-          <a href="?page={{ page_obj.previous_page_number }}{% if activity_type %}&type={{ activity_type }}{% endif %}">Previous</a>
-        {% endif %}
-        <span>Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
-        {% if page_obj.has_next %}
-          <a href="?page={{ page_obj.next_page_number }}{% if activity_type %}&type={{ activity_type }}{% endif %}">Next</a>
-        {% endif %}
-      </nav>
-    {% endif %}
+    <div class="table-responsive card card-flush">
+      <table class="data-table stack-mobile">
+        <thead>
+          <tr><th>When</th><th>Type</th><th>Subject</th><th>Related to</th><th>By</th></tr>
+        </thead>
+        <tbody>
+          {% for activity in activities %}
+            <tr>
+              <td data-label="When">{{ activity.created_at|date:"M j, Y · g:i A" }}</td>
+              <td data-label="Type">{{ activity.get_activity_type_display }}</td>
+              <td data-label="Subject">{{ activity.subject }}</td>
+              <td data-label="Related to">
+                {% if activity.company %}<a href="{{ activity.company.get_absolute_url }}">{{ activity.company.name }}</a>{% endif %}
+                {% if activity.contact %}<a href="{{ activity.contact.get_absolute_url }}">{{ activity.contact }}</a>{% endif %}
+                {% if activity.lead %}<a href="{{ activity.lead.get_absolute_url }}">{{ activity.lead.name }}</a>{% endif %}
+                {% if activity.deal %}<a href="{{ activity.deal.get_absolute_url }}">{{ activity.deal.title }}</a>{% endif %}
+                {% if not activity.company and not activity.contact and not activity.lead and not activity.deal %}—{% endif %}
+              </td>
+              <td data-label="By">{{ activity.created_by }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% include "partials/_pagination.html" %}
   {% else %}
-    <p>No activities found.</p>
+    {% url 'crm:activity_create' as log_url %}
+    {% include "partials/_empty_state.html" with icon="activity" title="Nothing logged yet" text="Calls, visits and notes you log against a customer show up here." action_url=log_url action_label="Log activity" %}
   {% endif %}
 {% endblock %}

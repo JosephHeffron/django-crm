@@ -3,7 +3,12 @@
 {% block title %}{% if object %}Edit {{ object.title }}{% else %}Add task{% endif %}{% endblock %}
 
 {% block content %}
-  <h1>{% if object %}Edit {{ object.title }}{% else %}Add task{% endif %}</h1>
+  <div class="page-header">
+    <div>
+      <h1>{% if object %}Edit {{ object.title }}{% else %}Add task{% endif %}</h1>
+      <p class="page-subtitle">What needs doing, by whom, and by when</p>
+    </div>
+  </div>
   <form method="post">
     {% csrf_token %}
     {{ form.as_p }}
