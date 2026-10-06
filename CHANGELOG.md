@@ -139,7 +139,10 @@ for meaningful changes — not for every small fix or documentation tweak.
   without signing in. The reverse proxy refuses the path outright, and
   that refusal is asserted against the configuration Caddy actually
   runs rather than the text of the config file.
-- A storage failure no longer looks like a missing photo. Only a file
-  that is genuinely gone returns "not found"; a permissions problem or
-  an unmounted media volume raises instead of telling every user the
-  photos were never uploaded.
+- A storage failure no longer looks like a missing photo. A
+  permissions problem or a read error now raises, instead of telling
+  every user the photos were never uploaded. Note the limit: a media
+  volume that is unmounted or mounted empty still reports the files as
+  missing, because that is genuinely what the filesystem says
+  (`ENOENT`), so it is indistinguishable from a deleted file at this
+  level.

@@ -940,10 +940,15 @@ roadmap completed:
   back on). 783 tests. Full detail in
   `logs/claude/phase-17.5-step11-remaining.md`.
 - Phase 18 unit 1 — **private media**. `media/private/` (job photos,
-  profile pictures) is no longer served from disk. Both now go through
-  a login-gated view (`apps/jobs/media.py`) that also checks whether
-  the person may see the job or estimate the file belongs to; out of
-  scope is 404, never 403. Verified in Chromium under production
+  profile pictures) is no longer served from disk. Both now need a
+  signed-in account with a role, but they are scoped differently, and
+  the difference matters: a **job or estimate photo**
+  (`apps/jobs/media.py`) is shown only to someone who may see the job
+  or estimate it belongs to, so a cleaner sees the jobs they're on and
+  no others, with out of scope being 404 and never 403. A **profile
+  picture** (`AvatarView` in `apps/users/views.py`) is shown to anyone
+  with any role, deliberately — colleagues work together — and is not
+  scoped per person. Verified in Chromium under production
   settings: the assigned crew member gets the image, a crew member on
   another job gets 404, signed out goes to sign-in, and the raw
   `/media/private/` path is refused — with photos rendering in an
@@ -971,22 +976,34 @@ Nothing in flight — Phase 18 unit 1 is merged (PR #130).
 
 ## Next
 
-1. **Phase 18 unit 2 — uploading before and after photos from a phone.**
-   Unit 1 built the serving side; nothing displays or uploads photos
-   yet. Two constraints found while verifying unit 1, both recorded in
+1. **Phase 18 unit 2 — uploading and showing photos.** Unit 1 built
+   only the serving side; nothing displays or uploads a photo yet.
+   Scope is both parents the `Photo` model and the serving view already
+   support: before and after photos on a job, taken on a phone, **and
+   reference photos on an estimate**, which `docs/ROADMAP.md` lists
+   under the quote builder.
+
+   Two constraints found while verifying unit 1, both recorded in
    `logs/claude/phase-18-unit1-private-media.md`: Pillow has no HEIF
    support in this environment, so an `ImageField` upload of a HEIC
    file is rejected at validation — and iPhones shoot HEIC by default.
    Most desktop browsers also cannot render HEIC even when labelled
    correctly. So unit 2 has to choose between relying on iOS converting
-   to JPEG on upload and adding `pillow-heif`, which CLAUDE.md requires
-   be justified as a new dependency.
+   to JPEG on upload and adding `pillow-heif`. CLAUDE.md's
+   justification checklist is written for new *infrastructure*
+   dependencies rather than a Python library, but the same questions
+   are worth answering here, since this one would ship to the Pi.
 2. Phase 18 unit 3 — turning an accepted estimate into a job in one
    click.
 3. Phase 18 unit 4 — drag-to-reschedule on the calendar, with a
    keyboard alternative.
 4. Phase 18 unit 5 — removing the retired Lead and Deal models, whose
    pages the restyle left alone for that reason.
+
+Before calling Phase 18 done, check the remaining items in its
+`docs/ROADMAP.md` entry against what Phase 17.5 actually delivered —
+quote status transitions, and scheduling with crew assignment — rather
+than assuming the restyle covered them.
 
 ## Known issues
 

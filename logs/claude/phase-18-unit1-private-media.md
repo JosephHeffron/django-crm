@@ -152,11 +152,20 @@ return an empty body — four tests fail where two used to pass.
 ## Review finding, third round — a broken volume looked like a missing photo
 
 `send_private_file` caught `OSError` and returned 404. Sourcery pointed
-out that this covers permission errors, I/O errors and an unmounted
-volume, so a misconfigured media volume would show every photo as
-"not found" to every user, with nothing in the logs saying otherwise.
-Only `FileNotFoundError` means the file is genuinely gone; the rest are
+out that this covers permission errors and I/O errors, so a
+misconfigured media volume would show every photo as "not found" to
+every user, with nothing in the logs saying otherwise. Only
+`FileNotFoundError` means the file is genuinely gone; the rest are
 server faults and now propagate, so they're a 500 and get recorded.
+
+**Correction, from a later round:** I first wrote that this also covers
+"a volume that isn't mounted". It doesn't. An unmounted or
+empty-mounted volume raises `FileNotFoundError`, because `ENOENT` is
+exactly what the filesystem reports, so it is indistinguishable from a
+deleted file at this level and still returns 404. The comment in
+`media.py`, the changelog entry and this log all say so now. Closing
+that gap needs a separate check — whether the storage directory itself
+exists — and is tracked as the next fix rather than claimed here.
 
 Mutation-checked: restoring the broad `except OSError` fails the two
 new tests (a permission error and a read error).
