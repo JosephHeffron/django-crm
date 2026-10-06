@@ -5,11 +5,13 @@ from django.contrib import messages
 from django.contrib.auth import get_user_model
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db import transaction
-from django.http import HttpResponse, HttpResponseBadRequest
+from django.http import Http404, HttpResponse, HttpResponseBadRequest
 from django.shortcuts import get_object_or_404, redirect
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.views import View
 from django.views.generic import TemplateView
+
+from apps.jobs.media import send_private_file
 
 from .forms import AccountForm, CrewPayForm, MemberAccessForm, ProfileForm
 from .models import UserProfile, get_profile
@@ -189,3 +191,22 @@ class ThemeView(LoginRequiredMixin, View):
         ):
             next_url = "/"
         return redirect(next_url)
+
+
+class AvatarView(RoleRequiredMixin, View):
+    """Someone's profile picture, to people who work here.
+
+    Profile pictures live under `media/private/` like job photos, and
+    for the same reason: a photograph of a colleague isn't something to
+    leave on a public URL. Anyone with a role may see any teammate's —
+    they work together — but a signed-out visitor may not.
+    """
+
+    allowed_roles = ALL_ROLES
+
+    def get(self, request, username, *args, **kwargs):
+        person = get_object_or_404(User, username=username)
+        profile = UserProfile.objects.filter(user=person).first()
+        if profile is None or not profile.photo:
+            raise Http404("No photo")
+        return send_private_file(profile.photo)

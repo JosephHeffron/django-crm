@@ -13,4 +13,5 @@ urlpatterns = [
     path("profile/theme/", views.ThemeView.as_view(), name="theme"),
     path("team/", views.TeamListView.as_view(), name="team"),
     path("team/<str:username>/", views.TeamMemberView.as_view(), name="member"),
+    path("people/<str:username>/photo/", views.AvatarView.as_view(), name="avatar"),
 ]

@@ -154,6 +154,8 @@ member of), so a direct message never leaks onto a contact page.
 | Expenses (`/expenses/`, create, edit) | yes | 403 | 403 |
 | Time clock (`/time-clock/`) | own | own | own |
 | Map (`/map/`) | yes | yes | 403 |
+| A job photo (`/photos/<uuid>/`) | any | any | only on their own jobs |
+| A teammate's picture (`/people/<username>/photo/`) | yes | yes | yes |
 | Reports (`/reports/`) | every report | all but the money ones | 403 |
 | Settings hub (`/settings/`) | yes | yes | yes |
 | What's new (`/whats-new/`) | yes | yes | yes |

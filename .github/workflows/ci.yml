@@ -45,6 +45,27 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt -r requirements-dev.txt
 
+      # The private-media guards in apps/jobs/tests/test_private_media.py
+      # run `caddy adapt` and assert on the configuration Caddy will
+      # actually use. They skip without the binary, and skipping is how
+      # this control was lost once already: a text-only version of those
+      # tests passed while every private job photo was publicly
+      # readable. Pinned and checksummed, like static/vendor/leaflet/.
+      - name: Install Caddy (for the proxy-config tests)
+        env:
+          CADDY_VERSION: 2.11.7
+          CADDY_SHA512: a7a433a1b133efc3c8d10eb0b99d52a24b5ef5c322dc77f5282182b1c0402139ab83f3a99f0c52409df77d20123fb0b523edad8a66d8f5e49136197bf61ef0e7
+        run: |
+          set -euo pipefail
+          archive="caddy_${CADDY_VERSION}_linux_amd64.tar.gz"
+          curl -fsSL -o "$archive" \
+            "https://github.com/caddyserver/caddy/releases/download/v${CADDY_VERSION}/${archive}"
+          echo "${CADDY_SHA512}  ${archive}" | sha512sum --check --strict
+          tar -xzf "$archive" caddy
+          sudo install -m 0755 caddy /usr/local/bin/caddy
+          rm -f "$archive" caddy
+          caddy version
+
       - name: Django check
         run: python manage.py check
 
