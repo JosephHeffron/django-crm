@@ -186,6 +186,17 @@ Mutation-checked both ways: removing the directory check fails the
 unmounted-volume test, and going back to `storage.exists()` fails the
 object-storage tests with exactly the 500 the review predicted.
 
+One further round raised the residual case and it's accepted rather
+than fixed: if a volume fails to mount over a tree where
+`private/photos` already exists, `isdir` says yes and a missing photo
+still reports 404. Telling that apart needs a marker file written into
+the volume when it's provisioned, which belongs with the deployment
+script rather than with a guess in this function — and the obvious
+cheap substitute, treating an empty directory as an outage, is wrong,
+because an empty photos directory is also what a system looks like
+before anyone has uploaded anything. The limit is written into the
+docstring so the next person doesn't have to rediscover it.
+
 Two notes on the tests, since both were mistakes of the same family as
 the Caddy ones:
 

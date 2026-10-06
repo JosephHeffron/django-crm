@@ -80,6 +80,17 @@ def _directory_exists(file_field):
     Anything we can't ask gets the benefit of the doubt. This exists to
     recognise an unmounted volume, not to add a new way for a photo to
     fail.
+
+    Its limit, deliberately: it catches a volume that isn't there,
+    which leaves an empty mount point. It does not catch a volume that
+    failed to mount over a tree where somebody had already created
+    `private/photos` — `isdir` says yes, and a missing photo still
+    reports 404. Telling that apart needs a marker written into the
+    volume when it's provisioned, so it belongs with the deployment
+    script (CLAUDE.md's deployment rules) rather than with a guess
+    here. Checking for an *empty* directory instead isn't that answer:
+    an empty photos directory is also what a system looks like before
+    the first upload.
     """
     try:
         directory = file_field.storage.path(str(PurePath(file_field.name).parent))
