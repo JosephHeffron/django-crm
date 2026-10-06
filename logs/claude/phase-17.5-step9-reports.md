@@ -49,7 +49,7 @@ choose, as a table you can read and a file you can keep.
 
 ## Verification
 
-$ `manage.py test` — 746 tests, OK (724 before, 22 new). No migrations.
+$ `manage.py test` — 751 tests, OK (724 before, 27 new). No migrations.
 $ `ruff` / `ruff format --check` / bandit (CI flags) /
   `makemigrations --check` — clean.
 $ Playwright under production settings, 19 checks, zero CSP violations:
@@ -67,10 +67,48 @@ $ Playwright under production settings, 19 checks, zero CSP violations:
   quantizes the same way — the same defect as step 6's payment prefill,
   in a different place.
 
+## Review (PR #124)
+
+Sourcery's budget was back and it reviewed properly: nine findings, of
+which eight were real. All fixed, each with a test:
+
+1. **(High) A custom range didn't reach the download.** The link carried
+   only `range=custom`, dropping the dates, so Download CSV silently
+   fell back to this month and exported different figures from the
+   table above it.
+2. **"Where customers come from" counted leads as customers.** It
+   grouped every contact created in the period; a referral that never
+   bought isn't where a customer came from.
+3. **A report about a past period dropped people who had left.**
+   Payroll lists who's on the books now, which is right for payroll and
+   wrong for history. `people_who_worked()` adds anyone who clocked time
+   in the period.
+4. **An empty period downloaded as zero bytes.** The header is written
+   from the first row, and there wasn't one. "No sales in March" is an
+   answer; an empty file isn't.
+5. **Shares and totals could disagree**, being two queries with a gap
+   between them. Shares are now derived from the rows themselves, so
+   they add to 100 by construction — which also fixed the same latent
+   gap on the Profit page.
+6. **Two follow-up columns were both labelled "Done"**, and the CSV keys
+   on the label, so the percentage overwrote the count and the file lost
+   a column. A test now asserts every report's labels are distinct.
+7. **A test used "200 days ago" for a year-to-date check**, which lands
+   in the previous year for half the year — it would have started
+   failing in January.
+8. **A test read a download's status and threw the body away**, so a
+   zero-byte file passed it. It now checks every column heading is
+   there.
+
+Declined, with a reason: **totals in the CSV**. A spreadsheet sums a
+column in one click, and a totals row inside the data breaks sorting and
+filtering for everyone who opens it. The file is data; the page is the
+summary.
+
 ## Git
 
-Branch: `feature/restyle-reports`
-Commit: pending
+Branch: `feature/restyle-reports` (PR #124)
+Commits: `ef16c6a` (the step), review fixes to follow
 Merged to `main`: pending
 
 ## Next

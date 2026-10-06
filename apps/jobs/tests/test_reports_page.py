@@ -121,6 +121,48 @@ class FiguresTests(ReportTestCase):
         row = self.rows("estimate-outcomes")[0]
         self.assertEqual((row["written"], row["won"], row["rate"]), (3, 1, 50))
 
+    def test_where_customers_come_from_counts_customers_not_leads(self):
+        Contact.objects.filter(pk=self.customer.pk).update(
+            lead_source=Contact.LeadSource.REFERRAL, status=Contact.Status.CUSTOMER
+        )
+        lead = f.contact(self.owner, "Lee", "Lead")
+        Contact.objects.filter(pk=lead.pk).update(
+            lead_source=Contact.LeadSource.WEBSITE, status=Contact.Status.LEAD
+        )
+        rows = {row["name"]: row["count"] for row in self.rows("customers-by-source")}
+        self.assertEqual(rows, {"Referral": 1})
+
+    def test_shares_add_up_to_the_whole(self):
+        # Derived from the rows themselves, so they can't disagree with
+        # the totals beside them.
+        job = f.job(self.customer, self.owner, lines=[])
+        f.invoice(job, lines=[(Decimal("1"), Decimal("300"))], issued=self.today)
+        other = f.job(self.customer, self.owner, lines=[])
+        f.invoice(
+            other,
+            lines=[(Decimal("1"), Decimal("100"))],
+            issued=self.today,
+        )
+        rows = self.rows("revenue-by-service")
+        self.assertEqual(sum(row["share"] for row in rows), 100)
+
+    def test_someone_who_has_left_still_shows_their_hours(self):
+        from apps.users.models import get_profile
+
+        gone = grant_role(f.user("former", first_name="Former"), Role.CLEANER)
+        profile = get_profile(gone)
+        profile.hourly_rate = Decimal("18.00")
+        profile.save(update_fields=["hourly_rate"])
+        started = timezone.now() - timedelta(hours=2)
+        crew.clock_in(gone, now=started)
+        crew.clock_out(gone, now=started + timedelta(hours=2))
+        gone.is_active = False
+        gone.save(update_fields=["is_active"])
+
+        rows = {row["name"]: row for row in self.rows("crew-hours")}
+        self.assertIn("Former", rows)
+        self.assertEqual(rows["Former"]["hours"], Decimal("2.00"))
+
     def test_where_customers_come_from(self):
         Contact.objects.filter(pk=self.customer.pk).update(lead_source=Contact.LeadSource.REFERRAL)
         row = self.rows("customers-by-source")[0]
@@ -146,12 +188,23 @@ class FiguresTests(ReportTestCase):
         response = self.client.get(detail("revenue-by-service", range="day"))
         self.assertContains(response, "Nothing in this period")
 
+    def earlier_this_year(self):
+        """A day in this calendar year but not this month, whenever the
+        tests happen to run. Counting back a fixed number of days falls
+        into last year for half the year."""
+        first_of_month = self.today.replace(day=1)
+        if first_of_month.month > 1:
+            return first_of_month - timedelta(days=1)
+        # In January there's no earlier month, so use the 1st itself and
+        # compare against the day instead.
+        return first_of_month
+
     def test_the_period_follows_the_buttons(self):
         job = f.job(self.customer, self.owner, lines=[])
-        f.invoice(
-            job, lines=[(Decimal("1"), Decimal("100"))], issued=self.today - timedelta(days=200)
-        )
-        self.assertEqual(self.rows("revenue-by-service", range="month"), [])
+        earlier = self.earlier_this_year()
+        f.invoice(job, lines=[(Decimal("1"), Decimal("100"))], issued=earlier)
+        if earlier.month != self.today.month:
+            self.assertEqual(self.rows("revenue-by-service", range="month"), [])
         self.assertEqual(len(self.rows("revenue-by-service", range="ytd")), 1)
 
 
@@ -191,19 +244,51 @@ class CsvTests(ReportTestCase):
 
     def test_the_file_follows_the_same_period(self):
         job = f.job(self.customer, self.owner, lines=[])
-        f.invoice(
-            job, lines=[(Decimal("1"), Decimal("100"))], issued=self.today - timedelta(days=200)
-        )
-        self.assertEqual(self.download("revenue-by-service", range="month")[1], [])
+        earlier = self.today.replace(day=1) - timedelta(days=1)
+        if earlier.year != self.today.year:  # January: nothing earlier this year
+            return
+        f.invoice(job, lines=[(Decimal("1"), Decimal("100"))], issued=earlier)
+        # An empty period still gives a file with its headings, not
+        # zero bytes — so "no rows" means one blank line, not none.
+        empty = self.download("revenue-by-service", range="month")[1]
+        self.assertEqual([row["Revenue"] for row in empty], [""])
         self.assertEqual(len(self.download("revenue-by-service", range="ytd")[1]), 1)
+
+    def test_a_custom_range_is_carried_into_the_download(self):
+        job = f.job(self.customer, self.owner, lines=[])
+        day = self.today - timedelta(days=3)
+        f.invoice(job, lines=[(Decimal("1"), Decimal("777"))], issued=day)
+        page = self.client.get(
+            detail("revenue-by-service", range="custom", start=day.isoformat(), end=day.isoformat())
+        )
+        # The link has to carry the dates, or the download quietly falls
+        # back to this month and exports different figures.
+        link = page.context["query"]
+        self.assertIn(f"start={day.isoformat()}", link)
+        self.assertIn(f"end={day.isoformat()}", link)
+        _, rows = self.download(
+            "revenue-by-service", range="custom", start=day.isoformat(), end=day.isoformat()
+        )
+        self.assertEqual(rows[0]["Revenue"], "777.00")
 
     def test_a_rep_cannot_download_a_money_report(self):
         self.client.login(username="rep", password=PASSWORD)
         response = self.client.get(reverse("jobs:report_csv", args=["revenue-by-service"]))
         self.assertEqual(response.status_code, 404)
 
-    def test_every_report_downloads(self):
+    def test_every_report_downloads_with_its_headings(self):
+        # Reading the body matters: a zero-byte file is a 200 too.
         for report in reporting.CATALOGUE:
             response = self.client.get(reverse("jobs:report_csv", args=[report.slug]))
             self.assertEqual(response.status_code, 200, report.slug)
-            b"".join(response.streaming_content)
+            body = b"".join(response.streaming_content).decode()
+            first_line = body.splitlines()[0] if body else ""
+            for column in report.columns:
+                self.assertIn(column.label, first_line, report.slug)
+
+    def test_column_labels_are_distinct_so_the_file_keeps_every_one(self):
+        # csv_rows keys on the label, so two columns sharing one would
+        # overwrite each other in the file.
+        for report in reporting.CATALOGUE:
+            labels = [column.label for column in report.columns]
+            self.assertEqual(len(labels), len(set(labels)), report.slug)

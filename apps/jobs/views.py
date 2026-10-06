@@ -995,6 +995,17 @@ class ReportDetailMixin(SalesRoleRequiredMixin):
         )
 
 
+def _period_query(period):
+    """The period as a query string, so Download CSV gets the range on
+    screen. A custom range has to carry its dates: without them the
+    download silently falls back to this month."""
+    if period.preset == "custom":
+        return urlencode(
+            {"range": "custom", "start": period.first.isoformat(), "end": period.last.isoformat()}
+        )
+    return urlencode({"range": period.preset})
+
+
 class ReportDetailView(ReportDetailMixin, TemplateView):
     template_name = "jobs/report_detail.html"
 
@@ -1008,7 +1019,7 @@ class ReportDetailView(ReportDetailMixin, TemplateView):
             period=period,
             period_error=error,
             presets=[(key, label, key == period.preset) for key, label in reports.PRESETS.items()],
-            query=urlencode({"range": period.preset}),
+            query=_period_query(period),
         )
         return context
 

@@ -61,30 +61,27 @@ def _name(first, last, username):
 
 
 def _revenue_by_service(period):
-    revenue = reports.invoiced_revenue(period.first, period.last)
     return [
         {
             "name": row["service_type__name"],
             "total": row["total"],
             "share": row["share"],
         }
-        for row in reports.revenue_by_service(period, revenue)
+        for row in reports.revenue_by_service(period)
     ]
 
 
 def _revenue_by_rep(period):
-    revenue = reports.invoiced_revenue(period.first, period.last)
     return [
         {"name": row["name"], "jobs": row["jobs"], "total": row["total"], "share": row["share"]}
-        for row in reports.revenue_by_rep(period, revenue)
+        for row in reports.revenue_by_rep(period)
     ]
 
 
 def _expenses_by_category(period):
-    figures = reports.summary(period)
     return [
         {"name": row["label"], "total": row["total"], "share": row["share"]}
-        for row in reports.expenses_by_category(period, figures["expenses"])
+        for row in reports.expenses_by_category(period)
     ]
 
 
@@ -158,8 +155,14 @@ def _jobs_by_service(period):
 
 def _crew_hours(period):
     """Hours clocked and what they cost, per person — the same figures
-    Payroll shows, in a form you can keep."""
-    rows = crew.payroll(crew.payroll_people(), period.first, period.last)
+    Payroll shows, in a form you can keep.
+
+    Anyone who clocked time in the period is included, even if they've
+    since left or changed role: a report about last spring shouldn't
+    quietly drop the people who did the work.
+    """
+    people = crew.people_who_worked(period.first, period.last)
+    rows = crew.payroll(people, period.first, period.last)
     out = []
     for row in rows:
         jobs = JobAssignment.objects.filter(
@@ -210,7 +213,11 @@ def _customers_by_source(period):
     first, last = reports.day_bounds(period.first, period.last)
     labels = dict(Contact.LeadSource.choices)
     rows = list(
-        Contact.objects.filter(created_at__gte=first, created_at__lt=last)
+        # Customers, not every contact: a lead that came from a referral
+        # and never bought isn't where a customer came from.
+        Contact.objects.filter(
+            created_at__gte=first, created_at__lt=last, status=Contact.Status.CUSTOMER
+        )
         .values("lead_source")
         .annotate(count=Count("pk"))
         .order_by("-count")
@@ -424,7 +431,9 @@ CATALOGUE = (
             Column("name", "Service"),
             Column("raised", "Raised", NUMBER),
             Column("done", "Done", NUMBER),
-            Column("rate", "Done", PERCENT),
+            # A distinct label: the CSV keys on it, so two "Done"
+            # columns would overwrite each other in the file.
+            Column("rate", "Done rate", PERCENT),
         ),
         _follow_ups,
     ),
@@ -465,7 +474,20 @@ def _for_file(value, kind):
 
 
 def csv_rows(table):
-    """The same values the table shows, keyed by the column labels."""
+    """The same values the table shows, keyed by the column labels.
+
+    A period with nothing in it still yields one row of blanks, so the
+    file carries its column headings instead of downloading as zero
+    bytes — "no sales in March" is an answer, and an empty file isn't.
+
+    Totals are deliberately left out: a spreadsheet sums a column in one
+    click, and a totals row inside the data breaks sorting and filtering
+    for everyone who opens it.
+    """
+    labels = [column.label for column in table.report.columns]
+    if not table.rows:
+        yield dict.fromkeys(labels, "")
+        return
     for row in table.rows:
         yield {
             column.label: _for_file(row.get(column.key), column.kind)
