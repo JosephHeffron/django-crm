@@ -172,9 +172,7 @@ class PhotoHeaderTests(MediaTestCase):
         # the body rather than becoming a 500. Content-Length is what
         # lets the client notice.
         response = self.client.get(self.url)
-        self.assertEqual(
-            int(response["Content-Length"]), len(b"".join(response.streaming_content))
-        )
+        self.assertEqual(int(response["Content-Length"]), len(b"".join(response.streaming_content)))
 
     def test_the_stored_name_is_never_the_uploaded_one(self):
         # An uploaded filename can carry a customer's name or address.
