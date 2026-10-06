@@ -150,6 +150,32 @@ class PhotoHeaderTests(MediaTestCase):
         self.assertIn("private", response["Cache-Control"])
         self.assertIn("no-store", response["Cache-Control"])
 
+    def test_the_browser_is_told_it_is_an_image(self):
+        """`nosniff` means the type we send is the type that's used.
+
+        Nothing passes a content type explicitly — FileResponse guesses
+        it from the stored filename — so this asserts the guess comes
+        out right. If it ever became application/octet-stream, every
+        photo would download instead of displaying.
+        """
+        self.assertEqual(self.client.get(self.url)["Content-Type"], "image/jpeg")
+
+    def test_an_avatar_is_also_served_as_an_image(self):
+        profile = get_profile(self.casey)
+        profile.photo = image("casey.jpg")
+        profile.save()
+        response = self.client.get(reverse("people:avatar", args=["casey"]))
+        self.assertEqual(response["Content-Type"], "image/jpeg")
+
+    def test_the_length_is_sent_so_a_short_body_is_detectable(self):
+        # FileResponse streams; a read error partway through truncates
+        # the body rather than becoming a 500. Content-Length is what
+        # lets the client notice.
+        response = self.client.get(self.url)
+        self.assertEqual(
+            int(response["Content-Length"]), len(b"".join(response.streaming_content))
+        )
+
     def test_the_stored_name_is_never_the_uploaded_one(self):
         # An uploaded filename can carry a customer's name or address.
         photo = Photo.objects.create(

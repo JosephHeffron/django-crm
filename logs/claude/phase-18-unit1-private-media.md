@@ -161,9 +161,35 @@ server faults and now propagate, so they're a 500 and get recorded.
 Mutation-checked: restoring the broad `except OSError` fails the two
 new tests (a permission error and a read error).
 
+## Review finding, fourth round — two of three were wrong
+
+Worth recording that review is not always right, and that checking is
+cheap either way:
+
+- **"Avatar requests fail with a server error"** (High) — claimed
+  `AvatarView` references an undefined `User`. It doesn't:
+  `apps/users/views.py:29` binds `User = get_user_model()` at module
+  level, and the avatar tests fetch a real picture and assert its JPEG
+  bytes. No change.
+- **"Private images download instead of display"** (Medium) — claimed
+  `content_type=None` yields `application/octet-stream`, which with
+  `nosniff` would force a download. `FileResponse` guesses from the
+  stored filename, and the response really carries `image/jpeg`
+  (printed it to be sure). No change — but nothing *tested* it, and
+  `nosniff` makes the guess load-bearing, so now three tests do.
+- **"Storage read errors truncate images"** (Medium) — true, and
+  accepted. `FileResponse` streams, so a read error after the headers
+  are out truncates the body rather than becoming a 500. Reading the
+  file into memory first narrows that window without closing it, and
+  costs memory on every request to catch a disk fault that `open()`
+  already catches in the common cases. `Content-Length` is sent, so a
+  short body is detectable rather than silently wrong, and a test
+  asserts it matches the body. The module docstring records both
+  limits and why.
+
 ## Verification
 
-$ `manage.py test` — 807 tests, OK (783 before, 24 new). No migrations:
+$ `manage.py test` — 810 tests, OK (783 before, 27 new). No migrations:
   the Photo model has existed since Phase 17.
 $ Caddy, twice: once proving the original fix broken (200 + file body),
   once proving the current one works (the table above). Both runs used a

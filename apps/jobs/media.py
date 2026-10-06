@@ -19,6 +19,20 @@ Files are read through Django rather than handed to the web server with
 an internal redirect. For a handful of staff and a few photos a job
 that's simply not worth the second code path, and this one can be tested
 here rather than only on the real machine.
+
+Two deliberate limits, both reviewed:
+
+- the content type is left to `FileResponse`, which guesses it from the
+  stored filename. That works because uploads keep the real extension
+  (`private/photos/<uuid>.jpg`), and `nosniff` then needs it to be
+  right — so a test asserts the guess really comes out as an image
+  type rather than `application/octet-stream`;
+- `FileResponse` streams, so a read error *after* the headers have gone
+  out truncates the body instead of becoming a 500. Reading the whole
+  file first would narrow that window but not close it, and it would
+  cost memory on every request to catch a disk error that open()
+  already catches in the common cases. `Content-Length` is set, so a
+  short body is detectable by the client rather than silently wrong.
 """
 
 from django.http import FileResponse, Http404
