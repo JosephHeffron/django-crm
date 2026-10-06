@@ -151,11 +151,55 @@ class AvatarTests(MediaTestCase):
 
 class ProxyConfigTests(TestCase):
     """The web server must not serve these files from disk — that's what
-    this whole view exists to prevent."""
+    this whole view exists to prevent.
 
-    def test_both_caddyfiles_refuse_private_media(self):
-        for name in ("Caddyfile", "Caddyfile.dev"):
-            with open(name) as handle:
-                config = handle.read()
-            self.assertIn("/media/private/*", config, name)
-            self.assertIn("respond @private 404", config, name)
+    The first version of this test only checked that the two strings
+    appeared somewhere in the file, and it passed against a config that
+    served every private photo with a 200. Caddy runs directives in its
+    own order rather than the order they're written, and `handle_path`
+    runs before `respond`, so a `respond` matcher written above the
+    general block was never reached. What matters is therefore the
+    *shape*: a `handle_path` for the private path, ahead of the one that
+    serves the directory.
+    """
+
+    CONFIGS = ("Caddyfile", "Caddyfile.dev")
+
+    def read(self, name):
+        with open(name) as handle:
+            return handle.read()
+
+    def at(self, config, directive, name):
+        """Where a directive starts, failing readably if it's absent."""
+        self.assertIn(directive, config, f"{name}: no `{directive}` block")
+        return config.index(directive)
+
+    def test_private_media_is_refused_by_a_handler_not_a_matcher(self):
+        for name in self.CONFIGS:
+            config = self.read(name)
+            self.assertIn(
+                "handle_path /media/private/*",
+                config,
+                f"{name}: the private path needs its own handle_path block — a "
+                "`respond` matcher runs after handle_path and never fires",
+            )
+
+    def test_the_private_handler_comes_before_the_one_that_serves_files(self):
+        for name in self.CONFIGS:
+            config = self.read(name)
+            private = self.at(config, "handle_path /media/private/*", name)
+            general = self.at(config, "handle_path /media/*", name)
+            self.assertLess(
+                private,
+                general,
+                f"{name}: handle_path blocks match in written order, so the "
+                "private one has to come first or the general one serves the file",
+            )
+
+    def test_the_private_handler_answers_rather_than_serving(self):
+        for name in self.CONFIGS:
+            config = self.read(name)
+            start = self.at(config, "handle_path /media/private/*", name)
+            block = config[start : config.index("}", start)]
+            self.assertIn("respond 404", block, name)
+            self.assertNotIn("file_server", block, name)

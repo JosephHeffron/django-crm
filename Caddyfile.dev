@@ -25,8 +25,19 @@ localhost {
 
 	# Same as the production Caddyfile: private media goes through
 	# Django, which checks who's asking (apps/jobs/media.py).
-	@private path /media/private/*
-	respond @private 404
+	# Private media is NOT served from disk. Job photos and profile
+	# pictures live under media/private/ and go through Django, which
+	# checks who's asking and whether they may see the job the photo
+	# belongs to (apps/jobs/media.py).
+	#
+	# This has to be a handle_path block ahead of the general one, not a
+	# `respond` matcher: Caddy runs directives in its own order, not the
+	# order they're written, and `handle_path` runs before `respond` —
+	# so a matcher placed above would never have been reached. Verified
+	# by running Caddy against this config and fetching the path.
+	handle_path /media/private/* {
+		respond 404
+	}
 
 	handle_path /media/* {
 		root * /srv/media
