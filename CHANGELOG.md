@@ -140,9 +140,9 @@ for meaningful changes — not for every small fix or documentation tweak.
   that refusal is asserted against the configuration Caddy actually
   runs rather than the text of the config file.
 - A storage failure no longer looks like a missing photo. A
-  permissions problem or a read error now raises, instead of telling
-  every user the photos were never uploaded. Note the limit: a media
-  volume that is unmounted or mounted empty still reports the files as
-  missing, because that is genuinely what the filesystem says
-  (`ENOENT`), so it is indistinguishable from a deleted file at this
-  level.
+  permissions problem or a read error raises rather than telling every
+  user the photos were never uploaded, and so does a media volume that
+  is unmounted or mounted empty: if the directory the photos live in
+  isn't there at all, every private file in the system would otherwise
+  return "not found" with nothing explaining why. One genuinely missing
+  file still returns "not found", and is now logged.
