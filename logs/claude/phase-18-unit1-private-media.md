@@ -163,9 +163,19 @@ server faults and now propagate, so they're a 500 and get recorded.
 empty-mounted volume raises `FileNotFoundError`, because `ENOENT` is
 exactly what the filesystem reports, so it is indistinguishable from a
 deleted file at this level and still returns 404. The comment in
-`media.py`, the changelog entry and this log all say so now. Closing
-that gap needs a separate check — whether the storage directory itself
-exists — and is tracked as the next fix rather than claimed here.
+`media.py`, the changelog entry and this log were corrected to say so.
+
+**And then closed, in PR #132.** The distinction that actually matters
+isn't the error number, it's one file versus all of them: if the
+*directory* the photos live in doesn't exist, the volume is unmounted
+or mounted empty and every private file is about to return 404, which
+is a server fault. So a missing directory raises and a missing file
+returns 404 and is logged. The directory check goes through the storage
+API, and a storage that can't answer gets the benefit of the doubt —
+it exists to recognise an unmounted volume, not to add a new way for a
+photo to fail. Mutation-checked, and one of its tests was hollow on
+first writing (it left the file in place, so the check never ran); the
+file is now deleted first.
 
 Mutation-checked: restoring the broad `except OSError` fails the two
 new tests (a permission error and a read error).
@@ -233,7 +243,7 @@ unchanged: accepted, with the reasoning recorded.
 
 ## Verification
 
-$ `manage.py test` — 815 tests, OK (783 before, 32 new). No migrations:
+$ `manage.py test` — 818 tests, OK (783 before, 35 new). No migrations:
   the Photo model has existed since Phase 17.
 $ Caddy, twice: once proving the original fix broken (200 + file body),
   once proving the current one works (the table above). Both runs used a

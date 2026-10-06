@@ -964,7 +964,11 @@ roadmap completed:
   CI installs a pinned Caddy so they cannot silently skip. Also: a
   storage permission error was being disguised as "photo not found",
   and the content type came from the host's MIME database, which
-  differs between this workstation, CI and the Pi. 815 tests. Full
+  differs between this workstation, CI and the Pi. A follow-up
+  (PR #132) then separated an unmounted media volume from a deleted
+  file: a missing *directory* raises, because otherwise every private
+  file in the system returns 404 with nothing saying why, while one
+  missing file still returns 404 and is logged. 818 tests. Full
   detail, including what it means for unit 2, in
   `logs/claude/phase-18-unit1-private-media.md`.
 - Phase 18 units 2-5 and Phases 19-25: not yet started (re-sequenced in

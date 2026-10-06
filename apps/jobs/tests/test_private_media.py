@@ -121,6 +121,38 @@ class StorageFailureTests(MediaTestCase):
         self.photo.image.storage.delete(self.photo.image.name)
         self.assertEqual(self.client.get(self.url).status_code, 404)
 
+    def test_an_unmounted_volume_is_not_reported_as_a_missing_photo(self):
+        """Every photo would 404 at once, and nobody would be told why.
+
+        A whole directory gone means the volume isn't there, not that
+        somebody deleted one file.
+        """
+        self.photo.image.storage.delete(self.photo.image.name)
+        with mock.patch.object(Photo.image.field.storage, "exists", return_value=False):
+            with self.assertRaises(OSError) as caught:
+                self.client.get(self.url)
+        self.assertIn("not mounted", str(caught.exception))
+
+    def test_a_missing_file_is_logged_so_somebody_can_find_out(self):
+        self.photo.image.storage.delete(self.photo.image.name)
+        with self.assertLogs("apps.jobs.media", level="WARNING") as logged:
+            self.assertEqual(self.client.get(self.url).status_code, 404)
+        self.assertIn(self.photo.image.name, "\n".join(logged.output))
+
+    def test_a_storage_that_cannot_answer_falls_back_to_not_found(self):
+        """The check must not become a new way for a photo to fail.
+
+        The file has to be gone for the check to run at all — with the
+        file present, `open()` succeeds and none of this is reached.
+        """
+        self.photo.image.storage.delete(self.photo.image.name)
+
+        def explode(*args, **kwargs):
+            raise RuntimeError("this storage has no notion of directories")
+
+        with mock.patch.object(Photo.image.field.storage, "exists", explode):
+            self.assertEqual(self.client.get(self.url).status_code, 404)
+
     def test_a_permission_error_is_not_dressed_up_as_not_found(self):
         # Otherwise an unreadable media volume reads, to everyone, as
         # "the photos were never uploaded", and nothing says otherwise.

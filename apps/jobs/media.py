@@ -36,6 +36,7 @@ Two deliberate limits, both reviewed:
   short body is detectable by the client rather than silently wrong.
 """
 
+import logging
 from pathlib import PurePath
 
 from django.http import FileResponse, Http404
@@ -45,6 +46,8 @@ from apps.users.roles import ALL_ROLES, RoleRequiredMixin
 
 from .access import jobs_for, quotes_for
 from .models import Photo
+
+logger = logging.getLogger(__name__)
 
 # The type sent for each extension uploads are allowed to store.
 # Explicit rather than `mimetypes.guess_type`, which consults the
@@ -61,6 +64,21 @@ CONTENT_TYPES = {
     ".heic": "image/heic",
     ".heif": "image/heif",
 }
+
+
+def _directory_exists(file_field):
+    """Is the folder this file should be in actually there?
+
+    Asked through the storage API rather than the filesystem, so it
+    holds for whatever storage is configured. A storage that can't
+    answer gets the benefit of the doubt: this exists to recognise an
+    unmounted volume, not to add a new way for a photo to fail.
+    """
+    parent = str(PurePath(file_field.name).parent)
+    try:
+        return file_field.storage.exists(parent)
+    except Exception:  # noqa: BLE001 - never let the check itself break serving
+        return True
 
 
 def content_type_for(name):
@@ -91,20 +109,27 @@ def send_private_file(file_field, content_type=None):
     try:
         handle = file_field.open("rb")
     except FileNotFoundError as error:
-        # The row survives a file that's gone (a restore that missed the
-        # media volume, say). Saying "not found" is the truth.
+        # One missing file is a missing file: the row outlives it when a
+        # restore misses the media volume, or someone clears the disk.
+        # Saying "not found" is the truth, but say it in the log too —
+        # otherwise nobody finds out until a customer asks.
+        #
+        # A missing *directory* is a different thing. If the folder the
+        # photos live in isn't there at all, the volume is unmounted or
+        # mounted empty, and every photo in the system is about to
+        # return 404. That is a server fault, so it raises instead:
+        # the whole point of not dressing faults as 404s is that an
+        # operator should be able to tell the difference.
+        if not _directory_exists(file_field):
+            raise OSError(
+                f"The directory for {file_field.name!r} does not exist — the media "
+                "volume is probably not mounted. Refusing to report the file as "
+                "missing, because every private file would report the same."
+            ) from error
+        logger.warning("Private file missing from storage: %s", file_field.name)
         raise Http404("The file is missing") from error
     # Any other OSError — a permission problem, a read error — is
-    # deliberately NOT turned into a 404. Those are server faults, and
-    # dressing them as "not found" would make a misconfigured media
-    # volume look to everyone like the photos were simply never
-    # uploaded, with nothing in the logs saying otherwise. Let it
-    # raise, so it's a 500 and gets recorded.
-    #
-    # Known limit: a volume that is unmounted or mounted empty raises
-    # FileNotFoundError like a deleted file does, because that is what
-    # the filesystem reports (ENOENT), so it is NOT distinguishable
-    # here and does return a 404.
+    # deliberately NOT turned into a 404 either, for the same reason.
     response = FileResponse(handle, content_type=content_type or content_type_for(file_field.name))
     for name, value in HEADERS.items():
         response[name] = value
