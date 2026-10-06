@@ -133,13 +133,14 @@ def summary(period):
     }
 
 
-def _with_share(rows, whole):
+def _with_share(rows, given=None):
+    whole = _whole(rows, given)
     for row in rows:
         row["share"] = round(row["total"] / whole * 100) if whole else 0
     return rows
 
 
-def revenue_by_service(period, revenue):
+def revenue_by_service(period, revenue=None):
     rows = list(
         _sent_lines(period.first, period.last)
         .values("service_type__name", "service_type__tone")
@@ -149,7 +150,14 @@ def revenue_by_service(period, revenue):
     return _with_share(rows, revenue)
 
 
-def revenue_by_rep(period, revenue):
+def _whole(rows, given):
+    """What the shares are a share of. Taken from the rows themselves
+    unless a caller insists, so a change between the two queries can't
+    leave shares that don't add up."""
+    return sum((row["total"] for row in rows), ZERO) if given is None else given
+
+
+def revenue_by_rep(period, revenue=None):
     """Credited to the job's sales rep; jobs with none are "Unassigned"."""
     rows = list(
         _sent_lines(period.first, period.last)
@@ -176,7 +184,7 @@ def revenue_by_rep(period, revenue):
     return _with_share(rows, revenue)
 
 
-def expenses_by_category(period, expenses):
+def expenses_by_category(period, expenses=None):
     labels = dict(Expense.Category.choices)
     rows = list(
         Expense.objects.filter(date__range=(period.first, period.last))

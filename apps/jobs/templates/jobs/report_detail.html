@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+{% load crm_format %}
+
+{% block title %}{{ report.title }}{% endblock %}
+
+{% block content %}
+  <div class="dash-hero">
+    <div>
+      <p class="breadcrumb-header"><a href="{% url 'jobs:report_list' %}">Reports</a></p>
+      <h1>{{ report.title }}</h1>
+      <p class="page-subtitle">{{ period.label }} · {{ period.first|date:"M j" }} – {{ period.last|date:"M j, Y" }}</p>
+    </div>
+    <div class="dash-hero-actions">
+      <a class="btn btn-secondary" href="{% url 'jobs:report_csv' report.slug %}?{{ query }}">
+        <svg class="icon" aria-hidden="true"><use href="#icon-download"/></svg>Download CSV
+      </a>
+    </div>
+  </div>
+
+  <div class="cal-toolbar">
+    <nav class="segmented" aria-label="Period">
+      {% for key, label, current in presets %}
+        <a href="?range={{ key }}"{% if current %} aria-current="page"{% endif %}>{{ label }}</a>
+      {% endfor %}
+    </nav>
+    <form method="get" class="filter-form cal-filter">
+      <input type="hidden" name="range" value="custom">
+      <label for="id_start" class="sr-only">From</label>
+      <input type="date" id="id_start" name="start" value="{% if period.preset == 'custom' %}{{ period.first|date:'Y-m-d' }}{% endif %}" required>
+      <label for="id_end" class="sr-only">To</label>
+      <input type="date" id="id_end" name="end" value="{% if period.preset == 'custom' %}{{ period.last|date:'Y-m-d' }}{% endif %}" required>
+      <button type="submit" class="btn-secondary btn-sm">Show range</button>
+    </form>
+  </div>
+
+  {% if period_error %}
+    <ul class="messages" role="status"><li class="message warning">{{ period_error }} Showing this month instead.</li></ul>
+  {% endif %}
+
+  {% if table.rows %}
+    <div class="table-responsive card card-flush">
+      <table class="data-table stack-mobile">
+        <thead>
+          <tr>
+            {% for column in report.columns %}
+              <th{% if column.kind != "text" %} class="text-right"{% endif %}>{{ column.label }}</th>
+            {% endfor %}
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in table.rows %}
+            <tr>
+              {% for column in report.columns %}
+                <td data-label="{{ column.label }}"{% if column.kind != "text" %} class="text-right"{% endif %}>
+                  {% with value=row|lookup:column.key %}
+                    {% if value is None %}—
+                    {% elif column.kind == "money" %}{{ value|money }}
+                    {% elif column.kind == "percent" %}{{ value }}%
+                    {% elif column.kind == "hours" %}{{ value|floatformat:"-2" }}
+                    {% else %}{{ value }}{% endif %}
+                  {% endwith %}
+                </td>
+              {% endfor %}
+            </tr>
+          {% endfor %}
+        </tbody>
+        {% if table.totals %}
+          <tfoot>
+            <tr class="total-row">
+              {% for column in report.columns %}
+                <td{% if column.kind != "text" %} class="text-right"{% endif %}>
+                  {% if forloop.first %}Total
+                  {% else %}
+                    {% with value=table.totals|lookup:column.key %}
+                      {% if value is None %}
+                      {% elif column.kind == "money" %}{{ value|money }}
+                      {% elif column.kind == "hours" %}{{ value|floatformat:"-2" }}
+                      {% else %}{{ value }}{% endif %}
+                    {% endwith %}
+                  {% endif %}
+                </td>
+              {% endfor %}
+            </tr>
+          </tfoot>
+        {% endif %}
+      </table>
+    </div>
+  {% else %}
+    {% include "partials/_empty_state.html" with icon="trend-up" title="Nothing in this period" text="Try a longer stretch, or a different date range." %}
+  {% endif %}
+
+  {% if report.note %}<p class="muted section-note">{{ report.note }}</p>{% endif %}
+{% endblock %}

@@ -71,6 +71,7 @@ class SidebarStructureTests(NavTestCase):
                 "Assignments",
                 "Scheduling",
                 "Estimates",
+                "Reports",
                 "Map",
             ],
         )
@@ -139,7 +140,7 @@ class NavigationMatchesAccessForEveryRoleTests(NavTestCase):
         return set(re.findall(r'<a class="dropdown-item" href="([^"]+)"', html))
 
     def test_owner(self):
-        self.assertEqual(len(self._check(Role.OWNER)), 20)
+        self.assertEqual(len(self._check(Role.OWNER)), 21)
 
     def test_sales_rep(self):
         self._check(Role.SALES_REP)

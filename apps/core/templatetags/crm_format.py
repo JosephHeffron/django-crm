@@ -80,3 +80,14 @@ def payment_state(invoice, today):
     so on. It isn't a stored field: it follows from the payments and the
     due date, so the badge can't drift away from the money."""
     return invoice.payment_status(today)
+
+
+@register.filter
+def lookup(mapping, key):
+    """One value out of a dict, by a key the template doesn't know until
+    it runs — how a report renders rows against columns it was handed
+    rather than ones written into the page."""
+    try:
+        return mapping.get(key)
+    except AttributeError:
+        return None

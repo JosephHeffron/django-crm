@@ -199,6 +199,34 @@ Open the **gear → Business settings**:
   invoices, payments, expenses, or the team list as CSV (opens in Excel)
   or JSON.
 
+## Reports
+
+**Reports** is a short list of questions worth asking, each answered
+over whatever stretch of time you pick: today, this week, this month,
+the year so far, or any range you type. Open one and you get a table
+with totals, and **Download CSV** gives you the same figures as a file
+that opens in Excel.
+
+What's there:
+
+- **Revenue by service** — which work brings the money in.
+- **Revenue by sales rep** — who sold what got invoiced.
+- **Profit over time** — revenue against expenses, period by period.
+- **Expenses by category** — where the money goes.
+- **Crew hours and pay** — clocked time and what it cost, per person.
+- **Jobs by status** and **Jobs by service** — what you did, how it
+  ended up, and how it was rated.
+- **New customers** and **Where customers come from** — how many you
+  gained and which way of finding you actually works.
+- **Estimate outcomes** — how many you win, and who wins them.
+- **Follow-ups** — raised against done, by service.
+
+The money reports are yours alone; a Sales Rep sees the rest and is told
+how many they're not seeing. Cleaners don't see Reports at all.
+
+Every money figure uses the same definitions as **Profit**, so a report
+and that page can't disagree about what a month earned.
+
 ## Map
 
 **Map** shows your customers' addresses as pins, with the ones booked

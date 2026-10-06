@@ -115,6 +115,41 @@ def hours_in_period(entries):
     return (Decimal(total.total_seconds()) / Decimal("3600")).quantize(Decimal("0.01"))
 
 
+def payroll_people():
+    """Everyone payroll covers: the crew, and the people who sell the
+    work, who clock time like anyone else."""
+    from django.contrib.auth import get_user_model
+
+    from apps.users.roles import Role
+
+    return (
+        get_user_model()
+        .objects.filter(
+            is_active=True,
+            groups__name__in=[Role.CLEANER.value, Role.SALES_REP.value, Role.OWNER.value],
+        )
+        .distinct()
+        .order_by("first_name", "last_name", "username")
+    )
+
+
+def people_who_worked(first, last):
+    """Everyone payroll should list for a stretch of time: the people on
+    the books now, plus anyone who clocked time then and has since left
+    or changed role. A report about last spring shouldn't quietly drop
+    the people who did the work."""
+    from .calendar import day_bounds
+
+    start, end = day_bounds(first, last)
+    worked = TimeEntry.objects.filter(started_at__gte=start, started_at__lt=end).values("user_id")
+    current = payroll_people()
+    return (
+        current.model.objects.filter(Q(pk__in=current.values("pk")) | Q(pk__in=worked))
+        .distinct()
+        .order_by("first_name", "last_name", "username")
+    )
+
+
 def payroll(crew, first, last):
     """What each person is owed for the period: their clocked hours and
     their rate. A missing rate is reported, never guessed."""

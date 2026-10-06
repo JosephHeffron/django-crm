@@ -154,6 +154,8 @@ member of), so a direct message never leaks onto a contact page.
 | Expenses (`/expenses/`, create, edit) | yes | 403 | 403 |
 | Time clock (`/time-clock/`) | own | own | own |
 | Map (`/map/`) | yes | yes | 403 |
+| Reports (`/reports/`) | every report | all but the money ones | 403 |
+| A money report (`/reports/revenue-by-service/` and so on) | yes | 404 | 403 |
 | Place an address (`/map/properties/<pk>/locate/`) | yes | yes | 403 |
 | Assignments (`/crew/assignments/`) | yes | yes | 403 |
 | Payroll (`/crew/payroll/`) | yes | 403 | 403 |
