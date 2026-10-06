@@ -1,6 +1,6 @@
 from django.urls import path
 
-from . import views
+from . import media, views
 
 app_name = "jobs"
 
@@ -32,6 +32,7 @@ urlpatterns = [
     path("crew/payroll/", views.PayrollView.as_view(), name="payroll"),
     path("crew/performance/", views.PerformanceView.as_view(), name="performance"),
     path("map/", views.MapView.as_view(), name="map"),
+    path("photos/<uuid:uuid>/", media.PhotoView.as_view(), name="photo"),
     path("reports/", views.ReportListView.as_view(), name="report_list"),
     path("reports/<slug:slug>/", views.ReportDetailView.as_view(), name="report_detail"),
     path("reports/<slug:slug>/csv/", views.ReportCsvView.as_view(), name="report_csv"),

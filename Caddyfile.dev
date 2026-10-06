@@ -23,6 +23,11 @@ localhost {
 		}
 	}
 
+	# Same as the production Caddyfile: private media goes through
+	# Django, which checks who's asking (apps/jobs/media.py).
+	@private path /media/private/*
+	respond @private 404
+
 	handle_path /media/* {
 		root * /srv/media
 		file_server

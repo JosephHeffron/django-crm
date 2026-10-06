@@ -81,6 +81,21 @@ afterward. `curl .../health/` and `podman ps` are the checks that
 actually reflect current reality; see `docs/LOGGING_REVIEW.md` and
 `logs/claude/phase-10-deploy-script.md` for why.)
 
+**Private media.** `media/private/` holds job photos and profile
+pictures, and the web server deliberately does **not** serve it:
+both Caddyfiles answer `/media/private/*` with 404, and those files go
+through Django, which checks who's asking and whether they're allowed to
+see the job the photo belongs to (`apps/jobs/media.py`). Everything else
+under `media/` — the business logo — is public on purpose. If you ever
+change the proxy config, keep that 404: without it the files are
+readable by anyone with the URL.
+
+Reading them through Django costs a worker for the length of the
+download, which is the right trade at this size. If photo volume ever
+makes that hurt, the upgrade is an internal redirect (Caddy
+`handle_response` serving the file itself), and it needs testing on the
+real machine before being trusted.
+
 **Place service addresses on the map** (Phase 17.5 step 8, ADR 0011).
 The Map page shows addresses that have coordinates; getting them calls
 OpenStreetMap's Nominatim, which allows one request a second, so it is a
