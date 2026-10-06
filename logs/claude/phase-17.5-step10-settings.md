@@ -82,7 +82,7 @@ $ Playwright under production settings, 26 checks, zero CSP violations:
 ## Git
 
 Branch: `feature/restyle-settings` (PR #126)
-Commit: `83a0c3f`
+Commit: `6effba0`
 Merged to `main`: `894bc66`
 
 ## Next
