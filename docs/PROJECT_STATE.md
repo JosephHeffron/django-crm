@@ -15,7 +15,7 @@ actually verified.
 > (browser-verified CSP review) is also complete** — a headless-Chromium
 > check found zero violations, including after a real Sourcery-caught
 > bug (an un-nonced inline style on the production 500 page) was fixed.
-> Phase 17 (field-service foundation) is complete. Phase 17.5 (UI restyle) is in progress — steps 1–9 of 11 done.
+> Phase 17 (field-service foundation) is complete. Phase 17.5 (UI restyle) is complete — all 11 steps done.
 > Note: the GitHub repo, switched from public to private earlier in the
 > project, is now **public again** — Phase 13 unit 1's audit found
 > branch protection and secret scanning had been silently disabled
@@ -40,7 +40,7 @@ The original 14-phase roadmap (Phases 0-14) is fully complete — see
 "Project complete," below, for the summary, and "Completed" for full
 phase-by-phase detail. The post-release roadmap is now underway:
 Phases 15-17 are complete; Phase 17.5 (UI restyle) is in progress
-(steps 1–9 done) — see "Post-release roadmap progress,"
+(complete) — see "Post-release roadmap progress,"
 below, for current status. This section deliberately stays short and points at
 those two rather than duplicating them, so it can't drift out of sync
 with them the way an earlier version of this section once did (it
@@ -791,7 +791,7 @@ roadmap completed:
   (Sourcery budget exhausted): one defect fixed before merge — a
   superuser owner couldn't be sent a direct message. 494 tests. Full
   detail in `logs/claude/phase-17-unit3d-profile-messages.md`.
-- **Phase 17.5 — UI restyle (in progress — steps 1–9 of 11 done).**
+- **Phase 17.5 — UI restyle (complete — all 11 steps).**
   Matching the owner's reference design (ADR 0010); map on
   OpenStreetMap (ADR 0011). Reference screenshots hold real people's
   data and are kept outside the repo. **Step 1 (PR #106) — done:** new
@@ -909,18 +909,41 @@ roadmap completed:
   an empty period downloaded as zero bytes; shares could disagree with
   totals; two columns shared a label; and two of the tests were wrong).
   751 tests. Full detail in `logs/claude/phase-17.5-step9-reports.md`.
+  **Step 10 (PR #126) — done:** **Settings** — a hub behind the gear
+  showing only what a role can open, **Company management** that sets
+  someone's role and whether they can sign in (admin-only until now;
+  turning off sign-in keeps every record they made), an **activity log
+  with undo**, a **Customize** hub, and **What's new** read from
+  `CHANGELOG.md`. Undo is deliberately narrow and says so: the log
+  stores changes as text, so it restores a name or a phone number
+  exactly, refuses a date or a linked record rather than guessing,
+  refuses a field that decides what else exists, and refuses when
+  somebody has changed it since. Full detail in
+  `logs/claude/phase-17.5-step10-settings.md`.
+  **Step 11 (PR #127) — done:** the pages the earlier steps hadn't
+  touched, and a sweep of **480 page loads** (40 routes × 3 roles × 2
+  themes × 2 widths) failing on overflow, a missing heading, a bad
+  status, a console error or a CSP violation. It found one real defect
+  — Activities overflowing a phone by 119px — and the sweep is clean
+  after the fixes. Sourcery reviewed steps 10 and 11 together and found
+  nine issues, all real, all fixed before merge; two of them lost work
+  or locked a person out (undo could overwrite a newer edit; turning off
+  someone's sign-in removed them from the only page that could turn it
+  back on). 783 tests. Full detail in
+  `logs/claude/phase-17.5-step11-remaining.md`.
 - Phases 18-25: not yet started (re-sequenced in `docs/ROADMAP.md`).
 
 ## Currently working on
 
-Phase 17.5 step 10 (Settings) is in progress.
+Nothing in flight — Phase 17.5 is complete.
 
 ## Next
 
-1. Phase 17.5 step 10 — Settings: Account, Company Management with
-   member access, the activity log with undo, the Customize hub, and
-   What's New.
-2. Then step 11 — the remaining pages and a responsive pass.
+1. Phase 18 — quotes and jobs workflow. It picks up the two things the
+   restyle deliberately left: turning an accepted estimate into a job in
+   one click, and drag-to-reschedule with a keyboard alternative. It
+   also removes the retired Lead and Deal models, whose pages the
+   restyle left alone for that reason.
 3. Then Phase 18, which picks up what step 5 deliberately left: turning
    an accepted estimate into a job in one click, and drag-to-reschedule.
 
