@@ -72,7 +72,8 @@ The initial release scope above is done. The phases below pick up the
 functionality it deliberately deferred, plus hardening work identified
 along the way (`docs/PRODUCTION_READINESS.md`'s still-open findings).
 Phases 15-17.5 are complete. Phase 18 is underway: unit 1
-(private media) is merged. From Phase 17 the roadmap pivots the CRM to
+(private media) is merged. Phase 18.5, twelve items the owner reported
+after testing the running app, is also underway. From Phase 17 the roadmap pivots the CRM to
 the owner's exterior home-services business (service catalog, quotes,
 crew-scheduled jobs, invoicing, follow-up automation, team messaging,
 mobile-first PWA) — see `docs/decisions/0008-roles-and-row-level-scoping.md`
@@ -144,6 +145,18 @@ insufficient.
       - [x] Unit 1 — login-gated serving of everything under
             `media/private/`, and the reverse proxy refusing the path
             (PR #130).
+- [ ] **Phase 18.5 — Owner-requested fixes.** Twelve items reported
+      after testing the running app, cutting across Phases 18, 19 and
+      21, so tracked as their own group rather than folded in. Six
+      units: the inbox and task form; task context and an address
+      filter; quick-add customer/address and job status from the
+      schedule; map search and demo addresses that geocode; the master
+      change log; a save button at the top of every form.
+      - [x] Unit 1 — inbox newest-first with the compose box at the
+            top, estimates instead of the retired deal field on the
+            task form, customer dropdowns reading "Adams, Daniel", and
+            the project's only inline style removed (PR #133).
+
 - [ ] **Phase 19 — Follow-up automation and tasks hub.** Daily
       follow-up generation via a systemd timer (same pattern as the
       backup timer), per-service intervals, completion logging a
