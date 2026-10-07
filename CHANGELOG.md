@@ -146,3 +146,16 @@ for meaningful changes — not for every small fix or documentation tweak.
   isn't there at all, every private file in the system would otherwise
   return "not found" with nothing explaining why. One genuinely missing
   file still returns "not found", and is now logged.
+
+### Fixed
+- Messages read newest-first in every channel, with the box to write in
+  above them instead of below.
+- The task form asked for a deal. Deals were folded into estimates in
+  Phase 17, so that dropdown had been empty ever since; it asks for the
+  estimate now. Tasks that still name an old deal keep it and still
+  show it.
+- Customer dropdowns read in the order they are sorted. They were
+  already sorted by surname but displayed given names first, so the
+  list looked random.
+- A task can no longer be saved against an estimate belonging to a
+  different customer.

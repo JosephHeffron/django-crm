@@ -24,6 +24,10 @@ actually verified.
 > fix did not work and the test guarding it passed anyway, twice, for
 > the same reason (it searched the Caddyfile's text instead of the
 > configuration Caddy actually runs).
+> **Phase 18.5 (twelve owner-reported items) is underway: unit 1 is
+> merged** (PR #133, 845 tests). Three of the twelve turned out not to
+> be what they looked like — see the unit 1 log before working on
+> them.
 > Note: the GitHub repo, switched from public to private earlier in the
 > project, is now **public again** — Phase 13 unit 1's audit found
 > branch protection and secret scanning had been silently disabled
@@ -971,14 +975,70 @@ roadmap completed:
   missing file still returns 404 and is logged. 818 tests. Full
   detail, including what it means for unit 2, in
   `logs/claude/phase-18-unit1-private-media.md`.
-- Phase 18 units 2-5 and Phases 19-25: not yet started (re-sequenced in
-  `docs/ROADMAP.md`).
+- Phase 18.5 unit 1 — **the inbox, the task form, name sorting**.
+  Messages read newest-first in every channel with the box to write in
+  above them. The task form asks for the estimate instead of the
+  retired deal field, which had rendered empty since Phase 17 folded
+  deals into quotes (0 rows against 29 estimates). Customer dropdowns
+  display "Adams, Daniel", so the visible text matches the surname
+  sort they already used. The task form is restyled; it was one the
+  Phase 17.5 restyle skipped.
+
+  Also removed the project's only inline style attribute, which the
+  production policy blocks. The clean 480-page policy sweep reported
+  during Phase 17.5 had not covered a single detail page, and that
+  markup only renders for a pending task, so it was never exercised.
+  A test now walks every template and fails on any inline style,
+  `<style>` element, inline script or event handler. Review found five
+  real defects, including that my own CSS fix never applied because a
+  rule with the same class name already existed further down the file.
+  845 tests. Full detail in
+  `logs/claude/phase-18.5-unit1-inbox-and-task-form.md`.
+- Phase 18 units 2-5, Phase 18.5 units 2-6 and Phases 19-25: not yet
+  started (re-sequenced in `docs/ROADMAP.md`).
 
 ## Currently working on
 
-Nothing in flight — Phase 18 unit 1 is merged (PR #130).
+Nothing in flight — Phase 18.5 unit 1 is merged (PR #133).
 
 ## Next
+
+Phase 18.5 runs first, being the owner's own reported list. Its six
+units, in order, with the traps worth knowing:
+
+1. **Unit 2 — task context and an address filter** (items 4, 8). The
+   Tasks hub has no customer filter to carry into its "Add task"
+   button, so that is added first. Customers and Companies gain a
+   town/postcode filter; for a company it matches if any of its
+   customers has an address there, since Company has no address fields
+   of its own. **Use a `pk__in` subquery, not a join** — joining
+   `properties` multiplies customer rows and corrupts the paginator
+   count, which still looks right on page one.
+2. **Unit 3 — quick-add customer and address, and job status from the
+   schedule** (items 6, 7). There is no address form anywhere in the
+   app today; addresses can only be created in the Django admin, so
+   this unit builds the one the app has been missing. **Any new status
+   path must go through a single helper that stamps `completed_at`** —
+   every count of finished work reads that date, not the status, so a
+   job marked done without it reads "Completed" on screen and is
+   counted nowhere.
+3. **Unit 4 — map search, lookup, and demo addresses that geocode**
+   (items 10, 11). The map is not broken; the seeded addresses are
+   invented. Dropping a pin by hand already works server-side and is
+   tested, but nothing in the interface calls it, even though the page
+   tells the user they can.
+4. **Unit 5 — the master change log** (item 9). Only contacts and
+   companies are recorded today; the entire jobs app, users and core
+   record nothing. **Once jobs appear in the log, undo would treat a
+   job's status as restorable text** and write it without stamping the
+   completion date, reintroducing unit 3's bug by another route. That
+   needs a model allow-list in `apps/crm/undo.py`, not a field-by-field
+   patch.
+5. **Unit 6 — a save button at the top of every form** (item 12).
+   Thirteen forms, three incompatible action-row conventions, and no
+   form in the project has an `id` yet.
+
+Then Phase 18:
 
 1. **Phase 18 unit 2 — uploading and showing photos.** Unit 1 built
    only the serving side; nothing displays or uploads a photo yet.
