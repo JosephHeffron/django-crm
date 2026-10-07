@@ -393,6 +393,69 @@ class TaskFormFieldTests(TestCase):
         task.refresh_from_db()
         self.assertEqual((task.title, task.deal_id), ("Legacy renamed", deal.pk))
 
+    def test_an_estimate_belonging_to_someone_else_is_refused(self):
+        """Two fields that must agree are two fields that can disagree.
+
+        A task naming one customer and another customer's estimate
+        would show the wrong person beside the work. Same guard as the
+        job form's address check.
+        """
+        from apps.jobs.models import Quote
+
+        mine = self.contact("Pat", "Homeowner")
+        theirs = self.contact("Sam", "Neighbour")
+        quote = Quote.objects.create(contact=theirs, prepared_by=self.user)
+        response = self.client.post(
+            reverse("crm:task_create"),
+            {
+                "title": "Mismatched",
+                "assigned_to": self.user.pk,
+                "contact": mine.pk,
+                "quote": quote.pk,
+                "priority": Task.Priority.MEDIUM,
+                "status": Task.Status.PENDING,
+            },
+        )
+        self.assertEqual(response.status_code, 200)  # redisplayed, not saved
+        self.assertIn("quote", response.context["form"].errors)
+        self.assertFalse(Task.objects.filter(title="Mismatched").exists())
+
+    def test_an_estimate_for_the_same_customer_is_accepted(self):
+        from apps.jobs.models import Quote
+
+        customer = self.contact("Pat", "Homeowner")
+        quote = Quote.objects.create(contact=customer, prepared_by=self.user)
+        self.client.post(
+            reverse("crm:task_create"),
+            {
+                "title": "Matched",
+                "assigned_to": self.user.pk,
+                "contact": customer.pk,
+                "quote": quote.pk,
+                "priority": Task.Priority.MEDIUM,
+                "status": Task.Status.PENDING,
+            },
+        )
+        self.assertEqual(Task.objects.get(title="Matched").quote_id, quote.pk)
+
+    def test_the_page_still_shows_a_deal_on_a_task_that_only_names_one(self):
+        """Replacing the Deal row with an Estimate row hid the link.
+
+        The field stays until Phase 18 removes the model, so a legacy
+        task has to keep showing what it points at.
+        """
+        company = Company.objects.create(name="Acme", created_by=self.user)
+        customer = self.contact("Pat", "Homeowner", company=company)
+        deal = Deal.objects.create(
+            title="Old deal", company=company, contact=customer, created_by=self.user
+        )
+        task = Task.objects.create(
+            title="Legacy", assigned_to=self.user, created_by=self.user, deal=deal
+        )
+        response = self.client.get(reverse("crm:task_detail", args=[task.pk]))
+        self.assertContains(response, "Old deal")
+        self.assertContains(response, deal.get_absolute_url())
+
     def test_customers_are_listed_surname_first(self):
         self.contact("Daniel", "Adams")
         self.assertIn("Adams, Daniel", self.customer_labels())

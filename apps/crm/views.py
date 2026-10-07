@@ -934,7 +934,19 @@ def _notify_assignee(task, actor, previous_assignee_id=None):
     )
 
 
-class TaskCreateView(SalesRoleRequiredMixin, PermissionRequiredMixin, CreateView):
+class TaskFormUserMixin:
+    """Hand the form the person using it, so the estimate list can be
+    scoped by what they're allowed to see."""
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["user"] = self.request.user
+        return kwargs
+
+
+class TaskCreateView(
+    TaskFormUserMixin, SalesRoleRequiredMixin, PermissionRequiredMixin, CreateView
+):
     model = Task
     form_class = TaskForm
     template_name = "crm/task_form.html"
@@ -958,7 +970,9 @@ class TaskCreateView(SalesRoleRequiredMixin, PermissionRequiredMixin, CreateView
         return response
 
 
-class TaskUpdateView(SalesRoleRequiredMixin, PermissionRequiredMixin, UpdateView):
+class TaskUpdateView(
+    TaskFormUserMixin, SalesRoleRequiredMixin, PermissionRequiredMixin, UpdateView
+):
     model = Task
     form_class = TaskForm
     template_name = "crm/task_form.html"

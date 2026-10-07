@@ -1,6 +1,8 @@
 from django import forms
 from django.db.models import Q
 
+from apps.jobs.access import quotes_for
+
 from .models import Activity, Company, Contact, Deal, Lead, Task
 
 
@@ -205,7 +207,7 @@ class TaskForm(forms.ModelForm):
         ]
         labels = {"contact": "Customer", "quote": "Estimate"}
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, user=None, **kwargs):
         super().__init__(*args, **kwargs)
         # Was `deal`, which has been empty since Phase 17 folded every
         # Deal into a Quote — the dropdown rendered with nothing in it.
@@ -218,8 +220,14 @@ class TaskForm(forms.ModelForm):
             required=False,
             label="Customer",
         )
+        # Scoped through the access helper rather than Quote.objects:
+        # today every sales role sees every estimate, so this is the
+        # same set — but it means the form follows the rule rather than
+        # restating it, if that ever narrows.
         self.fields["quote"].queryset = (
-            self.fields["quote"].queryset.select_related("contact").order_by("-pk")
+            (quotes_for(user) if user else self.fields["quote"].queryset)
+            .select_related("contact")
+            .order_by("-pk")
         )
 
     def clean_contact(self):
@@ -230,3 +238,14 @@ class TaskForm(forms.ModelForm):
         if self.instance.kind == Task.Kind.FOLLOW_UP and contact is None:
             raise forms.ValidationError("A follow-up needs its customer.")
         return contact
+
+    def clean(self):
+        cleaned = super().clean()
+        contact, quote = cleaned.get("contact"), cleaned.get("quote")
+        # Two fields that must agree are two fields that can disagree:
+        # a task naming one customer and another customer's estimate
+        # would show the wrong person beside the work. Same guard, and
+        # the same reasoning, as JobForm's address check.
+        if contact and quote and quote.contact_id != contact.pk:
+            self.add_error("quote", "That estimate belongs to a different customer.")
+        return cleaned

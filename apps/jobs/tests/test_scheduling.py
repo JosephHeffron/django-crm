@@ -338,10 +338,14 @@ class CustomerListTests(SchedulingTestCase):
         self.assertEqual(labels, sorted(labels))
 
     def test_writing_an_estimate_lists_customers_the_same_way(self):
-        f.contact(self.owner, first="Daniel", last="Adams")
+        # Several customers, deliberately added out of order: with only
+        # one, "the list is sorted" is true whatever the code does.
+        for first, last in (("Brian", "Anderson"), ("Daniel", "Adams"), ("Karen", "Allen")):
+            f.contact(self.owner, first=first, last=last)
         labels = self.labels(reverse("jobs:quote_create"))
         self.assertIn("Adams, Daniel", labels)
         self.assertEqual(labels, sorted(labels))
+        self.assertEqual(labels[:3], ["Adams, Daniel", "Allen, Karen", "Anderson, Brian"])
 
     def test_two_customers_with_the_same_name_keep_a_steady_order(self):
         # Without a tiebreaker the pair can swap between page loads.
