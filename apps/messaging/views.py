@@ -89,7 +89,11 @@ class ChannelView(RoleRequiredMixin, TemplateView):
             page = page.filter(pk__lt=int(before))
         batch = list(page[: PAGE_SIZE + 1])
         has_older = len(batch) > PAGE_SIZE
-        batch = batch[:PAGE_SIZE][::-1]  # oldest first on the page
+        # Newest first, which is the order the query already returns.
+        # The page used to reverse this slice to read bottom-up like a
+        # chat window; it now reads top-down like an inbox, so the
+        # newest message is the first thing on screen.
+        batch = batch[:PAGE_SIZE]
 
         # Link a referenced job only for people who can open it.
         job_ids = {m.ref_job_id for m in batch if m.ref_job_id}
@@ -103,7 +107,11 @@ class ChannelView(RoleRequiredMixin, TemplateView):
             channel=self.channel,
             title=channel_title(self.channel, user),
             chat_messages=batch,
-            older_url=f"?before={batch[0].pk}" if has_older and batch else None,
+            # "Before" means older than the oldest one shown, which is
+            # now the LAST of the batch rather than the first. Reading
+            # batch[0] here would page back from the newest message and
+            # show the same page forever.
+            older_url=f"?before={batch[-1].pk}" if has_older and batch else None,
             form=kwargs.get("form") or MessageForm(),
             can_post=user.has_perm("messaging.add_message"),
             is_sales=user_role(user) in SALES_ROLES,

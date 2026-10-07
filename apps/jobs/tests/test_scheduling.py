@@ -308,3 +308,62 @@ class ScheduleePageTests(SchedulingTestCase):
         response = self.client.get(reverse("jobs:calendar"), {"view": "day", "date": "2030-01-01"})
         self.assertContains(response, "Nothing scheduled")
         self.assertContains(response, NEW)
+
+
+class CustomerListTests(SchedulingTestCase):
+    """The customer picker reads in the order it is sorted.
+
+    Contact sorts by surname but renders "Daniel Adams", so the
+    dropdown looked unsorted to anyone reading the first names.
+    """
+
+    def setUp(self):
+        super().setUp()
+        self.client.login(username="boss", password=PASSWORD)
+
+    def labels(self, url):
+        form = self.client.get(url).context["form"]
+        # Filter on the value: the empty choice's label is
+        # "- Select an option -", which is truthy.
+        return [str(label) for value, label in form.fields["contact"].choices if value]
+
+    def test_booking_a_job_lists_customers_surname_first(self):
+        f.contact(self.owner, first="Daniel", last="Adams")
+        self.assertIn("Adams, Daniel", self.labels(NEW))
+
+    def test_booking_a_job_lists_customers_in_alphabetical_order(self):
+        for first, last in (("Brian", "Anderson"), ("Daniel", "Adams"), ("Karen", "Allen")):
+            f.contact(self.owner, first=first, last=last)
+        labels = self.labels(NEW)
+        self.assertEqual(labels, sorted(labels))
+
+    def test_writing_an_estimate_lists_customers_the_same_way(self):
+        # Several customers, deliberately added out of order: with only
+        # one, "the list is sorted" is true whatever the code does.
+        for first, last in (("Brian", "Anderson"), ("Daniel", "Adams"), ("Karen", "Allen")):
+            f.contact(self.owner, first=first, last=last)
+        labels = self.labels(reverse("jobs:quote_create"))
+        self.assertIn("Adams, Daniel", labels)
+        self.assertEqual(labels, sorted(labels))
+        self.assertEqual(labels[:3], ["Adams, Daniel", "Allen, Karen", "Anderson, Brian"])
+
+    def test_two_customers_with_the_same_name_keep_a_steady_order(self):
+        # Without a tiebreaker the pair can swap between page loads.
+        first = f.contact(self.owner, first="John", last="Smith")
+        second = f.contact(self.owner, first="John", last="Smith")
+        form = self.client.get(NEW).context["form"]
+        order = [c.pk for c in form.fields["contact"].queryset]
+        self.assertLess(order.index(first.pk), order.index(second.pk))
+
+    def test_a_deactivated_customer_is_not_offered_for_a_new_job(self):
+        f.contact(self.owner, first="Gone", last="Away", is_active=False)
+        self.assertNotIn("Away, Gone", self.labels(NEW))
+
+    def test_a_job_whose_customer_has_left_can_still_be_edited(self):
+        # Dropping them from the list would blank the field and make the
+        # job unsavable.
+        job = f.job(self.customer, self.owner, lines=[])
+        self.customer.is_active = False
+        self.customer.save(update_fields=["is_active"])
+        form = self.client.get(reverse("jobs:job_update", args=[job.pk])).context["form"]
+        self.assertIn(self.customer, form.fields["contact"].queryset)

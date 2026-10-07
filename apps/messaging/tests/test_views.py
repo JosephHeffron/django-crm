@@ -90,12 +90,55 @@ class ChannelPageTests(MessagingTestCase):
         url = reverse("messaging:channel", args=["general"])
         first = self.client.get(url)
         shown = first.context["chat_messages"]
-        self.assertEqual((len(shown), shown[-1].body), (PAGE_SIZE, f"m{PAGE_SIZE + 4}"))
+        # Newest first, so the latest message leads the page.
+        self.assertEqual((len(shown), shown[0].body), (PAGE_SIZE, f"m{PAGE_SIZE + 4}"))
         older = self.client.get(url + first.context["older_url"])
+        # And the page back carries on downwards, still newest first.
         self.assertEqual(
-            [m.body for m in older.context["chat_messages"]], [f"m{i}" for i in range(5)]
+            [m.body for m in older.context["chat_messages"]],
+            [f"m{i}" for i in reversed(range(5))],
         )
         self.assertIsNone(older.context["older_url"])
+
+    def test_paging_back_does_not_repeat_the_page(self):
+        """`?before=` has to mean "older than the oldest one shown".
+
+        Taking it from the first of the batch instead of the last would
+        page back from the *newest* message and serve the same rows for
+        ever, which is what newest-first ordering makes easy to get
+        wrong.
+        """
+        for i in range(PAGE_SIZE * 2):
+            self.post_message(self.general, self.rep, f"m{i}")
+        self.login(self.crew)
+        url = reverse("messaging:channel", args=["general"])
+        first = self.client.get(url)
+        second = self.client.get(url + first.context["older_url"])
+        on_first = {m.pk for m in first.context["chat_messages"]}
+        on_second = {m.pk for m in second.context["chat_messages"]}
+        self.assertEqual(on_first & on_second, set())
+        self.assertEqual(len(on_first | on_second), PAGE_SIZE * 2)
+
+    def test_the_newest_message_is_the_one_the_anchor_lands_on(self):
+        # Distinctive wording: short markers like "m1" also occur in the
+        # surrounding page markup, which made an earlier version of this
+        # test pass on a coincidence.
+        for body in ("firstmessagehere", "secondmessagehere", "thirdmessagehere"):
+            self.post_message(self.general, self.rep, body)
+        self.login(self.crew)
+        page = self.client.get(reverse("messaging:channel", args=["general"])).content.decode()
+        newest, oldest = page.index("thirdmessagehere"), page.index("firstmessagehere")
+        self.assertLess(newest, oldest, "the newest message should be rendered first")
+        # The send redirect goes to #latest, so that id has to sit on the
+        # newest message rather than the last one rendered.
+        self.assertLess(page.index('id="latest"'), newest)
+        self.assertGreater(page.index('id="latest"'), page.index("chat-list"))
+
+    def test_the_box_to_write_in_comes_before_the_messages(self):
+        self.post_message(self.general, self.rep, "hello")
+        self.login(self.rep)
+        body = self.client.get(reverse("messaging:channel", args=["general"])).content.decode()
+        self.assertLess(body.index('class="card chat-form"'), body.index("chat-list"))
 
     def test_job_reference_links_only_for_people_who_can_open_the_job(self):
         job = f.job(f.contact(self.owner), self.owner)

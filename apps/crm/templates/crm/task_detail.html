@@ -10,17 +10,22 @@
     </div>
   </div>
 
-  <p>
-    <a href="{% url 'crm:task_update' task.pk %}">Edit</a>
+  {% comment %}
+    .cluster lays a row of controls out side by side. This used to be a
+    paragraph with an inline style attribute on the form, which the
+    production Content-Security-Policy blocks, so the button dropped
+    onto its own line there and nowhere else.
+  {% endcomment %}
+  <div class="cluster">
+    <a class="btn btn-secondary" href="{% url 'crm:task_update' task.pk %}">Edit</a>
     {% if task.status == "pending" %}
-      &middot;
-      <form method="post" action="{% url 'crm:task_complete' task.pk %}" style="display:inline">
+      <form method="post" action="{% url 'crm:task_complete' task.pk %}">
         {% csrf_token %}
         <input type="hidden" name="next" value="{{ task.get_absolute_url }}">
         <button type="submit">Mark complete</button>
       </form>
     {% endif %}
-  </p>
+  </div>
 
   <dl>
     <dt>Status</dt>
@@ -44,10 +49,14 @@
       {% endif %}
     </dd>
 
-    <dt>Deal</dt>
+    <dt>Estimate</dt>
     <dd>
-      {% if task.deal %}
+      {% if task.quote %}
+        <a href="{{ task.quote.get_absolute_url }}">{{ task.quote }}</a>
+      {% elif task.deal %}
+        {# A task from before Phase 17 folded deals into estimates. #}
         <a href="{{ task.deal.get_absolute_url }}">{{ task.deal }}</a>
+        <span class="muted">(deal, before estimates)</span>
       {% else %}
         —
       {% endif %}

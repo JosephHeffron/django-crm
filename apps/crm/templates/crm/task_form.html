@@ -3,16 +3,44 @@
 {% block title %}{% if object %}Edit {{ object.title }}{% else %}Add task{% endif %}{% endblock %}
 
 {% block content %}
-  <div class="page-header">
-    <div>
-      <h1>{% if object %}Edit {{ object.title }}{% else %}Add task{% endif %}</h1>
-      <p class="page-subtitle">What needs doing, by whom, and by when</p>
-    </div>
+  <div class="settings-shell">
+    <h1>{% if object %}Edit {{ object.title }}{% else %}Add task{% endif %}</h1>
+    <p class="page-subtitle">What needs doing, by whom, and by when</p>
+
+    <form method="post" novalidate>
+      {% csrf_token %}
+      {{ form.non_field_errors }}
+
+      <section class="section-card">
+        <div class="section-card-head"><svg class="icon" aria-hidden="true"><use href="#icon-check"/></svg><h2>The job to be done</h2></div>
+        {% include "partials/_field.html" with field=form.title %}
+        {% include "partials/_field.html" with field=form.description %}
+      </section>
+
+      <section class="section-card">
+        <div class="section-card-head"><svg class="icon" aria-hidden="true"><use href="#icon-user"/></svg><h2>Who it's for</h2></div>
+        <div class="field-row">
+          {% include "partials/_field.html" with field=form.contact %}
+          {% include "partials/_field.html" with field=form.quote %}
+        </div>
+      </section>
+
+      <section class="section-card">
+        <div class="section-card-head"><svg class="icon" aria-hidden="true"><use href="#icon-calendar"/></svg><h2>When and how urgent</h2></div>
+        <div class="field-row">
+          {% include "partials/_field.html" with field=form.assigned_to %}
+          {% include "partials/_field.html" with field=form.due_date %}
+        </div>
+        <div class="field-row">
+          {% include "partials/_field.html" with field=form.priority %}
+          {% include "partials/_field.html" with field=form.status %}
+        </div>
+      </section>
+
+      <div class="form-actions">
+        <button type="submit"><svg class="icon" aria-hidden="true"><use href="#icon-save"/></svg>{% if object %}Save changes{% else %}Add task{% endif %}</button>
+        <a class="btn btn-secondary" href="{% if object %}{{ object.get_absolute_url }}{% else %}{% url 'crm:task_list' %}{% endif %}">Cancel</a>
+      </div>
+    </form>
   </div>
-  <form method="post">
-    {% csrf_token %}
-    {{ form.as_p }}
-    <button type="submit">Save</button>
-    <a href="{% if object %}{{ object.get_absolute_url }}{% else %}{% url 'crm:task_list' %}{% endif %}">Cancel</a>
-  </form>
 {% endblock %}

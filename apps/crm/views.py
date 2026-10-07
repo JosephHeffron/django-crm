@@ -757,7 +757,7 @@ class TaskListView(TasksHubMixin, SalesRoleRequiredMixin, PerPageMixin, ListView
     paginate_by = 25
 
     def get_queryset(self):
-        queryset = super().get_queryset().select_related("assigned_to", "contact", "deal")
+        queryset = super().get_queryset().select_related("assigned_to", "contact", "quote")
 
         kind = self.request.GET.get("kind")
         if kind in Task.Kind.values:
@@ -934,7 +934,19 @@ def _notify_assignee(task, actor, previous_assignee_id=None):
     )
 
 
-class TaskCreateView(SalesRoleRequiredMixin, PermissionRequiredMixin, CreateView):
+class TaskFormUserMixin:
+    """Hand the form the person using it, so the estimate list can be
+    scoped by what they're allowed to see."""
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["user"] = self.request.user
+        return kwargs
+
+
+class TaskCreateView(
+    TaskFormUserMixin, SalesRoleRequiredMixin, PermissionRequiredMixin, CreateView
+):
     model = Task
     form_class = TaskForm
     template_name = "crm/task_form.html"
@@ -943,7 +955,7 @@ class TaskCreateView(SalesRoleRequiredMixin, PermissionRequiredMixin, CreateView
     def get_initial(self):
         initial = super().get_initial()
         initial.setdefault("assigned_to", self.request.user.pk)
-        for field in ("contact", "deal"):
+        for field in ("contact", "quote", "job"):
             value = _int_or_none(self.request.GET.get(field))
             if value is not None:
                 initial[field] = value
@@ -958,7 +970,9 @@ class TaskCreateView(SalesRoleRequiredMixin, PermissionRequiredMixin, CreateView
         return response
 
 
-class TaskUpdateView(SalesRoleRequiredMixin, PermissionRequiredMixin, UpdateView):
+class TaskUpdateView(
+    TaskFormUserMixin, SalesRoleRequiredMixin, PermissionRequiredMixin, UpdateView
+):
     model = Task
     form_class = TaskForm
     template_name = "crm/task_form.html"
