@@ -14,7 +14,7 @@
     <a href="{% url 'crm:task_update' task.pk %}">Edit</a>
     {% if task.status == "pending" %}
       &middot;
-      <form method="post" action="{% url 'crm:task_complete' task.pk %}" style="display:inline">
+      <form method="post" action="{% url 'crm:task_complete' task.pk %}" class="inline-form">
         {% csrf_token %}
         <input type="hidden" name="next" value="{{ task.get_absolute_url }}">
         <button type="submit">Mark complete</button>
@@ -44,10 +44,10 @@
       {% endif %}
     </dd>
 
-    <dt>Deal</dt>
+    <dt>Estimate</dt>
     <dd>
-      {% if task.deal %}
-        <a href="{{ task.deal.get_absolute_url }}">{{ task.deal }}</a>
+      {% if task.quote %}
+        <a href="{{ task.quote.get_absolute_url }}">{{ task.quote }}</a>
       {% else %}
         —
       {% endif %}

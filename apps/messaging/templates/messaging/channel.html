@@ -11,12 +11,26 @@
     </div>
   </div>
 
-  <section class="card chat">
-    {% if older_url %}<p><a href="{{ older_url }}">Older messages</a></p>{% endif %}
+  {% if can_post %}
+    <form method="post" class="card chat-form">
+      {% csrf_token %}
+      {{ form.body.errors }}
+      <label for="{{ form.body.id_for_label }}" class="sr-only">{{ form.body.label }}</label>
+      {{ form.body }}
+      <button type="submit">Send</button>
+    </form>
+    <p class="muted">New messages show up when you reload the page — automatic updates are coming.</p>
+  {% endif %}
+
+  <section class="card chat section-gap">
     {% if chat_messages %}
       <ol class="chat-list">
         {% for message in chat_messages %}
-          <li class="chat-message{% if message.author_user_id == request.user.pk %} is-mine{% endif %}"{% if forloop.last %} id="latest"{% endif %}>
+          {% comment %}
+            Newest first, so the anchor the send redirect lands on is
+            the first item rather than the last.
+          {% endcomment %}
+          <li class="chat-message{% if message.author_user_id == request.user.pk %} is-mine{% endif %}"{% if forloop.first %} id="latest"{% endif %}>
             <div class="timeline-meta">
               <strong>{% if message.author_user %}{{ message.author_user.get_full_name|default:message.author_user.username }}{% else %}{{ message.author_contact }}{% endif %}</strong>
               <span>{{ message.created_at|date:"M j, g:i A" }}</span>
@@ -35,16 +49,6 @@
     {% else %}
       <p class="muted">No messages yet — say hello.</p>
     {% endif %}
+    {% if older_url %}<p class="section-gap"><a href="{{ older_url }}">Older messages</a></p>{% endif %}
   </section>
-
-  {% if can_post %}
-    <form method="post" class="card section-gap chat-form">
-      {% csrf_token %}
-      {{ form.body.errors }}
-      <label for="{{ form.body.id_for_label }}" class="sr-only">{{ form.body.label }}</label>
-      {{ form.body }}
-      <button type="submit">Send</button>
-    </form>
-    <p class="muted">New messages show up when you reload the page — automatic updates are coming.</p>
-  {% endif %}
 {% endblock %}

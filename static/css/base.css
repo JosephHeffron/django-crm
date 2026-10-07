@@ -1280,6 +1280,14 @@ button:disabled,
   cursor: not-allowed;
 }
 
+/* A form that sits inside a line of text. Was an inline style
+   attribute on the one form that needed it, which the production
+   Content-Security-Policy blocks (style-src has no 'unsafe-inline'),
+   so the button dropped onto its own line in production only. */
+.inline-form {
+  display: inline;
+}
+
 .link-button {
   display: inline;
   min-height: 0;

@@ -1,6 +1,35 @@
 from django import forms
+from django.db.models import Q
 
 from .models import Activity, Company, Contact, Deal, Lead, Task
+
+
+class ContactChoiceField(forms.ModelChoiceField):
+    """A customer picker that reads in the order it's sorted.
+
+    Contact sorts by surname (`Contact.Meta.ordering`) but `__str__`
+    renders "Daniel Adams", so a plain dropdown looked unsorted to
+    anyone reading the first names — Daniel, Michelle, Andrew, Betty.
+    Surname first means the visible text and the sort agree.
+    """
+
+    def label_from_instance(self, obj):
+        both = f"{obj.last_name}, {obj.first_name}".strip(", ")
+        return both or str(obj) or f"Customer {obj.pk}"
+
+
+def contact_choices(chosen=None):
+    """Active customers, surname order.
+
+    `chosen` is kept whatever its state, so editing a record that names
+    a deactivated customer still shows them instead of silently
+    dropping the field's own value. Same escape hatch the line formsets
+    use for retired services.
+    """
+    condition = Q(is_active=True)
+    if chosen:
+        condition |= Q(pk=chosen)
+    return Contact.objects.filter(condition).order_by("last_name", "first_name", "pk")
 
 
 class CompanyForm(forms.ModelForm):
@@ -169,11 +198,29 @@ class TaskForm(forms.ModelForm):
             "description",
             "assigned_to",
             "contact",
-            "deal",
+            "quote",
             "due_date",
             "priority",
             "status",
         ]
+        labels = {"contact": "Customer", "quote": "Estimate"}
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Was `deal`, which has been empty since Phase 17 folded every
+        # Deal into a Quote — the dropdown rendered with nothing in it.
+        # Task.quote already exists and the fold migration populated it.
+        self.fields["contact"] = ContactChoiceField(
+            queryset=contact_choices(self.instance.contact_id),
+            # Task.contact is null=True/blank=True: a general to-do
+            # needn't name anyone. clean_contact() still insists for a
+            # follow-up, which the database also checks.
+            required=False,
+            label="Customer",
+        )
+        self.fields["quote"].queryset = (
+            self.fields["quote"].queryset.select_related("contact").order_by("-pk")
+        )
 
     def clean_contact(self):
         # A follow-up must name its customer (DB check

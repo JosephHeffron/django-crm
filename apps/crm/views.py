@@ -757,7 +757,7 @@ class TaskListView(TasksHubMixin, SalesRoleRequiredMixin, PerPageMixin, ListView
     paginate_by = 25
 
     def get_queryset(self):
-        queryset = super().get_queryset().select_related("assigned_to", "contact", "deal")
+        queryset = super().get_queryset().select_related("assigned_to", "contact", "quote")
 
         kind = self.request.GET.get("kind")
         if kind in Task.Kind.values:
@@ -943,7 +943,7 @@ class TaskCreateView(SalesRoleRequiredMixin, PermissionRequiredMixin, CreateView
     def get_initial(self):
         initial = super().get_initial()
         initial.setdefault("assigned_to", self.request.user.pk)
-        for field in ("contact", "deal"):
+        for field in ("contact", "quote", "job"):
             value = _int_or_none(self.request.GET.get(field))
             if value is not None:
                 initial[field] = value

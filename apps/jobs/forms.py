@@ -2,6 +2,7 @@ from django import forms
 from django.contrib.auth import get_user_model
 from django.db.models import Q
 
+from apps.crm.forms import ContactChoiceField, contact_choices
 from apps.crm.models import Property
 from apps.users.forms import TONE_CHOICES
 from apps.users.roles import Role
@@ -141,6 +142,9 @@ class JobForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["crew"].queryset = crew_queryset()
+        self.fields["contact"] = ContactChoiceField(
+            queryset=contact_choices(self.instance.contact_id), label="Customer"
+        )
         self.fields["primary_service_type"].queryset = ServiceType.objects.filter(is_active=True)
         self.fields["service_property"] = PropertyChoiceField(
             queryset=Property.objects.select_related("contact"),
@@ -257,6 +261,9 @@ class QuoteForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.fields["contact"] = ContactChoiceField(
+            queryset=contact_choices(self.instance.contact_id), label="Customer"
+        )
         self.fields["service_property"] = PropertyChoiceField(
             queryset=Property.objects.select_related("contact"),
             required=False,
