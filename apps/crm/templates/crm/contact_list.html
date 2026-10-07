@@ -44,6 +44,15 @@
         <option value="{{ company.pk }}" {% if company_id == company.pk|stringformat:"s" %}selected{% endif %}>{{ company.name }}</option>
       {% endfor %}
     </select>
+    <label for="id_town" class="sr-only">Town</label>
+    <select id="id_town" name="town">
+      <option value="">All towns</option>
+      {% for name in towns %}
+        <option value="{{ name }}" {% if town == name %}selected{% endif %}>{{ name }}</option>
+      {% endfor %}
+    </select>
+    <label for="id_postal" class="sr-only">Postal code</label>
+    <input type="search" id="id_postal" name="postal" value="{{ postal }}" placeholder="Postal code">
     <label for="id_sort" class="sr-only">Sort by</label>
     <select id="id_sort" name="sort">
       {% for value, label in sort_choices %}

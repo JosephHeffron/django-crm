@@ -24,6 +24,7 @@ from .forms import (
     LeadConversionForm,
     LeadForm,
     TaskForm,
+    contact_choices,
 )
 from .hub import TasksHubMixin
 from .models import (
@@ -35,6 +36,7 @@ from .models import (
     Deal,
     Lead,
     Note,
+    Property,
     Tag,
     Task,
 )
@@ -160,12 +162,26 @@ class CompanyListView(SalesRoleRequiredMixin, PerPageMixin, ListView):
         elif status == "inactive":
             queryset = queryset.filter(is_active=False)
 
+        # A Company has no address of its own; its geography is where its
+        # customers are. So it matches when ANY of them has an address
+        # there. Nested subqueries rather than a two-hop join, for the
+        # reason given on contacts_at().
+        town, postal = address_filters(self.request.GET)
+        if town or postal:
+            queryset = queryset.filter(
+                pk__in=Contact.objects.filter(pk__in=contacts_at(town, postal))
+                .exclude(company__isnull=True)
+                .values("company_id")
+            )
+
         return queryset
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context["query"] = self.request.GET.get("q", "")
         context["status"] = self.request.GET.get("status", "")
+        context["town"], context["postal"] = address_filters(self.request.GET)
+        context["towns"] = towns_on_record()
         return context
 
 
@@ -256,6 +272,36 @@ CONTACT_SORTS = {
 }
 
 
+def contacts_at(town="", postal=""):
+    """Contact ids with a service address in that town or postcode.
+
+    Returned as a subquery for `pk__in`, never as a join. Joining
+    `properties` would multiply the contact rows — a customer with a
+    home and a rental in the same town matches twice — which corrupts
+    both the rows shown and `paginator.count`, and still looks correct
+    on page one. The tag filter below and `with_last_dates` follow the
+    same discipline for the same reason.
+    """
+    addresses = Property.objects.all()
+    if town:
+        addresses = addresses.filter(city__iexact=town)
+    if postal:
+        addresses = addresses.filter(postal_code__iexact=postal)
+    return addresses.values("contact_id")
+
+
+def address_filters(params):
+    """The town and postcode asked for, trimmed."""
+    return params.get("town", "").strip(), params.get("postal", "").strip()
+
+
+def towns_on_record():
+    """Only towns somebody actually has an address in."""
+    return (
+        Property.objects.exclude(city="").order_by("city").values_list("city", flat=True).distinct()
+    )
+
+
 class ContactListView(SalesRoleRequiredMixin, PerPageMixin, ListView):
     model = Contact
     template_name = "crm/contact_list.html"
@@ -295,6 +341,10 @@ class ContactListView(SalesRoleRequiredMixin, PerPageMixin, ListView):
                 pk__in=Contact.tags.through.objects.filter(tag_id=tag_id).values("contact_id")
             )
 
+        town, postal = address_filters(params)
+        if town or postal:
+            queryset = queryset.filter(pk__in=contacts_at(town, postal))
+
         _, ordering = CONTACT_SORTS.get(params.get("sort"), CONTACT_SORTS["name"])
         return queryset.order_by(*ordering)
 
@@ -311,6 +361,8 @@ class ContactListView(SalesRoleRequiredMixin, PerPageMixin, ListView):
         context["tags"] = Tag.objects.order_by("name")
         context["stage_choices"] = Contact.Status.choices
         context["sort_choices"] = [(key, label) for key, (label, _) in CONTACT_SORTS.items()]
+        context["town"], context["postal"] = address_filters(params)
+        context["towns"] = towns_on_record()
         return context
 
 
@@ -779,6 +831,13 @@ class TaskListView(TasksHubMixin, SalesRoleRequiredMixin, PerPageMixin, ListView
                 status=Task.Status.PENDING, due_date__lt=timezone.localdate()
             )
 
+        # A direct foreign key, so no join hazard here — unlike the
+        # address filter on customers, which has to go through a
+        # subquery to keep the paginator honest.
+        contact_id = _int_or_none(self.request.GET.get("contact"))
+        if contact_id is not None:
+            queryset = queryset.filter(contact_id=contact_id)
+
         return queryset
 
     def get_context_data(self, **kwargs):
@@ -791,6 +850,10 @@ class TaskListView(TasksHubMixin, SalesRoleRequiredMixin, PerPageMixin, ListView
         context["priority_choices"] = Task.Priority.choices
         context["kind"] = self.request.GET.get("kind", "")
         context["kind_choices"] = Task.Kind.choices
+        # Narrowing to one customer also makes "Add task" open with them
+        # already chosen — see crm/_hub_tabs.html.
+        context["contact_id"] = _int_or_none(self.request.GET.get("contact"))
+        context["contacts"] = contact_choices()
         return context
 
 
@@ -911,6 +974,16 @@ class TaskDetailView(SalesRoleRequiredMixin, DetailView):
     template_name = "crm/task_detail.html"
     context_object_name = "task"
 
+    def get_queryset(self):
+        # The page shows the customer's phone, email and company, and
+        # the estimate it belongs to. Without this it fetches each of
+        # them separately (CLAUDE.md's performance rules).
+        return (
+            super()
+            .get_queryset()
+            .select_related("contact", "contact__company", "quote", "assigned_to", "deal")
+        )
+
 
 def _notify_assignee(task, actor, previous_assignee_id=None):
     """Tell someone a task is now theirs.
@@ -936,12 +1009,39 @@ def _notify_assignee(task, actor, previous_assignee_id=None):
 
 class TaskFormUserMixin:
     """Hand the form the person using it, so the estimate list can be
-    scoped by what they're allowed to see."""
+    scoped by what they're allowed to see.
+
+    Also puts the chosen customer in the context, so the page can show
+    their phone and email — a task about somebody is usually a task that
+    means ringing them.
+    """
 
     def get_form_kwargs(self):
         kwargs = super().get_form_kwargs()
         kwargs["user"] = self.request.user
         return kwargs
+
+    def chosen_contact(self):
+        """The customer this task is about, if there is one yet.
+
+        From the record when editing, otherwise from `?contact=`. This
+        is server-rendered, so picking a different customer in the
+        dropdown doesn't update it until the page is saved — the same
+        trade-off the job form already makes for its address list, and
+        the page works without JavaScript because of it.
+        """
+        existing = getattr(self.object, "contact", None) if self.object else None
+        if existing is not None:
+            return existing
+        contact_id = _int_or_none(self.request.GET.get("contact"))
+        if contact_id is None:
+            return None
+        return Contact.objects.filter(pk=contact_id).first()
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["chosen_contact"] = self.chosen_contact()
+        return context
 
 
 class TaskCreateView(

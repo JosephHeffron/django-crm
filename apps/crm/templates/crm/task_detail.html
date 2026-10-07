@@ -40,7 +40,7 @@
     <dt>Assigned to</dt>
     <dd>{{ task.assigned_to }}</dd>
 
-    <dt>Contact</dt>
+    <dt>Customer</dt>
     <dd>
       {% if task.contact %}
         <a href="{{ task.contact.get_absolute_url }}">{{ task.contact }}</a>
@@ -48,6 +48,27 @@
         —
       {% endif %}
     </dd>
+
+    {% if task.contact %}
+      {# So the task can be acted on without opening the customer. #}
+      <dt>Phone</dt>
+      <dd>
+        {% if task.contact.phone %}
+          <a href="tel:{{ task.contact.phone }}">{{ task.contact.phone }}</a>
+        {% else %}
+          —
+        {% endif %}
+      </dd>
+
+      <dt>Email</dt>
+      <dd>
+        {% if task.contact.email %}
+          <a href="mailto:{{ task.contact.email }}">{{ task.contact.email }}</a>
+        {% else %}
+          —
+        {% endif %}
+      </dd>
+    {% endif %}
 
     <dt>Estimate</dt>
     <dd>

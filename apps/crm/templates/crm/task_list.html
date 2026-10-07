@@ -33,6 +33,13 @@
         <option value="{{ value }}" {% if priority == value %}selected{% endif %}>{{ label }}</option>
       {% endfor %}
     </select>
+    <label for="id_contact" class="sr-only">Customer</label>
+    <select id="id_contact" name="contact">
+      <option value="">All customers</option>
+      {% for customer in contacts %}
+        <option value="{{ customer.pk }}" {% if contact_id == customer.pk %}selected{% endif %}>{{ customer.last_name }}, {{ customer.first_name }}</option>
+      {% endfor %}
+    </select>
     {% if mine %}<input type="hidden" name="mine" value="1">{% endif %}
     {% if overdue %}<input type="hidden" name="overdue" value="1">{% endif %}
     <button type="submit">Filter</button>

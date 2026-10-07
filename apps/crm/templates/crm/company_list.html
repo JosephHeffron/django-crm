@@ -24,6 +24,15 @@
       <option value="active" {% if status == "active" %}selected{% endif %}>Active</option>
       <option value="inactive" {% if status == "inactive" %}selected{% endif %}>Inactive</option>
     </select>
+    <label for="id_town" class="sr-only">Town</label>
+    <select id="id_town" name="town">
+      <option value="">All towns</option>
+      {% for name in towns %}
+        <option value="{{ name }}" {% if town == name %}selected{% endif %}>{{ name }}</option>
+      {% endfor %}
+    </select>
+    <label for="id_postal" class="sr-only">Postal code</label>
+    <input type="search" id="id_postal" name="postal" value="{{ postal }}" placeholder="Postal code">
     <button type="submit" class="btn-secondary">Filter</button>
   </form>
 
