@@ -1,9 +1,10 @@
 from django import forms
+from django.db import transaction
 from django.db.models import Q
 
 from apps.jobs.access import quotes_for
 
-from .models import Activity, Company, Contact, Deal, Lead, Task
+from .models import Activity, Company, Contact, Deal, Lead, Property, Task
 
 
 class ContactChoiceField(forms.ModelChoiceField):
@@ -190,6 +191,75 @@ class ActivityForm(forms.ModelForm):
                 "An activity needs to be linked to a company, contact, lead, or deal."
             )
         return cleaned_data
+
+
+class PropertyForm(forms.ModelForm):
+    """A service address.
+
+    The app has had no address form at all until now: addresses could
+    only be created through the Django admin, which is why booking a
+    job for a new customer meant leaving the app. Phase 18.5 unit 3.
+
+    Coordinates are not asked for. They are the geocoder's business
+    (apps/crm/geocoding.py), and `located_address` is `editable=False`
+    anyway, so editing a street here re-opens the lookup by itself.
+    """
+
+    class Meta:
+        model = Property
+        fields = [
+            "contact",
+            "label",
+            "street",
+            "city",
+            "state",
+            "postal_code",
+            "is_primary",
+            "notes",
+        ]
+        labels = {
+            "contact": "Customer",
+            "label": "What it is",
+            "postal_code": "Postal code",
+            "is_primary": "Their main address",
+        }
+        help_texts = {
+            "label": "e.g. Home, Rental",
+            "is_primary": "Choosing this moves it off whichever address held it before.",
+        }
+        widgets = {"notes": forms.Textarea(attrs={"rows": 3})}
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["contact"] = ContactChoiceField(
+            queryset=contact_choices(self.instance.contact_id), label="Customer"
+        )
+
+    def _post_clean(self):
+        # `one_primary_property_per_contact` is a partial unique index,
+        # and this form resolves it itself: save() steps the previous
+        # main address down in the same transaction. Django checks
+        # constraints during validation, before that can happen, so
+        # left alone it rejects a change that is about to be perfectly
+        # valid — "Constraint is violated" shown to someone ticking a
+        # box that is meant to move.
+        #
+        # Only skipped when the box is actually ticked, and the
+        # database still enforces it either way.
+        if self.data.get("is_primary"):
+            self._validate_constraints = False
+        super()._post_clean()
+
+    def save(self, commit=True):
+        if not (commit and self.cleaned_data.get("is_primary")):
+            return super().save(commit)
+        with transaction.atomic():
+            # Demote first: the index is not deferrable, so there must
+            # never be an instant with two.
+            Property.objects.filter(contact=self.cleaned_data["contact"], is_primary=True).exclude(
+                pk=self.instance.pk
+            ).update(is_primary=False)
+            return super().save(commit=True)
 
 
 class TaskForm(forms.ModelForm):

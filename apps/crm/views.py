@@ -9,6 +9,7 @@ from django.utils.http import url_has_allowed_host_and_scheme
 from django.views import View
 from django.views.generic import CreateView, DetailView, ListView, UpdateView
 
+from apps.core import redirects
 from apps.core.models import Notification
 from apps.core.notifications import notify
 from apps.core.pagination import PerPageMixin
@@ -23,6 +24,7 @@ from .forms import (
     DealForm,
     LeadConversionForm,
     LeadForm,
+    PropertyForm,
     TaskForm,
     contact_choices,
 )
@@ -366,6 +368,55 @@ class ContactListView(SalesRoleRequiredMixin, PerPageMixin, ListView):
         return context
 
 
+class PropertyFormMixin(SalesRoleRequiredMixin, PermissionRequiredMixin):
+    """Create or correct a service address.
+
+    Returns to wherever asked (`?next=`), handing back the new address
+    so a half-filled job form can pick it up. Validated against this
+    host, so the parameter cannot become an open redirect — a
+    hand-rolled version of that check was a real bug in Phase 17.5.
+    """
+
+    model = Property
+    form_class = PropertyForm
+    template_name = "crm/property_form.html"
+
+    def get_initial(self):
+        initial = super().get_initial()
+        contact_id = _int_or_none(self.request.GET.get("contact"))
+        if contact_id is not None:
+            initial.setdefault("contact", contact_id)
+        return initial
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["back"] = redirects.safe_next(self.request)
+        return context
+
+    def form_valid(self, form):
+        # The demotion of a previous main address happens in the form's
+        # own save(), because Django checks the constraint during
+        # validation — before anything here could run.
+        response = super().form_valid(form)
+        messages.success(self.request, f"Saved {self.object}.")
+        return response
+
+    def get_success_url(self):
+        target = redirects.safe_next(self.request)
+        if target:
+            # Hand the address back to whatever sent us here.
+            return redirects.with_params(target, service_property=self.object.pk)
+        return self.object.contact.get_absolute_url()
+
+
+class PropertyCreateView(PropertyFormMixin, CreateView):
+    permission_required = "crm.add_property"
+
+
+class PropertyUpdateView(PropertyFormMixin, UpdateView):
+    permission_required = "crm.change_property"
+
+
 class ContactDetailView(SalesRoleRequiredMixin, DetailView):
     model = Contact
     template_name = "crm/contact_detail.html"
@@ -403,12 +454,24 @@ class ContactCreateView(SalesRoleRequiredMixin, PermissionRequiredMixin, CreateV
     template_name = "crm/contact_form.html"
     permission_required = "crm.add_contact"
 
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["back"] = redirects.safe_next(self.request)
+        return context
+
     def form_valid(self, form):
         form.instance.created_by = self.request.user
         response = super().form_valid(form)
         _record_audit_log(self.request.user, self.object, AuditLogEntry.Action.CREATED)
         messages.success(self.request, f"Created contact “{self.object}”.")
         return response
+
+    def get_success_url(self):
+        # Booked from the middle of a job? Go back with them chosen.
+        target = redirects.safe_next(self.request)
+        if target:
+            return redirects.with_params(target, contact=self.object.pk)
+        return super().get_success_url()
 
 
 class ContactUpdateView(SalesRoleRequiredMixin, PermissionRequiredMixin, UpdateView):

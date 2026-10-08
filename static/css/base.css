@@ -1280,6 +1280,15 @@ button:disabled,
   cursor: not-allowed;
 }
 
+/* The New / In progress / Complete buttons on a schedule row and a
+   job page. A flex row so they sit beside the status badge rather than
+   stacking, and wrapping on a phone instead of overflowing. */
+.status-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
 .link-button {
   display: inline;
   min-height: 0;

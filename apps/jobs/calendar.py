@@ -90,6 +90,9 @@ class Event:
     status: str = ""
     status_label: str = ""
     crew: list = field(default_factory=list)
+    # Set for jobs, left None for site visits — the day view offers
+    # status buttons only where there is a job to move.
+    job_id: int | None = None
 
 
 def _job_events(user, start, end, crew_id):
@@ -114,6 +117,7 @@ def _job_events(user, start, end, crew_id):
             tone_class=job.primary_service_type.tone_class,
             status=job.status,
             status_label=job.get_status_display(),
+            job_id=job.pk,
             crew=[member.get_full_name() or member.get_username() for member in job.crew.all()],
         )
         for job in jobs

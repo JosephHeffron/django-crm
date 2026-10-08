@@ -67,6 +67,9 @@
                 {% if event.crew %}<div class="agenda-meta">Crew: {{ event.crew|join:", " }}</div>{% endif %}
               </div>
               {% if event.status %}{% include "jobs/_status_badge.html" with status=event.status label=event.status_label %}{% endif %}
+              {% if event.job_id and can_change_status %}
+                {% include "jobs/_status_actions.html" with job_id=event.job_id status=event.status back=request.get_full_path %}
+              {% endif %}
             </li>
           {% endfor %}
         </ul>

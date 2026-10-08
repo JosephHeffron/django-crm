@@ -17,7 +17,7 @@ from django.utils.dateparse import parse_date
 from django.views import View
 from django.views.generic import CreateView, DetailView, ListView, TemplateView, UpdateView
 
-from apps.core import export
+from apps.core import export, redirects
 from apps.core.pagination import PerPageMixin
 from apps.core.templatetags.crm_format import money
 from apps.crm import geocoding
@@ -34,7 +34,7 @@ from apps.users.roles import (
     user_role,
 )
 
-from . import crew, reporting, reports
+from . import crew, reporting, reports, status
 from .access import invoices_for, jobs_for, quotes_for
 from .calendar import DEFAULT_VIEW, VIEWS, calendar_days, calendar_range, day_bounds
 from .forms import (
@@ -102,6 +102,10 @@ class CalendarView(RoleRequiredMixin, TemplateView):
                 crew_id = int(requested)
 
         can_schedule = user_role(self.request.user) in SALES_ROLES
+        # Crews mark their own jobs done — that is what the permission
+        # was granted for (users/0004) — so this is the permission, not
+        # the sales roles.
+        can_change_status = self.request.user.has_perm("jobs.change_job")
         days = calendar_days(self.request.user, cal, crew_id=crew_id, today=today)
         for day in days:
             day["url"] = calendar_url("day", day["date"], crew_id)
@@ -121,6 +125,8 @@ class CalendarView(RoleRequiredMixin, TemplateView):
             crew_members=crew_members,
             crew_id=crew_id,
             can_schedule=can_schedule,
+            can_change_status=can_change_status,
+            quick_statuses=status.QUICK_STATUSES,
             new_job_url=reverse("jobs:job_create") if can_schedule else "",
             new_job_label="Schedule a job",
         )
@@ -156,8 +162,16 @@ class JobDetailView(RoleRequiredMixin, DetailView):
             invoices=invoices_for(self.request.user).filter(job=job).with_balances(),
             today=timezone.localdate(),
             is_owner=role in OWNER_ONLY,
+            can_change_status=self.request.user.has_perm("jobs.change_job"),
+            quick_statuses=status.QUICK_STATUSES,
         )
         return context
+
+
+def _int_or_none_str(value):
+    """An integer from a query parameter, or None."""
+    value = (value or "").strip()
+    return int(value) if value.isdigit() else None
 
 
 class JobFormMixin(SalesRoleRequiredMixin, PermissionRequiredMixin):
@@ -178,6 +192,14 @@ class JobFormMixin(SalesRoleRequiredMixin, PermissionRequiredMixin):
             context["lines"] = JobLineFormSet(
                 self.request.POST or None, instance=self.object, prefix="lines"
             )
+        # Where the quick-add pages send the user back to, and which
+        # customer the new-address page should start with. The full path
+        # means a job begun from a calendar day returns to that day.
+        context["return_to"] = self.request.get_full_path()
+        chosen = _int_or_none_str(self.request.GET.get("contact"))
+        if chosen is None and self.object is not None:
+            chosen = self.object.contact_id
+        context["chosen_contact"] = chosen
         return context
 
     def form_valid(self, form):
@@ -189,7 +211,7 @@ class JobFormMixin(SalesRoleRequiredMixin, PermissionRequiredMixin):
         with transaction.atomic():
             if not form.instance.pk:
                 form.instance.created_by = self.request.user
-            _stamp_completion(form.instance)
+            status.stamp_completion(form.instance)
             self.object = form.save()
             lines.instance = self.object
             lines.save()
@@ -209,21 +231,6 @@ class JobFormMixin(SalesRoleRequiredMixin, PermissionRequiredMixin):
             JobAssignment.objects.create(job=self.object, user_id=user_id)
 
 
-def _stamp_completion(job):
-    """Record when a job was finished, from its status.
-
-    Every count of finished work — the dashboard, the monthly goal,
-    Financials, a cleaner's week — is by `completed_at`, not by status,
-    so a job marked done without a date would say "Completed" on screen
-    and be counted nowhere. Re-opening one clears the date again.
-    """
-    if job.status == Job.Status.COMPLETED:
-        if job.completed_at is None:
-            job.completed_at = timezone.now()
-    else:
-        job.completed_at = None
-
-
 class JobCreateView(JobFormMixin, CreateView):
     permission_required = "jobs.add_job"
     success_message = "Scheduled %(number)s."
@@ -234,6 +241,10 @@ class JobCreateView(JobFormMixin, CreateView):
         contact = self.request.GET.get("contact", "")
         if contact.isdigit():
             initial.setdefault("contact", int(contact))
+        # Handed back by the quick-add pages (apps/core/redirects.py).
+        address = self.request.GET.get("service_property", "")
+        if address.isdigit():
+            initial.setdefault("service_property", int(address))
         start = _parse_day(self.request.GET.get("date"))
         if start:
             # Arriving from a day on the schedule: start that morning.
@@ -673,6 +684,34 @@ class ExpenseCreateView(ExpenseFormMixin, CreateView):
 
 class ExpenseUpdateView(ExpenseFormMixin, UpdateView):
     permission_required = "jobs.change_expense"
+
+
+class JobStatusView(RoleRequiredMixin, PermissionRequiredMixin, View):
+    """Mark a job New, In progress or Complete from the schedule.
+
+    POST only — it writes. Scoped through `jobs_for`, so a crew member
+    can move a job they are on and gets a 404, not a 403, for one they
+    are not: out of scope must not confirm the job exists.
+
+    Crews are meant to do this. The permissions migration that gave
+    them `jobs.change_job` says so in as many words ("Crews update
+    their own jobs (status, hours)"), and it is the whole point of
+    being able to mark a job done on a phone at the kerb.
+    """
+
+    allowed_roles = ALL_ROLES
+    permission_required = "jobs.change_job"
+
+    def post(self, request, pk, *args, **kwargs):
+        job = jobs_for(request.user).filter(pk=pk).first()
+        if job is None:
+            raise Http404("No such job")
+        _, error = status.apply_status(job, request.POST.get("status", ""))
+        if error:
+            messages.warning(request, error)
+        else:
+            messages.success(request, f"{job.number} is now {job.get_status_display()}.")
+        return redirect(redirects.safe_next(request, job.get_absolute_url()))
 
 
 class TimeClockView(RoleRequiredMixin, TemplateView):
