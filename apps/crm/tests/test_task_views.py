@@ -1,7 +1,10 @@
 import datetime
+import re
 
 from django.contrib.auth import get_user_model
+from django.db import connection
 from django.test import TestCase
+from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
 from django.utils import timezone
 
@@ -481,3 +484,125 @@ class TaskFormFieldTests(TestCase):
         )
         form = self.form(reverse("crm:task_update", args=[task.pk]))
         self.assertIn(customer, form.fields["contact"].queryset)
+
+
+class TaskCustomerContextTests(TestCase):
+    """Narrowing the hub to a customer, and having their number to hand."""
+
+    def setUp(self):
+        self.user = User.objects.create_user("boss", password="correct-horse-battery")
+        grant_role(self.user)
+        self.client.login(username="boss", password="correct-horse-battery")
+        self.customer = Contact.objects.create(
+            first_name="Pat",
+            last_name="Homeowner",
+            created_by=self.user,
+            phone="585-555-0100",
+            email="pat@example.test",
+        )
+
+    def task(self, title="Ring them", **extra):
+        return Task.objects.create(
+            title=title, assigned_to=self.user, created_by=self.user, **extra
+        )
+
+    def test_the_hub_can_be_narrowed_to_one_customer(self):
+        theirs = self.task("Theirs", contact=self.customer)
+        self.task("Nobody's")
+        shown = self.client.get(reverse("crm:task_list"), {"contact": self.customer.pk})
+        self.assertEqual([t.pk for t in shown.context["tasks"]], [theirs.pk])
+
+    def test_a_nonsense_customer_filter_is_ignored(self):
+        self.task("Theirs", contact=self.customer)
+        shown = self.client.get(reverse("crm:task_list"), {"contact": "banana"})
+        self.assertEqual(len(shown.context["tasks"]), 1)
+
+    def add_task_link(self, response):
+        """The href of the Add task button, and only that.
+
+        Named exactly, because the narrowed page also carries
+        `/tasks/?contact=<pk>` in its own filter-preserving links — an
+        earlier version of these tests matched that instead and passed
+        with the button's parameter removed.
+        """
+        found = re.findall(r'<a class="btn" href="([^"]+)">', response.content.decode())
+        self.assertTrue(found, "no Add task button on the page")
+        return found[0]
+
+    def test_add_task_from_a_narrowed_hub_carries_the_customer(self):
+        response = self.client.get(reverse("crm:task_list"), {"contact": self.customer.pk})
+        self.assertEqual(
+            self.add_task_link(response),
+            f"{reverse('crm:task_create')}?contact={self.customer.pk}",
+        )
+
+    def test_add_task_from_the_whole_hub_carries_nobody(self):
+        response = self.client.get(reverse("crm:task_list"))
+        self.assertEqual(self.add_task_link(response), reverse("crm:task_create"))
+
+    def test_the_other_hub_pages_still_offer_a_plain_add_task_link(self):
+        # They share the header partial but set no contact_id.
+        for name in ("crm:task_followups", "crm:plan_list", "crm:note_list"):
+            response = self.client.get(reverse(name))
+            self.assertEqual(response.status_code, 200, name)
+            self.assertEqual(self.add_task_link(response), reverse("crm:task_create"), name)
+
+    def test_the_form_shows_the_customers_phone_and_email_when_prefilled(self):
+        response = self.client.get(reverse("crm:task_create"), {"contact": self.customer.pk})
+        self.assertContains(response, "585-555-0100")
+        self.assertContains(response, "pat@example.test")
+
+    def test_the_form_shows_them_when_editing_a_task_that_names_them(self):
+        task = self.task(contact=self.customer)
+        response = self.client.get(reverse("crm:task_update", args=[task.pk]))
+        self.assertContains(response, "585-555-0100")
+
+    def test_the_details_survive_a_form_that_fails_validation(self):
+        """Re-rendering reads POST, not the query string.
+
+        Pick a customer, leave the title blank, and their phone number
+        has to still be there on the way back.
+        """
+        response = self.client.post(
+            reverse("crm:task_create"),
+            {
+                "title": "",  # required, so the form comes back
+                "assigned_to": self.user.pk,
+                "contact": self.customer.pk,
+                "priority": Task.Priority.MEDIUM,
+                "status": Task.Status.PENDING,
+            },
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["chosen_contact"], self.customer)
+        self.assertContains(response, "585-555-0100")
+
+    def test_the_form_shows_nothing_for_a_task_about_nobody(self):
+        response = self.client.get(reverse("crm:task_create"))
+        self.assertIsNone(response.context["chosen_contact"])
+
+    def test_the_task_page_shows_the_phone_and_email(self):
+        task = self.task(contact=self.customer)
+        response = self.client.get(reverse("crm:task_detail", args=[task.pk]))
+        self.assertContains(response, 'href="tel:585-555-0100"')
+        self.assertContains(response, 'href="mailto:pat@example.test"')
+
+    def test_a_customer_with_no_phone_or_email_is_shown_without_them(self):
+        bare = Contact.objects.create(first_name="No", last_name="Details", created_by=self.user)
+        task = self.task(contact=bare)
+        response = self.client.get(reverse("crm:task_detail", args=[task.pk]))
+        self.assertEqual(response.status_code, 200)
+        self.assertNotContains(response, 'href="tel:')
+
+    def test_a_task_about_nobody_shows_no_phone_row(self):
+        task = self.task()
+        response = self.client.get(reverse("crm:task_detail", args=[task.pk]))
+        self.assertNotContains(response, "<dt>Phone</dt>")
+
+    def test_the_task_page_does_not_ask_a_separate_question_per_relation(self):
+        task = self.task(contact=self.customer)
+        url = reverse("crm:task_detail", args=[task.pk])
+        with CaptureQueriesContext(connection) as captured:
+            self.client.get(url)
+        joined = " ".join(q["sql"] for q in captured.captured_queries)
+        self.assertNotIn('FROM "crm_contact" WHERE "crm_contact"."id" =', joined)

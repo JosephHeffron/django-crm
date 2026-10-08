@@ -4,7 +4,12 @@
     <p class="page-subtitle">To-dos, follow-ups, quotes, plans, and notes.</p>
   </div>
   <div class="page-actions">
-    <a class="btn" href="{% url 'crm:task_create' %}">Add task</a>
+    {% comment %}
+      Narrowed to one customer? Then open the form with them already
+      chosen. contact_id is only set by the Tasks list, so the other
+      hub pages sharing this header get a plain link.
+    {% endcomment %}
+    <a class="btn" href="{% url 'crm:task_create' %}{% if contact_id %}?contact={{ contact_id }}{% endif %}">Add task</a>
   </div>
 </div>
 {% include "crm/_hub_tabnav.html" %}

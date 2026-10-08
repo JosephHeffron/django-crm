@@ -23,6 +23,19 @@
           {% include "partials/_field.html" with field=form.contact %}
           {% include "partials/_field.html" with field=form.quote %}
         </div>
+        {% if chosen_contact %}
+          {% comment %}
+            Server-rendered from the saved or prefilled customer, so
+            changing the dropdown doesn't update this until you save.
+            Same trade-off as the job form's address list: the page
+            works without JavaScript.
+          {% endcomment %}
+          <p class="helptext">
+            {{ chosen_contact }}
+            {% if chosen_contact.phone %} · <a href="tel:{{ chosen_contact.phone }}">{{ chosen_contact.phone }}</a>{% endif %}
+            {% if chosen_contact.email %} · <a href="mailto:{{ chosen_contact.email }}">{{ chosen_contact.email }}</a>{% endif %}
+          </p>
+        {% endif %}
       </section>
 
       <section class="section-card">
