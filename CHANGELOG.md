@@ -167,3 +167,11 @@ for meaningful changes — not for every small fix or documentation tweak.
   you can call or write to.
 - Customers and Companies can be filtered by town or postal code. A
   company matches when any of its customers has an address there.
+- A job can be marked New, In progress or Complete from the day
+  schedule and from the job page, without opening the edit form. Crews
+  can do this for the jobs they are on.
+- Service addresses can be added and corrected in the app. Until now
+  they could only be created through the Django admin.
+- Booking a job offers a new customer or a new address without losing
+  your place: both open their own page and return with the new one
+  already chosen.

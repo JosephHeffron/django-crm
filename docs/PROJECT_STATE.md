@@ -24,8 +24,8 @@ actually verified.
 > fix did not work and the test guarding it passed anyway, twice, for
 > the same reason (it searched the Caddyfile's text instead of the
 > configuration Caddy actually runs).
-> **Phase 18.5 (twelve owner-reported items) is underway: units 1 and
-> 2 are merged** (PRs #133 and #135, 878 tests). Three of the twelve
+> **Phase 18.5 (twelve owner-reported items) is underway: units 1 to
+> 3 are merged** (PRs #133, #135 and #137, 924 tests). Three of the twelve
 > turned out not to be what they looked like — see the unit 1 log
 > before working on them. Note the automated reviewer spent its weekly
 > budget during unit 2 (250,000 diff characters per seven days), so
@@ -1014,40 +1014,57 @@ roadmap completed:
   and that review found a real defect: a form failing validation lost
   the customer's details on the way back. 878 tests. Full detail in
   `logs/claude/phase-18.5-unit2-task-context-and-address-filter.md`.
-- Phase 18 units 2-5, Phase 18.5 units 3-6 and Phases 19-25: not yet
+- Phase 18.5 unit 3 — **job status from the schedule, and quick-add**.
+  A job can be marked New, In progress or Complete from the day
+  schedule and from the job page. Crews may do it for their own jobs,
+  which is what `users/0004` granted them the permission for.
+
+  The rule that matters now lives in `apps/jobs/status.py` and both
+  paths call it: **every count of finished work reads `completed_at`,
+  not `status`**, so a path that skips the stamp gives a job which
+  reads "Completed" on screen and is counted nowhere. The tests assert
+  the month's figure and the crew member's figure rather than the
+  field, because a field assertion passes on a job that has stopped
+  being counted.
+
+  Also builds the service address form the app never had — until now
+  addresses could only be created through the Django admin — and
+  quick-add of a customer or address from the job form, which returns
+  with the new record chosen and needs no JavaScript. `next` is
+  validated through the new shared `apps/core/redirects.py`.
+
+  Note the one-primary-address constraint is checked by Django during
+  *form validation*, so the demotion of a previous main address has to
+  happen in the form's own `save()`; doing it in the view showed
+  "Constraint is violated" to someone ticking a box meant to move.
+  924 tests. Full detail, including three mistakes of mine in the
+  testing itself, in
+  `logs/claude/phase-18.5-unit3-job-status-and-quick-add.md`.
+- Phase 18 units 2-5, Phase 18.5 units 4-6 and Phases 19-25: not yet
   started (re-sequenced in `docs/ROADMAP.md`).
 
 ## Currently working on
 
-Phase 18.5 unit 3 — quick-add customer and address, and marking a job's
-status from the schedule (items 6 and 7).
+Nothing in flight — Phase 18.5 unit 3 is merged (PR #137).
 
 ## Next
 
 Phase 18.5 runs first, being the owner's own reported list. Its six
 remaining units, in order, with the traps worth knowing:
 
-1. **Unit 3 — quick-add customer and address, and job status from the
-   schedule** (items 6, 7). There is no address form anywhere in the
-   app today; addresses can only be created in the Django admin, so
-   this unit builds the one the app has been missing. **Any new status
-   path must go through a single helper that stamps `completed_at`** —
-   every count of finished work reads that date, not the status, so a
-   job marked done without it reads "Completed" on screen and is
-   counted nowhere.
-2. **Unit 4 — map search, lookup, and demo addresses that geocode**
+1. **Unit 4 — map search, lookup, and demo addresses that geocode**
    (items 10, 11). The map is not broken; the seeded addresses are
    invented. Dropping a pin by hand already works server-side and is
    tested, but nothing in the interface calls it, even though the page
    tells the user they can.
-3. **Unit 5 — the master change log** (item 9). Only contacts and
+2. **Unit 5 — the master change log** (item 9). Only contacts and
    companies are recorded today; the entire jobs app, users and core
    record nothing. **Once jobs appear in the log, undo would treat a
    job's status as restorable text** and write it without stamping the
    completion date, reintroducing unit 3's bug by another route. That
    needs a model allow-list in `apps/crm/undo.py`, not a field-by-field
    patch.
-4. **Unit 6 — a save button at the top of every form** (item 12).
+3. **Unit 6 — a save button at the top of every form** (item 12).
    Thirteen forms, three incompatible action-row conventions, and no
    form in the project has an `id` yet.
 

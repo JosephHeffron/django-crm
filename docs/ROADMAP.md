@@ -160,6 +160,11 @@ insufficient.
             task button carries them, the customer's phone and email
             show on tasks, and Customers and Companies filter by town
             or postcode (PR #135).
+      - [x] Unit 3 — jobs can be marked New / In progress / Complete
+            from the day schedule and the job page, through one shared
+            rule that stamps the completion date; plus the service
+            address form the app never had, and quick-add of a customer
+            or address from the job form (PR #137).
 
 - [ ] **Phase 19 — Follow-up automation and tasks hub.** Daily
       follow-up generation via a systemd timer (same pattern as the
