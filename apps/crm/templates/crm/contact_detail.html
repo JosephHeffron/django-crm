@@ -17,6 +17,7 @@
       <a class="btn btn-secondary" href="{% url 'crm:contact_update' contact.pk %}">Edit</a>
       <a class="btn btn-secondary" href="{{ log_activity_url }}">Log activity</a>
       <a class="btn btn-secondary" href="{% url 'crm:task_create' %}?contact={{ contact.pk }}">Add task</a>
+      <a class="btn btn-secondary" href="{% url 'crm:property_create' %}?contact={{ contact.pk }}">Add address</a>
       {% if contact.is_active %}<a class="btn btn-secondary" href="{% url 'crm:contact_deactivate' contact.pk %}">Deactivate</a>{% endif %}
     </div>
   </div>

@@ -8,10 +8,11 @@
   </div>
   <form method="post" class="card">
     {% csrf_token %}
+    {% if back %}<input type="hidden" name="next" value="{{ back }}">{% endif %}
     {{ form.as_p }}
     <div class="cluster">
       <button type="submit">Save</button>
-      <a class="btn btn-secondary" href="{% if object %}{{ object.get_absolute_url }}{% else %}{% url 'crm:contact_list' %}{% endif %}">Cancel</a>
+      <a class="btn btn-secondary" href="{% if back %}{{ back }}{% elif object %}{{ object.get_absolute_url }}{% else %}{% url 'crm:contact_list' %}{% endif %}">Cancel</a>
     </div>
   </form>
 {% endblock %}

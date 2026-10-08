@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+
+{% block title %}{% if object %}Edit address{% else %}Add an address{% endif %}{% endblock %}
+
+{% block content %}
+  <div class="settings-shell">
+    <h1>{% if object %}Edit address{% else %}Add an address{% endif %}</h1>
+    <p class="page-subtitle">Where the work happens. A customer can have more than one.</p>
+
+    <form method="post" novalidate>
+      {% csrf_token %}
+      {{ form.non_field_errors }}
+      {% if back %}<input type="hidden" name="next" value="{{ back }}">{% endif %}
+
+      <section class="section-card">
+        <div class="section-card-head"><svg class="icon" aria-hidden="true"><use href="#icon-user"/></svg><h2>Whose it is</h2></div>
+        <div class="field-row">
+          {% include "partials/_field.html" with field=form.contact %}
+          {% include "partials/_field.html" with field=form.label %}
+        </div>
+      </section>
+
+      <section class="section-card">
+        <div class="section-card-head"><svg class="icon" aria-hidden="true"><use href="#icon-map-pin"/></svg><h2>Where it is</h2></div>
+        {% include "partials/_field.html" with field=form.street %}
+        <div class="field-row">
+          {% include "partials/_field.html" with field=form.city %}
+          {% include "partials/_field.html" with field=form.state %}
+          {% include "partials/_field.html" with field=form.postal_code %}
+        </div>
+        <p class="helptext">Correcting an address puts it back in the queue to be placed on the map.</p>
+      </section>
+
+      <section class="section-card">
+        <div class="section-card-head"><svg class="icon" aria-hidden="true"><use href="#icon-info"/></svg><h2>Anything to know</h2></div>
+        {% include "partials/_field.html" with field=form.is_primary %}
+        {% include "partials/_field.html" with field=form.notes %}
+      </section>
+
+      <div class="form-actions">
+        <button type="submit"><svg class="icon" aria-hidden="true"><use href="#icon-save"/></svg>{% if object %}Save changes{% else %}Add address{% endif %}</button>
+        <a class="btn btn-secondary" href="{% if back %}{{ back }}{% elif object %}{{ object.contact.get_absolute_url }}{% else %}{% url 'crm:contact_list' %}{% endif %}">Cancel</a>
+      </div>
+    </form>
+  </div>
+{% endblock %}

@@ -1,0 +1,19 @@
+{% comment %}
+  Move a job between New, In progress and Complete without opening it.
+
+  Only on the day view: a week or month chip is one <a> wrapping the
+  whole thing (jobs/_event.html), and a form cannot sit inside an
+  anchor. Expects `job_id`, `status` and `back`.
+
+  Cancelling a job is not here. It has consequences for invoicing, so
+  it stays on the edit form where there is room to say so.
+{% endcomment %}
+<form method="post" action="{% url 'jobs:job_status' job_id %}" class="status-actions">
+  {% csrf_token %}
+  <input type="hidden" name="next" value="{{ back }}">
+  {% for value, label in quick_statuses %}
+    {% if value != status %}
+      <button type="submit" name="status" value="{{ value }}" class="btn-secondary btn-sm">{{ label }}</button>
+    {% endif %}
+  {% endfor %}
+</form>

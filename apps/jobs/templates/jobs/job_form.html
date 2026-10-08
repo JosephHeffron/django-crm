@@ -21,6 +21,22 @@
           {% include "partials/_field.html" with field=form.service_property %}
         </div>
         <p class="muted section-note">Leave the address blank if the customer has only one, or if you'll fill it in later.</p>
+        {% comment %}
+          A new customer or address without abandoning the booking.
+          These open their own page and come straight back with the new
+          one chosen, which needs no JavaScript and so works on a phone
+          with a bad signal. Anything already typed into the rest of
+          this form is not kept, which the text says.
+        {% endcomment %}
+        <p class="cluster">
+          <a class="btn btn-secondary btn-sm" href="{% url 'crm:contact_create' %}?next={{ return_to|urlencode }}">
+            <svg class="icon" aria-hidden="true"><use href="#icon-user-plus"/></svg>New customer
+          </a>
+          <a class="btn btn-secondary btn-sm" href="{% url 'crm:property_create' %}?next={{ return_to|urlencode }}{% if chosen_contact %}&amp;contact={{ chosen_contact }}{% endif %}">
+            <svg class="icon" aria-hidden="true"><use href="#icon-map-pin"/></svg>New address
+          </a>
+        </p>
+        <p class="helptext">These open a new page and come back here. Anything else you've typed above isn't kept yet.</p>
       </section>
 
       <section class="section-card">

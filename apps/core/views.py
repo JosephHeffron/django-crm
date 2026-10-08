@@ -27,6 +27,7 @@ from django.utils.http import url_has_allowed_host_and_scheme
 from django.views import View
 from django.views.generic import ListView, TemplateView
 
+from apps.core import redirects
 from apps.crm import undo as undo_service
 from apps.crm.followups import add_months
 from apps.crm.models import Activity, AuditLogEntry, Company, Contact, Deal, Lead, Tag, Task
@@ -374,14 +375,13 @@ class OnboardingDismissView(OwnerRequiredMixin, View):
 
 
 def _safe_next(request, fallback):
-    """A "next" from the form, but only a destination on this site —
-    Django's own check, as in apps/crm/views.py, rather than a
-    hand-rolled one."""
-    target = request.POST.get("next", "")
-    allowed = url_has_allowed_host_and_scheme(
-        target, allowed_hosts={request.get_host()}, require_https=request.is_secure()
-    )
-    return target if target and allowed else fallback
+    """A "next" from the form, but only a destination on this site.
+
+    Thin wrapper kept so the existing call sites read unchanged; the
+    check itself lives in apps/core/redirects.py now, because unit 3
+    needs the same one for links as well as posts.
+    """
+    return redirects.safe_next(request, fallback)
 
 
 def _search(query):
