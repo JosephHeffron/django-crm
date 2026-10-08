@@ -557,6 +557,26 @@ class TaskCustomerContextTests(TestCase):
         response = self.client.get(reverse("crm:task_update", args=[task.pk]))
         self.assertContains(response, "585-555-0100")
 
+    def test_the_details_survive_a_form_that_fails_validation(self):
+        """Re-rendering reads POST, not the query string.
+
+        Pick a customer, leave the title blank, and their phone number
+        has to still be there on the way back.
+        """
+        response = self.client.post(
+            reverse("crm:task_create"),
+            {
+                "title": "",  # required, so the form comes back
+                "assigned_to": self.user.pk,
+                "contact": self.customer.pk,
+                "priority": Task.Priority.MEDIUM,
+                "status": Task.Status.PENDING,
+            },
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["chosen_contact"], self.customer)
+        self.assertContains(response, "585-555-0100")
+
     def test_the_form_shows_nothing_for_a_task_about_nobody(self):
         response = self.client.get(reverse("crm:task_create"))
         self.assertIsNone(response.context["chosen_contact"])

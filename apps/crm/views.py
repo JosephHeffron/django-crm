@@ -1024,19 +1024,27 @@ class TaskFormUserMixin:
     def chosen_contact(self):
         """The customer this task is about, if there is one yet.
 
-        From the record when editing, otherwise from `?contact=`. This
-        is server-rendered, so picking a different customer in the
-        dropdown doesn't update it until the page is saved — the same
-        trade-off the job form already makes for its address list, and
-        the page works without JavaScript because of it.
+        Three places to look, in order: what was just submitted, the
+        saved record, then `?contact=`. The submitted value comes first
+        because a form that fails validation is re-rendered — without
+        it, picking a customer and then leaving the title blank would
+        lose their details on the way back.
+
+        Server-rendered either way, so changing the dropdown doesn't
+        update it until the page is saved. That is the same trade-off
+        the job form makes for its address list, and it is why the page
+        works without JavaScript.
         """
+        submitted = _int_or_none(self.request.POST.get("contact"))
+        if submitted is not None:
+            return Contact.objects.filter(pk=submitted).first()
         existing = getattr(self.object, "contact", None) if self.object else None
         if existing is not None:
             return existing
-        contact_id = _int_or_none(self.request.GET.get("contact"))
-        if contact_id is None:
+        asked_for = _int_or_none(self.request.GET.get("contact"))
+        if asked_for is None:
             return None
-        return Contact.objects.filter(pk=contact_id).first()
+        return Contact.objects.filter(pk=asked_for).first()
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)

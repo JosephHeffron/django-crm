@@ -91,6 +91,22 @@ class CustomerAddressFilterTests(AddressFilterTestCase):
         self.assertEqual(response.context["paginator"].count, 1)
         self.assertEqual(len(response.context["contacts"]), 1)
 
+    def test_a_town_and_a_postcode_must_match_the_same_address(self):
+        """Both together mean one address matching both, not either.
+
+        A customer with a home in one town and a rental in another does
+        not match a town from the first and a postcode from the second.
+        Written down because "both filters at once" has two plausible
+        readings and the code has to pick one.
+        """
+        split = self.customer("Pat", "Split")
+        self.address(split, "Penfield", postal="14526", street="1 Home St")
+        self.address(split, "Webster", postal="14580", street="2 Rental Rd")
+        crossed = self.listing(CUSTOMERS, town="Penfield", postal="14580")
+        self.assertEqual(len(crossed.context["contacts"]), 0)
+        together = self.listing(CUSTOMERS, town="Penfield", postal="14526")
+        self.assertEqual([c.pk for c in together.context["contacts"]], [split.pk])
+
     def test_a_customer_with_no_address_is_left_out(self):
         self.customer("No", "Address")
         self.assertEqual(len(self.listing(CUSTOMERS, town="Penfield").context["contacts"]), 0)
