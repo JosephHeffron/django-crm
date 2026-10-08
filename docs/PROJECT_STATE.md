@@ -24,10 +24,13 @@ actually verified.
 > fix did not work and the test guarding it passed anyway, twice, for
 > the same reason (it searched the Caddyfile's text instead of the
 > configuration Caddy actually runs).
-> **Phase 18.5 (twelve owner-reported items) is underway: unit 1 is
-> merged** (PR #133, 845 tests). Three of the twelve turned out not to
-> be what they looked like — see the unit 1 log before working on
-> them.
+> **Phase 18.5 (twelve owner-reported items) is underway: units 1 and
+> 2 are merged** (PRs #133 and #135, 878 tests). Three of the twelve
+> turned out not to be what they looked like — see the unit 1 log
+> before working on them. Note the automated reviewer spent its weekly
+> budget during unit 2 (250,000 diff characters per seven days), so
+> that unit was self-reviewed; the review found a real defect, and the
+> budget resets around 2026-10-13.
 > Note: the GitHub repo, switched from public to private earlier in the
 > project, is now **public again** — Phase 13 unit 1's audit found
 > branch protection and secret scanning had been silently disabled
@@ -994,27 +997,37 @@ roadmap completed:
   rule with the same class name already existed further down the file.
   845 tests. Full detail in
   `logs/claude/phase-18.5-unit1-inbox-and-task-form.md`.
-- Phase 18 units 2-5, Phase 18.5 units 2-6 and Phases 19-25: not yet
+- Phase 18.5 unit 2 — **task context, and filtering by where people
+  are**. The Tasks hub narrows to one customer, and when it does its
+  Add task button opens the form with them chosen; the hub had no
+  customer filter at all before, which is why that button could never
+  prefill one. The customer's phone and email show on the task form and
+  the task page as call and mail links. Customers and Companies filter
+  by town or postcode; a Company has no address fields of its own, so
+  it matches when any of its customers has an address there.
+
+  Both filters use a `pk__in` subquery, never a join: joining the
+  address table multiplies rows and corrupts `paginator.count` while
+  still looking right on a short page. Mutation-checked four ways, one
+  of them asserting the reported total rather than the row count.
+  Self-reviewed, the automated reviewer's weekly budget being spent,
+  and that review found a real defect: a form failing validation lost
+  the customer's details on the way back. 878 tests. Full detail in
+  `logs/claude/phase-18.5-unit2-task-context-and-address-filter.md`.
+- Phase 18 units 2-5, Phase 18.5 units 3-6 and Phases 19-25: not yet
   started (re-sequenced in `docs/ROADMAP.md`).
 
 ## Currently working on
 
-Nothing in flight — Phase 18.5 unit 1 is merged (PR #133).
+Phase 18.5 unit 3 — quick-add customer and address, and marking a job's
+status from the schedule (items 6 and 7).
 
 ## Next
 
 Phase 18.5 runs first, being the owner's own reported list. Its six
-units, in order, with the traps worth knowing:
+remaining units, in order, with the traps worth knowing:
 
-1. **Unit 2 — task context and an address filter** (items 4, 8). The
-   Tasks hub has no customer filter to carry into its "Add task"
-   button, so that is added first. Customers and Companies gain a
-   town/postcode filter; for a company it matches if any of its
-   customers has an address there, since Company has no address fields
-   of its own. **Use a `pk__in` subquery, not a join** — joining
-   `properties` multiplies customer rows and corrupts the paginator
-   count, which still looks right on page one.
-2. **Unit 3 — quick-add customer and address, and job status from the
+1. **Unit 3 — quick-add customer and address, and job status from the
    schedule** (items 6, 7). There is no address form anywhere in the
    app today; addresses can only be created in the Django admin, so
    this unit builds the one the app has been missing. **Any new status
@@ -1022,19 +1035,19 @@ units, in order, with the traps worth knowing:
    every count of finished work reads that date, not the status, so a
    job marked done without it reads "Completed" on screen and is
    counted nowhere.
-3. **Unit 4 — map search, lookup, and demo addresses that geocode**
+2. **Unit 4 — map search, lookup, and demo addresses that geocode**
    (items 10, 11). The map is not broken; the seeded addresses are
    invented. Dropping a pin by hand already works server-side and is
    tested, but nothing in the interface calls it, even though the page
    tells the user they can.
-4. **Unit 5 — the master change log** (item 9). Only contacts and
+3. **Unit 5 — the master change log** (item 9). Only contacts and
    companies are recorded today; the entire jobs app, users and core
    record nothing. **Once jobs appear in the log, undo would treat a
    job's status as restorable text** and write it without stamping the
    completion date, reintroducing unit 3's bug by another route. That
    needs a model allow-list in `apps/crm/undo.py`, not a field-by-field
    patch.
-5. **Unit 6 — a save button at the top of every form** (item 12).
+4. **Unit 6 — a save button at the top of every form** (item 12).
    Thirteen forms, three incompatible action-row conventions, and no
    form in the project has an `id` yet.
 

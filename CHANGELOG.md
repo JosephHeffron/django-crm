@@ -159,3 +159,11 @@ for meaningful changes — not for every small fix or documentation tweak.
   list looked random.
 - A task can no longer be saved against an estimate belonging to a
   different customer.
+
+### Added
+- The Tasks page narrows to one customer, and adding a task from there
+  opens the form with that customer already chosen.
+- A task shows its customer's phone number and email address, as links
+  you can call or write to.
+- Customers and Companies can be filtered by town or postal code. A
+  company matches when any of its customers has an address there.

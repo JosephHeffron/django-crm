@@ -156,6 +156,10 @@ insufficient.
             top, estimates instead of the retired deal field on the
             task form, customer dropdowns reading "Adams, Daniel", and
             the project's only inline style removed (PR #133).
+      - [x] Unit 2 — the Tasks hub narrows to a customer and its Add
+            task button carries them, the customer's phone and email
+            show on tasks, and Customers and Companies filter by town
+            or postcode (PR #135).
 
 - [ ] **Phase 19 — Follow-up automation and tasks hub.** Daily
       follow-up generation via a systemd timer (same pattern as the
