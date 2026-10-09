@@ -527,7 +527,13 @@ class AuditLogEntry(models.Model):
     class Meta:
         verbose_name_plural = "audit log entries"
         ordering = ["-created_at"]
-        indexes = [models.Index(fields=["content_type", "object_id", "created_at"])]
+        indexes = [
+            models.Index(fields=["content_type", "object_id", "created_at"]),
+            # The index above leads with content_type, so it cannot
+            # serve "everything that changed, newest first" — which is
+            # what the Change log page asks for (Phase 18.5 unit 5).
+            models.Index(fields=["-created_at"], name="crm_audit_recent_idx"),
+        ]
 
     def __str__(self):
         return f"{self.get_action_display()} {self.content_type} #{self.object_id}"
