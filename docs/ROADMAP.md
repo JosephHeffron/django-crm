@@ -165,6 +165,10 @@ insufficient.
             rule that stamps the completion date; plus the service
             address form the app never had, and quick-add of a customer
             or address from the job form (PR #137).
+      - [x] Unit 4 — the Map page gains a search, re-lookup for an
+            address already placed, and the pin-drop ADR 0011 promised
+            but nothing could reach; the seed uses real roads in real
+            towns so a lookup demonstrates working (PR #139).
 
 - [ ] **Phase 19 — Follow-up automation and tasks hub.** Daily
       follow-up generation via a systemd timer (same pattern as the

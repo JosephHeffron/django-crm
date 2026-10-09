@@ -25,7 +25,7 @@ actually verified.
 > the same reason (it searched the Caddyfile's text instead of the
 > configuration Caddy actually runs).
 > **Phase 18.5 (twelve owner-reported items) is underway: units 1 to
-> 3 are merged** (PRs #133, #135 and #137, 924 tests). Three of the twelve
+> 4 are merged** (PRs #133, #135, #137 and #139, 947 tests). Three of the twelve
 > turned out not to be what they looked like — see the unit 1 log
 > before working on them. Note the automated reviewer spent its weekly
 > budget during unit 2 (250,000 diff characters per seven days), so
@@ -1040,31 +1040,49 @@ roadmap completed:
   924 tests. Full detail, including three mistakes of mine in the
   testing itself, in
   `logs/claude/phase-18.5-unit3-job-status-and-quick-add.md`.
-- Phase 18 units 2-5, Phase 18.5 units 4-6 and Phases 19-25: not yet
+- Phase 18.5 unit 4 — **the map: search, a pin by hand, addresses
+  that exist**. The reported fault was not one: the seeded addresses
+  were invented, so OpenStreetMap was right to refuse them and the
+  page saying so was correct behaviour.
+
+  What was missing: a search (the view read no query parameters at
+  all), "Look it up again" for an address already placed, and the
+  pin-drop that ADR 0011 promised and `map.html` advertised while
+  nothing in the interface could reach it — `place_by_hand` and the
+  view's lat/lng branch had both worked and been tested all along.
+  Typed coordinates are the no-JavaScript baseline; a map click fills
+  them.
+
+  The seed now uses **real roads in real towns** with arbitrary house
+  numbers: public thoroughfares, not dwellings, so no row says where a
+  real household lives. Three samples were checked against the live
+  service and all resolved. Seeding still never touches the network
+  (asserted by patching both the lookup and the opener), and one
+  address in twelve is left unplaced so that half of the page has
+  something to show. ADR 0011 carries a dated addendum, because this
+  reverses a rationale it states. 947 tests. Full detail in
+  `logs/claude/phase-18.5-unit4-map-search-and-real-addresses.md`.
+- Phase 18 units 2-5, Phase 18.5 units 5-6 and Phases 19-25: not yet
   started (re-sequenced in `docs/ROADMAP.md`).
 
 ## Currently working on
 
-Nothing in flight — Phase 18.5 unit 3 is merged (PR #137).
+Phase 18.5 unit 5 — the master change log (item 9), the largest of the
+six units.
 
 ## Next
 
 Phase 18.5 runs first, being the owner's own reported list. Its six
 remaining units, in order, with the traps worth knowing:
 
-1. **Unit 4 — map search, lookup, and demo addresses that geocode**
-   (items 10, 11). The map is not broken; the seeded addresses are
-   invented. Dropping a pin by hand already works server-side and is
-   tested, but nothing in the interface calls it, even though the page
-   tells the user they can.
-2. **Unit 5 — the master change log** (item 9). Only contacts and
+1. **Unit 5 — the master change log** (item 9). Only contacts and
    companies are recorded today; the entire jobs app, users and core
    record nothing. **Once jobs appear in the log, undo would treat a
    job's status as restorable text** and write it without stamping the
    completion date, reintroducing unit 3's bug by another route. That
    needs a model allow-list in `apps/crm/undo.py`, not a field-by-field
    patch.
-3. **Unit 6 — a save button at the top of every form** (item 12).
+2. **Unit 6 — a save button at the top of every form** (item 12).
    Thirteen forms, three incompatible action-row conventions, and no
    form in the project has an `id` yet.
 
