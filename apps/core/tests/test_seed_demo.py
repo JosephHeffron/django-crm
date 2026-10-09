@@ -6,7 +6,7 @@ from django.contrib.auth import get_user_model
 from django.core.management import CommandError, call_command
 from django.test import TestCase, override_settings
 
-from apps.core.management.commands.seed_demo import DEMO_PREFIX, DEMO_USERS
+from apps.core.management.commands.seed_demo import DEMO_PREFIX, DEMO_USERS, TOWNS
 from apps.core.models import Goal, Notification
 from apps.crm.models import Contact, Property, Task
 from apps.crm.tests._helpers import grant_role
@@ -65,9 +65,16 @@ class SeedDemoTests(TestCase):
         self.assertTrue(all(target > 0 for target in Goal.objects.values_list("target", flat=True)))
         # Crew have a rate and clocked time, so Payroll isn't an empty page.
         self.assertTrue(TimeEntry.objects.filter(ended_at__isnull=False).exists())
-        # Addresses are placed locally, so the Map has pins and no
-        # made-up address is ever sent to OpenStreetMap.
-        self.assertFalse(Property.objects.filter(latitude__isnull=True).exists())
+        # Most addresses are placed locally, so the Map has pins without
+        # anything being sent to OpenStreetMap during a seed.
+        placed = Property.objects.filter(latitude__isnull=False).count()
+        unplaced = Property.objects.filter(latitude__isnull=True).count()
+        self.assertGreater(placed, unplaced)
+        # And a few are deliberately left, so the Map's "Still to place"
+        # list, its "Look it up" button and the pin-drop form all have
+        # something to show. Every address used to be pre-placed, which
+        # left that half of the page looking broken.
+        self.assertGreater(unplaced, 0)
         rates = UserProfile.objects.filter(
             user__username__startswith=DEMO_PREFIX, hourly_rate__isnull=False
         )
@@ -149,3 +156,65 @@ class SeedDemoGuardTests(TestCase):
         with self.assertRaises(CommandError):
             seed()
         self.assertFalse(User.objects.filter(username__startswith=DEMO_PREFIX).exists())
+
+
+class SeededAddressTests(TestCase):
+    """The addresses have to be ones OpenStreetMap can actually find.
+
+    They used to be invented streets in invented towns, so every
+    lookup failed and the Map page looked broken. They are real roads
+    in real towns now, with made-up house numbers — public
+    thoroughfares, not dwellings, so no seeded row says where a real
+    household lives.
+    """
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command("seed_demo", "--force", verbosity=0)
+
+    def test_every_town_and_postcode_pairing_is_one_the_seed_knows(self):
+        known = {(town, postal) for town, postal, *_ in TOWNS}
+        actual = set(Property.objects.values_list("city", "postal_code"))
+        self.assertTrue(actual)
+        self.assertEqual(actual - known, set())
+
+    def test_every_street_belongs_to_the_town_it_is_in(self):
+        """A real road in the wrong town would not geocode either."""
+        roads_by_town = {}
+        for town, postal, _, _, roads in TOWNS:
+            roads_by_town.setdefault((town, postal), set()).update(roads)
+        wrong = [
+            str(p)
+            for p in Property.objects.all()
+            if not any(
+                p.street.endswith(road) for road in roads_by_town.get((p.city, p.postal_code), ())
+            )
+        ]
+        self.assertEqual(wrong, [])
+
+    def test_a_placed_address_sits_near_its_own_town(self):
+        centres = {(town, postal): (lat, lng) for town, postal, lat, lng, _ in TOWNS}
+        far = []
+        for p in Property.objects.filter(latitude__isnull=False):
+            lat, lng = centres[(p.city, p.postal_code)]
+            if abs(float(p.latitude) - lat) > 0.05 or abs(float(p.longitude) - lng) > 0.05:
+                far.append(str(p))
+        self.assertEqual(far, [])
+
+    def test_seeding_never_asks_openstreetmap_anything(self):
+        """The most important one here.
+
+        Seeding has to work with no network: tests run offline, and
+        Nominatim allows one request a second, so a seed that looked up
+        sixty addresses would take a minute and hammer a free service.
+        """
+        with mock.patch("apps.crm.geocoding.lookup") as lookup:
+            with mock.patch("apps.crm.geocoding.urlopen") as opener:
+                call_command("seed_demo", "--force", "--reset", verbosity=0)
+        lookup.assert_not_called()
+        opener.assert_not_called()
+
+    def test_the_house_numbers_are_not_all_the_same(self):
+        # A fixed number would make every address on a road identical.
+        numbers = {p.street.split(" ", 1)[0] for p in Property.objects.all()}
+        self.assertGreater(len(numbers), 5)

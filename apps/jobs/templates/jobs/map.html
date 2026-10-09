@@ -17,6 +17,23 @@
     </div>
   </div>
 
+  <form method="get" class="filter-form">
+    <label for="id_q" class="sr-only">Find a customer or a street</label>
+    <input type="search" id="id_q" name="q" value="{{ query }}"
+           placeholder="Customer, street, town or postcode">
+    <button type="submit">
+      <svg class="icon" aria-hidden="true"><use href="#icon-search"/></svg>Find
+    </button>
+    {% if query %}<a class="btn btn-secondary" href="{% url 'jobs:map' %}">Clear</a>{% endif %}
+  </form>
+
+  {% if query %}
+    <p class="muted">
+      Showing addresses matching “{{ query }}”.
+      {% if not pin_count and not unplaced_count %}Nothing matched.{% endif %}
+    </p>
+  {% endif %}
+
   {% if pin_count %}
     <section class="card card-flush map-card">
       <div class="map-canvas" id="map" data-map data-pins="{{ pins_json }}"
@@ -46,7 +63,8 @@
       {% if unplaced %}
         <p class="muted section-note">
           Looking an address up sends it to OpenStreetMap — the address only,
-          never a name or phone number. You can also drop the pin yourself.
+          never a name or phone number. If it can't find the place, type the
+          point instead, or click the map above to fill it in.
         </p>
         <ul class="list-plain">
           {% for item in unplaced %}
@@ -55,12 +73,36 @@
                 <strong>{{ item.contact }}</strong><br>
                 <span class="muted">{{ item }}</span>
               </span>
-              <form method="post" action="{% url 'jobs:property_locate' item.pk %}">
-                {% csrf_token %}
-                <button type="submit" class="btn btn-secondary btn-sm">
-                  <svg class="icon" aria-hidden="true"><use href="#icon-search"/></svg>Look it up
-                </button>
-              </form>
+              <span class="locate-actions">
+                <form method="post" action="{% url 'jobs:property_locate' item.pk %}">
+                  {% csrf_token %}
+                  <button type="submit" class="btn btn-secondary btn-sm">
+                    <svg class="icon" aria-hidden="true"><use href="#icon-search"/></svg>Look it up
+                  </button>
+                </form>
+                {% comment %}
+                  Dropping the pin by hand. The back end has worked
+                  since Phase 17.5 (geocoding.place_by_hand) and ADR
+                  0011 promised it, but nothing ever submitted it.
+
+                  Typed coordinates are the baseline, so it works with
+                  no JavaScript at all; static/js/map.js fills these in
+                  when you click the map.
+                {% endcomment %}
+                <form method="post" action="{% url 'jobs:property_locate' item.pk %}"
+                      class="pin-form" data-pin-form>
+                  {% csrf_token %}
+                  <label for="id_lat_{{ item.pk }}" class="sr-only">Latitude</label>
+                  <input type="text" inputmode="decimal" id="id_lat_{{ item.pk }}"
+                         name="lat" placeholder="Latitude" data-pin-lat>
+                  <label for="id_lng_{{ item.pk }}" class="sr-only">Longitude</label>
+                  <input type="text" inputmode="decimal" id="id_lng_{{ item.pk }}"
+                         name="lng" placeholder="Longitude" data-pin-lng>
+                  <button type="submit" class="btn btn-secondary btn-sm">
+                    <svg class="icon" aria-hidden="true"><use href="#icon-map-pin"/></svg>Pin it
+                  </button>
+                </form>
+              </span>
             </li>
           {% endfor %}
         </ul>
@@ -76,11 +118,24 @@
       <h2 class="card-title">On the map</h2>
       {% if pin_count %}
         <ul class="list-plain">
-          {% for pin in pins %}
-            <li>
-              <a href="{{ pin.url }}">{{ pin.title }}</a>
-              <span class="muted">— {{ pin.address }}</span>
-              {% if pin.when %}<span class="badge badge-info">{{ pin.service }} · {{ pin.when }}</span>{% endif %}
+          {% for item in placed %}
+            <li class="locate-row">
+              <span>
+                <a href="{{ item.contact.get_absolute_url }}">{{ item.contact }}</a>
+                <span class="muted">— {{ item }}</span>
+              </span>
+              {% comment %}
+                Placed addresses can be looked up again — a street
+                corrected after it was pinned would otherwise keep the
+                old location for ever.
+              {% endcomment %}
+              <form method="post" action="{% url 'jobs:property_locate' item.pk %}">
+                {% csrf_token %}
+                <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                <button type="submit" class="btn btn-secondary btn-sm">
+                  <svg class="icon" aria-hidden="true"><use href="#icon-refresh"/></svg>Look it up again
+                </button>
+              </form>
             </li>
           {% endfor %}
         </ul>

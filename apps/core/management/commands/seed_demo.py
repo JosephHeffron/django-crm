@@ -91,19 +91,40 @@ LAST_NAMES = (
     "King Wright Scott Hill Green Adams Baker Nelson Carter Mitchell Roberts Turner Phillips "
     "Campbell Parker"
 ).split()
-STREETS = (
-    "Maple Oak Cedar Pine Elm Birch Willow Chestnut Hickory Spruce Laurel Juniper Magnolia "
-    "Aspen Sycamore"
-).split()
-STREET_SUFFIXES = ["St", "Ave", "Dr", "Ln", "Ct", "Rd", "Way"]
+# Real towns, real postcodes and real roads around Rochester, NY, with
+# arbitrary house numbers — so the Map page demonstrates a lookup that
+# actually works.
+#
+# This replaces invented streets in invented towns ("119 Pine Ln, Cedar
+# Hills, NY 14526"), which had no real-world referent, so OpenStreetMap
+# correctly refused every one of them and the map looked broken. See
+# the addendum to docs/decisions/0011-openstreetmap-map.md.
+#
+# The privacy line: these are public thoroughfares, not dwellings. The
+# house numbers are made up and are not checked against any real
+# address, so no seeded row says where any real household lives — which
+# is the project's synthetic-data-only rule. Nominatim resolves
+# "<road>, <town>, NY <postcode>" to the road whether or not that
+# number exists on it, which is all the demo needs.
+#
+# Each town carries its own approximate centre, so a seeded pin lands
+# in the right town instead of scattered around one point. Coordinates
+# are committed here rather than looked up: seeding must never touch
+# the network, and tests depend on that.
 TOWNS = [
-    ("Maple Grove", "14534"),
-    ("Cedar Hills", "14526"),
-    ("Brookfield", "14450"),
-    ("Lakeview", "14580"),
-    ("Oak Park", "14618"),
-    ("Fairview", "14625"),
+    # (town, postcode, latitude, longitude, roads in that town)
+    ("Pittsford", "14534", 43.0906, -77.5147, ["Monroe Ave", "Clover St", "Jefferson Rd"]),
+    ("Penfield", "14526", 43.1300, -77.4458, ["Penfield Rd", "Baird Rd", "Jackson Rd"]),
+    ("Fairport", "14450", 43.0987, -77.4419, ["Main St", "Turk Hill Rd", "Ayrault Rd"]),
+    ("Webster", "14580", 43.2117, -77.4283, ["Ridge Rd", "Holt Rd", "Phillips Rd"]),
+    ("Rochester", "14618", 43.1192, -77.5597, ["Elmwood Ave", "Highland Ave", "Winton Rd"]),
+    ("Rochester", "14625", 43.1636, -77.5083, ["Blossom Rd", "Creek St", "Browncroft Blvd"]),
 ]
+# A few addresses are deliberately left unplaced, so the Map page's
+# "Still to place" list, its "Look it up" button and the pin-drop form
+# all have something to demonstrate. Every seeded address used to be
+# pre-placed, which left that whole half of the page looking broken.
+UNPLACED_IN_EVERY = 12
 COMPANIES = ["Summit Property Management", "Lakeside HOA", "Keystone Rentals"]
 
 # slug: (profile weight, quantity range, price override choices)
@@ -235,6 +256,9 @@ class DemoSeeder:
         self.now = timezone.localtime()
         self.today = self.now.date()
         self.services = {s.slug: s for s in ServiceType.objects.all()}
+        # Counted so a predictable few are left for the Map page's
+        # "Still to place" list to show (see UNPLACED_IN_EVERY).
+        self.addresses_made = 0
 
     # ---------- helpers ----------
 
@@ -356,12 +380,12 @@ class DemoSeeder:
             (self.leads if is_lead else self.customers).append(contact)
 
     def add_property(self, contact, primary, label="Home"):
-        town, postal = self.rng.choice(TOWNS)
-        number, street = self.rng.randint(12, 980), self.rng.choice(STREETS)
+        town, postal, lat, lng, roads = self.rng.choice(TOWNS)
+        number = self.rng.randint(12, 980)
         address = Property(
             contact=contact,
             label=label,
-            street=f"{number} {street} {self.rng.choice(STREET_SUFFIXES)}",
+            street=f"{number} {self.rng.choice(roads)}",
             city=town,
             state="NY",
             postal_code=postal,
@@ -370,15 +394,15 @@ class DemoSeeder:
             ),
             is_primary=primary,
         )
-        # Scattered around Rochester, NY, so the Map page has pins
-        # without a single address ever leaving this machine. These
-        # streets don't exist; looking them up would find nothing and
-        # would send made-up addresses to a public service for no
-        # reason (ADR 0011).
-        address.latitude = Decimal(f"{43.15 + self.rng.uniform(-0.09, 0.09):.6f}")
-        address.longitude = Decimal(f"{-77.61 + self.rng.uniform(-0.12, 0.12):.6f}")
-        address.located_at = self.now
-        address.located_address = str(address)[:400]
+        self.addresses_made += 1
+        if self.addresses_made % UNPLACED_IN_EVERY:
+            # Placed from the town's own committed centre, with a small
+            # scatter so pins don't stack. Never looked up: seeding must
+            # work with no network at all (ADR 0011).
+            address.latitude = Decimal(f"{lat + self.rng.uniform(-0.012, 0.012):.6f}")
+            address.longitude = Decimal(f"{lng + self.rng.uniform(-0.015, 0.015):.6f}")
+            address.located_at = self.now
+            address.located_address = str(address)[:400]
         address.save()
         return address
 
