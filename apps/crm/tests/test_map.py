@@ -270,3 +270,168 @@ class LocateViewTests(MapTestCase):
 
     def test_get_does_nothing(self):
         self.assertEqual(self.client.get(self.url).status_code, 405)
+
+
+class MapSearchTests(MapTestCase):
+    """Finding one customer or one street on a map full of pins."""
+
+    def setUp(self):
+        super().setUp()
+        self.address.latitude, self.address.longitude = Decimal("43.1"), Decimal("-77.6")
+        self.address.located_address = str(self.address)
+        self.address.save()
+        self.other = Property.objects.create(
+            contact=f.contact(self.owner, first="Sam", last="Elsewhere"),
+            street="99 Ridge Rd",
+            city="Webster",
+            state="NY",
+            postal_code="14580",
+            latitude=Decimal("43.2"),
+            longitude=Decimal("-77.4"),
+        )
+        self.other.located_address = str(self.other)
+        self.other.save()
+
+    def page(self, **params):
+        response = self.client.get(MAP, params)
+        self.assertEqual(response.status_code, 200)
+        return response
+
+    def addresses_on(self, response):
+        return {pin["address"] for pin in response.context["pins"]}
+
+    def test_without_a_search_every_placed_address_is_shown(self):
+        self.assertEqual(len(self.addresses_on(self.page())), 2)
+
+    def test_it_can_be_narrowed_by_customer_name(self):
+        shown = self.addresses_on(self.page(q="Elsewhere"))
+        self.assertEqual(shown, {str(self.other)})
+
+    def test_it_can_be_narrowed_by_street(self):
+        self.assertEqual(self.addresses_on(self.page(q="Ridge")), {str(self.other)})
+
+    def test_it_can_be_narrowed_by_town(self):
+        self.assertEqual(self.addresses_on(self.page(q="Webster")), {str(self.other)})
+
+    def test_it_can_be_narrowed_by_postcode(self):
+        self.assertEqual(self.addresses_on(self.page(q="14580")), {str(self.other)})
+
+    def test_the_search_ignores_capitalisation(self):
+        self.assertEqual(self.addresses_on(self.page(q="webster")), {str(self.other)})
+
+    def test_a_search_matching_nothing_says_so(self):
+        response = self.page(q="nowhere-at-all")
+        self.assertEqual(self.addresses_on(response), set())
+        self.assertContains(response, "Nothing matched")
+
+    def test_the_search_also_narrows_the_list_still_to_place(self):
+        waiting = Property.objects.create(
+            contact=f.contact(self.owner, first="Pat", last="Waiting"),
+            street="5 Holt Rd",
+            city="Webster",
+            state="NY",
+            postal_code="14580",
+        )
+        elsewhere = Property.objects.create(
+            contact=f.contact(self.owner, first="Other", last="Person"),
+            street="7 Main St",
+            city="Fairport",
+            state="NY",
+            postal_code="14450",
+        )
+        shown = [p.pk for p in self.page(q="Webster").context["unplaced"]]
+        self.assertIn(waiting.pk, shown)
+        self.assertNotIn(elsewhere.pk, shown)
+
+    def test_the_count_matches_what_the_search_found(self):
+        response = self.page(q="Webster")
+        self.assertEqual(response.context["pin_count"], 1)
+        self.assertEqual(response.context["pins_capped"], 0)
+
+    def test_the_box_keeps_what_was_typed(self):
+        response = self.page(q="Webster")
+        self.assertEqual(response.context["query"], "Webster")
+        self.assertContains(response, 'value="Webster"')
+
+    def test_surrounding_spaces_are_ignored(self):
+        self.assertEqual(self.addresses_on(self.page(q="  Webster  ")), {str(self.other)})
+
+
+class PlacedAgainTests(MapTestCase):
+    """An address already on the map can be looked up again.
+
+    Correcting a street after it was pinned would otherwise keep the old
+    location for ever.
+    """
+
+    def setUp(self):
+        super().setUp()
+        self.address.latitude, self.address.longitude = Decimal("43.1"), Decimal("-77.6")
+        self.address.located_address = str(self.address)
+        self.address.save()
+
+    def test_the_page_offers_to_look_a_placed_address_up_again(self):
+        response = self.client.get(MAP)
+        self.assertContains(response, reverse("jobs:property_locate", args=[self.address.pk]))
+        self.assertContains(response, "Look it up again")
+
+    def test_looking_it_up_again_moves_the_pin(self):
+        with mock.patch.object(geocoding, "urlopen", answer([{"lat": "44.0", "lon": "-78.0"}])):
+            self.client.post(reverse("jobs:property_locate", args=[self.address.pk]))
+        self.address.refresh_from_db()
+        self.assertEqual(float(self.address.latitude), 44.0)
+
+
+class PinByHandTests(MapTestCase):
+    """The pin-drop the page has promised since Phase 17.5.
+
+    `geocoding.place_by_hand` and the view's lat/lng branch have both
+    worked all along, and ADR 0011 said an address Nominatim can't find
+    "can be pinned by tapping the map" — but nothing in the interface
+    ever submitted it.
+    """
+
+    def test_the_page_offers_a_way_to_type_the_point(self):
+        response = self.client.get(MAP)
+        self.assertContains(response, 'name="lat"')
+        self.assertContains(response, 'name="lng"')
+        self.assertContains(response, "Pin it")
+
+    def test_an_address_can_be_placed_by_typing_coordinates(self):
+        self.client.post(
+            reverse("jobs:property_locate", args=[self.address.pk]),
+            {"lat": "43.123456", "lng": "-77.654321"},
+        )
+        self.address.refresh_from_db()
+        self.assertEqual(
+            (float(self.address.latitude), float(self.address.longitude)),
+            (43.123456, -77.654321),
+        )
+        self.assertIsNotNone(self.address.located_at)
+
+    def test_typing_the_point_never_leaves_this_server(self):
+        with mock.patch.object(geocoding, "urlopen") as opener:
+            self.client.post(
+                reverse("jobs:property_locate", args=[self.address.pk]),
+                {"lat": "43.1", "lng": "-77.6"},
+            )
+        opener.assert_not_called()
+
+    def test_rubbish_coordinates_are_refused(self):
+        self.client.post(
+            reverse("jobs:property_locate", args=[self.address.pk]),
+            {"lat": "over there", "lng": "somewhere"},
+        )
+        self.address.refresh_from_db()
+        self.assertIsNone(self.address.latitude)
+
+    def test_the_form_works_without_javascript(self):
+        """The two boxes are real fields, not filled only by a script.
+
+        static/js/map.js writes into them on a map click; the point is
+        that they are submittable on their own.
+        """
+        response = self.client.get(MAP)
+        self.assertContains(response, "data-pin-form")
+        self.assertContains(response, 'type="submit"')
+        self.assertNotContains(response, "js-only")

@@ -3884,6 +3884,34 @@ a.hub-card:hover {
   padding: var(--space-5);
 }
 
+/* The two ways to place an address: look it up, or type the point.
+   A column on a phone so the coordinate boxes don't squeeze the
+   buttons, a row once there's space. */
+.locate-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.pin-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.pin-form input {
+  width: 7rem;
+  margin: 0;
+}
+
+/* Which address a click on the map will fill in. Only ever set by
+   static/js/map.js, so it never shows without the map. */
+.pin-form.is-active input {
+  border-color: var(--color-primary);
+}
+
 .locate-row {
   display: flex;
   align-items: flex-start;

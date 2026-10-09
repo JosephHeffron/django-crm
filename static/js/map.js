@@ -64,9 +64,42 @@
   });
 
   map.fitBounds(bounds, { padding: [30, 30], maxZoom: 15 });
-  // Scroll-zoom is off so the page still scrolls on a phone; a click
-  // turns it on for people who want it.
-  map.on("click", function () {
+
+  // Clicking the map fills in the coordinates for an address that
+  // OpenStreetMap can't find — which it can't, for a new estate or a
+  // long driveway. This only saves typing: the two boxes are real form
+  // fields and work on their own, so the feature exists without this
+  // script (apps/jobs/templates/jobs/map.html).
+  var pinForms = Array.prototype.slice.call(document.querySelectorAll("[data-pin-form]"));
+  var active = pinForms.length ? pinForms[0] : null;
+
+  pinForms.forEach(function (form) {
+    // Whichever address you last touched is the one a click fills, so
+    // a page with several unplaced addresses isn't ambiguous.
+    form.addEventListener("focusin", function () {
+      active = form;
+      pinForms.forEach(function (other) {
+        other.classList.toggle("is-active", other === form);
+      });
+    });
+  });
+
+  if (active) {
+    active.classList.add("is-active");
+  }
+
+  map.on("click", function (event) {
     map.scrollWheelZoom.enable();
+    if (!active || !event.latlng) {
+      return;
+    }
+    var lat = active.querySelector("[data-pin-lat]");
+    var lng = active.querySelector("[data-pin-lng]");
+    if (!lat || !lng) {
+      return;
+    }
+    // Six decimals is what the model stores; more would be dropped.
+    lat.value = event.latlng.lat.toFixed(6);
+    lng.value = event.latlng.lng.toFixed(6);
   });
 })();

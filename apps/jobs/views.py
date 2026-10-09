@@ -7,7 +7,7 @@ from django.contrib import messages
 from django.contrib.auth import get_user_model
 from django.contrib.auth.mixins import PermissionRequiredMixin
 from django.db import transaction
-from django.db.models import Sum, Value
+from django.db.models import Q, Sum, Value
 from django.db.models.functions import Coalesce
 from django.http import Http404, HttpResponseBadRequest, StreamingHttpResponse
 from django.shortcuts import get_object_or_404, redirect
@@ -897,6 +897,22 @@ def _when(job):
     return timezone.localtime(job.scheduled_start).strftime("%a %b %-d, %-I:%M %p")
 
 
+def _address_search(query):
+    """Match an address by its own text or by whose it is.
+
+    Searching the map means either "where does this customer live" or
+    "who is out on that road", so both are one box.
+    """
+    return (
+        Q(contact__first_name__icontains=query)
+        | Q(contact__last_name__icontains=query)
+        | Q(street__icontains=query)
+        | Q(city__icontains=query)
+        | Q(postal_code__icontains=query)
+        | Q(label__icontains=query)
+    )
+
+
 class MapView(SalesRoleRequiredMixin, TemplateView):
     """Customers and the week's jobs as pins (ADR 0011).
 
@@ -925,9 +941,13 @@ class MapView(SalesRoleRequiredMixin, TemplateView):
             if job.service_property_id:
                 jobs_by_property.setdefault(job.service_property_id, []).append(job)
 
-        located = Property.objects.filter(latitude__isnull=False).select_related("contact")[
-            :MAP_PIN_LIMIT
-        ]
+        query = self.request.GET.get("q", "").strip()
+        placed = Property.objects.filter(latitude__isnull=False)
+        pending = Property.needing_location()
+        if query:
+            placed = placed.filter(_address_search(query))
+            pending = pending.filter(_address_search(query))
+        located = placed.select_related("contact")[:MAP_PIN_LIMIT]
         pins = []
         for service_property in located:
             jobs_here = jobs_by_property.get(service_property.pk, [])
@@ -947,10 +967,11 @@ class MapView(SalesRoleRequiredMixin, TemplateView):
             )
         # Asked of the database, not by loading every property and
         # filtering in Python (CLAUDE.md's performance rules).
-        pending = Property.needing_location().select_related("contact")
+        pending = pending.select_related("contact")
         unplaced_count = pending.count()
-        placed_total = Property.objects.filter(latitude__isnull=False).count()
+        placed_total = placed.count()
         context.update(
+            query=query,
             pins=pins,
             pins_json=json.dumps(pins),
             pin_count=len(pins),
@@ -961,6 +982,10 @@ class MapView(SalesRoleRequiredMixin, TemplateView):
             week_first=first,
             week_last=last,
             week_jobs=len(week),
+            # Every address already on the map, so one can be looked up
+            # again after its street was corrected — the "Look it up"
+            # button used to exist only for addresses never placed.
+            placed=located,
         )
         return context
 
