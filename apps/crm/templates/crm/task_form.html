@@ -4,10 +4,17 @@
 
 {% block content %}
   <div class="settings-shell">
-    <h1>{% if object %}Edit {{ object.title }}{% else %}Add task{% endif %}</h1>
-    <p class="page-subtitle">What needs doing, by whom, and by when</p>
+    <div class="page-header">
+      <div>
+        <h1>{% if object %}Edit {{ object.title }}{% else %}Add task{% endif %}</h1>
+        <p class="page-subtitle">What needs doing, by whom, and by when</p>
+      </div>
+      <div class="page-actions">
+        {% include "partials/_save_button.html" with form_id="task-form" %}
+      </div>
+    </div>
 
-    <form method="post" novalidate>
+    <form id="task-form" method="post" novalidate>
       {% csrf_token %}
       {{ form.non_field_errors }}
 

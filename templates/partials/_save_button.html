@@ -1,0 +1,31 @@
+{% comment %}
+  A Save button in the page header, for a form further down the page.
+
+  Uses the HTML `form` attribute to reach a form it is not inside, which
+  is the project's first use of it. That is plain HTML: no JavaScript,
+  nothing inline, so it is allowed by the production
+  Content-Security-Policy without any change to it.
+
+  Usage: {% include "partials/_save_button.html" with form_id="contact-form" label="Save" %}
+
+  The form it names must carry a matching id. `label` is optional and
+  defaults to "Save".
+
+  Two things to know before adding this to a page:
+
+  - a bare `button` is already styled as the primary button
+    (static/css/base.css), so it needs no class;
+  - the first submit button in document order whose owner is a form
+    becomes that form's default — the one the Enter key uses. This
+    header button therefore becomes the default. That changes nothing
+    today because no submit button in the project carries `name` or
+    `value`, so which one "pressed" is not observable. A page that adds
+    one must check that again.
+
+  Not used on the settings pages that host several independent forms
+  (business settings, monthly goals, the profile page): a single header
+  Save would be ambiguous about which one it saves.
+{% endcomment %}
+<button type="submit" form="{{ form_id }}">
+  <svg class="icon" aria-hidden="true"><use href="#icon-save"/></svg>{{ label|default:"Save" }}
+</button>

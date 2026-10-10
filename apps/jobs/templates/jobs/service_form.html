@@ -8,9 +8,12 @@
       <h1>Edit {{ service.name }}</h1>
       <p class="page-subtitle">Price changes apply to new quotes only — existing quotes, jobs, and invoices keep their prices.</p>
     </div>
+    <div class="page-actions">
+      {% include "partials/_save_button.html" with form_id="service-form" %}
+    </div>
   </div>
 
-  <form method="post" class="card">
+  <form id="service-form" method="post" class="card">
     {% csrf_token %}
     {{ form.as_p }}
     <div class="cluster">
