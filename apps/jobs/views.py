@@ -20,9 +20,10 @@ from django.views.generic import CreateView, DetailView, ListView, TemplateView,
 from apps.core import export, redirects
 from apps.core.pagination import PerPageMixin
 from apps.core.templatetags.crm_format import money
-from apps.crm import geocoding
+from apps.crm import audit, geocoding
+from apps.crm.audit import AuditedFormMixin
 from apps.crm.hub import TasksHubMixin
-from apps.crm.models import Property
+from apps.crm.models import AuditLogEntry, Property
 from apps.users.roles import (
     ALL_ROLES,
     OWNER_ONLY,
@@ -231,7 +232,7 @@ class JobFormMixin(SalesRoleRequiredMixin, PermissionRequiredMixin):
             JobAssignment.objects.create(job=self.object, user_id=user_id)
 
 
-class JobCreateView(JobFormMixin, CreateView):
+class JobCreateView(AuditedFormMixin, JobFormMixin, CreateView):
     permission_required = "jobs.add_job"
     success_message = "Scheduled %(number)s."
 
@@ -254,7 +255,7 @@ class JobCreateView(JobFormMixin, CreateView):
         return initial
 
 
-class JobUpdateView(JobFormMixin, UpdateView):
+class JobUpdateView(AuditedFormMixin, JobFormMixin, UpdateView):
     permission_required = "jobs.change_job"
     success_message = "Updated %(number)s."
 
@@ -367,7 +368,7 @@ def _stamp_status(quote):
         quote.accepted_at = timezone.now()
 
 
-class QuoteCreateView(QuoteFormMixin, CreateView):
+class QuoteCreateView(AuditedFormMixin, QuoteFormMixin, CreateView):
     permission_required = "jobs.add_quote"
     success_message = "Created %(number)s."
 
@@ -379,7 +380,7 @@ class QuoteCreateView(QuoteFormMixin, CreateView):
         return initial
 
 
-class QuoteUpdateView(QuoteFormMixin, UpdateView):
+class QuoteUpdateView(AuditedFormMixin, QuoteFormMixin, UpdateView):
     permission_required = "jobs.change_quote"
     success_message = "Updated %(number)s."
 
@@ -517,7 +518,7 @@ class InvoiceFormMixin(OwnerRequiredMixin, PermissionRequiredMixin):
         return redirect(self.object.get_absolute_url())
 
 
-class InvoiceCreateView(InvoiceFormMixin, CreateView):
+class InvoiceCreateView(AuditedFormMixin, InvoiceFormMixin, CreateView):
     permission_required = "jobs.add_invoice"
     success_message = "Created %(number)s."
 
@@ -561,7 +562,7 @@ class InvoiceCreateView(InvoiceFormMixin, CreateView):
         return context
 
 
-class InvoiceUpdateView(InvoiceFormMixin, UpdateView):
+class InvoiceUpdateView(AuditedFormMixin, InvoiceFormMixin, UpdateView):
     permission_required = "jobs.change_invoice"
     success_message = "Updated %(number)s."
 
@@ -609,6 +610,10 @@ class PaymentCreateView(OwnerRequiredMixin, PermissionRequiredMixin, CreateView)
         form.instance.invoice = invoice
         form.instance.recorded_by = self.request.user
         self.object = form.save()
+        # This view owns its form_valid and doesn't call super(), so
+        # AuditedFormMixin can't wrap it — a mixin in the bases of a
+        # class that defines form_valid itself never runs.
+        audit.record(self.request.user, self.object, AuditLogEntry.Action.CREATED)
         over = getattr(form, "overpayment", None)
         extra = f" That's {money(over)} more than the balance." if over else ""
         messages.success(
@@ -673,7 +678,7 @@ class ExpenseFormMixin(OwnerRequiredMixin, PermissionRequiredMixin):
         return response
 
 
-class ExpenseCreateView(ExpenseFormMixin, CreateView):
+class ExpenseCreateView(AuditedFormMixin, ExpenseFormMixin, CreateView):
     permission_required = "jobs.add_expense"
 
     def get_initial(self):
@@ -682,7 +687,7 @@ class ExpenseCreateView(ExpenseFormMixin, CreateView):
         return initial
 
 
-class ExpenseUpdateView(ExpenseFormMixin, UpdateView):
+class ExpenseUpdateView(AuditedFormMixin, ExpenseFormMixin, UpdateView):
     permission_required = "jobs.change_expense"
 
 
@@ -706,10 +711,19 @@ class JobStatusView(RoleRequiredMixin, PermissionRequiredMixin, View):
         job = jobs_for(request.user).filter(pk=pk).first()
         if job is None:
             raise Http404("No such job")
+        was = job.get_status_display()
         _, error = status.apply_status(job, request.POST.get("status", ""))
         if error:
             messages.warning(request, error)
         else:
+            # Not a form, so AuditedFormMixin cannot see it, and this is
+            # exactly the kind of change the owner wants a record of.
+            audit.record(
+                request.user,
+                job,
+                AuditLogEntry.Action.UPDATED,
+                {"status": [was, job.get_status_display()]},
+            )
             messages.success(request, f"{job.number} is now {job.get_status_display()}.")
         return redirect(redirects.safe_next(request, job.get_absolute_url()))
 
@@ -1112,7 +1126,7 @@ class ServiceListView(OwnerRequiredMixin, ListView):
     context_object_name = "services"
 
 
-class ServiceUpdateView(OwnerRequiredMixin, PermissionRequiredMixin, UpdateView):
+class ServiceUpdateView(AuditedFormMixin, OwnerRequiredMixin, PermissionRequiredMixin, UpdateView):
     model = ServiceType
     form_class = ServiceTypeForm
     template_name = "jobs/service_form.html"

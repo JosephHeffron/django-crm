@@ -140,7 +140,11 @@ class NavigationMatchesAccessForEveryRoleTests(NavTestCase):
         return set(re.findall(r'<a class="dropdown-item" href="([^"]+)"', html))
 
     def test_owner(self):
-        self.assertEqual(len(self._check(Role.OWNER)), 21)
+        # The count is a guard that _check is examining a real sidebar
+        # rather than an empty set; it moves when an entry is genuinely
+        # added. 22 since the Change log got its own entry in Phase
+        # 18.5 unit 5, out of the gear menu.
+        self.assertEqual(len(self._check(Role.OWNER)), 22)
 
     def test_sales_rep(self):
         self._check(Role.SALES_REP)
