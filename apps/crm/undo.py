@@ -33,6 +33,29 @@ RESTORABLE = (
 )
 
 
+# Undo only ever puts back a plain field on one of these four records.
+#
+# This is an allow-list rather than a deny-list, and that is the whole
+# point. Phase 18.5 unit 5 widened the change log to cover jobs,
+# estimates, invoices, payments, tasks and addresses — and `RESTORABLE`
+# includes `CharField`, so without this every one of those became
+# "undoable" the moment it appeared in the log. Undoing `Job.status`
+# would write the status and leave `completed_at` alone, which is
+# exactly the silent reporting loss `apps/jobs/status.py` exists to
+# prevent: a job reading "Completed" and counted nowhere.
+#
+# A field-by-field deny-list would have worked for the fields that
+# exist today and failed silently the next time somebody added a text
+# field to Invoice. Adding a model here is a deliberate act that has to
+# come with the thought about what putting its fields back would mean.
+UNDOABLE_MODELS = {
+    ("crm", "company"),
+    ("crm", "contact"),
+    ("crm", "lead"),
+    ("crm", "deal"),
+}
+
+
 # Fields that carry other state with them: converting a lead writes a
 # contact, a company and a quote, and putting the word back would say it
 # never happened while all of that still exists. The log records one
@@ -65,6 +88,12 @@ def why_not(entry):
     if not entry.changes:
         return "Nothing was recorded as changed."
     model = type(entry.record)
+    if (model._meta.app_label, model._meta.model_name) not in UNDOABLE_MODELS:
+        return (
+            f"Changes to a {model._meta.verbose_name} are recorded but can't be put back "
+            "from here — undoing one field of it would leave the rest of what it affects "
+            "untouched. Change it on the record itself."
+        )
     for name in entry.changes:
         field = _field(model, name)
         if field is None:

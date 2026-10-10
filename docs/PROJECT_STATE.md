@@ -24,8 +24,11 @@ actually verified.
 > fix did not work and the test guarding it passed anyway, twice, for
 > the same reason (it searched the Caddyfile's text instead of the
 > configuration Caddy actually runs).
-> **Phase 18.5 (twelve owner-reported items) is underway: units 1 to
-> 3 are merged** (PRs #133, #135 and #137, 924 tests). Three of the twelve
+> **Phase 18.5 (twelve owner-reported items) is complete** — all six
+> units merged (PRs #133, #135, #137, #139, #144 and #146), 1,001 tests
+> (819 before the phase began).
+> Three of the twelve turned out not to be bugs at all; see the unit
+> logs before revisiting them. Three of the twelve
 > turned out not to be what they looked like — see the unit 1 log
 > before working on them. Note the automated reviewer spent its weekly
 > budget during unit 2 (250,000 diff characters per seven days), so
@@ -1040,35 +1043,74 @@ roadmap completed:
   924 tests. Full detail, including three mistakes of mine in the
   testing itself, in
   `logs/claude/phase-18.5-unit3-job-status-and-quick-add.md`.
-- Phase 18 units 2-5, Phase 18.5 units 4-6 and Phases 19-25: not yet
-  started (re-sequenced in `docs/ROADMAP.md`).
+- Phase 18.5 unit 4 — **the map: search, a pin by hand, addresses
+  that exist**. The reported fault was not one: the seeded addresses
+  were invented, so OpenStreetMap was right to refuse them and the
+  page saying so was correct behaviour.
+
+  What was missing: a search (the view read no query parameters at
+  all), "Look it up again" for an address already placed, and the
+  pin-drop that ADR 0011 promised and `map.html` advertised while
+  nothing in the interface could reach it — `place_by_hand` and the
+  view's lat/lng branch had both worked and been tested all along.
+  Typed coordinates are the no-JavaScript baseline; a map click fills
+  them.
+
+  The seed now uses **real roads in real towns** with arbitrary house
+  numbers: public thoroughfares, not dwellings, so no row says where a
+  real household lives. Three samples were checked against the live
+  service and all resolved. Seeding still never touches the network
+  (asserted by patching both the lookup and the opener), and one
+  address in twelve is left unplaced so that half of the page has
+  something to show. ADR 0011 carries a dated addendum, because this
+  reverses a rationale it states. 947 tests. Full detail in
+  `logs/claude/phase-18.5-unit4-map-search-and-real-addresses.md`.
+- Phase 18.5 unit 5 — **the master change log**. The Owner-only log
+  already existed with per-entry undo; what was missing was coverage.
+  Four CRM models were recorded from fifteen hand-rolled call sites
+  while the whole of jobs, users, core and messaging recorded nothing
+  (the database held five rows). Jobs, estimates, invoices, payments,
+  expenses, the service catalogue, tasks and addresses are recorded
+  now, with filters by person, record type, action and date range, and
+  its own Owner-only tab. Explicit calls kept rather than signals,
+  which would have silently widened the documented scope to seed runs
+  and migrations. **Undo is held to an explicit model allow-list**,
+  because `RESTORABLE` includes text fields and a job's status would
+  otherwise have become undoable — writing the status without its
+  completion date, which is unit 3's silent miscounting by another
+  door. Three defects of mine were caught by tests, including a 500 on
+  a typo in a price. Full detail in
+  `logs/claude/phase-18.5-unit5-master-change-log.md`.
+- Phase 18.5 unit 6 — **a Save button at the top of every form**. All
+  fourteen record forms carry one in the header, reaching the form
+  through the HTML `form` attribute: plain markup, so no JavaScript and
+  no change to the Content-Security-Policy. Nine of the fourteen had no
+  header block at all and gained one, with no new CSS. Three settings
+  pages are excluded and listed in the test, each hosting several
+  independent forms. Note the default submit — what the Enter key
+  presses — is now the header button, which is only invisible because
+  no submit button on these pages carries a `name`; a test holds that.
+  Full detail in `logs/claude/phase-18.5-unit6-save-at-the-top.md`.
+- A separate fix, not part of any unit: the demo seed clocked no crew
+  time before mid-morning, so Payroll and the time clock seeded empty
+  (PR #145). Worth reading
+  `logs/claude/fix-seed-recent-completions.md` for the lesson rather
+  than the fix: the first attempt made the test pass without making
+  Payroll work, and the mutation checks that should have caught it
+  passed too, because they ran at an hour when the bug cannot manifest.
+  A test now pins the clock.
+- Phase 18 units 2-5 and Phases 19-25: not yet started (re-sequenced in
+  `docs/ROADMAP.md`).
 
 ## Currently working on
 
-Nothing in flight — Phase 18.5 unit 3 is merged (PR #137).
+Nothing in flight — Phase 18.5 is complete (PRs #133, #135, #137, #139,
+#144, #146, plus the seed fix #145).
 
 ## Next
 
-Phase 18.5 runs first, being the owner's own reported list. Its six
-remaining units, in order, with the traps worth knowing:
-
-1. **Unit 4 — map search, lookup, and demo addresses that geocode**
-   (items 10, 11). The map is not broken; the seeded addresses are
-   invented. Dropping a pin by hand already works server-side and is
-   tested, but nothing in the interface calls it, even though the page
-   tells the user they can.
-2. **Unit 5 — the master change log** (item 9). Only contacts and
-   companies are recorded today; the entire jobs app, users and core
-   record nothing. **Once jobs appear in the log, undo would treat a
-   job's status as restorable text** and write it without stamping the
-   completion date, reintroducing unit 3's bug by another route. That
-   needs a model allow-list in `apps/crm/undo.py`, not a field-by-field
-   patch.
-3. **Unit 6 — a save button at the top of every form** (item 12).
-   Thirteen forms, three incompatible action-row conventions, and no
-   form in the project has an `id` yet.
-
-Then Phase 18:
+Phase 18.5 is done, so the roadmap resumes at Phase 18's remaining
+units:
 
 1. **Phase 18 unit 2 — uploading and showing photos.** Unit 1 built
    only the serving side; nothing displays or uploads a photo yet.

@@ -8,8 +8,11 @@
       <h1>{% if object %}Edit {{ object.name }}{% else %}Add company{% endif %}</h1>
       <p class="page-subtitle">Who you bill, when it's a business rather than a household</p>
     </div>
+    <div class="page-actions">
+      {% include "partials/_save_button.html" with form_id="company-form" %}
+    </div>
   </div>
-  <form method="post">
+  <form id="company-form" method="post">
     {% csrf_token %}
     {{ form.as_p }}
     <button type="submit">Save</button>

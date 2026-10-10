@@ -5,8 +5,15 @@
 
 {% block content %}
   <div class="settings-shell">
-    <h1>Record a payment</h1>
-    <p class="page-subtitle">{{ invoice.number }} for {{ invoice.contact }}</p>
+    <div class="page-header">
+      <div>
+        <h1>Record a payment</h1>
+        <p class="page-subtitle">{{ invoice.number }} for {{ invoice.contact }}</p>
+      </div>
+      <div class="page-actions">
+        {% include "partials/_save_button.html" with form_id="payment-form" %}
+      </div>
+    </div>
 
     <div class="stat-grid">
       <div class="stat-card is-tinted accent-blue">
@@ -23,7 +30,7 @@
       </div>
     </div>
 
-    <form method="post" class="section-card" novalidate>
+    <form id="payment-form" method="post" class="section-card" novalidate>
       {% csrf_token %}
       <div class="section-card-head"><svg class="icon" aria-hidden="true"><use href="#icon-wallet"/></svg><h2>What came in</h2></div>
       {{ form.non_field_errors }}

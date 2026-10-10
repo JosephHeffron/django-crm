@@ -184,15 +184,37 @@ as anywhere else in this schema.
 | `changes` | JSONField | yes | `{field_name: [old_display_value, new_display_value]}` for exactly the fields that changed. Empty `{}` for `created` (nothing to diff against). |
 | `created_at` | DateTimeField | auto | When the change was recorded. |
 
-Indexes: `(content_type, object_id, created_at)` — the query this table
-exists to serve is "show me this record's history, newest first."
+Indexes: `(content_type, object_id, created_at)` — "show me this
+record's history, newest first", which is what the History section on a
+detail page asks. Plus `(-created_at)` since Phase 18.5 unit 5: the
+composite index leads with `content_type`, so it cannot serve the
+Change log page's "everything that changed, newest first".
 
 **Scope — what is and isn't audited:**
 
-- Only Company, Contact, Lead, Deal are audited. Not Task (lower-stakes,
-  and its own status/`completed_at` lifecycle is already visible on the
-  record itself) and not Activity (already an immutable append-only log
-  by design — auditing an audit trail is redundant).
+> **Widened in Phase 18.5 unit 5 (2026-10-09).** The owner asked for
+> one place showing every change. Audited now: Company, Contact, Lead,
+> Deal, Task, Property, Job, Quote, Invoice, Payment, Expense and
+> ServiceType. The paragraph below records what the scope was and why
+> each exclusion was made, because two of those reasons still hold.
+
+- Originally only Company, Contact, Lead and Deal. Task was left out as
+  "lower-stakes, and its own status/`completed_at` lifecycle is already
+  visible on the record itself" — that reasoning was about a per-record
+  history page, and it does not survive the question "who changed
+  this?" being asked of the whole business. Task is audited now.
+- **Activity is still not audited**, and that reason has not changed:
+  it is already an immutable append-only log of what happened, so
+  auditing it would record the same fact twice.
+- **Placing a pin on the map is still not audited.** Coordinates
+  written by the geocoder are machine output, and a log is only useful
+  if a person can read it.
+- **The mechanism stays explicit calls, not signals.** A `post_save`
+  signal would be less code and would silently widen the scope below to
+  seed runs, data migrations and management-command writes, recording
+  them as somebody's edits. `apps/crm/audit.py` holds the helpers and a
+  mixin that adds one line to a view; two views that own their
+  `form_valid` call `record()` directly.
 - Only changes made through the application's own Create/Update views are
   recorded. **Not audited:** Django admin edits, `manage.py shell`/
   management-command changes, and any direct database writes. This is a
