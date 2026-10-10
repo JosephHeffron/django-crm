@@ -317,9 +317,18 @@ class DealAuditLogTests(TestCase):
         self.assertEqual(entries[0].changes, {"stage": ["prospecting", "closed_won"]})
 
 
-class TaskAndActivityAreNotAuditedTests(TestCase):
-    """Task and Activity are explicitly out of scope for this unit — see
-    docs/DATABASE_DESIGN.md's Audit history section."""
+class WhatIsAndIsNotAuditedTests(TestCase):
+    """The scope, after Phase 18.5 unit 5 widened it.
+
+    Tasks used to be out of scope deliberately — "lower-stakes, and its
+    own lifecycle is already visible on the record". The owner asked for
+    one place showing every change, so they are in now, and
+    docs/DATABASE_DESIGN.md says so.
+
+    Activity stays out, and for a reason that has not changed: it is
+    already an immutable append-only log of what happened. Auditing an
+    audit trail records the same fact twice.
+    """
 
     def setUp(self):
         self.user = User.objects.create_user("alice", password="correct-horse-battery")
@@ -327,7 +336,7 @@ class TaskAndActivityAreNotAuditedTests(TestCase):
         self.client.login(username="alice", password="correct-horse-battery")
         self.company = Company.objects.create(name="Acme Corp", created_by=self.user)
 
-    def test_creating_a_task_logs_nothing(self):
+    def test_creating_a_task_is_now_recorded(self):
         self.client.post(
             reverse("crm:task_create"),
             {
@@ -337,9 +346,14 @@ class TaskAndActivityAreNotAuditedTests(TestCase):
                 "status": "pending",
             },
         )
-        self.assertEqual(AuditLogEntry.objects.count(), 0)
+        entry = AuditLogEntry.objects.get()
+        self.assertEqual(
+            (entry.action, entry.user_id, str(entry.record)),
+            (AuditLogEntry.Action.CREATED, self.user.pk, "Follow up"),
+        )
 
-    def test_creating_an_activity_logs_nothing(self):
+    def test_creating_an_activity_still_logs_nothing(self):
+        # Activity is itself the log of what happened.
         self.client.post(
             reverse("crm:activity_create"),
             {"activity_type": "note", "subject": "A note", "company": self.company.pk},

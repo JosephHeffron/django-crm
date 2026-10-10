@@ -199,6 +199,20 @@ SECTIONS = (
             ),
         ),
     ),
+    # Its own entry rather than buried in the gear menu: the owner asked
+    # for one place to see every change (Phase 18.5 unit 5). The URL
+    # stays /settings/activity/ so existing bookmarks still work.
+    NavSection(
+        "Change log",
+        "changelog",
+        link=NavLink(
+            "Change log",
+            "core:activity_log",
+            "history",
+            OWNER_ONLY,
+            ("core:activity_log", "core:activity_undo"),
+        ),
+    ),
 )
 
 # Phone bottom bar per role: a cleaner's own day, a seller's pipeline.
@@ -240,7 +254,6 @@ GEAR_MENU = (
     NavLink("Account settings", "people:profile_edit", "settings", ALL_ROLES),
     NavLink("Company management", "people:team", "users", OWNER_ONLY),
     NavLink("Customize", "core:customize", "sparkles", OWNER_ONLY),
-    NavLink("Activity log", "core:activity_log", "history", OWNER_ONLY),
     NavLink("What's new", "core:whats_new", "rocket", ALL_ROLES),
     NavLink("Change password", "users:password_change", "key", ALL_ROLES),
 )
