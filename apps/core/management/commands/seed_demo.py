@@ -648,14 +648,23 @@ class DemoSeeder:
                 )
 
     def time_entries(self):
-        """Clocked time for the crew over the last fortnight, on the
-        jobs they actually worked — so Payroll and the time clock show a
-        real week rather than an empty one."""
-        done = list(
-            Job.objects.filter(
-                status=Job.Status.COMPLETED, completed_at__gte=self.now - timedelta(days=14)
-            ).prefetch_related("assignments")[:40]
-        )
+        """Clocked time for the crew on the jobs they actually worked —
+        so Payroll and the time clock show a real week rather than an
+        empty one.
+
+        The last fortnight if there is any, and otherwise the most
+        recently finished jobs whenever they were. That fallback is the
+        point: this used to filter on the fortnight alone, which made
+        the promise above depend on the time of day. Today's jobs are
+        seeded at 8am, 11am and 2pm with their status taken from the
+        clock, so before the first one has finished there is nothing
+        completed in the window at all, and Payroll seeded empty every
+        morning. It is also why `test_populates_every_area_with_real_data`
+        failed only before about half past nine.
+        """
+        finished = Job.objects.filter(status=Job.Status.COMPLETED).prefetch_related("assignments")
+        recent = list(finished.filter(completed_at__gte=self.now - timedelta(days=14))[:40])
+        done = recent or list(finished.order_by("-completed_at")[:40])
         made = 0
         for job in done:
             for assignment in job.assignments.all():

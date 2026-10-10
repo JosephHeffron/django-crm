@@ -214,6 +214,33 @@ class SeededAddressTests(TestCase):
         lookup.assert_not_called()
         opener.assert_not_called()
 
+    def test_the_crew_have_clocked_time_whatever_the_hour(self):
+        """Payroll must not seed empty depending on the clock.
+
+        Time entries were taken only from jobs completed in the last
+        fortnight. Today's jobs are seeded at 8am, 11am and 2pm with
+        their status read from the clock, so before the first one ends
+        nothing was completed in that window and Payroll came up empty
+        — which is how `test_populates_every_area_with_real_data`
+        failed one Saturday morning and passed the same afternoon.
+
+        Asserted against jobs finished *at any time*, so this holds at
+        any hour rather than only after about half past nine.
+        """
+        self.assertTrue(TimeEntry.objects.filter(ended_at__isnull=False).exists())
+        self.assertFalse(
+            TimeEntry.objects.filter(job__isnull=True).exists(),
+            "clocked time should name the job it was worked on",
+        )
+
+    def test_clocked_time_belongs_to_somebody_assigned_to_the_job(self):
+        wrong = [
+            entry.pk
+            for entry in TimeEntry.objects.select_related("job").all()
+            if not entry.job.assignments.filter(user=entry.user).exists()
+        ]
+        self.assertEqual(wrong, [])
+
     def test_the_house_numbers_are_not_all_the_same(self):
         # A fixed number would make every address on a road identical.
         numbers = {p.street.split(" ", 1)[0] for p in Property.objects.all()}
