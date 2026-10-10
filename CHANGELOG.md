@@ -147,6 +147,12 @@ for meaningful changes — not for every small fix or documentation tweak.
   return "not found" with nothing explaining why. One genuinely missing
   file still returns "not found", and is now logged.
 
+### Changed
+- Demo data now uses real roads in real towns around Rochester with
+  made-up house numbers, so the Map page's lookup demonstrates working.
+  The previous invented streets could never be found, which read as the
+  map being broken. Seeding still never contacts OpenStreetMap.
+
 ### Fixed
 - Messages read newest-first in every channel, with the box to write in
   above them instead of below.
@@ -175,3 +181,9 @@ for meaningful changes — not for every small fix or documentation tweak.
 - Booking a job offers a new customer or a new address without losing
   your place: both open their own page and return with the new one
   already chosen.
+- The Map page can be searched by customer, street, town or postal
+  code, and an address already on the map can be looked up again after
+  its street is corrected.
+- An address OpenStreetMap cannot find can be pinned by hand, either by
+  typing the point or by clicking the map. This was promised by the map
+  page but had no way to be done.
