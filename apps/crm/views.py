@@ -16,6 +16,7 @@ from apps.core.pagination import PerPageMixin
 from apps.jobs.models import Job, Quote
 from apps.users.roles import SalesRoleRequiredMixin
 
+from . import audit
 from .followups import record_completion
 from .forms import (
     ActivityForm,
@@ -103,41 +104,11 @@ def _apply_task_completion(task, user, was_completed):
         record_completion(task, user)
 
 
-def _record_audit_log(user, obj, action, changes=None):
-    """Write one AuditLogEntry for a Company/Contact/Lead/Deal change.
-
-    Called explicitly from each audited model's Create/UpdateView —
-    see docs/DATABASE_DESIGN.md's "Audit history" section for why this
-    isn't signal-based.
-    """
-    AuditLogEntry.objects.create(
-        content_type=ContentType.objects.get_for_model(obj),
-        object_id=obj.pk,
-        user=user,
-        action=action,
-        changes=changes or {},
-    )
-
-
-def _diff_changed_fields(previous, current, changed_fields):
-    """Build the {field: [old, new]} dict AuditLogEntry.changes expects,
-    from the pre-edit instance, the post-edit instance, and the list of
-    field names the form actually changed (form.changed_data).
-    """
-    changes = {}
-    for field in changed_fields:
-        old_value = getattr(previous, field, None)
-        new_value = getattr(current, field, None)
-        # The form can flag a field whose saved value didn't actually
-        # change (e.g. an omitted optional field that falls back to its
-        # current value) — that isn't a change worth recording. Compare
-        # the values, not their text: two companies can share a name.
-        if old_value != new_value:
-            changes[field] = [
-                None if old_value is None else str(old_value),
-                None if new_value is None else str(new_value),
-            ]
-    return changes
+# Moved to apps/crm/audit.py in Phase 18.5 unit 5, when the change log
+# widened past these four models. Aliased rather than rewritten at
+# every call site, so the extraction reads as a pure move.
+_record_audit_log = audit.record
+_diff_changed_fields = audit.diff
 
 
 def _audit_log_for(obj):
@@ -368,7 +339,7 @@ class ContactListView(SalesRoleRequiredMixin, PerPageMixin, ListView):
         return context
 
 
-class PropertyFormMixin(SalesRoleRequiredMixin, PermissionRequiredMixin):
+class PropertyFormMixin(audit.AuditedFormMixin, SalesRoleRequiredMixin, PermissionRequiredMixin):
     """Create or correct a service address.
 
     Returns to wherever asked (`?next=`), handing back the new address
@@ -1116,7 +1087,11 @@ class TaskFormUserMixin:
 
 
 class TaskCreateView(
-    TaskFormUserMixin, SalesRoleRequiredMixin, PermissionRequiredMixin, CreateView
+    audit.AuditedFormMixin,
+    TaskFormUserMixin,
+    SalesRoleRequiredMixin,
+    PermissionRequiredMixin,
+    CreateView,
 ):
     model = Task
     form_class = TaskForm
@@ -1142,7 +1117,11 @@ class TaskCreateView(
 
 
 class TaskUpdateView(
-    TaskFormUserMixin, SalesRoleRequiredMixin, PermissionRequiredMixin, UpdateView
+    audit.AuditedFormMixin,
+    TaskFormUserMixin,
+    SalesRoleRequiredMixin,
+    PermissionRequiredMixin,
+    UpdateView,
 ):
     model = Task
     form_class = TaskForm
@@ -1184,6 +1163,13 @@ class TaskCompleteView(SalesRoleRequiredMixin, PermissionRequiredMixin, View):
         task.status = Task.Status.COMPLETED
         _apply_task_completion(task, request.user, was_completed=False)
         task.save(update_fields=["status", "completed_at", "completed_by", "updated_at"])
+        # Not a form, so AuditedFormMixin can't see it.
+        audit.record(
+            request.user,
+            task,
+            AuditLogEntry.Action.UPDATED,
+            {"status": [str(Task.Status.PENDING.label), str(Task.Status.COMPLETED.label)]},
+        )
         messages.success(request, f"Completed “{task.title}”.")
 
         next_url = request.POST.get("next")

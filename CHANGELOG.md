@@ -147,6 +147,15 @@ for meaningful changes — not for every small fix or documentation tweak.
   return "not found" with nothing explaining why. One genuinely missing
   file still returns "not found", and is now logged.
 
+### Changed
+- Demo data seeds finished work on the last few weekdays, so Payroll
+  and the time clock show a real week instead of being empty until the
+  first job of the day ends.
+- Demo data now uses real roads in real towns around Rochester with
+  made-up house numbers, so the Map page's lookup demonstrates working.
+  The previous invented streets could never be found, which read as the
+  map being broken. Seeding still never contacts OpenStreetMap.
+
 ### Fixed
 - Messages read newest-first in every channel, with the box to write in
   above them instead of below.
@@ -175,3 +184,17 @@ for meaningful changes — not for every small fix or documentation tweak.
 - Booking a job offers a new customer or a new address without losing
   your place: both open their own page and return with the new one
   already chosen.
+- The Map page can be searched by customer, street, town or postal
+  code, and an address already on the map can be looked up again after
+  its street is corrected.
+- An address OpenStreetMap cannot find can be pinned by hand, either by
+  typing the point or by clicking the map. This was promised by the map
+  page but had no way to be done.
+- A change log the owner can open, covering every change made in the
+  app — jobs, estimates, invoices, payments, expenses, services, tasks,
+  customers, companies and addresses — with filters by who made it,
+  what kind of record, whether it was created or changed, and when.
+  Changes made in the Django admin or by a direct database edit still
+  do not appear, which the page says.
+- Every form has a Save button at the top as well as the bottom, so a
+  long one no longer needs scrolling to save.

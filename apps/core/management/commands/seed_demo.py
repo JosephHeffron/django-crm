@@ -286,6 +286,9 @@ class DemoSeeder:
         self.users()
         self.contacts()
         self.history()
+        # Before upcoming(), so "the last few weekdays" means weekdays
+        # behind today rather than behind whatever upcoming() booked.
+        self.recent_completions()
         self.upcoming()
         self.quotes()
         self.activities()
@@ -517,6 +520,39 @@ class DemoSeeder:
                 contact = self.rng.choice(self.customers)
                 self.make_job(contact, contact.profile_services, day, hour, Job.Status.SCHEDULED)
 
+    def recent_completions(self):
+        """Finished work on the last few weekdays, so the current week
+        has real hours in it.
+
+        Without this the only recent completions are today's, created
+        by `upcoming()` at 8am, 11am and 2pm with their status read from
+        the clock — so before the first of them ended there was nothing
+        completed in the last fortnight at all, and Payroll and the time
+        clock seeded empty every morning.
+
+        Note what is deliberately *not* promised. On a Monday morning,
+        before today's first job has finished, Payroll's current week is
+        still empty — and that is correct: nobody has clocked time this
+        week yet. The bug was it being empty on every morning of every
+        day, not on that one.
+        """
+        made = 0
+        day = self.today - timedelta(days=1)
+        while made < 5:
+            if day.weekday() < 5:
+                contact = self.rng.choice(self.customers)
+                job = self.make_job(
+                    contact,
+                    contact.profile_services[:2],
+                    day,
+                    self.rng.choice([8, 10, 13]),
+                    Job.Status.COMPLETED,
+                )
+                self.invoice(job)
+                made += 1
+            day -= timedelta(days=1)
+        return made
+
     def quote(self, contact, status, created_days_ago, site_visit=None):
         quote = Quote.objects.create(
             contact=contact,
@@ -648,17 +684,41 @@ class DemoSeeder:
                 )
 
     def time_entries(self):
-        """Clocked time for the crew over the last fortnight, on the
-        jobs they actually worked — so Payroll and the time clock show a
-        real week rather than an empty one."""
+        """Clocked time for the crew on the jobs they actually worked —
+        so Payroll and the time clock show a real week rather than an
+        empty one.
+
+        This filters on the last fortnight, and `recent_completions()`
+        is what makes sure the fortnight has something in it.
+
+        A first attempt kept this filter and added a fallback to the
+        most recently finished jobs whenever they were. That made the
+        test pass without delivering the promise above: Payroll shows
+        the current week, so hours dated to a job from two months ago
+        leave it exactly as empty. The fix belongs in the data, not
+        here.
+
+        Scoped to demo crew, and NULL completion dates excluded.
+        `remove_demo_data()` only cleans up demo users, so an entry
+        written against a real person's payroll would survive a reset;
+        and on PostgreSQL a NULL `completed_at` sorts first, so an
+        undated job could otherwise become clock history.
+        """
         done = list(
             Job.objects.filter(
-                status=Job.Status.COMPLETED, completed_at__gte=self.now - timedelta(days=14)
-            ).prefetch_related("assignments")[:40]
+                status=Job.Status.COMPLETED,
+                completed_at__isnull=False,
+                completed_at__gte=self.now - timedelta(days=14),
+                assignments__user__username__startswith=DEMO_PREFIX,
+            )
+            .distinct()
+            .prefetch_related("assignments__user")[:40]
         )
         made = 0
         for job in done:
             for assignment in job.assignments.all():
+                if not assignment.user.username.startswith(DEMO_PREFIX):
+                    continue
                 hours = assignment.hours_worked or Decimal("2")
                 started = job.scheduled_start
                 TimeEntry.objects.create(

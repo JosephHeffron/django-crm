@@ -7,10 +7,17 @@
 
 {% block content %}
   <div class="settings-shell">
-    <h1>{% if object %}Edit {{ object.number }}{% else %}New estimate{% endif %}</h1>
-    <p class="page-subtitle">{% if object %}Change the work, the price, or where it stands{% else %}What you're quoting, for whom, and for how much{% endif %}</p>
+    <div class="page-header">
+      <div>
+        <h1>{% if object %}Edit {{ object.number }}{% else %}New estimate{% endif %}</h1>
+        <p class="page-subtitle">{% if object %}Change the work, the price, or where it stands{% else %}What you're quoting, for whom, and for how much{% endif %}</p>
+      </div>
+      <div class="page-actions">
+        {% include "partials/_save_button.html" with form_id="quote-form" %}
+      </div>
+    </div>
 
-    <form method="post" novalidate>
+    <form id="quote-form" method="post" novalidate>
       {% csrf_token %}
       {{ form.non_field_errors }}
 

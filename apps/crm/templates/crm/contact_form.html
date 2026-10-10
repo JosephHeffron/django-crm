@@ -5,8 +5,11 @@
 {% block content %}
   <div class="page-header">
     <h1>{% if object %}Edit {{ object }}{% else %}Add contact{% endif %}</h1>
+    <div class="page-actions">
+      {% include "partials/_save_button.html" with form_id="contact-form" %}
+    </div>
   </div>
-  <form method="post" class="card">
+  <form id="contact-form" method="post" class="card">
     {% csrf_token %}
     {% if back %}<input type="hidden" name="next" value="{{ back }}">{% endif %}
     {{ form.as_p }}

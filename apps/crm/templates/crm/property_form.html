@@ -4,10 +4,17 @@
 
 {% block content %}
   <div class="settings-shell">
-    <h1>{% if object %}Edit address{% else %}Add an address{% endif %}</h1>
-    <p class="page-subtitle">Where the work happens. A customer can have more than one.</p>
+    <div class="page-header">
+      <div>
+        <h1>{% if object %}Edit address{% else %}Add an address{% endif %}</h1>
+        <p class="page-subtitle">Where the work happens. A customer can have more than one.</p>
+      </div>
+      <div class="page-actions">
+        {% include "partials/_save_button.html" with form_id="address-form" %}
+      </div>
+    </div>
 
-    <form method="post" novalidate>
+    <form id="address-form" method="post" novalidate>
       {% csrf_token %}
       {{ form.non_field_errors }}
       {% if back %}<input type="hidden" name="next" value="{{ back }}">{% endif %}
