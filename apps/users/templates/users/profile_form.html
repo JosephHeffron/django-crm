@@ -5,8 +5,11 @@
 {% block content %}
   <div class="page-header">
     <h1>Edit profile</h1>
+    <div class="page-actions">
+      {% include "partials/_save_button.html" with form_id="profile-form" %}
+    </div>
   </div>
-  <form method="post" class="card">
+  <form id="profile-form" method="post" class="card">
     {% csrf_token %}
     {{ account_form.as_p }}
     {{ profile_form.as_p }}

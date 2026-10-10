@@ -7,10 +7,17 @@
 
 {% block content %}
   <div class="settings-shell">
-    <h1>{% if object %}Edit {{ object.number }}{% else %}Schedule a job{% endif %}</h1>
-    <p class="page-subtitle">{% if object %}Move it, change the work, or swap the crew{% else %}Who it's for, what you're doing, and when{% endif %}</p>
+    <div class="page-header">
+      <div>
+        <h1>{% if object %}Edit {{ object.number }}{% else %}Schedule a job{% endif %}</h1>
+        <p class="page-subtitle">{% if object %}Move it, change the work, or swap the crew{% else %}Who it's for, what you're doing, and when{% endif %}</p>
+      </div>
+      <div class="page-actions">
+        {% include "partials/_save_button.html" with form_id="job-form" %}
+      </div>
+    </div>
 
-    <form method="post" novalidate>
+    <form id="job-form" method="post" novalidate>
       {% csrf_token %}
       {{ form.non_field_errors }}
 

@@ -7,10 +7,17 @@
 
 {% block content %}
   <div class="settings-shell">
-    <h1>{% if object %}Edit {{ object.number }}{% else %}New invoice{% endif %}</h1>
-    <p class="page-subtitle">{% if from_job %}Billing {{ from_job.number }} for {{ from_job.contact }}{% else %}Which job you're billing, for how much, and by when{% endif %}</p>
+    <div class="page-header">
+      <div>
+        <h1>{% if object %}Edit {{ object.number }}{% else %}New invoice{% endif %}</h1>
+        <p class="page-subtitle">{% if from_job %}Billing {{ from_job.number }} for {{ from_job.contact }}{% else %}Which job you're billing, for how much, and by when{% endif %}</p>
+      </div>
+      <div class="page-actions">
+        {% include "partials/_save_button.html" with form_id="invoice-form" %}
+      </div>
+    </div>
 
-    <form method="post" novalidate>
+    <form id="invoice-form" method="post" novalidate>
       {% csrf_token %}
       {{ form.non_field_errors }}
 

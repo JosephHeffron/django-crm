@@ -4,10 +4,17 @@
 
 {% block content %}
   <div class="settings-shell">
-    <h1>{% if object %}Edit expense{% else %}Add an expense{% endif %}</h1>
-    <p class="page-subtitle">Expenses are subtracted from revenue to give Profit</p>
+    <div class="page-header">
+      <div>
+        <h1>{% if object %}Edit expense{% else %}Add an expense{% endif %}</h1>
+        <p class="page-subtitle">Expenses are subtracted from revenue to give Profit</p>
+      </div>
+      <div class="page-actions">
+        {% include "partials/_save_button.html" with form_id="expense-form" %}
+      </div>
+    </div>
 
-    <form method="post" class="section-card" novalidate>
+    <form id="expense-form" method="post" class="section-card" novalidate>
       {% csrf_token %}
       <div class="section-card-head"><svg class="icon" aria-hidden="true"><use href="#icon-wallet"/></svg><h2>What you spent</h2></div>
       {{ form.non_field_errors }}
