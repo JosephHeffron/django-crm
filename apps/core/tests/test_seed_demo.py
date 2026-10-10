@@ -1,10 +1,12 @@
 import os
+from datetime import datetime, timedelta
 from io import StringIO
 from unittest import mock
 
 from django.contrib.auth import get_user_model
 from django.core.management import CommandError, call_command
 from django.test import TestCase, override_settings
+from django.utils import timezone
 
 from apps.core.management.commands.seed_demo import DEMO_PREFIX, DEMO_USERS, TOWNS
 from apps.core.models import Goal, Notification
@@ -217,21 +219,92 @@ class SeededAddressTests(TestCase):
     def test_the_crew_have_clocked_time_whatever_the_hour(self):
         """Payroll must not seed empty depending on the clock.
 
-        Time entries were taken only from jobs completed in the last
-        fortnight. Today's jobs are seeded at 8am, 11am and 2pm with
-        their status read from the clock, so before the first one ends
-        nothing was completed in that window and Payroll came up empty
-        — which is how `test_populates_every_area_with_real_data`
+        Time entries come from jobs completed in the last fortnight,
+        and the only recent completions used to be today's — seeded at
+        8am, 11am and 2pm with their status read from the clock. Before
+        the first ended there was nothing in the window, so Payroll came
+        up empty, which is how `test_populates_every_area_with_real_data`
         failed one Saturday morning and passed the same afternoon.
-
-        Asserted against jobs finished *at any time*, so this holds at
-        any hour rather than only after about half past nine.
         """
         self.assertTrue(TimeEntry.objects.filter(ended_at__isnull=False).exists())
         self.assertFalse(
             TimeEntry.objects.filter(job__isnull=True).exists(),
             "clocked time should name the job it was worked on",
         )
+
+    def test_payroll_has_hours_even_seeded_before_dawn(self):
+        """The test the first attempt could not have had.
+
+        Everything else here runs at whatever hour CI happens to run,
+        so none of it can fail while today's 8am job has already
+        finished — which is why two mutation checks of the broken
+        behaviour passed at ten in the morning and proved nothing.
+
+        So the clock is pinned to a Wednesday at 6am, before any of
+        today's jobs could have ended, and the seed is asked for data
+        again. That is the state in which Payroll used to come up
+        empty.
+        """
+        from apps.jobs import crew
+
+        dawn = timezone.make_aware(datetime(2026, 10, 7, 6, 0))  # a Wednesday
+        with mock.patch.object(timezone, "localtime", return_value=dawn):
+            with mock.patch.object(timezone, "now", return_value=dawn):
+                call_command("seed_demo", "--force", "--reset", verbosity=0)
+
+        first, last = crew.week_bounds(dawn.date())
+        hours = TimeEntry.objects.filter(started_at__date__gte=first, started_at__date__lte=last)
+        self.assertTrue(
+            hours.exists(),
+            "seeded at 6am, Payroll's own week has no clocked hours in it",
+        )
+        rows = crew.payroll(list(crew.payroll_people()), first, last)
+        self.assertTrue(
+            any(row["hours"] for row in rows),
+            "Payroll reports no hours for the week it is showing",
+        )
+
+    def test_the_clocked_hours_land_where_payroll_looks(self):
+        """The assertion the first attempt was missing.
+
+        A row existing somewhere is not the promise. Payroll reports a
+        period, so hours dated to a job from two months ago leave it
+        exactly as empty — which is what a fallback to "the most
+        recently finished jobs whenever they were" would have produced.
+        """
+        from apps.jobs import crew
+
+        first, last = crew.week_bounds(timezone.localdate())
+        entries = TimeEntry.objects.filter(
+            started_at__date__gte=first - timedelta(days=7), started_at__date__lte=last
+        )
+        self.assertTrue(
+            entries.exists(),
+            "no clocked time within the week Payroll shows, or the one before it",
+        )
+        rows = crew.payroll(list(crew.payroll_people()), first - timedelta(days=7), last)
+        self.assertTrue(
+            any(row["hours"] for row in rows),
+            "Payroll reports no hours for a period the seed claims to fill",
+        )
+
+    def test_clocked_time_is_only_ever_for_demo_people(self):
+        """The seed must never write against a real person's payroll.
+
+        `remove_demo_data()` cleans up demo users only, so an entry
+        against anyone else would survive a reset.
+        """
+        outsiders = [
+            entry.user.username
+            for entry in TimeEntry.objects.select_related("user")
+            if not entry.user.username.startswith(DEMO_PREFIX)
+        ]
+        self.assertEqual(outsiders, [])
+
+    def test_no_clocked_time_comes_from_an_undated_job(self):
+        # A NULL completed_at sorts first on PostgreSQL, so an undated
+        # job could otherwise be picked as recent work.
+        self.assertFalse(TimeEntry.objects.filter(job__completed_at__isnull=True).exists())
 
     def test_clocked_time_belongs_to_somebody_assigned_to_the_job(self):
         wrong = [
