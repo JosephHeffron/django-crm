@@ -1,15 +1,56 @@
 {% extends "base.html" %}
 
-{% block title %}Activity log{% endblock %}
+{% block title %}Change log{% endblock %}
 
 {% block content %}
   <div class="dash-hero">
     <div>
-      <p class="breadcrumb-header"><a href="{% url 'core:settings' %}">Settings</a></p>
-      <h1>Activity log</h1>
-      <p class="page-subtitle">What changed on customers and companies, newest first</p>
+      <h1>Change log</h1>
+      <p class="page-subtitle">Every change made through the app, newest first</p>
     </div>
   </div>
+
+  <form method="get" class="filter-form">
+    <label for="id_who" class="sr-only">Who</label>
+    <select id="id_who" name="who">
+      <option value="">Anyone</option>
+      {% for person in people %}
+        <option value="{{ person.pk }}" {% if who == person.pk|stringformat:"s" %}selected{% endif %}>{{ person.get_full_name|default:person.username }}</option>
+      {% endfor %}
+    </select>
+    <label for="id_what" class="sr-only">Kind of record</label>
+    <select id="id_what" name="what">
+      <option value="">Anything</option>
+      {% for value, label in kinds %}
+        <option value="{{ value }}" {% if what == value %}selected{% endif %}>{{ label }}</option>
+      {% endfor %}
+    </select>
+    <label for="id_action" class="sr-only">Created or changed</label>
+    <select id="id_action" name="action">
+      <option value="">Created and changed</option>
+      {% for value, label in action_choices %}
+        <option value="{{ value }}" {% if action == value %}selected{% endif %}>{{ label }}</option>
+      {% endfor %}
+    </select>
+    <label for="id_from" class="sr-only">From</label>
+    <input type="date" id="id_from" name="from" value="{{ date_from }}">
+    <label for="id_to" class="sr-only">To</label>
+    <input type="date" id="id_to" name="to" value="{{ date_to }}">
+    <button type="submit">Filter</button>
+    {% if who or what or action or date_from or date_to %}
+      <a class="btn btn-secondary" href="{% url 'core:activity_log' %}">Clear</a>
+    {% endif %}
+  </form>
+
+  <p class="muted">
+    {% comment %}
+      Said on the page rather than left to be discovered: the log covers
+      changes made through this app. docs/DATABASE_DESIGN.md has always
+      recorded that limit, and widening the log did not change it.
+    {% endcomment %}
+    This covers changes made in the app. A change made in the Django admin
+    or by a direct database edit won't appear here.
+  </p>
 
   {% if rows %}
     <ul class="notice-list">

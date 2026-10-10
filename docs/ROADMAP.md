@@ -73,7 +73,7 @@ functionality it deliberately deferred, plus hardening work identified
 along the way (`docs/PRODUCTION_READINESS.md`'s still-open findings).
 Phases 15-17.5 are complete. Phase 18 is underway: unit 1
 (private media) is merged. Phase 18.5, twelve items the owner reported
-after testing the running app, is also underway. From Phase 17 the roadmap pivots the CRM to
+after testing the running app, is complete. From Phase 17 the roadmap pivots the CRM to
 the owner's exterior home-services business (service catalog, quotes,
 crew-scheduled jobs, invoicing, follow-up automation, team messaging,
 mobile-first PWA) — see `docs/decisions/0008-roles-and-row-level-scoping.md`
@@ -145,7 +145,8 @@ insufficient.
       - [x] Unit 1 — login-gated serving of everything under
             `media/private/`, and the reverse proxy refusing the path
             (PR #130).
-- [ ] **Phase 18.5 — Owner-requested fixes.** Twelve items reported
+- [x] **Phase 18.5 — Owner-requested fixes.** Complete: all twelve
+      items reported
       after testing the running app, cutting across Phases 18, 19 and
       21, so tracked as their own group rather than folded in. Six
       units: the inbox and task form; task context and an address
@@ -165,6 +166,17 @@ insufficient.
             rule that stamps the completion date; plus the service
             address form the app never had, and quick-add of a customer
             or address from the job form (PR #137).
+      - [x] Unit 4 — the Map page gains a search, re-lookup for an
+            address already placed, and the pin-drop ADR 0011 promised
+            but nothing could reach; the seed uses real roads in real
+            towns so a lookup demonstrates working (PR #139).
+      - [x] Unit 5 — change-recording extended from four CRM models to
+            everything the app writes, with filters by person, record
+            type, action and date, its own Owner-only tab, and undo
+            held to an explicit allow-list (PR #144).
+      - [x] Unit 6 — a Save button in the header of all fourteen record
+            forms, reaching its form through the HTML `form` attribute,
+            so no JavaScript and no CSP change (PR #146).
 
 - [ ] **Phase 19 — Follow-up automation and tasks hub.** Daily
       follow-up generation via a systemd timer (same pattern as the

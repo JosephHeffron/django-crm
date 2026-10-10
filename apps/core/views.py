@@ -7,7 +7,9 @@ from decimal import Decimal
 from django import forms
 from django.conf import settings
 from django.contrib import messages
+from django.contrib.auth import get_user_model
 from django.contrib.auth.mixins import LoginRequiredMixin
+from django.contrib.contenttypes.models import ContentType
 from django.core.exceptions import ValidationError
 from django.core.paginator import Paginator
 from django.db import connection, transaction
@@ -23,6 +25,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.template.defaultfilters import pluralize
 from django.urls import reverse
 from django.utils import timezone
+from django.utils.dateparse import parse_date
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.views import View
 from django.views.generic import ListView, TemplateView
@@ -801,9 +804,44 @@ class CustomizeView(OwnerRequiredMixin, TemplateView):
         return context
 
 
+User = get_user_model()
+
+
+def _int_or_none(value):
+    """An integer from a query parameter, or None for anything else."""
+    value = (value or "").strip()
+    return int(value) if value.isdigit() else None
+
+
+def _logged_kinds():
+    """The kinds of record the log actually holds, as
+    `("app.model", "Readable name")` pairs."""
+    used = AuditLogEntry.objects.values_list("content_type_id", flat=True).distinct()
+    kinds = []
+    for content_type in ContentType.objects.filter(pk__in=used):
+        model = content_type.model_class()
+        label = (
+            str(model._meta.verbose_name).capitalize()
+            if model is not None
+            else f"{content_type.app_label}.{content_type.model}"
+        )
+        kinds.append((f"{content_type.app_label}.{content_type.model}", label))
+    return sorted(kinds, key=lambda pair: pair[1])
+
+
 class ActivityLogView(OwnerRequiredMixin, PerPageMixin, ListView):
-    """What changed on customers and companies, newest first, with a way
-    to put an edit back (apps/crm/undo.py)."""
+    """Every change made through the app, newest first, with a way to
+    put some of them back (apps/crm/undo.py).
+
+    Phase 18.5 unit 5 widened what reaches here from four CRM models to
+    everything the app writes, and added the filters — a log covering
+    everything is unusable without a way to narrow it.
+
+    One honest limit, stated on the page too: this records changes made
+    *through the app*. A change made in the Django admin, in
+    `manage.py shell`, or by a direct database write does not appear,
+    exactly as `docs/DATABASE_DESIGN.md` has always said.
+    """
 
     template_name = "core/activity_log.html"
     context_object_name = "entries"
@@ -813,11 +851,35 @@ class ActivityLogView(OwnerRequiredMixin, PerPageMixin, ListView):
         # `record` is a generic relation, so without prefetching it the
         # page fetches one row per entry just to ask whether it can be
         # undone (CLAUDE.md's performance rules).
-        return (
+        entries = (
             AuditLogEntry.objects.select_related("user", "content_type")
             .prefetch_related("record")
             .order_by("-created_at", "-pk")
         )
+        params = self.request.GET
+
+        who = _int_or_none(params.get("who"))
+        if who is not None:
+            entries = entries.filter(user_id=who)
+
+        what = params.get("what", "")
+        if "." in what:
+            app_label, model = what.split(".", 1)
+            entries = entries.filter(content_type__app_label=app_label, content_type__model=model)
+
+        if params.get("action") in AuditLogEntry.Action.values:
+            entries = entries.filter(action=params["action"])
+
+        # `__date` so a range means local calendar days under USE_TZ,
+        # not a UTC instant.
+        since = parse_date(params.get("from", "") or "")
+        if since:
+            entries = entries.filter(created_at__date__gte=since)
+        until = parse_date(params.get("to", "") or "")
+        if until:
+            entries = entries.filter(created_at__date__lte=until)
+
+        return entries
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -825,6 +887,21 @@ class ActivityLogView(OwnerRequiredMixin, PerPageMixin, ListView):
         for entry in context["entries"]:
             rows.append({"entry": entry, "blocked": undo_service.why_not(entry)})
         context["rows"] = rows
+        params = self.request.GET
+        context.update(
+            who=params.get("who", ""),
+            what=params.get("what", ""),
+            action=params.get("action", ""),
+            date_from=params.get("from", ""),
+            date_to=params.get("to", ""),
+            action_choices=AuditLogEntry.Action.choices,
+            # Only people and kinds of record that actually appear, so
+            # the filters never offer something that matches nothing.
+            people=User.objects.filter(
+                pk__in=AuditLogEntry.objects.exclude(user__isnull=True).values("user_id")
+            ).order_by("first_name", "last_name", "username"),
+            kinds=_logged_kinds(),
+        )
         return context
 
 
