@@ -148,6 +148,9 @@ for meaningful changes — not for every small fix or documentation tweak.
   file still returns "not found", and is now logged.
 
 ### Changed
+- Demo data seeds finished work on the last few weekdays, so Payroll
+  and the time clock show a real week instead of being empty until the
+  first job of the day ends.
 - Demo data now uses real roads in real towns around Rochester with
   made-up house numbers, so the Map page's lookup demonstrates working.
   The previous invented streets could never be found, which read as the
@@ -187,3 +190,11 @@ for meaningful changes — not for every small fix or documentation tweak.
 - An address OpenStreetMap cannot find can be pinned by hand, either by
   typing the point or by clicking the map. This was promised by the map
   page but had no way to be done.
+- A change log the owner can open, covering every change made in the
+  app — jobs, estimates, invoices, payments, expenses, services, tasks,
+  customers, companies and addresses — with filters by who made it,
+  what kind of record, whether it was created or changed, and when.
+  Changes made in the Django admin or by a direct database edit still
+  do not appear, which the page says.
+- Every form has a Save button at the top as well as the bottom, so a
+  long one no longer needs scrolling to save.
