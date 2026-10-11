@@ -1,4 +1,5 @@
 from django.urls import path
+from django.views.generic import RedirectView
 
 from . import views
 
@@ -31,19 +32,21 @@ urlpatterns = [
         views.ContactDeactivateView.as_view(),
         name="contact_deactivate",
     ),
-    path("leads/", views.LeadListView.as_view(), name="lead_list"),
-    path("leads/add/", views.LeadCreateView.as_view(), name="lead_create"),
-    path("leads/<int:pk>/", views.LeadDetailView.as_view(), name="lead_detail"),
-    path("leads/<int:pk>/edit/", views.LeadUpdateView.as_view(), name="lead_update"),
+    # Leads and deals were folded into customers and estimates in
+    # Phase 17 and retired in Phase 18 unit 5. The two list URLs
+    # redirect rather than 404, because they were linked from the menu
+    # for most of this project's life and somebody will have bookmarked
+    # them. The detail URLs are gone: there is no row to point at.
     path(
-        "leads/<int:pk>/convert/",
-        views.LeadConvertView.as_view(),
-        name="lead_convert",
+        "leads/",
+        RedirectView.as_view(pattern_name="crm:contact_list", permanent=True, query_string=True),
+        name="lead_list",
     ),
-    path("deals/", views.DealListView.as_view(), name="deal_list"),
-    path("deals/add/", views.DealCreateView.as_view(), name="deal_create"),
-    path("deals/<int:pk>/", views.DealDetailView.as_view(), name="deal_detail"),
-    path("deals/<int:pk>/edit/", views.DealUpdateView.as_view(), name="deal_update"),
+    path(
+        "deals/",
+        RedirectView.as_view(pattern_name="jobs:quote_list", permanent=True),
+        name="deal_list",
+    ),
     path("activities/", views.ActivityListView.as_view(), name="activity_list"),
     path("activities/add/", views.ActivityCreateView.as_view(), name="activity_create"),
     path("tasks/", views.TaskListView.as_view(), name="task_list"),

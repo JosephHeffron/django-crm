@@ -32,8 +32,6 @@ ROOT = Path(settings.BASE_DIR)
 FORM_TEMPLATES = {
     "apps/crm/templates/crm/contact_form.html": "contact-form",
     "apps/crm/templates/crm/company_form.html": "company-form",
-    "apps/crm/templates/crm/lead_form.html": "lead-form",
-    "apps/crm/templates/crm/deal_form.html": "deal-form",
     "apps/crm/templates/crm/task_form.html": "task-form",
     "apps/crm/templates/crm/activity_form.html": "activity-form",
     "apps/crm/templates/crm/property_form.html": "address-form",

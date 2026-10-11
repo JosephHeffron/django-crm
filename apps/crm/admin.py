@@ -6,8 +6,6 @@ from .models import (
     BusinessPlan,
     Company,
     Contact,
-    Deal,
-    Lead,
     Note,
     PlanChecklistItem,
     Property,
@@ -37,34 +35,6 @@ class ContactAdmin(admin.ModelAdmin):
     inlines = [PropertyInline]
 
 
-class ReadOnlyLegacyAdmin(admin.ModelAdmin):
-    """Lead and Deal were folded into Contact and Quote in Phase 17
-    (jobs/0003) and are dropped in Phase 18 — kept visible, read-only."""
-
-    def has_add_permission(self, request):
-        return False
-
-    def has_change_permission(self, request, obj=None):
-        return False
-
-    def has_delete_permission(self, request, obj=None):
-        return False
-
-
-@admin.register(Lead)
-class LeadAdmin(ReadOnlyLegacyAdmin):
-    list_display = ("name", "company_name", "status", "source", "owner", "created_at")
-    list_filter = ("status", "source")
-    search_fields = ("name", "company_name", "email")
-
-
-@admin.register(Deal)
-class DealAdmin(ReadOnlyLegacyAdmin):
-    list_display = ("title", "company", "contact", "stage", "value", "owner", "expected_close_date")
-    list_filter = ("stage",)
-    search_fields = ("title",)
-
-
 @admin.register(Task)
 class TaskAdmin(admin.ModelAdmin):
     list_display = ("title", "kind", "assigned_to", "status", "priority", "due_date")
@@ -79,8 +49,6 @@ class ActivityAdmin(admin.ModelAdmin):
         "activity_type",
         "company",
         "contact",
-        "lead",
-        "deal",
         "created_by",
         "created_at",
     )

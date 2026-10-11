@@ -41,9 +41,7 @@
               <td data-label="Related to">
                 {% if activity.company %}<a href="{{ activity.company.get_absolute_url }}">{{ activity.company.name }}</a>{% endif %}
                 {% if activity.contact %}<a href="{{ activity.contact.get_absolute_url }}">{{ activity.contact }}</a>{% endif %}
-                {% if activity.lead %}<a href="{{ activity.lead.get_absolute_url }}">{{ activity.lead.name }}</a>{% endif %}
-                {% if activity.deal %}<a href="{{ activity.deal.get_absolute_url }}">{{ activity.deal.title }}</a>{% endif %}
-                {% if not activity.company and not activity.contact and not activity.lead and not activity.deal %}—{% endif %}
+                {% if not activity.company and not activity.contact %}—{% endif %}
               </td>
               <td data-label="By">{{ activity.created_by }}</td>
             </tr>

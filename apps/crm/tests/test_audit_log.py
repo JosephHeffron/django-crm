@@ -2,7 +2,7 @@ from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.urls import reverse
 
-from apps.crm.models import Activity, AuditLogEntry, Company, Contact, Deal, Lead
+from apps.crm.models import Activity, AuditLogEntry, Company, Contact
 from apps.crm.tests._helpers import grant_role
 
 User = get_user_model()
@@ -185,136 +185,6 @@ class ContactAuditLogTests(TestCase):
         self.client.post(reverse("crm:contact_deactivate", args=[contact.pk]))
         entries = list(AuditLogEntry.objects.filter(object_id=contact.pk))
         self.assertEqual(entries[0].changes, {"is_active": ["True", "False"]})
-
-
-class LeadAndConversionAuditLogTests(TestCase):
-    def setUp(self):
-        self.user = User.objects.create_user("alice", password="correct-horse-battery")
-        grant_role(self.user)
-        self.client.login(username="alice", password="correct-horse-battery")
-
-    def test_lead_create_logs_a_created_entry(self):
-        self.client.post(
-            reverse("crm:lead_create"),
-            {
-                "name": "Jane Prospect",
-                "company_name": "",
-                "email": "",
-                "phone": "",
-                "source": "other",
-                "status": "new",
-                "notes": "",
-            },
-        )
-        lead = Lead.objects.get(name="Jane Prospect")
-        self.assertTrue(AuditLogEntry.objects.filter(object_id=lead.pk, action="created").exists())
-
-    def test_conversion_logs_entries_for_new_company_contact_deal_and_lead(self):
-        lead = Lead.objects.create(name="Jane Prospect", created_by=self.user)
-        AuditLogEntry.objects.all().delete()
-
-        self.client.post(
-            reverse("crm:lead_convert", args=[lead.pk]),
-            {
-                "new_company_name": "Jane Co",
-                "contact_first_name": "Jane",
-                "contact_last_name": "Prospect",
-                "contact_email": "",
-                "contact_phone": "",
-                "create_deal": "on",
-                "deal_title": "Jane deal",
-                "deal_value": "",
-            },
-        )
-        lead.refresh_from_db()
-
-        self.assertTrue(
-            AuditLogEntry.objects.filter(
-                object_id=lead.converted_company.pk, action="created"
-            ).exists()
-        )
-        self.assertTrue(
-            AuditLogEntry.objects.filter(
-                object_id=lead.converted_contact.pk, action="created"
-            ).exists()
-        )
-        self.assertTrue(
-            AuditLogEntry.objects.filter(
-                object_id=lead.converted_deal.pk, action="created"
-            ).exists()
-        )
-        lead_entry = AuditLogEntry.objects.get(object_id=lead.pk, action="updated")
-        self.assertEqual(lead_entry.changes, {"status": ["new", "converted"]})
-
-    def test_conversion_with_existing_company_does_not_log_a_spurious_creation(self):
-        existing_company = Company.objects.create(name="Existing Co", created_by=self.user)
-        lead = Lead.objects.create(name="Bob Prospect", created_by=self.user)
-        AuditLogEntry.objects.all().delete()
-
-        self.client.post(
-            reverse("crm:lead_convert", args=[lead.pk]),
-            {
-                "existing_company": existing_company.pk,
-                "contact_first_name": "Bob",
-                "contact_last_name": "Prospect",
-                "contact_email": "",
-                "contact_phone": "",
-                "create_deal": "",
-                "deal_title": "",
-                "deal_value": "",
-            },
-        )
-        self.assertFalse(
-            AuditLogEntry.objects.filter(object_id=existing_company.pk, action="created").exists()
-        )
-
-
-class DealAuditLogTests(TestCase):
-    def setUp(self):
-        self.user = User.objects.create_user("alice", password="correct-horse-battery")
-        grant_role(self.user)
-        self.client.login(username="alice", password="correct-horse-battery")
-        self.company = Company.objects.create(name="Acme Corp", created_by=self.user)
-
-    def test_create_logs_a_created_entry(self):
-        self.client.post(
-            reverse("crm:deal_create"),
-            {
-                "title": "Acme deal",
-                "company": self.company.pk,
-                "contact": "",
-                "value": "",
-                "stage": "prospecting",
-                "probability": "",
-                "expected_close_date": "",
-                "notes": "",
-            },
-        )
-        deal = Deal.objects.get(title="Acme deal")
-        self.assertTrue(AuditLogEntry.objects.filter(object_id=deal.pk, action="created").exists())
-
-    def test_stage_change_is_logged(self):
-        deal = Deal.objects.create(title="Acme deal", company=self.company, created_by=self.user)
-        AuditLogEntry.objects.all().delete()
-
-        self.client.post(
-            reverse("crm:deal_update", args=[deal.pk]),
-            {
-                "title": "Acme deal",
-                "company": self.company.pk,
-                "contact": "",
-                "value": "",
-                "stage": "closed_won",
-                "probability": "",
-                "expected_close_date": "",
-                "notes": "",
-            },
-        )
-        entries = list(
-            AuditLogEntry.objects.filter(object_id=deal.pk, action=AuditLogEntry.Action.UPDATED)
-        )
-        self.assertEqual(len(entries), 1)
-        self.assertEqual(entries[0].changes, {"stage": ["prospecting", "closed_won"]})
 
 
 class WhatIsAndIsNotAuditedTests(TestCase):

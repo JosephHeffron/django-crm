@@ -2,7 +2,7 @@ from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.urls import NoReverseMatch, reverse
 
-from apps.crm.models import Activity, Company, Contact, Deal, Lead
+from apps.crm.models import Activity, Company, Contact
 from apps.crm.tests._helpers import grant_role
 
 User = get_user_model()
@@ -74,10 +74,6 @@ class ActivityCreateViewTests(TestCase):
         self.contact = Contact.objects.create(
             first_name="Ada", last_name="Lovelace", created_by=self.user
         )
-        self.lead = Lead.objects.create(name="Jane Prospect", created_by=self.user)
-        self.deal = Deal.objects.create(
-            title="Acme deal", company=self.company, created_by=self.user
-        )
 
     def test_anonymous_user_is_redirected(self):
         self.client.logout()
@@ -139,20 +135,6 @@ class ActivityCreateViewTests(TestCase):
         )
         self.assertRedirects(response, self.contact.get_absolute_url())
 
-    def test_redirect_falls_back_to_lead(self):
-        response = self.client.post(
-            reverse("crm:activity_create"),
-            {"activity_type": "call", "subject": "Cold call", "lead": self.lead.pk},
-        )
-        self.assertRedirects(response, self.lead.get_absolute_url())
-
-    def test_redirect_falls_back_to_deal(self):
-        response = self.client.post(
-            reverse("crm:activity_create"),
-            {"activity_type": "note", "subject": "Deal note", "deal": self.deal.pk},
-        )
-        self.assertRedirects(response, self.deal.get_absolute_url())
-
     def test_no_activity_update_url_exists(self):
         # Activity is immutable (Activity.save() rejects updates) — no
         # edit view/URL should exist to invite trying.
@@ -162,8 +144,9 @@ class ActivityCreateViewTests(TestCase):
 
 class ActivityTimelineOnDetailPagesTests(TestCase):
     """The reusable timeline (crm/_activity_timeline.html) appears on
-    Company/Contact/Lead/Deal detail pages, each linking to
-    activity_create with the right relation pre-selected."""
+    the Company and Contact detail pages, each linking to
+    activity_create with the right relation pre-selected. It was on the
+    Lead and Deal pages too until Phase 18 unit 5 retired both."""
 
     def setUp(self):
         self.user = User.objects.create_user("alice", password="correct-horse-battery")
@@ -172,10 +155,6 @@ class ActivityTimelineOnDetailPagesTests(TestCase):
         self.company = Company.objects.create(name="Acme Corp", created_by=self.user)
         self.contact = Contact.objects.create(
             first_name="Ada", last_name="Lovelace", created_by=self.user
-        )
-        self.lead = Lead.objects.create(name="Jane Prospect", created_by=self.user)
-        self.deal = Deal.objects.create(
-            title="Acme deal", company=self.company, created_by=self.user
         )
 
     def test_company_detail_shows_timeline_and_log_link(self):
@@ -199,28 +178,6 @@ class ActivityTimelineOnDetailPagesTests(TestCase):
         response = self.client.get(self.contact.get_absolute_url())
         self.assertContains(response, "Contact email")
         self.assertContains(response, f"{reverse('crm:activity_create')}?contact={self.contact.pk}")
-
-    def test_lead_detail_shows_timeline_and_log_link(self):
-        Activity.objects.create(
-            activity_type=Activity.ActivityType.CALL,
-            subject="Lead call",
-            lead=self.lead,
-            created_by=self.user,
-        )
-        response = self.client.get(self.lead.get_absolute_url())
-        self.assertContains(response, "Lead call")
-        self.assertContains(response, f"{reverse('crm:activity_create')}?lead={self.lead.pk}")
-
-    def test_deal_detail_shows_timeline_and_log_link(self):
-        Activity.objects.create(
-            activity_type=Activity.ActivityType.MEETING,
-            subject="Deal meeting",
-            deal=self.deal,
-            created_by=self.user,
-        )
-        response = self.client.get(self.deal.get_absolute_url())
-        self.assertContains(response, "Deal meeting")
-        self.assertContains(response, f"{reverse('crm:activity_create')}?deal={self.deal.pk}")
 
     def test_empty_timeline_shows_placeholder(self):
         response = self.client.get(self.company.get_absolute_url())

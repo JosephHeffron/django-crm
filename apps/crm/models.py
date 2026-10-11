@@ -91,7 +91,11 @@ class Contact(models.Model):
     )
     tags = models.ManyToManyField(Tag, blank=True, related_name="contacts")
     # Set only by the Phase 17 Lead → Contact data migration, so the
-    # fold can be verified and reversed; dropped with Lead in Phase 18.
+    # fold can be verified and traced back. Phase 18 unit 5 retired the
+    # Lead model but deliberately left `crm_lead` in the database
+    # (crm/0011), so this is still the pointer from a customer to the
+    # row they were folded from — kept for exactly as long as that
+    # table is.
     legacy_lead_id = models.PositiveIntegerField(null=True, blank=True, editable=False)
     email = models.EmailField(blank=True, db_index=True)
     phone = models.CharField(max_length=30, blank=True)
@@ -224,161 +228,6 @@ class Property(models.Model):
         )
 
 
-class Lead(models.Model):
-    class Source(models.TextChoices):
-        WEBSITE = "website", "Website"
-        REFERRAL = "referral", "Referral"
-        COLD_CALL = "cold_call", "Cold call"
-        EVENT = "event", "Event"
-        OTHER = "other", "Other"
-
-    class Status(models.TextChoices):
-        NEW = "new", "New"
-        CONTACTED = "contacted", "Contacted"
-        QUALIFIED = "qualified", "Qualified"
-        UNQUALIFIED = "unqualified", "Unqualified"
-        CONVERTED = "converted", "Converted"
-
-    name = models.CharField(max_length=200)
-    company_name = models.CharField(max_length=255, blank=True)
-    email = models.EmailField(blank=True)
-    phone = models.CharField(max_length=30, blank=True)
-    source = models.CharField(max_length=20, choices=Source.choices, default=Source.OTHER)
-    status = models.CharField(
-        max_length=20, choices=Status.choices, default=Status.NEW, db_index=True
-    )
-    notes = models.TextField(blank=True)
-    owner = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        null=True,
-        blank=True,
-        on_delete=models.PROTECT,
-        related_name="owned_leads",
-    )
-    created_by = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.PROTECT,
-        related_name="created_leads",
-    )
-    converted_at = models.DateTimeField(null=True, blank=True)
-    converted_company = models.ForeignKey(
-        Company,
-        null=True,
-        blank=True,
-        on_delete=models.SET_NULL,
-        related_name="converted_from_leads",
-    )
-    converted_contact = models.ForeignKey(
-        Contact,
-        null=True,
-        blank=True,
-        on_delete=models.SET_NULL,
-        related_name="converted_from_leads",
-    )
-    converted_deal = models.ForeignKey(
-        "Deal",
-        null=True,
-        blank=True,
-        on_delete=models.SET_NULL,
-        related_name="converted_from_leads",
-    )
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-
-    class Meta:
-        ordering = ["-created_at"]
-        indexes = [
-            models.Index(fields=["status"]),
-            models.Index(fields=["owner"]),
-            models.Index(fields=["created_at"]),
-        ]
-
-    def __str__(self):
-        return self.name
-
-    def get_absolute_url(self):
-        return reverse("crm:lead_detail", kwargs={"pk": self.pk})
-
-
-class Deal(models.Model):
-    class Stage(models.TextChoices):
-        PROSPECTING = "prospecting", "Prospecting"
-        QUALIFICATION = "qualification", "Qualification"
-        PROPOSAL = "proposal", "Proposal"
-        NEGOTIATION = "negotiation", "Negotiation"
-        CLOSED_WON = "closed_won", "Closed won"
-        CLOSED_LOST = "closed_lost", "Closed lost"
-
-    CLOSED_STAGES = (Stage.CLOSED_WON, Stage.CLOSED_LOST)
-
-    title = models.CharField(max_length=255)
-    company = models.ForeignKey(
-        Company,
-        null=True,
-        blank=True,
-        on_delete=models.PROTECT,
-        related_name="deals",
-    )
-    contact = models.ForeignKey(
-        Contact,
-        null=True,
-        blank=True,
-        on_delete=models.PROTECT,
-        related_name="deals",
-    )
-    value = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
-    stage = models.CharField(
-        max_length=20, choices=Stage.choices, default=Stage.PROSPECTING, db_index=True
-    )
-    probability = models.PositiveSmallIntegerField(null=True, blank=True)
-    expected_close_date = models.DateField(null=True, blank=True)
-    closed_at = models.DateTimeField(null=True, blank=True)
-    notes = models.TextField(blank=True)
-    owner = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        null=True,
-        blank=True,
-        on_delete=models.PROTECT,
-        related_name="owned_deals",
-    )
-    created_by = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.PROTECT,
-        related_name="created_deals",
-    )
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-
-    class Meta:
-        ordering = ["-created_at"]
-        constraints = [
-            models.CheckConstraint(
-                condition=models.Q(company__isnull=False) | models.Q(contact__isnull=False),
-                name="deal_has_company_or_contact",
-            ),
-            models.CheckConstraint(
-                condition=models.Q(probability__isnull=True)
-                | (models.Q(probability__gte=0) & models.Q(probability__lte=100)),
-                name="deal_probability_between_0_and_100",
-            ),
-        ]
-        indexes = [
-            models.Index(fields=["stage"]),
-            models.Index(fields=["owner"]),
-            models.Index(fields=["expected_close_date"]),
-        ]
-
-    @property
-    def is_open(self):
-        return self.stage not in self.CLOSED_STAGES
-
-    def __str__(self):
-        return self.title
-
-    def get_absolute_url(self):
-        return reverse("crm:deal_detail", kwargs={"pk": self.pk})
-
-
 class Task(models.Model):
     class Kind(models.TextChoices):
         GENERAL = "general", "General"
@@ -408,13 +257,6 @@ class Task(models.Model):
     )
     contact = models.ForeignKey(
         Contact,
-        null=True,
-        blank=True,
-        on_delete=models.SET_NULL,
-        related_name="tasks",
-    )
-    deal = models.ForeignKey(
-        Deal,
         null=True,
         blank=True,
         on_delete=models.SET_NULL,
@@ -493,12 +335,17 @@ class Task(models.Model):
 
 
 class AuditLogEntry(models.Model):
-    """Who changed a Company/Contact/Lead/Deal, what changed, and when.
+    """Who changed a record, what changed, and when.
 
     Deliberately lightweight — no reconstruction of past states, no
-    revert, no event-sourcing (docs/DATABASE_DESIGN.md's "Audit history"
-    section). Only Company/Contact/Lead/Deal are ever pointed at here;
-    Task and Activity are out of scope (see that section for why).
+    event-sourcing (docs/DATABASE_DESIGN.md's "Audit history" section).
+
+    The generic relation points at whatever an audited view saved, which
+    Phase 18.5 unit 5 widened from the four original CRM models to every
+    record the app writes. Undo is narrower than recording on purpose:
+    `undo.UNDOABLE_MODELS` is the allow-list, because restoring a field
+    without going through its model's own front door can leave related
+    state behind.
     """
 
     class Action(models.TextChoices):
@@ -563,20 +410,6 @@ class Activity(models.Model):
     )
     contact = models.ForeignKey(
         Contact,
-        null=True,
-        blank=True,
-        on_delete=models.SET_NULL,
-        related_name="activities",
-    )
-    lead = models.ForeignKey(
-        Lead,
-        null=True,
-        blank=True,
-        on_delete=models.SET_NULL,
-        related_name="activities",
-    )
-    deal = models.ForeignKey(
-        Deal,
         null=True,
         blank=True,
         on_delete=models.SET_NULL,

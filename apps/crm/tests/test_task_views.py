@@ -8,7 +8,7 @@ from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
 from django.utils import timezone
 
-from apps.crm.models import Company, Contact, Deal, Task
+from apps.crm.models import Company, Contact, Task
 from apps.crm.tests._helpers import grant_role
 
 User = get_user_model()
@@ -106,9 +106,6 @@ class TaskCreateViewTests(TestCase):
             first_name="Ada", last_name="Lovelace", created_by=self.user
         )
         self.company = Company.objects.create(name="Acme Corp", created_by=self.user)
-        self.deal = Deal.objects.create(
-            title="Acme deal", company=self.company, created_by=self.user
-        )
 
     def test_anonymous_user_is_redirected(self):
         self.client.logout()
@@ -124,9 +121,9 @@ class TaskCreateViewTests(TestCase):
         self.assertEqual(response.context["form"].initial.get("contact"), self.contact.pk)
 
     def test_get_with_invalid_query_param_does_not_error(self):
-        response = self.client.get(reverse("crm:task_create"), {"deal": "abc"})
+        response = self.client.get(reverse("crm:task_create"), {"quote": "abc"})
         self.assertEqual(response.status_code, 200)
-        self.assertNotIn("deal", response.context["form"].initial)
+        self.assertNotIn("quote", response.context["form"].initial)
 
     def test_create_sets_created_by(self):
         response = self.client.post(
@@ -297,22 +294,12 @@ class TaskLinkedFromRelatedDetailPagesTests(TestCase):
             first_name="Ada", last_name="Lovelace", created_by=self.user
         )
         self.company = Company.objects.create(name="Acme Corp", created_by=self.user)
-        self.deal = Deal.objects.create(
-            title="Acme deal", company=self.company, created_by=self.user
-        )
 
     def test_contact_detail_links_to_task(self):
         task = Task.objects.create(
             title="Call Ada", assigned_to=self.user, created_by=self.user, contact=self.contact
         )
         response = self.client.get(self.contact.get_absolute_url())
-        self.assertContains(response, task.get_absolute_url())
-
-    def test_deal_detail_links_to_task(self):
-        task = Task.objects.create(
-            title="Chase deal", assigned_to=self.user, created_by=self.user, deal=self.deal
-        )
-        response = self.client.get(self.deal.get_absolute_url())
         self.assertContains(response, task.get_absolute_url())
 
 
@@ -343,7 +330,9 @@ class TaskFormFieldTests(TestCase):
 
     def test_the_form_asks_for_an_estimate_not_a_deal(self):
         # Deals were folded into estimates in Phase 17, so the deal
-        # dropdown could only ever render empty.
+        # dropdown could only ever render empty; Phase 18 unit 5 then
+        # retired the model. Still asserted, not assumed: the field
+        # must not come back.
         fields = self.form().fields
         self.assertIn("quote", fields)
         self.assertNotIn("deal", fields)
@@ -372,29 +361,6 @@ class TaskFormFieldTests(TestCase):
             },
         )
         self.assertEqual(Task.objects.get(title="Chase it up").quote_id, quote.pk)
-
-    def test_a_task_still_naming_an_old_deal_keeps_it_through_an_edit(self):
-        # The model field stays until Phase 18 removes it; an edit must
-        # not quietly wipe a legacy row's deal.
-        company = Company.objects.create(name="Acme", created_by=self.user)
-        customer = self.contact("Pat", "Homeowner", company=company)
-        deal = Deal.objects.create(
-            title="Old deal", company=company, contact=customer, created_by=self.user
-        )
-        task = Task.objects.create(
-            title="Legacy", assigned_to=self.user, created_by=self.user, deal=deal
-        )
-        self.client.post(
-            reverse("crm:task_update", args=[task.pk]),
-            {
-                "title": "Legacy renamed",
-                "assigned_to": self.user.pk,
-                "priority": Task.Priority.MEDIUM,
-                "status": Task.Status.PENDING,
-            },
-        )
-        task.refresh_from_db()
-        self.assertEqual((task.title, task.deal_id), ("Legacy renamed", deal.pk))
 
     def test_an_estimate_belonging_to_someone_else_is_refused(self):
         """Two fields that must agree are two fields that can disagree.
@@ -440,24 +406,6 @@ class TaskFormFieldTests(TestCase):
             },
         )
         self.assertEqual(Task.objects.get(title="Matched").quote_id, quote.pk)
-
-    def test_the_page_still_shows_a_deal_on_a_task_that_only_names_one(self):
-        """Replacing the Deal row with an Estimate row hid the link.
-
-        The field stays until Phase 18 removes the model, so a legacy
-        task has to keep showing what it points at.
-        """
-        company = Company.objects.create(name="Acme", created_by=self.user)
-        customer = self.contact("Pat", "Homeowner", company=company)
-        deal = Deal.objects.create(
-            title="Old deal", company=company, contact=customer, created_by=self.user
-        )
-        task = Task.objects.create(
-            title="Legacy", assigned_to=self.user, created_by=self.user, deal=deal
-        )
-        response = self.client.get(reverse("crm:task_detail", args=[task.pk]))
-        self.assertContains(response, "Old deal")
-        self.assertContains(response, deal.get_absolute_url())
 
     def test_customers_are_listed_surname_first(self):
         self.contact("Daniel", "Adams")

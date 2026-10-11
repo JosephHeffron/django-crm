@@ -43,17 +43,6 @@
     <p>No contacts yet.</p>
   {% endif %}
 
-  <h2>Deals</h2>
-  {% if deals %}
-    <ul>
-      {% for deal in deals %}
-        <li><a href="{{ deal.get_absolute_url }}">{{ deal.title }}</a> — {{ deal.get_stage_display }}</li>
-      {% endfor %}
-    </ul>
-  {% else %}
-    <p>No deals yet.</p>
-  {% endif %}
-
   {% include "crm/_activity_timeline.html" %}
 
   {% include "crm/_audit_history.html" %}

@@ -99,16 +99,6 @@
     </section>
   </div>
 
-  {% if deals %}
-    <section class="card section-gap">
-      <h2 class="card-title">Deals (before quotes)</h2>
-      <ul class="list-plain">
-        {% for deal in deals %}
-          <li><a href="{{ deal.get_absolute_url }}">{{ deal.title }}</a> — {{ deal.get_stage_display }}</li>
-        {% endfor %}
-      </ul>
-    </section>
-  {% endif %}
 
   <section class="card section-gap">
     <h2 class="card-title">Timeline</h2>

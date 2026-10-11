@@ -37,7 +37,7 @@ django-crm/
 │   ├── core/                # cross-cutting: health check, dashboard, search,
 │   │                         #   base template, error pages
 │   ├── users/                # authentication, permissions, user profile
-│   └── crm/                  # domain: companies, contacts, leads, deals,
+│   └── crm/                  # domain: companies, contacts, addresses,
 │                              #   activities, tasks
 ├── templates/                # project-level template overrides/base layout
 ├── static/                   # project-level CSS (no JS build step)

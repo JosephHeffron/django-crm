@@ -1,7 +1,7 @@
 from django.contrib.auth import get_user_model
 from django.test import TestCase
 
-from apps.crm.models import Activity, Company, Contact, Deal, Lead
+from apps.crm.models import Activity, Company, Contact
 
 User = get_user_model()
 
@@ -38,8 +38,6 @@ class ActivityModelTests(TestCase):
         )
         self.assertIsNone(activity.company)
         self.assertIsNone(activity.contact)
-        self.assertIsNone(activity.lead)
-        self.assertIsNone(activity.deal)
 
     def test_activity_with_contact_only(self):
         contact = Contact.objects.create(
@@ -52,26 +50,6 @@ class ActivityModelTests(TestCase):
             created_by=self.creator,
         )
         self.assertEqual(activity.contact, contact)
-
-    def test_activity_with_lead_only(self):
-        lead = Lead.objects.create(name="Jane Prospect", created_by=self.creator)
-        activity = Activity.objects.create(
-            activity_type=Activity.ActivityType.NOTE,
-            subject="Left voicemail",
-            lead=lead,
-            created_by=self.creator,
-        )
-        self.assertEqual(activity.lead, lead)
-
-    def test_activity_with_deal_only(self):
-        deal = Deal.objects.create(title="Acme deal", company=self.company, created_by=self.creator)
-        activity = Activity.objects.create(
-            activity_type=Activity.ActivityType.MEETING,
-            subject="Proposal review",
-            deal=deal,
-            created_by=self.creator,
-        )
-        self.assertEqual(activity.deal, deal)
 
     def test_company_deletion_sets_activity_relation_null_not_cascade(self):
         # Regression test for docs/DATABASE_REVIEW.md finding #2: this
@@ -92,20 +70,24 @@ class ActivityModelTests(TestCase):
         # The original bug this fix addresses: an Activity tagged to
         # both a Company and a Deal used to be destroyed entirely if
         # only the Deal was deleted, even though the Company (and the
-        # Activity's relevance to it) was untouched.
-        deal = Deal.objects.create(title="Acme deal", company=self.company, created_by=self.creator)
+        # Activity's relevance to it) was untouched. Deal was retired in
+        # Phase 18 unit 5; contact is the remaining second relation, and
+        # the invariant is the same one.
+        contact = Contact.objects.create(
+            first_name="Ada", last_name="Lovelace", company=self.company, created_by=self.creator
+        )
         activity = Activity.objects.create(
             activity_type=Activity.ActivityType.CALL,
-            subject="Call about the deal",
+            subject="Call about the work",
             company=self.company,
-            deal=deal,
+            contact=contact,
             created_by=self.creator,
         )
-        deal.delete()
+        contact.delete()
         activity.refresh_from_db()
         self.assertTrue(Company.objects.filter(pk=self.company.pk).exists())
         self.assertTrue(Activity.objects.filter(pk=activity.pk).exists())
-        self.assertIsNone(activity.deal)
+        self.assertIsNone(activity.contact)
         self.assertEqual(activity.company, self.company)
 
     def test_activity_can_end_up_with_no_relations_after_full_degradation(self):

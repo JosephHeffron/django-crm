@@ -51,8 +51,6 @@ RESTORABLE = (
 UNDOABLE_MODELS = {
     ("crm", "company"),
     ("crm", "contact"),
-    ("crm", "lead"),
-    ("crm", "deal"),
 }
 
 
@@ -61,8 +59,6 @@ UNDOABLE_MODELS = {
 # never happened while all of that still exists. The log records one
 # field; these changes are never one field.
 LIFECYCLE_FIELDS = {
-    ("crm", "lead", "status"),
-    ("crm", "deal", "stage"),
     ("crm", "contact", "status"),
     ("crm", "task", "status"),
 }
