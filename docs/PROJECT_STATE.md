@@ -4,7 +4,7 @@ Update this file at the end of every session (see `CLAUDE.md`'s Session
 Close Procedure). Do not describe anything as complete unless it was
 actually verified.
 
-> **Last updated 2026-10-06.** Repo is clean (`main` up to date, nothing
+> **Last updated 2026-10-11.** Repo is clean (`main` up to date, nothing
 > uncommitted). The original 14-phase roadmap is fully complete (see
 > "Project complete" below). The post-release roadmap
 > (`docs/ROADMAP.md`'s "Phase 15+") is now underway: **Phase 15
@@ -16,14 +16,29 @@ actually verified.
 > check found zero violations, including after a real Sourcery-caught
 > bug (an un-nonced inline style on the production 500 page) was fixed.
 > Phase 17 (field-service foundation) is complete. Phase 17.5 (UI restyle) is complete — all 11 steps done.
-> **Phase 18 (quotes and jobs workflow) is underway: unit 1 (private
-> media) is merged** (PR #130, 815 tests). It closed a live exposure —
-> job photos and profile pictures under `media/private/` were served
-> straight from disk by Caddy and readable by anyone with the URL.
-> Worth reading the phase log before trusting a config test: the first
-> fix did not work and the test guarding it passed anyway, twice, for
-> the same reason (it searched the Caddyfile's text instead of the
-> configuration Caddy actually runs).
+> **Phase 18 (quotes and jobs workflow) is complete** — five units
+> merged (PRs #130, #148, #149, #150, #151), 1,000 tests. Before
+> marking it done, the two roadmap items the restyle might or might not
+> have covered were checked rather than assumed: quote status
+> transitions are delivered through `QuoteForm.status`
+> (Draft/Sent/Accepted/Declined/Expired, with unit 3 gating
+> "Schedule this work" on Accepted), and scheduling with crew
+> assignment through `JobForm.crew`. Note a quote's status is changed
+> by editing the quote, not by a one-click button the way a job's is
+> (Phase 18.5 unit 3 built `JobStatusView` for jobs only) — a UX
+> difference, not a missing roadmap item.
+> Unit 1 closed a live exposure — job photos and profile pictures under
+> `media/private/` were served straight from disk by Caddy and readable
+> by anyone with the URL. Worth reading its phase log before trusting a
+> config test: the first fix did not work and the test guarding it
+> passed anyway, twice, for the same reason (it searched the
+> Caddyfile's text instead of the configuration Caddy actually runs).
+> Unit 2 then implemented the EXIF-GPS stripping ADR 0009 had promised
+> and nothing had built — a photo of a customer's house carries their
+> home address until it is re-encoded. Unit 5's log is the one to read
+> before touching a migration: a drop of three empty columns that
+> looked obviously right would have broken every build of a fresh
+> database, including CI's.
 > **Phase 18.5 (twelve owner-reported items) is complete** — all six
 > units merged (PRs #133, #135, #137, #139, #144 and #146), 1,001 tests
 > (819 before the phase began).
@@ -57,8 +72,7 @@ actually verified.
 The original 14-phase roadmap (Phases 0-14) is fully complete — see
 "Project complete," below, for the summary, and "Completed" for full
 phase-by-phase detail. The post-release roadmap is now underway:
-Phases 15-17.5 are complete and Phase 18 is underway — see
-"Post-release roadmap progress,"
+Phases 15-18.5 are complete — see "Post-release roadmap progress,"
 below, for current status. This section deliberately stays short and points at
 those two rather than duplicating them, so it can't drift out of sync
 with them the way an earlier version of this section once did (it
@@ -1099,47 +1113,122 @@ roadmap completed:
   Payroll work, and the mutation checks that should have caught it
   passed too, because they ran at an hour when the bug cannot manifest.
   A test now pins the clock.
-- Phase 18 units 2-5 and Phases 19-25: not yet started (re-sequenced in
-  `docs/ROADMAP.md`).
+- Phase 18 unit 2 — **job and estimate photos**. Before/after photos on
+  a job and reference photos on an estimate, through a file input
+  carrying `capture`, which opens the camera on a phone. Every photo is
+  decoded and re-encoded before storage, so what is kept is a JPEG this
+  code produced and **never the bytes the phone sent** — which is what
+  strips the GPS coordinates a phone writes into a photo of a
+  customer's house, their home address in a file staff can open.
+  ADR 0009 promised that stripping and nothing had implemented it.
+  Measured on a real upload: 3200×2400 with metadata became 2000×1500
+  with none. Orientation is applied first, because which way up the
+  photo goes lives in the metadata about to be discarded.
+
+  HEIC is refused with a sentence naming the iPhone setting, rather
+  than adding `pillow-heif` to ship to the Pi for a case iOS normally
+  converts away. That needed an unexpected correction: Django's form
+  `ImageField` validates with Pillow *before* `clean_image` runs and
+  calls a HEIC "not an image or a corrupted image", which is wrong and
+  made the real message unreachable — so the form takes a plain
+  `FileField` and `process_photo` owns validation. Whoever added a
+  photo can remove it, and so can the Owner; the file goes with the
+  row. 1,034 tests. Full detail in
+  `logs/claude/phase-18-unit2-job-photos.md`.
+- Phase 18 unit 3 — **an accepted estimate becomes a job**. A job's
+  start and end are both required and only a person knows them, so the
+  button cannot create the job outright; what it saves is the
+  retyping. The job form opens with the customer, address, service,
+  salesperson and every line of work filled in. Accepted-only is
+  checked in the view, not just hidden in the template, because a URL
+  can be typed and booking work the customer declined is worse than
+  booking work they have not seen. Two things got right only after
+  getting wrong: the estimate link sat in the form's `initial`, where
+  it does nothing because `quote` is not a form field, and the formset
+  rendered one blank row for a two-line estimate — a formset renders
+  exactly as many rows as it is told to, whatever initial data it is
+  handed, and that exact bug had already happened in this project when
+  invoicing a multi-line job. 1,054 tests. Full detail in
+  `logs/claude/phase-18-unit3-estimate-to-job.md`.
+- Phase 18 unit 4 — **moving a job to another time**. The move
+  controls on the day schedule are ordinary form fields and are the
+  baseline, not a fallback: keyboard, screen reader, no JavaScript.
+  Dragging a chip on the week or month view is built on the same
+  endpoint, and only the date moves, because dragging across a week
+  grid says nothing about the hour. Two invariants are asserted rather
+  than trusted: the job keeps its length, and a move never touches the
+  status or the completion date — that date is what the dashboard, the
+  monthly goal, Financials and a crew member's week all read, so a move
+  that quietly re-opened a job would make it vanish from the figures
+  with nothing on screen to say so. The unit's own tests caught a real
+  bug: the date box offers minute precision while a stored start
+  carries seconds, so an unchanged submission always wrote. Crews
+  cannot reschedule, though they can mark a job finished. 1,084 tests.
+  Full detail in `logs/claude/phase-18-unit4-reschedule.md`.
+- Phase 18 unit 5 — **Lead and Deal retired, their tables kept**. The
+  models, nine views, seven templates, four test files, the forms, the
+  admin entries, the search branches and the undo entries are all gone.
+  `/leads/` and `/deals/` redirect permanently to Customers and
+  Estimates; their detail pages 404, because there is no record to
+  point at. `crm/0011` is **state-only** — `sqlmigrate` prints a no-op
+  and `migrate crm 0010` reverses the whole thing (ADR 0012).
+
+  Two things worth knowing. **A live 500 nobody had reported:**
+  `ActivityCreateView.get_success_url` built the tuple
+  `(activity.company, activity.contact, activity.lead, activity.deal)`,
+  and Python evaluates a tuple in full before the loop over it starts —
+  so this was not "only when company and contact are both empty", it
+  was every single logged activity. **And a draft of this unit broke
+  every build of a fresh database.** It dropped three empty pointer
+  columns, which looked obviously right; but `jobs/0003`'s fold reads
+  `crm_task.deal_id`, nothing in the graph ordered the two migrations,
+  and Django's topological sort put the retirement first — so the fold
+  failed with "column deal_id does not exist" on any database built
+  from scratch, CI's test database included. The dev database never
+  showed it, because there the retirement was simply the next migration
+  to apply. The drop is gone and the dependency is pinned.
+
+  Sourcery could not review this one: the account's 250,000-diff-character
+  weekly budget was spent, so it posted only a Reviewer's Guide. The
+  owner chose to merge on CI and the local verification rather than
+  wait two days. 1,000 tests (down from 1,084 — four lead/deal test
+  files removed). Full detail in
+  `logs/claude/phase-18-unit5-retire-lead-and-deal.md`.
+- Phases 19-25: not yet started (re-sequenced in `docs/ROADMAP.md`).
 
 ## Currently working on
 
-Nothing in flight — Phase 18.5 is complete (PRs #133, #135, #137, #139,
-#144, #146, plus the seed fix #145).
+Nothing in flight — Phase 18 is complete (PRs #130, #148, #149, #150,
+#151), as is Phase 18.5 (PRs #133, #135, #137, #139, #144, #146, plus
+the seed fix #145).
 
 ## Next
 
-Phase 18.5 is done, so the roadmap resumes at Phase 18's remaining
-units:
+Phase 18 and Phase 18.5 are both complete, so the roadmap moves on to
+**Phase 19 — follow-up automation and tasks hub**: daily follow-up
+generation via a systemd timer (the same pattern as the backup timer),
+per-service intervals, completion logging a contact touch,
+business-plan checklists, notes.
 
-1. **Phase 18 unit 2 — uploading and showing photos.** Unit 1 built
-   only the serving side; nothing displays or uploads a photo yet.
-   Scope is both parents the `Photo` model and the serving view already
-   support: before and after photos on a job, taken on a phone, **and
-   reference photos on an estimate**, which `docs/ROADMAP.md` lists
-   under the quote builder.
+Three things already in place that Phase 19 should build on rather than
+rebuild:
 
-   Two constraints found while verifying unit 1, both recorded in
-   `logs/claude/phase-18-unit1-private-media.md`: Pillow has no HEIF
-   support in this environment, so an `ImageField` upload of a HEIC
-   file is rejected at validation — and iPhones shoot HEIC by default.
-   Most desktop browsers also cannot render HEIC even when labelled
-   correctly. So unit 2 has to choose between relying on iOS converting
-   to JPEG on upload and adding `pillow-heif`. CLAUDE.md's
-   justification checklist is written for new *infrastructure*
-   dependencies rather than a Python library, but the same questions
-   are worth answering here, since this one would ship to the Pi.
-2. Phase 18 unit 3 — turning an accepted estimate into a job in one
-   click.
-3. Phase 18 unit 4 — drag-to-reschedule on the calendar, with a
-   keyboard alternative.
-4. Phase 18 unit 5 — removing the retired Lead and Deal models, whose
-   pages the restyle left alone for that reason.
+1. **Follow-ups already exist as a model and a page.** `Task.Kind.FOLLOW_UP`,
+   the `follow_up_has_contact_and_service` database check, and the
+   `/tasks/follow-ups/` hub tab were all built in Phase 17, and
+   `apps/crm/tests/test_followups.py` covers the overdue logic. What is
+   missing is the *generation* — nothing creates one on a schedule.
+2. **The timer pattern is established.** Phase 15's backup timer is the
+   model to copy: a rootless systemd user timer, not cron, and not
+   Celery (`CLAUDE.md`'s complexity rule).
+3. **Business plans and checklists already exist** (`BusinessPlan`,
+   `PlanChecklistItem`, `/tasks/plans/`), as do notes.
 
-Before calling Phase 18 done, check the remaining items in its
-`docs/ROADMAP.md` entry against what Phase 17.5 actually delivered —
-quote status transitions, and scheduling with crew assignment — rather
-than assuming the restyle covered them.
+One carry-over worth doing early: Sourcery's weekly review budget was
+spent on Phase 18 unit 5, so that PR went in self-reviewed and on CI.
+The budget resets around **2026-10-13** — if anything in unit 5 wants a
+second pair of eyes, `@sourcery-ai review` on a follow-up PR is the
+cheapest way to get it.
 
 ## Known issues
 

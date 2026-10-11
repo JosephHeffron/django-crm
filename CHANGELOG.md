@@ -124,8 +124,8 @@ for meaningful changes — not for every small fix or documentation tweak.
   (`America/New_York`, configurable via `CRM_TIME_ZONE`).
 - Leads are now Contacts with the "Lead" stage and Deals are now
   Quotes (a reversible data migration). The old Lead and Deal pages
-  are out of the menu but still open by URL until Phase 18 removes
-  them.
+  came out of the menu here and stayed reachable by URL until Phase 18
+  removed them — see "Leads and Deals are gone", below.
 - #sales is readable by the Owner and sales reps only.
 - The audit history no longer records fields whose value didn't
   actually change, and records tag changes by name.
@@ -161,8 +161,9 @@ for meaningful changes — not for every small fix or documentation tweak.
   above them instead of below.
 - The task form asked for a deal. Deals were folded into estimates in
   Phase 17, so that dropdown had been empty ever since; it asks for the
-  estimate now. Tasks that still name an old deal keep it and still
-  show it.
+  estimate now. (Tasks still naming an old deal kept it and showed it
+  until Phase 18 retired the model; no task in the database named
+  one.)
 - Customer dropdowns read in the order they are sorted. They were
   already sorted by surname but displayed given names first, so the
   list looked random.
@@ -198,3 +199,37 @@ for meaningful changes — not for every small fix or documentation tweak.
   do not appear, which the page says.
 - Every form has a Save button at the top as well as the bottom, so a
   long one no longer needs scrolling to save.
+
+### Added
+- Before/after photos on a job and reference photos on an estimate,
+  taken with the phone's camera. Every photo is re-encoded before it is
+  stored, so the location a phone records inside a photo of a
+  customer's house never reaches the server. Large photos are scaled
+  down, and the right way up is preserved. HEIC photos are refused with
+  a note saying which iPhone setting to change.
+- An accepted estimate can be scheduled as a job without retyping the
+  work: the job form opens with the customer, address, service,
+  salesperson and every line of the estimate already filled in. Only
+  the time is asked for. The job and the estimate link to each other.
+- A job can be moved to another time from the day schedule — a date and
+  time box, or back a day, on a day, on a week — and by dragging it on
+  the week and month views. A move keeps the job's length and never
+  changes whether it is finished.
+
+### Changed
+- Leads and Deals are gone from the app. They were folded into
+  Customers and Estimates in Phase 17, and their pages, forms and admin
+  entries are now removed. `/leads/` and `/deals/` redirect to
+  Customers and Estimates; the individual lead and deal pages no longer
+  exist. **No data was deleted**: both tables are still in the
+  database, untouched, and the change can be undone with a single
+  migration command.
+
+### Fixed
+- Logging an activity no longer fails after saving it. The page it sent
+  you to was built from fields that had been removed, so every logged
+  call, email, meeting or note ended in an error even though it had
+  been saved.
+- Submitting the move form without changing the time, or dragging a job
+  back where it started, no longer records a change that did not
+  happen.

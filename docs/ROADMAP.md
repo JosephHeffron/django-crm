@@ -136,15 +136,34 @@ insufficient.
       references stay valid. Before Phase 18, so its forms are built in
       the new style. Done in eleven steps; full detail in
       `logs/claude/phase-17.5-step*.md`.
-- [ ] **Phase 18 — Quotes and jobs workflow.** Quote builder (catalog
-      line items, photos), status transitions, accepted quote → job,
-      scheduling and crew assignment, calendar drag-to-reschedule (with
-      a non-drag alternative), before/after camera photo upload with
-      login-gated serving, and removal of the retired Lead/Deal models.
-      (Absorbs the earlier "attachments" item.)
+- [x] **Phase 18 — Quotes and jobs workflow.** Complete. Quote builder
+      (catalog line items, photos), status transitions, accepted quote →
+      job, scheduling and crew assignment, calendar drag-to-reschedule
+      (with a non-drag alternative), before/after camera photo upload
+      with login-gated serving, and removal of the retired Lead/Deal
+      models. (Absorbs the earlier "attachments" item.) Five units.
       - [x] Unit 1 — login-gated serving of everything under
             `media/private/`, and the reverse proxy refusing the path
             (PR #130).
+      - [x] Unit 2 — before/after photos on a job and reference photos
+            on an estimate, through the phone's camera; every upload
+            re-encoded so the GPS coordinates a phone writes into a
+            photo of a customer's house never reach storage, which
+            ADR 0009 promised and nothing had implemented (PR #148).
+      - [x] Unit 3 — an accepted estimate opens the job form with the
+            customer, address, service, salesperson and every line of
+            work already filled in; only the time is asked for, because
+            only a person knows it (PR #149).
+      - [x] Unit 4 — moving a job to another time: move controls on the
+            day schedule that work with no JavaScript as the baseline,
+            with dragging a chip on the week and month views built on
+            the same endpoint. A move keeps the job's length and never
+            touches its completion date (PR #150).
+      - [x] Unit 5 — the retired Lead and Deal models removed, with
+            their tables deliberately kept: `crm/0011` is state-only
+            and runs no SQL (ADR 0012). Fixed a live 500 on every
+            logged activity, and a migration-ordering fault that would
+            have broken every build of a fresh database (PR #151).
 - [x] **Phase 18.5 — Owner-requested fixes.** Complete: all twelve
       items reported
       after testing the running app, cutting across Phases 18, 19 and
