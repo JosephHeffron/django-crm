@@ -62,7 +62,17 @@ emulation on the development workstation instead.
    systemctl --user daemon-reload
    systemctl --user enable --now crm-backup.timer
    ```
-7. **Create the first admin user**:
+7. **Install the follow-up timer**, per
+   `systemd/crm-followups.service`'s own header comment:
+   ```
+   cp systemd/crm-followups.service systemd/crm-followups.timer ~/.config/systemd/user/
+   systemctl --user daemon-reload
+   systemctl --user enable --now crm-followups.timer
+   ```
+   This raises repeat-service follow-ups once a day at 07:00. Skipping
+   it costs no data — nothing breaks, follow-ups simply never appear on
+   their own, and `/tasks/follow-ups/` stays empty.
+8. **Create the first admin user**:
    ```
    podman exec -it django-crm_web_1 python manage.py createsuperuser
    ```
@@ -101,7 +111,7 @@ The Map page shows addresses that have coordinates; getting them calls
 OpenStreetMap's Nominatim, which allows one request a second, so it is a
 command rather than something a page waits on:
 ```
-podman exec -it crm-web python manage.py locate_properties --limit 50
+podman exec -it django-crm_web_1 python manage.py locate_properties --limit 50
 ```
 It only touches addresses with no coordinates, unless you pass `--redo`.
 Addresses Nominatim can't find are named in the output, and anyone can
@@ -157,6 +167,65 @@ public.
 lives under `media/branding/`, so it's covered by the existing
 `media_files` backup. `CRM_BRAND_NAME` remains the default name until
 one is set there.
+
+## Follow-ups, and checking the timers are alive
+
+Two things run on a schedule: the nightly backup and the daily
+follow-up generation (07:00). Both are rootless systemd *user* timers,
+so every command below needs `--user` and must run as the deployment
+account.
+
+```
+systemctl --user list-timers 'crm-*'
+```
+
+That one line is the health check. It shows when each timer last ran
+and when it fires next. What to look for:
+
+- **`LAST` more than a day ago** on `crm-followups.timer` — the timer
+  is not firing. Check `systemctl --user is-enabled crm-followups.timer`.
+- **`n/a` under `LAST`** — it has never run since the unit was
+  installed.
+- **The timer missing entirely** — it was never enabled, or
+  `daemon-reload` was not run after copying the units in.
+
+Then the detail:
+
+```
+journalctl --user -u crm-followups.service --since '2 days ago'
+```
+
+A healthy run prints one line: `Created N follow-up task(s) for
+<date>.` `N` is legitimately 0 most days — a follow-up is only raised
+when a customer passes their service's interval — so **zero is not a
+failure**. A *failed* run is a non-zero exit, which systemd records and
+this command shows.
+
+### Why a missed day is not a lost day
+
+`generate_followups` is idempotent, and whether a customer is due is
+computed from "has the interval elapsed since their last job or contact
+touch", not from "did we run yesterday". A customer who became due
+yesterday is still due today, so a skipped run raises their follow-up a
+day late rather than never. The same is **not** true of a missed
+backup, which is a permanent hole — hence `Persistent=true` on both
+timers, but far more urgency about the backup one.
+
+What is not self-correcting is the timer being *broken* rather than
+skipped: a renamed container, a stack that never came up, the units
+never enabled. Then follow-ups stop and the only symptom is an absence
+of them, which is easy not to notice for weeks. That is what the
+`list-timers` check above is for, and why `scripts/followups.sh` exits
+non-zero on every failure path rather than shrugging.
+
+### Running it by hand
+
+```
+./scripts/followups.sh                      # same as the timer does
+./scripts/followups.sh --date 2026-09-29    # as if it were that day
+```
+
+Safe at any time, as often as you like.
 
 ## Deploying an update
 

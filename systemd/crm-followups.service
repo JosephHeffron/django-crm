@@ -1,0 +1,31 @@
+# Runs scripts/followups.sh, which raises the day's repeat-service
+# follow-ups (docs/ROADMAP.md, Phase 19). Triggered by
+# crm-followups.timer, not enabled/started directly — see that file for
+# the schedule. Same rootless systemd user-unit model as crm.service
+# and crm-backup.service (Phase 10, ADR 0005): runs as the dedicated
+# non-root deployment account, not root.
+#
+# Install (as the dedicated deployment user, alongside crm.service):
+#   cp systemd/crm-followups.service systemd/crm-followups.timer ~/.config/systemd/user/
+#   systemctl --user daemon-reload
+#   systemctl --user enable --now crm-followups.timer
+#
+# Logs: journalctl --user -u crm-followups.service
+# The command prints how many it created, so the journal answers
+# "is this working?" without opening the app.
+
+[Unit]
+Description=Django CRM repeat-service follow-ups
+# The web container has to exist for `podman exec` to reach it, and
+# Django needs the database behind it.
+After=crm.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=%h/django-crm
+ExecStart=%h/django-crm/scripts/followups.sh
+# Generation is a handful of aggregate queries over customers and jobs,
+# not a scan — well under a second on this data. Generous anyway, since
+# the alternative to waiting is a killed run that creates some
+# follow-ups and not others.
+TimeoutStartSec=300

@@ -1,0 +1,29 @@
+# Schedules crm-followups.service daily. See that file for what
+# actually runs.
+#
+# 07:00 local, not the small hours: a follow-up raised at 03:00 and a
+# follow-up raised at 07:00 are equally due, but the notification it
+# creates lands when somebody is about to start work rather than in the
+# middle of the night. The backup timer keeps the quiet window because
+# a pg_dump competes for I/O; this does not.
+#
+# Persistent=true: if the Pi was powered off through the window, run on
+# the next boot rather than skipping. Less critical here than for the
+# backup — generation is idempotent and a customer due yesterday is
+# still due today, so a skipped day raises the follow-up late rather
+# than never — but a day late is still worse than on time, and the
+# catch-up costs nothing.
+#
+# RandomizedDelaySec: nothing else contends at 07:00 on a single-host
+# deployment, and a predictable time is easier to reason about when
+# checking whether it ran. Deliberately not set.
+
+[Unit]
+Description=Daily Django CRM follow-up generation
+
+[Timer]
+OnCalendar=*-*-* 07:00:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target
