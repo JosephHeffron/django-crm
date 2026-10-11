@@ -10,6 +10,13 @@ urlpatterns = [
     path("jobs/<int:pk>/", views.JobDetailView.as_view(), name="job_detail"),
     path("jobs/<int:pk>/edit/", views.JobUpdateView.as_view(), name="job_update"),
     path("jobs/<int:pk>/status/", views.JobStatusView.as_view(), name="job_status"),
+    path("jobs/<int:pk>/photos/add/", views.JobPhotoUploadView.as_view(), name="job_photo_add"),
+    path(
+        "quotes/<int:pk>/photos/add/",
+        views.QuotePhotoUploadView.as_view(),
+        name="quote_photo_add",
+    ),
+    path("photos/<uuid:uuid>/remove/", views.PhotoDeleteView.as_view(), name="photo_remove"),
     path("tasks/quotes/", views.QuoteListView.as_view(), name="quote_list"),
     path("quotes/new/", views.QuoteCreateView.as_view(), name="quote_create"),
     path("quotes/<int:pk>/", views.QuoteDetailView.as_view(), name="quote_detail"),

@@ -7,6 +7,7 @@ from apps.crm.models import Property
 from apps.users.forms import TONE_CHOICES
 from apps.users.roles import Role
 
+from . import photos
 from .models import (
     Expense,
     Invoice,
@@ -14,10 +15,60 @@ from .models import (
     Job,
     JobLineItem,
     Payment,
+    Photo,
     Quote,
     QuoteLineItem,
     ServiceType,
 )
+
+
+class PhotoForm(forms.ModelForm):
+    """One job or estimate photo (Phase 18 unit 2).
+
+    The image is re-encoded by `apps/jobs/photos.py` before it is
+    stored, which is what strips the GPS coordinates a phone writes
+    into a photo of somebody's house. `clean_image` swaps the uploaded
+    file for that JPEG, so the model never sees the original bytes.
+    """
+
+    # A plain FileField, not the ImageField the model has.
+    #
+    # Django's form ImageField validates with Pillow before any
+    # `clean_image` runs, and answers a HEIC with "Upload a valid
+    # image. The file you uploaded was either not an image or a
+    # corrupted image." That is both wrong — it is a perfectly good
+    # photograph — and unhelpful, and it made the message in
+    # photos.py unreachable. `process_photo` checks more than
+    # ImageField does anyway: format allowlist, pixel count, byte
+    # size. So validation happens in one place.
+    image = forms.FileField(
+        label="Photo",
+        # `capture` opens the camera on a phone and is ignored on a
+        # desktop, where it falls back to choosing a file.
+        widget=forms.ClearableFileInput(
+            attrs={"accept": "image/jpeg,image/png,image/webp", "capture": "environment"}
+        ),
+    )
+
+    class Meta:
+        model = Photo
+        fields = ["image", "kind", "caption"]
+        labels = {"kind": "Before or after", "caption": "Note"}
+        help_texts = {"caption": "Optional — what this shows."}
+
+    def __init__(self, *args, kinds=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        if kinds:
+            self.fields["kind"].choices = kinds
+            self.fields["kind"].initial = kinds[0][0]
+
+    def clean_image(self):
+        uploaded = self.cleaned_data.get("image")
+        if not uploaded:
+            raise forms.ValidationError("Choose a photo.")
+        # Raises ValidationError with a sentence worth reading, which
+        # the form shows as-is.
+        return photos.process_photo(uploaded)
 
 
 class ServiceTypeForm(forms.ModelForm):

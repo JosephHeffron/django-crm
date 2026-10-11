@@ -1,0 +1,58 @@
+{% comment %}
+  Before and after photos, and the form to add one (Phase 18 unit 2).
+
+  Shared by the job page and the estimate page. Expects `photos`,
+  `photo_form`, `photo_upload_url` and `can_add_photos`.
+
+  Images come through the login-gated view in apps/jobs/media.py, never
+  from a public path — a photo of somebody's house is not something to
+  leave on an open URL. The file input carries `capture`, which opens
+  the camera on a phone and is ignored on a desktop.
+{% endcomment %}
+<section class="card section-gap" id="photos">
+  <div class="card-head">
+    <h2 class="card-title">Photos</h2>
+    <span class="muted">{{ photos|length }}</span>
+  </div>
+
+  {% if photos %}
+    <ul class="photo-grid">
+      {% for photo in photos %}
+        <li class="photo-tile">
+          <a href="{% url 'jobs:photo' photo.uuid %}">
+            <img src="{% url 'jobs:photo' photo.uuid %}" alt="{{ photo.get_kind_display }} photo{% if photo.caption %}: {{ photo.caption }}{% endif %}" loading="lazy">
+          </a>
+          <div class="photo-meta">
+            <span class="badge">{{ photo.get_kind_display }}</span>
+            {% if photo.caption %}<span class="muted">{{ photo.caption }}</span>{% endif %}
+            <span class="muted">{{ photo.created_at|date:"M j" }} · {{ photo.uploaded_by.get_full_name|default:photo.uploaded_by.username }}</span>
+            {% if photo.may_remove %}
+              <form method="post" action="{% url 'jobs:photo_remove' photo.uuid %}">
+                {% csrf_token %}
+                <button type="submit" class="btn-danger-text btn-sm">Remove</button>
+              </form>
+            {% endif %}
+          </div>
+        </li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <p class="muted">No photos yet.</p>
+  {% endif %}
+
+  {% if can_add_photos %}
+    <form method="post" action="{{ photo_upload_url }}" enctype="multipart/form-data" class="photo-form">
+      {% csrf_token %}
+      {% include "partials/_field.html" with field=photo_form.image %}
+      {% include "partials/_field.html" with field=photo_form.kind %}
+      {% include "partials/_field.html" with field=photo_form.caption %}
+      <button type="submit">
+        <svg class="icon" aria-hidden="true"><use href="#icon-upload"/></svg>Add photo
+      </button>
+    </form>
+    <p class="helptext">
+      Photos are shrunk and their location details removed before they're
+      stored, so a picture of a customer's house doesn't carry their address.
+    </p>
+  {% endif %}
+</section>
