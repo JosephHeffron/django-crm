@@ -7,7 +7,14 @@
 
   <p><a href="{% url 'crm:plan_list' %}">← Plans</a></p>
   <section class="card">
-    <h2 class="card-title">{{ plan.title }}</h2>
+    <div class="page-header">
+      <div>
+        <h2 class="card-title">{{ plan.title }}</h2>
+      </div>
+      <div class="page-actions">
+        <a class="btn btn-secondary btn-sm" href="{% url 'crm:plan_update' plan.pk %}">Edit plan</a>
+      </div>
+    </div>
     <div class="cluster">
       <span class="badge">{{ plan.get_status_display }}</span>
       <span class="badge">{{ plan.get_priority_display }} priority</span>
@@ -22,15 +29,40 @@
       <ul class="checklist">
         {% for item in items %}
           <li class="{% if item.is_done %}is-done{% endif %}">
-            <span aria-hidden="true">{% if item.is_done %}☑{% else %}☐{% endif %}</span>
-            <span>{{ item.text }}</span>
-            <span class="sr-only">{% if item.is_done %}(done){% else %}(not done){% endif %}</span>
+            {% comment %}
+            One form per step, not one form over the whole checklist:
+            ticking one step shouldn't resubmit the other fourteen, and
+            this works with no JavaScript at all. The button carries the
+            step's text in its accessible name so a screen reader says
+            which one it is, rather than fifteen buttons all called
+            "Done".
+            {% endcomment %}
+            <form method="post" action="{% url 'crm:plan_item_toggle' item.pk %}" class="checklist-toggle">
+              {% csrf_token %}
+              <button type="submit" class="link-button" aria-pressed="{% if item.is_done %}true{% else %}false{% endif %}">
+                <span aria-hidden="true">{% if item.is_done %}☑{% else %}☐{% endif %}</span>
+                <span class="checklist-text">{{ item.text }}</span>
+                <span class="sr-only">{% if item.is_done %}— tick off (currently done){% else %}— tick off (currently not done){% endif %}</span>
+              </button>
+            </form>
+            <form method="post" action="{% url 'crm:plan_item_remove' item.pk %}" class="checklist-remove">
+              {% csrf_token %}
+              <button type="submit" class="link-button" title="Remove this step">
+                <svg class="icon" aria-hidden="true"><use href="#icon-trash"/></svg>
+                <span class="sr-only">Remove “{{ item.text }}”</span>
+              </button>
+            </form>
           </li>
         {% endfor %}
       </ul>
     {% else %}
-      <p class="muted">No checklist yet.</p>
+      <p class="muted">No steps yet. Add the first one below.</p>
     {% endif %}
-    <p class="muted">Editing plans and ticking off steps arrives in Phase 19.</p>
+
+    <form method="post" action="{% url 'crm:plan_item_create' plan.pk %}" class="cluster">
+      {% csrf_token %}
+      {% include "partials/_field.html" with field=item_form.text %}
+      <button type="submit"><svg class="icon" aria-hidden="true"><use href="#icon-plus"/></svg>Add step</button>
+    </form>
   </section>
 {% endblock %}

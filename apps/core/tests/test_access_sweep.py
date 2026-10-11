@@ -34,7 +34,7 @@ from django.test import TestCase
 from django.urls import URLPattern, URLResolver, get_resolver, reverse
 from django.utils import timezone
 
-from apps.crm.models import Company, Property, Task
+from apps.crm.models import BusinessPlan, Company, PlanChecklistItem, Property, Task
 from apps.crm.tests._helpers import grant_role
 from apps.jobs.models import Expense, Photo
 from apps.jobs.tests import _factories as f
@@ -124,6 +124,12 @@ class RouteSweep(TestCase):
             job=cls.job, uploaded_by=cls.owner, image="private/photos/x.jpg"
         )
         cls.service = f.service()
+        cls.plan = BusinessPlan.objects.create(
+            title="Buy a second van", owner=cls.owner, created_by=cls.owner
+        )
+        cls.plan_item = PlanChecklistItem.objects.create(
+            plan=cls.plan, text="Price up the van wrap", position=1
+        )
 
     def args_for(self, name, params):
         """Concrete arguments for one route, or None if we cannot."""
@@ -140,7 +146,11 @@ class RouteSweep(TestCase):
             "crm:task_detail": [self.task.pk],
             "crm:task_update": [self.task.pk],
             "crm:task_complete": [self.task.pk],
-            "crm:plan_detail": [1],
+            "crm:plan_detail": [self.plan.pk],
+            "crm:plan_update": [self.plan.pk],
+            "crm:plan_item_create": [self.plan.pk],
+            "crm:plan_item_toggle": [self.plan_item.pk],
+            "crm:plan_item_remove": [self.plan_item.pk],
             "core:activity_undo": [1],
             "core:notification_read": [1],
             "jobs:job_detail": [self.job.pk],

@@ -2412,9 +2412,46 @@ progress::-moz-progress-bar {
   border-bottom: 1px solid var(--color-border);
 }
 
-.checklist li.is-done > span:nth-child(2) {
+/* Was `li.is-done > span:nth-child(2)`. The step's text moved inside a
+   button when ticking became a real control (Phase 19 unit 2), so a
+   direct-child selector stopped matching it and the strike-through
+   quietly disappeared. A class says what it means and survives the
+   next change of markup. */
+.checklist li.is-done .checklist-text {
   color: var(--color-text-muted);
   text-decoration: line-through;
+}
+
+/* One form per step, so each is a flex item of `.checklist li`. The
+   toggle takes the row and the remove button sits at the end; without
+   this the two forms are block-level and stack. */
+.checklist-toggle {
+  flex: 1;
+  min-width: 0;
+}
+
+.checklist-toggle button {
+  display: inline-flex;
+  gap: var(--space-2);
+  align-items: baseline;
+  text-align: left;
+  text-decoration: none;
+}
+
+.checklist-toggle button:hover .checklist-text {
+  text-decoration: underline;
+}
+
+.checklist-remove {
+  flex: 0 0 auto;
+}
+
+.checklist-remove button {
+  color: var(--color-text-muted);
+}
+
+.checklist-remove button:hover {
+  color: var(--color-danger);
 }
 
 .note-body {
