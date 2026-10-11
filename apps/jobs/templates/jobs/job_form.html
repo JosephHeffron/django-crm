@@ -21,6 +21,19 @@
       {% csrf_token %}
       {{ form.non_field_errors }}
 
+      {% if from_quote %}
+        {% comment %}
+          Say where this came from. Without it the form looks oddly
+          pre-filled and there is nothing to confirm the work matches
+          what the customer agreed to.
+        {% endcomment %}
+        <p class="muted">
+          Scheduling <a href="{{ from_quote.get_absolute_url }}">{{ from_quote.number }}</a>
+          for {{ from_quote.contact }}. The work and prices below came from that estimate —
+          change them if the job has changed.
+        </p>
+      {% endif %}
+
       <section class="section-card">
         <div class="section-card-head"><svg class="icon" aria-hidden="true"><use href="#icon-user"/></svg><h2>Customer and address</h2></div>
         <div class="field-row">
