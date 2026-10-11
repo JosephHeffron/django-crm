@@ -1327,6 +1327,47 @@ button:disabled,
   border-top: 1px solid var(--color-border);
 }
 
+/* A form that exists only to be submitted by a script — never shown,
+   never focusable. Used by the calendar's drag-to-move, which has to
+   post a rendered CSRF field because no script here can read the
+   cookie. */
+.is-hidden {
+  display: none;
+}
+
+/* Moving a job from the day schedule (Phase 18 unit 4). Two small
+   forms side by side where there is room, stacked on a phone. */
+.move-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+
+.move-nudges,
+.move-exact {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.move-exact input {
+  margin: 0;
+}
+
+/* A chip being dragged on the week or month view. Only ever set by
+   static/js/reschedule.js, so it never shows without it. */
+.event.is-dragging {
+  opacity: 0.5;
+}
+
+.calendar-day.is-drop-target {
+  outline: 2px dashed var(--color-primary);
+  outline-offset: -2px;
+}
+
 .link-button {
   display: inline;
   min-height: 0;
