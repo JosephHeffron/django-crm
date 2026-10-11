@@ -112,6 +112,35 @@ trap 'echo "Backup FAILED — removing incomplete backup directory $DEST" >&2; r
 echo "--- pg_dump ---"
 podman exec "$DB_CONTAINER" sh -c 'pg_dump -Fc -U "$POSTGRES_USER" -d "$POSTGRES_DB"' >"$DEST/db.dump"
 
+# Verify the archive we just wrote is actually readable, for the same
+# reason `podman volume exists` is checked above: an artifact that is
+# present but unusable is worse than one that is missing, because
+# nothing complains until the day it is needed. The dump is the single
+# most important file here and was the only one with no check at all.
+#
+# `[ -f db.dump ]` — which is all restore.sh used to require — passes a
+# 0-byte file, a 3-byte stub, a truncated archive and a text file.
+# Measured, all four. A `PGDMP` magic-byte check catches three of the
+# four but **passes a truncated archive**, which is the realistic
+# failure: a partial write, a full disk, an interrupted stream. Only
+# reading the table of contents catches all four, so that is what this
+# does.
+#
+# --list reads the TOC and writes nothing, so it cannot damage the
+# dump, the database, or anything else. It runs in the db container
+# because that is where a matching pg_restore is guaranteed to exist —
+# the host deliberately has no postgres client installed.
+echo "--- verifying the dump is readable ---"
+podman cp "$DEST/db.dump" "$DB_CONTAINER:/tmp/verify.dump"
+podman exec "$DB_CONTAINER" pg_restore --list /tmp/verify.dump >/dev/null || {
+	echo "ERROR: the dump just written is not a readable PostgreSQL archive." >&2
+	echo "Refusing to record this as a successful backup. Check disk space on" >&2
+	echo "$BACKUPS_DIR and the db container's logs." >&2
+	podman exec "$DB_CONTAINER" rm -f /tmp/verify.dump 2>/dev/null || true
+	exit 1
+}
+podman exec "$DB_CONTAINER" rm -f /tmp/verify.dump
+
 # media_files/caddy_data/caddy_config are named Podman volumes, not
 # host directories (see compose.prod.yml) — `podman volume export`
 # tars a volume's current contents directly, no throwaway container

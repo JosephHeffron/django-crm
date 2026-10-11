@@ -68,6 +68,41 @@ for f in db.dump media_files.tar caddy_data.tar caddy_config.tar; do
 	}
 done
 
+# Existence is not readability, and the difference matters more here
+# than anywhere else in this script: the `podman volume rm` below
+# destroys the live database **before** pg_restore ever opens db.dump.
+# A dump that is present but unusable therefore costs the current
+# database and gives nothing back.
+#
+# `[ -f ]` above passes a 0-byte file, a 3-byte stub, a truncated
+# archive and a plain text file — measured, all four. So read the
+# archive's table of contents before anything destructive happens.
+#
+# This runs in a throwaway container from the same image as the db
+# service, because the host deliberately has no postgres client: the
+# whole point of running PostgreSQL in a container. --list only reads,
+# and the mount is read-only, so this cannot alter the backup. If the
+# image is not present locally and cannot be pulled, the check is
+# skipped with a loud warning rather than blocking a disaster recovery
+# that may be happening without a working network — the same reasoning
+# that makes the safety backup below best-effort.
+DB_IMAGE="${DB_IMAGE:-$(awk '/^[[:space:]]*db:/{f=1} f&&/image:/{print $2; exit}' "$COMPOSE_FILE")}"
+echo "--- verifying db.dump is a readable archive before destroying anything ---"
+if [ -n "$DB_IMAGE" ] && podman image exists "$DB_IMAGE" 2>/dev/null; then
+	podman run --rm -v "$SRC:/backup:ro,z" "$DB_IMAGE" \
+		pg_restore --list /backup/db.dump >/dev/null || {
+		echo "ERROR: $ORIGINAL_SRC/db.dump is not a readable PostgreSQL archive." >&2
+		echo "Refusing to destroy the current database for a backup that cannot be" >&2
+		echo "restored. Pick a different timestamp, or check the backup's integrity." >&2
+		exit 1
+	}
+	echo "db.dump reads cleanly."
+else
+	echo "WARNING: $DB_IMAGE is not available locally, so db.dump could not be" >&2
+	echo "verified before the destructive steps below. Proceeding anyway — refusing" >&2
+	echo "here would block recovery on a host with no network." >&2
+fi
+
 # Stage the backup outside backups/ before touching anything else, and
 # restore from the staged copy ($SRC) from here on — the original
 # ($ORIGINAL_SRC) is kept only for display. Restoring later takes its
