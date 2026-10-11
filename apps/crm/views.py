@@ -2,7 +2,7 @@ from django.contrib import messages
 from django.contrib.auth.mixins import PermissionRequiredMixin
 from django.contrib.contenttypes.models import ContentType
 from django.db.models import Case, Count, F, Q, When
-from django.shortcuts import get_object_or_404, redirect, render
+from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse
 from django.utils import timezone
 from django.utils.http import url_has_allowed_host_and_scheme
@@ -22,9 +22,6 @@ from .forms import (
     ActivityForm,
     CompanyForm,
     ContactForm,
-    DealForm,
-    LeadConversionForm,
-    LeadForm,
     PropertyForm,
     TaskForm,
     contact_choices,
@@ -36,21 +33,12 @@ from .models import (
     BusinessPlan,
     Company,
     Contact,
-    Deal,
-    Lead,
     Note,
     Property,
     Tag,
     Task,
 )
 from .timeline import contact_timeline, upcoming_jobs, with_last_dates
-
-
-def _split_lead_name(name):
-    parts = name.strip().split(None, 1)
-    if len(parts) == 2:
-        return parts[0], parts[1]
-    return name.strip(), ""
 
 
 def _int_or_none(value):
@@ -66,22 +54,8 @@ def _log_activity_url(field, obj):
     return f"{reverse('crm:activity_create')}?{field}={obj.pk}"
 
 
-def _sync_deal_closed_at(deal):
-    """Keep closed_at consistent with stage — set when a deal reaches a
-    closed stage, cleared if it's reopened. Documented in
-    docs/DATABASE_DESIGN.md's Lifecycle behavior as an application-layer
-    invariant (no DB constraint enforces it), so this is where it
-    actually gets enforced, on every create/update.
-    """
-    if deal.stage in Deal.CLOSED_STAGES:
-        if deal.closed_at is None:
-            deal.closed_at = timezone.now()
-    else:
-        deal.closed_at = None
-
-
 def _sync_task_completed_at(task):
-    """Same pattern as _sync_deal_closed_at, for Task.completed_at —
+    """Keeps Task.completed_at in step with its status —
     set when status becomes completed, cleared otherwise (reopened to
     pending, or cancelled). Documented in docs/DATABASE_DESIGN.md's
     Lifecycle behavior as an application-layer invariant.
@@ -166,7 +140,6 @@ class CompanyDetailView(SalesRoleRequiredMixin, DetailView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context["contacts"] = self.object.contacts.all()
-        context["deals"] = self.object.deals.all()
         context["activities"] = self.object.activities.all()
         context["log_activity_url"] = _log_activity_url("company", self.object)
         context["audit_log"] = _audit_log_for(self.object)
@@ -210,7 +183,7 @@ class CompanyDeactivateView(SalesRoleRequiredMixin, PermissionRequiredMixin, Det
     the soft-removal mechanism — "companies are never hard-deleted from
     the UI" — so this never calls .delete(). (Hard deletion is still
     possible for a superuser via the Django admin, just not exposed
-    here.) A side benefit: deactivation never touches Deal.company's
+    here.) A side benefit: deactivation never touches a company's
     on_delete=PROTECT constraint, so there's no failure mode to handle
     the way an actual delete would have.
     """
@@ -405,9 +378,6 @@ class ContactDetailView(SalesRoleRequiredMixin, DetailView):
         context["jobs_completed"] = contact.jobs.filter(status=Job.Status.COMPLETED).count()
         context["open_quotes"] = contact.quotes.filter(status__in=Quote.OPEN_STATUSES).count()
         context["timeline"] = contact_timeline(contact, self.request.user)
-        # Deals were folded into quotes (Phase 17); any still linked here
-        # are shown until Phase 18 removes the Deal model.
-        context["deals"] = contact.deals.all()
         # Open tasks first, soonest due first.
         context["tasks"] = contact.tasks.select_related("assigned_to", "service_type").order_by(
             Case(When(status=Task.Status.PENDING, then=0), default=1),
@@ -496,264 +466,6 @@ class ContactDeactivateView(SalesRoleRequiredMixin, PermissionRequiredMixin, Det
         return redirect(contact.get_absolute_url())
 
 
-class LeadListView(SalesRoleRequiredMixin, ListView):
-    model = Lead
-    template_name = "crm/lead_list.html"
-    context_object_name = "leads"
-    paginate_by = 25
-
-    def get_queryset(self):
-        queryset = super().get_queryset()
-        query = self.request.GET.get("q", "").strip()
-        if query:
-            queryset = queryset.filter(
-                Q(name__icontains=query)
-                | Q(company_name__icontains=query)
-                | Q(email__icontains=query)
-            )
-
-        status = self.request.GET.get("status")
-        if status in Lead.Status.values:
-            queryset = queryset.filter(status=status)
-
-        return queryset
-
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        context["query"] = self.request.GET.get("q", "")
-        context["status"] = self.request.GET.get("status", "")
-        context["status_choices"] = Lead.Status.choices
-        return context
-
-
-class LeadDetailView(SalesRoleRequiredMixin, DetailView):
-    model = Lead
-    template_name = "crm/lead_detail.html"
-    context_object_name = "lead"
-
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        context["activities"] = self.object.activities.all()
-        context["log_activity_url"] = _log_activity_url("lead", self.object)
-        context["audit_log"] = _audit_log_for(self.object)
-        return context
-
-
-class LeadCreateView(SalesRoleRequiredMixin, PermissionRequiredMixin, CreateView):
-    model = Lead
-    form_class = LeadForm
-    template_name = "crm/lead_form.html"
-    permission_required = "crm.add_lead"
-
-    def form_valid(self, form):
-        form.instance.created_by = self.request.user
-        response = super().form_valid(form)
-        _record_audit_log(self.request.user, self.object, AuditLogEntry.Action.CREATED)
-        messages.success(self.request, f"Created lead “{self.object.name}”.")
-        return response
-
-
-class LeadUpdateView(SalesRoleRequiredMixin, PermissionRequiredMixin, UpdateView):
-    model = Lead
-    form_class = LeadForm
-    template_name = "crm/lead_form.html"
-    permission_required = "crm.change_lead"
-
-    def form_valid(self, form):
-        previous = Lead.objects.get(pk=self.object.pk)
-        response = super().form_valid(form)
-        changes = _diff_changed_fields(previous, self.object, form.changed_data)
-        if changes:
-            _record_audit_log(self.request.user, self.object, AuditLogEntry.Action.UPDATED, changes)
-        messages.success(self.request, f"Updated lead “{self.object.name}”.")
-        return response
-
-
-class LeadConvertView(SalesRoleRequiredMixin, PermissionRequiredMixin, View):
-    """GET shows a conversion form pre-filled from the Lead; POST
-    creates/links a Company, always creates a Contact, optionally opens
-    a Deal, then marks the Lead converted — the workflow documented in
-    docs/DATABASE_DESIGN.md's Lifecycle behavior section. The Lead row
-    is kept, not deleted, as the historical record of where the
-    Company/Contact/Deal came from.
-    """
-
-    # Both required — see docs/PERMISSIONS.md for why: this is one
-    # business operation spanning several models, but Company/Deal
-    # creation (conditional, inside the same view) is treated as an
-    # accepted side effect of an already-authorized conversion rather
-    # than separately gated.
-    permission_required = ("crm.change_lead", "crm.add_contact")
-
-    template_name = "crm/lead_convert.html"
-
-    def get(self, request, pk):
-        lead = get_object_or_404(Lead, pk=pk)
-        if lead.status == Lead.Status.CONVERTED:
-            messages.info(request, f"“{lead.name}” has already been converted.")
-            return redirect(lead.get_absolute_url())
-
-        first_name, last_name = _split_lead_name(lead.name)
-        form = LeadConversionForm(
-            initial={
-                "new_company_name": lead.company_name,
-                "contact_first_name": first_name,
-                "contact_last_name": last_name,
-                "contact_email": lead.email,
-                "contact_phone": lead.phone,
-                "deal_title": f"{lead.name} deal",
-            }
-        )
-        return render(request, self.template_name, {"lead": lead, "form": form})
-
-    def post(self, request, pk):
-        lead = get_object_or_404(Lead, pk=pk)
-        if lead.status == Lead.Status.CONVERTED:
-            messages.info(request, f"“{lead.name}” has already been converted.")
-            return redirect(lead.get_absolute_url())
-
-        form = LeadConversionForm(request.POST)
-        if not form.is_valid():
-            return render(request, self.template_name, {"lead": lead, "form": form})
-
-        data = form.cleaned_data
-        if data["existing_company"]:
-            company = data["existing_company"]
-        elif data["new_company_name"]:
-            company = Company.objects.create(name=data["new_company_name"], created_by=request.user)
-            _record_audit_log(request.user, company, AuditLogEntry.Action.CREATED)
-        else:
-            company = None
-
-        contact = Contact.objects.create(
-            first_name=data["contact_first_name"],
-            last_name=data["contact_last_name"],
-            email=data["contact_email"],
-            phone=data["contact_phone"],
-            company=company,
-            created_by=request.user,
-        )
-        _record_audit_log(request.user, contact, AuditLogEntry.Action.CREATED)
-
-        deal = None
-        if data["create_deal"]:
-            deal = Deal.objects.create(
-                title=data["deal_title"],
-                company=company,
-                contact=contact,
-                value=data["deal_value"],
-                created_by=request.user,
-            )
-            _record_audit_log(request.user, deal, AuditLogEntry.Action.CREATED)
-
-        # Conversion's own record-level changes are logged as a normal
-        # "updated" entry on the Lead (docs/DATABASE_DESIGN.md's Audit
-        # history section) — there's no special-cased "conversion"
-        # audit action.
-        previous_status = lead.status
-        lead.status = Lead.Status.CONVERTED
-        lead.converted_at = timezone.now()
-        lead.converted_company = company
-        lead.converted_contact = contact
-        lead.converted_deal = deal
-        lead.save(
-            update_fields=[
-                "status",
-                "converted_at",
-                "converted_company",
-                "converted_contact",
-                "converted_deal",
-                "updated_at",
-            ]
-        )
-        _record_audit_log(
-            request.user,
-            lead,
-            AuditLogEntry.Action.UPDATED,
-            {"status": [previous_status, lead.status]},
-        )
-
-        messages.success(request, f"Converted “{lead.name}”.")
-        return redirect(lead.get_absolute_url())
-
-
-class DealListView(SalesRoleRequiredMixin, ListView):
-    model = Deal
-    template_name = "crm/deal_list.html"
-    context_object_name = "deals"
-    paginate_by = 25
-
-    def get_queryset(self):
-        queryset = super().get_queryset().select_related("company", "contact")
-        query = self.request.GET.get("q", "").strip()
-        if query:
-            queryset = queryset.filter(title__icontains=query)
-
-        stage = self.request.GET.get("stage")
-        if stage in Deal.Stage.values:
-            queryset = queryset.filter(stage=stage)
-
-        open_only = self.request.GET.get("open") == "1"
-        if open_only:
-            queryset = queryset.exclude(stage__in=Deal.CLOSED_STAGES)
-
-        return queryset
-
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        context["query"] = self.request.GET.get("q", "")
-        context["stage"] = self.request.GET.get("stage", "")
-        context["open_only"] = self.request.GET.get("open") == "1"
-        context["stage_choices"] = Deal.Stage.choices
-        return context
-
-
-class DealDetailView(SalesRoleRequiredMixin, DetailView):
-    model = Deal
-    template_name = "crm/deal_detail.html"
-    context_object_name = "deal"
-
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        context["tasks"] = self.object.tasks.all()
-        context["activities"] = self.object.activities.all()
-        context["log_activity_url"] = _log_activity_url("deal", self.object)
-        context["audit_log"] = _audit_log_for(self.object)
-        return context
-
-
-class DealCreateView(SalesRoleRequiredMixin, PermissionRequiredMixin, CreateView):
-    model = Deal
-    form_class = DealForm
-    template_name = "crm/deal_form.html"
-    permission_required = "crm.add_deal"
-
-    def form_valid(self, form):
-        form.instance.created_by = self.request.user
-        _sync_deal_closed_at(form.instance)
-        response = super().form_valid(form)
-        _record_audit_log(self.request.user, self.object, AuditLogEntry.Action.CREATED)
-        messages.success(self.request, f"Created deal “{self.object.title}”.")
-        return response
-
-
-class DealUpdateView(SalesRoleRequiredMixin, PermissionRequiredMixin, UpdateView):
-    model = Deal
-    form_class = DealForm
-    template_name = "crm/deal_form.html"
-    permission_required = "crm.change_deal"
-
-    def form_valid(self, form):
-        previous = Deal.objects.get(pk=self.object.pk)
-        _sync_deal_closed_at(form.instance)
-        response = super().form_valid(form)
-        changes = _diff_changed_fields(previous, self.object, form.changed_data)
-        if changes:
-            _record_audit_log(self.request.user, self.object, AuditLogEntry.Action.UPDATED, changes)
-        messages.success(self.request, f"Updated deal “{self.object.title}”.")
-        return response
-
-
 class ActivityListView(SalesRoleRequiredMixin, PerPageMixin, ListView):
     model = Activity
     template_name = "crm/activity_list.html"
@@ -761,11 +473,7 @@ class ActivityListView(SalesRoleRequiredMixin, PerPageMixin, ListView):
     paginate_by = 25
 
     def get_queryset(self):
-        queryset = (
-            super()
-            .get_queryset()
-            .select_related("company", "contact", "lead", "deal", "created_by")
-        )
+        queryset = super().get_queryset().select_related("company", "contact", "created_by")
         activity_type = self.request.GET.get("type")
         if activity_type in Activity.ActivityType.values:
             queryset = queryset.filter(activity_type=activity_type)
@@ -782,7 +490,7 @@ class ActivityCreateView(SalesRoleRequiredMixin, PermissionRequiredMixin, Create
     """No ActivityUpdateView exists, deliberately — Activity.save()
     itself rejects updates (docs/DATABASE_DESIGN.md, immutable history).
     No ActivityDetailView either: an Activity's "detail page" is the
-    timeline on whichever Company/Contact/Lead/Deal it's attached to.
+    timeline on whichever Company or Contact it's attached to.
     """
 
     model = Activity
@@ -796,7 +504,7 @@ class ActivityCreateView(SalesRoleRequiredMixin, PermissionRequiredMixin, Create
         # the relevant relation is pre-selected rather than making the
         # user pick it again.
         initial = super().get_initial()
-        for field in ("company", "contact", "lead", "deal"):
+        for field in ("company", "contact"):
             value = _int_or_none(self.request.GET.get(field))
             if value is not None:
                 initial[field] = value
@@ -812,7 +520,7 @@ class ActivityCreateView(SalesRoleRequiredMixin, PermissionRequiredMixin, Create
         return context
 
     def _relation_url_from_query(self):
-        models_by_field = {"company": Company, "contact": Contact, "lead": Lead, "deal": Deal}
+        models_by_field = {"company": Company, "contact": Contact}
         for field, model in models_by_field.items():
             value = _int_or_none(self.request.GET.get(field))
             if value is not None:
@@ -829,7 +537,7 @@ class ActivityCreateView(SalesRoleRequiredMixin, PermissionRequiredMixin, Create
 
     def get_success_url(self):
         activity = self.object
-        for related in (activity.company, activity.contact, activity.lead, activity.deal):
+        for related in (activity.company, activity.contact):
             if related is not None:
                 return related.get_absolute_url()
         return reverse("crm:activity_list")
@@ -1015,7 +723,7 @@ class TaskDetailView(SalesRoleRequiredMixin, DetailView):
         return (
             super()
             .get_queryset()
-            .select_related("contact", "contact__company", "quote", "assigned_to", "deal")
+            .select_related("contact", "contact__company", "quote", "assigned_to")
         )
 
 
@@ -1148,8 +856,7 @@ class TaskCompleteView(SalesRoleRequiredMixin, PermissionRequiredMixin, View):
     for pending tasks, but that's a UI-level guard only — without this
     check here too, a direct POST (e.g. a stale page, or the endpoint
     hit directly) could silently revive an already-cancelled task
-    straight to completed. Same shape as LeadConvertView's "already
-    converted" guard.
+    straight to completed.
     """
 
     permission_required = "crm.change_task"

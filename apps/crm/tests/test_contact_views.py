@@ -2,7 +2,7 @@ from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.urls import reverse
 
-from apps.crm.models import Company, Contact, Deal, Task
+from apps.crm.models import Company, Contact, Task
 from apps.crm.tests._helpers import grant_role
 
 User = get_user_model()
@@ -156,11 +156,6 @@ class ContactDetailViewTests(TestCase):
         self.contact.save()
         response = self.client.get(self.contact.get_absolute_url())
         self.assertContains(response, "Acme Corp")
-
-    def test_detail_shows_related_deals(self):
-        Deal.objects.create(title="Acme deal", contact=self.contact, created_by=self.user)
-        response = self.client.get(self.contact.get_absolute_url())
-        self.assertContains(response, "Acme deal")
 
     def test_detail_shows_related_tasks(self):
         Task.objects.create(

@@ -33,7 +33,7 @@ from django.views.generic import ListView, TemplateView
 from apps.core import redirects
 from apps.crm import undo as undo_service
 from apps.crm.followups import add_months
-from apps.crm.models import Activity, AuditLogEntry, Company, Contact, Deal, Lead, Tag, Task
+from apps.crm.models import Activity, AuditLogEntry, Company, Contact, Tag, Task
 from apps.jobs import reports
 from apps.jobs.access import jobs_for, quotes_for
 from apps.jobs.calendar import day_bounds
@@ -388,7 +388,7 @@ def _safe_next(request, fallback):
 
 
 def _search(query):
-    """Global search across Company/Contact/Lead/Deal/Task.
+    """Global search across Company/Contact/Task, jobs and estimates.
 
     Activity is deliberately excluded — it has no detail page of its
     own (its "detail page" is the timeline on whichever record it's
@@ -397,11 +397,10 @@ def _search(query):
 
     Each queryset adds "pk" as a secondary sort key, on top of each
     model's own Meta.ordering. Meta.ordering alone (e.g. Task's
-    `due_date`, Lead/Deal's `-created_at`) already makes results
-    deterministic in the common case, but ties on that field (several
-    tasks with no due date, two deals created in the same instant)
-    would otherwise have no guaranteed relative order — meaning which
-    rows land inside the [:20] cap could vary between requests.
+    `due_date`) already makes results deterministic in the common case,
+    but ties on that field — several tasks with no due date — would
+    otherwise have no guaranteed relative order, meaning which rows
+    land inside the [:20] cap could vary between requests.
     """
     return {
         "companies": Company.objects.filter(name__icontains=query).order_by("name", "pk")[
@@ -415,12 +414,6 @@ def _search(query):
         )
         .select_related("company")
         .order_by("last_name", "first_name", "pk")[:SEARCH_RESULTS_PER_MODEL],
-        "leads": Lead.objects.filter(
-            Q(name__icontains=query) | Q(company_name__icontains=query) | Q(email__icontains=query)
-        ).order_by("-created_at", "pk")[:SEARCH_RESULTS_PER_MODEL],
-        "deals": Deal.objects.filter(title__icontains=query)
-        .select_related("company", "contact")
-        .order_by("-created_at", "pk")[:SEARCH_RESULTS_PER_MODEL],
         "tasks": Task.objects.filter(title__icontains=query)
         .select_related("assigned_to")
         .order_by("due_date", "pk")[:SEARCH_RESULTS_PER_MODEL],

@@ -16,7 +16,7 @@ from django.contrib.auth.models import Group, Permission
 from django.test import TestCase
 from django.urls import reverse
 
-from apps.crm.models import Company, Contact, Deal, Lead, Task
+from apps.crm.models import Company, Contact, Task
 from apps.crm.tests._helpers import grant_role
 from apps.users.roles import Role
 
@@ -56,7 +56,7 @@ class RoleSeedTests(TestCase):
             self.assertTrue(set(SALES_PERMISSION_CODENAMES) <= codenames, name)
 
     def test_cleaner_cannot_write_customer_records(self):
-        customer_models = ["company", "contact", "lead", "deal", "task", "activity"]
+        customer_models = ["company", "contact", "task", "activity"]
         codenames = set(
             Group.objects.get(name="Cleaner").permissions.values_list("codename", flat=True)
         )
@@ -133,10 +133,6 @@ class CleanerIsDeniedCustomerPagesTests(TestCase):
         self.contact = Contact.objects.create(
             first_name="Ada", last_name="Lovelace", created_by=self.user
         )
-        self.lead = Lead.objects.create(name="Jane Prospect", created_by=self.user)
-        self.deal = Deal.objects.create(
-            title="Acme deal", company=self.company, created_by=self.user
-        )
         self.task = Task.objects.create(
             title="Follow up", assigned_to=self.user, created_by=self.user
         )
@@ -146,8 +142,6 @@ class CleanerIsDeniedCustomerPagesTests(TestCase):
             reverse("crm:company_list"),
             reverse("crm:contact_list"),
             self.contact.get_absolute_url(),
-            reverse("crm:lead_list"),
-            reverse("crm:deal_list"),
             reverse("crm:activity_list"),
             reverse("crm:task_list"),
             reverse("core:search"),
@@ -161,8 +155,6 @@ class CleanerIsDeniedCustomerPagesTests(TestCase):
             ("post", reverse("crm:company_deactivate", args=[self.company.pk])),
             ("get", reverse("crm:contact_create")),
             ("post", reverse("crm:contact_deactivate", args=[self.contact.pk])),
-            ("get", reverse("crm:lead_convert", args=[self.lead.pk])),
-            ("get", reverse("crm:deal_update", args=[self.deal.pk])),
             ("post", reverse("crm:task_complete", args=[self.task.pk])),
             ("get", reverse("crm:activity_create")),
         ]:
@@ -219,35 +211,6 @@ class WritePermissionsStillEnforcedWithinARoleTests(TestCase):
         self.assertEqual(response.status_code, 403)
 
 
-class LeadConvertRequiresBothPermissionsTests(TestCase):
-    """LeadConvertView needs crm.change_lead AND crm.add_contact —
-    holding only one isn't enough (docs/PERMISSIONS.md)."""
-
-    def setUp(self):
-        self.user = _login(self.client, "rep", Role.SALES_REP)
-        self.lead = Lead.objects.create(name="Jane Prospect", created_by=self.user)
-        self.group = Group.objects.get(name="Sales Rep")
-
-    def _keep_only(self, codename):
-        self.group.permissions.set(
-            [Permission.objects.get(content_type__app_label="crm", codename=codename)]
-        )
-
-    def test_change_lead_alone_is_not_enough(self):
-        self._keep_only("change_lead")
-        response = self.client.get(reverse("crm:lead_convert", args=[self.lead.pk]))
-        self.assertEqual(response.status_code, 403)
-
-    def test_add_contact_alone_is_not_enough(self):
-        self._keep_only("add_contact")
-        response = self.client.get(reverse("crm:lead_convert", args=[self.lead.pk]))
-        self.assertEqual(response.status_code, 403)
-
-    def test_both_permissions_together_are_sufficient(self):
-        response = self.client.get(reverse("crm:lead_convert", args=[self.lead.pk]))
-        self.assertEqual(response.status_code, 200)
-
-
 class SuperuserIsTreatedAsOwnerTests(TestCase):
     """A superuser is always the Owner role, with no group needed, and
     Django's has_perm() short-circuits for them — verified, not assumed."""
@@ -263,24 +226,6 @@ class SuperuserIsTreatedAsOwnerTests(TestCase):
         response = self.client.get(reverse("crm:company_create"))
         self.assertEqual(response.status_code, 200)
 
-    def test_superuser_can_convert_a_lead(self):
-        lead = Lead.objects.create(name="Jane Prospect", created_by=self.user)
-        response = self.client.get(reverse("crm:lead_convert", args=[lead.pk]))
+    def test_superuser_can_reach_a_write_page_without_any_role_group(self):
+        response = self.client.get(reverse("crm:contact_create"))
         self.assertEqual(response.status_code, 200)
-
-
-class LegacyAdminIsReadOnlyTests(TestCase):
-    """Lead and Deal were folded into Contact/Quote (jobs/0003); the
-    admin keeps them visible but allows no add, change, or delete."""
-
-    def test_no_add_change_or_delete(self):
-        from django.contrib import admin
-        from django.test import RequestFactory
-
-        request = RequestFactory().get("/")
-        request.user = User.objects.create_superuser("root", "r@example.com", "pw")
-        for model in (Lead, Deal):
-            model_admin = admin.site._registry[model]
-            self.assertFalse(model_admin.has_add_permission(request))
-            self.assertFalse(model_admin.has_change_permission(request))
-            self.assertFalse(model_admin.has_delete_permission(request))

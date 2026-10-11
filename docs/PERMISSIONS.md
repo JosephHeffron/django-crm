@@ -73,17 +73,6 @@ Notes on the less obvious rows:
   auto-create a separate "deactivate" permission. A custom permission
   just for this would be more machinery for a distinction Django's own
   model doesn't draw.
-- **`LeadConvertView` needs two permissions, not one.** The view is
-  one atomic business operation (link/create a Company, always create
-  a Contact, optionally open a Deal, then mark the Lead converted) but
-  spans several models. Requiring `change_lead` alone would let
-  someone convert a lead without being allowed to create Contacts
-  anywhere else in the app — an odd asymmetry. Company/Deal creation,
-  which only happen conditionally inside the same view, are treated as
-  an accepted side effect of an already-authorized conversion, not
-  separately gated — adding `add_company`/`add_deal` checks for a
-  sometimes-nil code path would be more complexity than the actual
-  risk here justifies.
 - **`Activity` has no `change_activity` requirement anywhere** — it's
   immutable (no `ActivityUpdateView` exists at all; `Activity.save()`
   itself rejects updates, per `docs/DATABASE_DESIGN.md`), so there's
@@ -173,9 +162,14 @@ member of), so a direct message never leaks onto a contact page.
 | Contacts (`/contacts/`, a contact's page) | yes | yes | 403 |
 | Tasks hub (`/tasks/`: tasks, follow-ups, quotes, plans, notes) | yes | yes | 403 |
 
-Leads and Deals are no longer in the menu (folded into Contacts and
-Quotes, ADR 0009); their old pages stay reachable by URL, with the same
-Owner/Sales Rep access, until Phase 18 removes them.
+Leads and Deals are gone. Phase 17 folded them into Contacts and
+Quotes (ADR 0009) and Phase 18 unit 5 removed the models and their
+pages. `/leads/` and `/deals/` now redirect permanently to Customers
+and Estimates, since both were in the menu for most of this project's
+life; the pages they redirect to enforce their own access, so the
+redirects grant nothing. Their detail and add URLs 404 — there is no
+record to point at. `LeadConvertView`, which used to be the one view in
+the app requiring two permissions at once, went with them.
 
 ## Seeding the role groups
 

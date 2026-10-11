@@ -418,7 +418,7 @@ jobs, and invoices keep the prices they were written with.
 ## Search
 
 The search box in the top nav (`?q=...`) searches Companies, Contacts
-(name, email, or phone), Leads, Deals, and Tasks at once and shows
+(name, email, or phone), and Tasks at once and shows
 matches grouped by type. Type a job or quote number — `J-1502`,
 `q1067` — to jump straight to it. It does not search Activities (they don't have
 their own detail page — see below).
@@ -427,7 +427,7 @@ their own detail page — see below).
 
 **Companies** (`Companies` in the nav): list is searchable by name and
 filterable by Active/Inactive. A Company's detail page shows its linked
-Contacts, Deals, activity timeline, and an edit history section.
+Contacts, activity timeline, and an edit history section.
 
 **Contacts** (`Contacts`): your customers and leads. Tabs switch
 between All, Leads, and Customers; search by name, email, or phone; and

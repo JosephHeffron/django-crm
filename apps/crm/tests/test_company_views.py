@@ -97,13 +97,6 @@ class CompanyDetailViewTests(TestCase):
         response = self.client.get(self.company.get_absolute_url())
         self.assertContains(response, "Ada Lovelace")
 
-    def test_detail_shows_related_deals(self):
-        from apps.crm.models import Deal
-
-        Deal.objects.create(title="Acme deal", company=self.company, created_by=self.user)
-        response = self.client.get(self.company.get_absolute_url())
-        self.assertContains(response, "Acme deal")
-
     def test_nonexistent_company_returns_404(self):
         response = self.client.get(reverse("crm:company_detail", kwargs={"pk": 999999}))
         self.assertEqual(response.status_code, 404)
@@ -178,8 +171,17 @@ class CompanyDeactivateViewTests(TestCase):
     # UI" — is_active is the documented soft-removal mechanism. An
     # earlier draft of this view actually called .delete(), which
     # contradicted that and also crashed (500) on any company with deal
-    # history, since Deal.company is on_delete=PROTECT. Caught by
+    # history, since Deal.company was on_delete=PROTECT. Caught by
     # automated review before merge.
+    #
+    # Deal was retired in Phase 18 unit 5 and nothing PROTECTs Company
+    # any more, so the 500 is no longer reproducible through the ORM.
+    # The rule it established is what the test below now checks: this
+    # view deactivates, and deletes nothing, however much history a
+    # company has. Worth keeping because `crm_lead.company_id` is still
+    # a real foreign key in PostgreSQL that Django can no longer see
+    # (crm/0011), so a real delete here would be checked by a constraint
+    # no longer visible in the models.
 
     def setUp(self):
         self.user = User.objects.create_user("alice", password="correct-horse-battery")
@@ -209,13 +211,18 @@ class CompanyDeactivateViewTests(TestCase):
         self.assertFalse(self.company.is_active)
         self.assertTrue(Company.objects.filter(pk=self.company.pk).exists())
 
-    def test_deactivating_a_company_with_deals_does_not_error(self):
-        # Unlike a real delete, this never touches Deal.company's
-        # on_delete=PROTECT constraint — no exception, no special
-        # handling needed.
-        from apps.crm.models import Deal
+    def test_deactivating_a_company_with_history_does_not_error(self):
+        from apps.crm.models import Activity, Contact
 
-        Deal.objects.create(title="Acme deal", company=self.company, created_by=self.user)
+        Contact.objects.create(
+            first_name="Ada", last_name="Lovelace", company=self.company, created_by=self.user
+        )
+        Activity.objects.create(
+            activity_type="call",
+            subject="Called Acme",
+            company=self.company,
+            created_by=self.user,
+        )
 
         response = self.client.post(
             reverse("crm:company_deactivate", kwargs={"pk": self.company.pk})

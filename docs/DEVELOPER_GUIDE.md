@@ -21,7 +21,7 @@ duplicating any of it.
   phases built on top of.
 - **Understand the domain model**: `docs/DATABASE_DESIGN.md` — every
   field, relationship, constraint, and lifecycle rule for Company,
-  Contact, Lead, Deal, Task, and Activity, with the reasoning behind
+  Contact, Property, Task, and Activity, with the reasoning behind
   each decision, including several that look simpler than they could
   be on purpose (`docs/decisions/` has the standalone ADRs for the
   biggest ones — monolith vs. microservices, PostgreSQL, server-
@@ -42,7 +42,7 @@ apps/
   core/          # cross-cutting: health check, dashboard, search,
                  #   base template, error pages
   users/         # authentication (login/logout/password change)
-  crm/           # the actual domain: Company, Contact, Lead, Deal,
+  crm/           # the actual domain: Company, Contact, Property,
                  #   Task, Activity — models, views, forms, tests
 templates/        # project-level template overrides/base layout
 static/           # project-level CSS (no JS framework, no build step)

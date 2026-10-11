@@ -19,32 +19,28 @@ user/profile model is introduced here.
 ```
 User (django.contrib.auth)
   |
-  +---- owns ----> Company, Contact, Lead, Deal   (owner FK)
+  +---- owns ----> Company, Contact                (owner FK)
   +---- assigned ----> Task                        (assigned_to FK)
-  +---- authored ----> Activity, Task, Company,     (created_by FK,
-        Contact, Lead, Deal                          audit trail)
+  +---- authored ----> Activity, Task, Company,    (created_by FK,
+        Contact                                     audit trail)
 
 Company
   |
   +---- Contact       (0..* contacts per company)
-  +---- Deal          (0..* deals per company)
   +---- Activity      (0..* activities per company)
 
 Contact
   |
   +---- Activity      (0..* activities per contact)
   +---- Task          (0..* tasks per contact)
-  +---- Deal          (0..* deals per contact)
-
-Lead                  (standalone until converted — see Lifecycle)
-  |
-  +---- Activity      (0..* activities per lead)
-
-Deal
-  |
-  +---- Activity      (0..* activities per deal)
-  +---- Task           (0..* tasks per deal)
+  +---- Property      (0..* service addresses per contact)
+  +---- Quote, Job, Invoice   (see docs/ARCHITECTURE.md — the jobs app)
 ```
+
+Lead and Deal were part of this diagram until Phase 18 unit 5. Phase 17
+folded every Lead into a Contact and every Deal into a Quote
+(ADR 0009), and unit 5 removed the models. Their tables are still in
+PostgreSQL — see **Retired entities** below.
 
 This mirrors the relationships in `docs/ROADMAP.md` / the original project
 brief exactly — no additional relationships (e.g. Task↔Company,
@@ -95,7 +91,27 @@ individual with no company yet).
 
 Indexes: `(last_name, first_name)`, `email`, `company`, `owner`.
 
-### Lead
+## Retired entities
+
+`Lead` and `Deal` are **no longer Django models.** Phase 17 folded every
+Lead into a Contact (`Contact.status`, `Contact.lead_source`) and every
+Deal into a Quote (`jobs/0003_fold_leads_and_deals`), and Phase 18
+unit 5 removed the models, views, URLs, templates and admin entries.
+
+`crm/0011_retire_lead_and_deal` is **state-only**: it runs no SQL at
+all. `crm_lead` and `crm_deal` keep their rows, indexes and
+constraints, and `crm_task.deal_id` / `crm_activity.lead_id` /
+`crm_activity.deal_id` keep their columns. Dropping any of it is a
+separate, deliberate decision, and the pointer columns in particular
+are what `jobs/0003`'s fold reads, so the Phase 17 rollback depends on
+them. `Contact.legacy_lead_id` and `Quote.legacy_deal_id` are the
+pointers from a current record back to the row it was folded from.
+
+The two field tables below therefore describe tables that still exist
+and that nothing in the application reads. They are kept so the columns
+can be interpreted by anyone who goes looking at the data directly.
+
+### Lead (retired)
 
 A not-yet-qualified prospect. Deliberately **not** linked to `Company` by
 foreign key — a lead is information about a prospective org/person, not a
@@ -121,7 +137,7 @@ confirmed one. `company_name` is a plain string until conversion creates
 
 Indexes: `status`, `owner`, `created_at`.
 
-### Deal
+### Deal (retired)
 
 An open (or closed) sales opportunity. Tied to a `Company` and/or a
 `Contact` — at least one is required (see Constraints), matching the
@@ -144,11 +160,14 @@ brief's Company→Deals and Contact→Deals relationships.
 
 Indexes: `stage`, `owner`, `company`, `contact`, `expected_close_date`.
 
+## Entities (continued)
+
 ### Task
 
-A to-do item, optionally tied to a `Contact` and/or `Deal` (matching the
-brief's Contact→Tasks and Deal→Tasks relationships — not Company or Lead;
-see the ERD note above).
+A to-do item, optionally tied to a `Contact` and/or a `Quote`. It was
+`Contact` and/or `Deal` until Phase 17 folded deals into estimates; the
+`deal` field went with the model in Phase 18 unit 5, though the column
+remains (see **Retired entities**).
 
 | Field | Type | Required | Notes |
 |---|---|---|---|

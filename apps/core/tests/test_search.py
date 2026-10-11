@@ -2,7 +2,7 @@ from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.urls import reverse
 
-from apps.crm.models import Company, Contact, Deal, Lead, Task
+from apps.crm.models import Company, Contact, Task
 from apps.crm.tests._helpers import grant_role
 
 User = get_user_model()
@@ -41,17 +41,6 @@ class SearchViewTests(TestCase):
         )
         response = self.client.get(reverse("core:search"), {"q": "ada@example.com"})
         self.assertContains(response, "Ada Lovelace")
-
-    def test_finds_matching_lead_by_company_name(self):
-        Lead.objects.create(name="Jane Prospect", company_name="Wonderco", created_by=self.user)
-        response = self.client.get(reverse("core:search"), {"q": "Wonderco"})
-        self.assertContains(response, "Jane Prospect")
-
-    def test_finds_matching_deal(self):
-        company = Company.objects.create(name="Acme Corp", created_by=self.user)
-        Deal.objects.create(title="Acme renewal deal", company=company, created_by=self.user)
-        response = self.client.get(reverse("core:search"), {"q": "renewal"})
-        self.assertContains(response, "Acme renewal deal")
 
     def test_finds_matching_task(self):
         Task.objects.create(title="Call about renewal", assigned_to=self.user, created_by=self.user)

@@ -1,23 +1,107 @@
-"""Exercise the Phase 17 data migrations' functions directly against the
-real app registry (they only use apps.get_model), on data created here
-— the migration already ran once, empty, when the test DB was built."""
+"""Exercise the Phase 17 data migrations' functions directly, on data
+created here — the migration already ran once, empty, when the test DB
+was built.
+
+These used to run against the live app registry, because the fold only
+ever touches models through `apps.get_model`. Phase 18 unit 5 retired
+Lead and Deal (`crm/0011`), so the live registry no longer has them —
+but the fold never saw the live registry either. It is handed the
+historical state its own dependencies pin, where both models still
+exist, and so is this module now. That state is also the reason
+`crm/0011` is state-only: it leaves `crm_lead`, `crm_deal` and the
+three pointer columns in place, which is what lets these tests, and the
+Phase 17 rollback they cover, keep working at all.
+"""
 
 import importlib
 from datetime import date
 from decimal import Decimal
 
-from django.apps import apps as global_apps
 from django.contrib.auth.models import Group
 from django.db import IntegrityError, connection, transaction
+from django.db.migrations.loader import MigrationLoader
+from django.db.models import Model
 from django.test import TestCase
 from django.utils import timezone
 
-from apps.crm.models import Company, Contact, Deal, Lead, Task
+from apps.crm.models import Company, Contact, Task
 from apps.jobs.models import Quote
 
 from . import _factories as f
 
 fold_migration = importlib.import_module("apps.jobs.migrations.0003_fold_leads_and_deals")
+
+# The registry the migration itself runs against: everything as it stood
+# just before `jobs/0003`. Loaded from the migration files alone
+# (`MigrationLoader(None)` reads no database), so importing this module
+# needs no connection.
+historical_apps = (
+    MigrationLoader(None).project_state(("jobs", "0003_fold_leads_and_deals"), at_end=False).apps
+)
+Lead = historical_apps.get_model("crm", "Lead")
+Deal = historical_apps.get_model("crm", "Deal")
+
+
+class _Choices:
+    """Stand in for a `TextChoices` class the historical state drops.
+
+    A historical model keeps each field's `choices` but not the
+    `TextChoices` subclass that produced them, so `Lead.Status.CONVERTED`
+    does not survive. These are rebuilt from the field itself rather
+    than from literals typed here, so a test cannot name a value the
+    column would reject — and a member that no longer exists raises
+    `AttributeError` instead of quietly passing a wrong string.
+
+    Every one of these enums named its members exactly after its values
+    upper-cased (`CLOSED_WON = "closed_won"`), which is what makes the
+    reconstruction exact.
+    """
+
+    def __init__(self, model, field_name):
+        for value, _label in model._meta.get_field(field_name).choices:
+            setattr(self, value.upper(), value)
+
+
+Lead.Status = _Choices(Lead, "status")
+Lead.Source = _Choices(Lead, "source")
+Deal.Stage = _Choices(Deal, "stage")
+
+# `crm_task.deal_id` outlived the Deal model: `crm/0011` is state-only,
+# so the column is still there and only the live ORM has stopped naming
+# it. Reaching it needs the historical Task.
+LegacyTask = historical_apps.get_model("crm", "Task")
+
+
+def _as_ids(values):
+    """Turn `company=acme` into `company_id=acme.pk`.
+
+    A historical model's foreign key insists on *its* version of the
+    related class, while the factories and assertions here use the live
+    one — same table, same row, different Python class. Passing the id
+    sidesteps the type check without pretending the two classes are
+    interchangeable, which they are not: comparing a historical instance
+    to a live one is always False, so the assertions below compare ids
+    too.
+    """
+    return {
+        f"{name}_id" if isinstance(value, Model) else name: (
+            value.pk if isinstance(value, Model) else value
+        )
+        for name, value in values.items()
+    }
+
+
+def make_lead(**values):
+    return Lead.objects.create(**_as_ids(values))
+
+
+def make_deal(**values):
+    return Deal.objects.create(**_as_ids(values))
+
+
+def make_legacy_task(**values):
+    """A task still pointing at a Deal, as every task did before the fold."""
+    return LegacyTask.objects.create(**_as_ids(values))
 
 
 class FoldLeadsAndDealsTests(TestCase):
@@ -26,11 +110,11 @@ class FoldLeadsAndDealsTests(TestCase):
         self.acme = Company.objects.create(name="Acme Property Mgmt", created_by=self.owner)
 
     def _fold(self):
-        fold_migration.fold(global_apps, None)
+        fold_migration.fold(historical_apps, None)
 
     def _unfold(self):
         with connection.schema_editor() as schema_editor:
-            fold_migration.unfold(global_apps, schema_editor)
+            fold_migration.unfold(historical_apps, schema_editor)
 
     def assertUnfoldRefused(self):
         # Django's PostgreSQL FKs are DEFERRABLE INITIALLY DEFERRED: in a
@@ -42,7 +126,7 @@ class FoldLeadsAndDealsTests(TestCase):
             self._unfold()
 
     def test_open_lead_becomes_a_lead_contact(self):
-        lead = Lead.objects.create(
+        lead = make_lead(
             name="Jane Q Public",
             email="jane@example.com",
             phone="555-0100",
@@ -59,19 +143,15 @@ class FoldLeadsAndDealsTests(TestCase):
         self.assertEqual(contact.created_at, lead.created_at)
 
     def test_unqualified_lead_becomes_inactive(self):
-        lead = Lead.objects.create(
-            name="Nope", status=Lead.Status.UNQUALIFIED, created_by=self.owner
-        )
+        lead = make_lead(name="Nope", status=Lead.Status.UNQUALIFIED, created_by=self.owner)
         self._fold()
         self.assertFalse(Contact.objects.get(legacy_lead_id=lead.pk).is_active)
 
     def test_lead_company_links_to_existing_company_else_goes_to_notes(self):
-        linked = Lead.objects.create(
+        linked = make_lead(
             name="Linked Person", company_name="acme property mgmt", created_by=self.owner
         )
-        unknown = Lead.objects.create(
-            name="Other Person", company_name="Nobody Inc", created_by=self.owner
-        )
+        unknown = make_lead(name="Other Person", company_name="Nobody Inc", created_by=self.owner)
         self._fold()
         self.assertEqual(Contact.objects.get(legacy_lead_id=linked.pk).company, self.acme)
         orphan = Contact.objects.get(legacy_lead_id=unknown.pk)
@@ -80,7 +160,7 @@ class FoldLeadsAndDealsTests(TestCase):
 
     def test_converted_lead_only_backfills_its_contacts_lead_source(self):
         existing = f.contact(self.owner, "Already", "Converted")
-        Lead.objects.create(
+        make_lead(
             name="Already Converted",
             source=Lead.Source.EVENT,
             status=Lead.Status.CONVERTED,
@@ -95,7 +175,7 @@ class FoldLeadsAndDealsTests(TestCase):
 
     def test_deal_becomes_quote_with_one_line_and_moved_tasks(self):
         person = f.contact(self.owner, "Deal", "Person")
-        deal = Deal.objects.create(
+        deal = make_deal(
             title="Whole-house windows",
             contact=person,
             value=Decimal("480.00"),
@@ -103,7 +183,7 @@ class FoldLeadsAndDealsTests(TestCase):
             expected_close_date=date(2026, 11, 1),
             created_by=self.owner,
         )
-        task = Task.objects.create(
+        task = make_legacy_task(
             title="Call back", deal=deal, assigned_to=self.owner, created_by=self.owner
         )
         self._fold()
@@ -114,14 +194,14 @@ class FoldLeadsAndDealsTests(TestCase):
         self.assertEqual(quote.line_items.get().description, "Whole-house windows")
         self.assertIn("Expected close: 2026-11-01", quote.notes)
         task.refresh_from_db()
-        self.assertEqual(task.quote, quote)
+        self.assertEqual(task.quote_id, quote.pk)
 
     def test_won_deal_is_accepted_and_its_fold_created_contact_becomes_a_customer(self):
         # A won company-only deal with no company contacts gets a
         # placeholder (created as a lead); winning upgrades it.
         solo = Company.objects.create(name="Won Co", created_by=self.owner)
         closed = timezone.now()
-        deal = Deal.objects.create(
+        deal = make_deal(
             title="Gutters",
             company=solo,
             value=Decimal("175"),
@@ -137,9 +217,9 @@ class FoldLeadsAndDealsTests(TestCase):
     def test_company_only_deal_uses_first_company_contact_else_a_placeholder(self):
         first = f.contact(self.owner, "First", "AtAcme", company=self.acme)
         f.contact(self.owner, "Second", "AtAcme", company=self.acme)
-        acme_deal = Deal.objects.create(title="Acme job", company=self.acme, created_by=self.owner)
+        acme_deal = make_deal(title="Acme job", company=self.acme, created_by=self.owner)
         lonely = Company.objects.create(name="No Contacts LLC", created_by=self.owner)
-        lonely_deal = Deal.objects.create(title="Lonely job", company=lonely, created_by=self.owner)
+        lonely_deal = make_deal(title="Lonely job", company=lonely, created_by=self.owner)
 
         self._fold()
 
@@ -151,12 +231,10 @@ class FoldLeadsAndDealsTests(TestCase):
 
     def test_reverse_removes_exactly_what_the_fold_added(self):
         untouched = f.contact(self.owner, "Pre", "Existing")
-        Lead.objects.create(name="Lead Person", created_by=self.owner)
+        make_lead(name="Lead Person", created_by=self.owner)
         lonely = Company.objects.create(name="Solo Co", created_by=self.owner)
-        deal = Deal.objects.create(title="Solo job", company=lonely, created_by=self.owner)
-        task = Task.objects.create(
-            title="t", deal=deal, assigned_to=self.owner, created_by=self.owner
-        )
+        deal = make_deal(title="Solo job", company=lonely, created_by=self.owner)
+        task = make_legacy_task(title="t", deal=deal, assigned_to=self.owner, created_by=self.owner)
         self._fold()
 
         self._unfold()
@@ -164,15 +242,15 @@ class FoldLeadsAndDealsTests(TestCase):
         self.assertEqual(list(Contact.objects.all()), [untouched])
         self.assertFalse(Quote.objects.exists())
         task.refresh_from_db()
-        self.assertIsNone(task.quote)
-        self.assertEqual(task.deal, deal)
+        self.assertIsNone(task.quote_id)
+        self.assertEqual(task.deal_id, deal.pk)
         self.assertTrue(Lead.objects.exists() and Deal.objects.exists())
 
     def test_reverse_refuses_when_later_work_depends_on_folded_data(self):
         # unfold deletes by primary key (not through Django's collector,
         # which breaks in multi-app backwards migrations), so it's
         # PostgreSQL's FK constraints that stop it orphaning later work.
-        lead = Lead.objects.create(name="Became Customer", created_by=self.owner)
+        lead = make_lead(name="Became Customer", created_by=self.owner)
         self._fold()
         f.job(Contact.objects.get(legacy_lead_id=lead.pk), self.owner)
         self.assertUnfoldRefused()
@@ -180,7 +258,7 @@ class FoldLeadsAndDealsTests(TestCase):
 
     def _folded_quote(self):
         person = f.contact(self.owner, "Quote", "Person")
-        deal = Deal.objects.create(title="Windows", contact=person, created_by=self.owner)
+        deal = make_deal(title="Windows", contact=person, created_by=self.owner)
         self._fold()
         return Quote.objects.get(legacy_deal_id=deal.pk)
 
@@ -203,7 +281,7 @@ class FoldLeadsAndDealsTests(TestCase):
 
     def test_negative_legacy_deal_value_folds_as_zero_with_a_note(self):
         person = f.contact(self.owner, "Neg", "Value")
-        deal = Deal.objects.create(
+        deal = make_deal(
             title="Refund?", contact=person, value=Decimal("-50.00"), created_by=self.owner
         )
         self._fold()
@@ -216,7 +294,7 @@ class FoldLeadsAndDealsTests(TestCase):
         # must survive the reverse; an edited placeholder must not.
         lookalike = f.contact(self.owner, "Look", "Alike", notes=fold_migration.PLACEHOLDER_NOTE)
         lonely = Company.objects.create(name="Edited Co", created_by=self.owner)
-        deal = Deal.objects.create(title="Edited job", company=lonely, created_by=self.owner)
+        deal = make_deal(title="Edited job", company=lonely, created_by=self.owner)
         self._fold()
         placeholder = Quote.objects.get(legacy_deal_id=deal.pk).contact
         Contact.objects.filter(pk=placeholder.pk).update(notes="Changed by a user")
@@ -228,7 +306,7 @@ class FoldLeadsAndDealsTests(TestCase):
 
     def test_reverse_restores_a_converted_contacts_lead_source(self):
         existing = f.contact(self.owner, "Was", "Converted")
-        Lead.objects.create(
+        make_lead(
             name="Was Converted",
             source=Lead.Source.WEBSITE,
             status=Lead.Status.CONVERTED,
@@ -248,9 +326,7 @@ class FoldLeadsAndDealsTests(TestCase):
         # Pre-existing contacts default to "customer" (crm/0006); only
         # rows the fold created are upgraded, so nothing to undo here.
         person = f.contact(self.owner, "Pre", "Existing", status=Contact.Status.LEAD)
-        Deal.objects.create(
-            title="Won", contact=person, stage=Deal.Stage.CLOSED_WON, created_by=self.owner
-        )
+        make_deal(title="Won", contact=person, stage=Deal.Stage.CLOSED_WON, created_by=self.owner)
         self._fold()
         person.refresh_from_db()
         self.assertEqual(person.status, Contact.Status.LEAD)

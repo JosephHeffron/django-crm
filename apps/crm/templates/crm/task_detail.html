@@ -74,10 +74,6 @@
     <dd>
       {% if task.quote %}
         <a href="{{ task.quote.get_absolute_url }}">{{ task.quote }}</a>
-      {% elif task.deal %}
-        {# A task from before Phase 17 folded deals into estimates. #}
-        <a href="{{ task.deal.get_absolute_url }}">{{ task.deal }}</a>
-        <span class="muted">(deal, before estimates)</span>
       {% else %}
         —
       {% endif %}

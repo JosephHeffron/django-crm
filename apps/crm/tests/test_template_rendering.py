@@ -6,15 +6,16 @@ not support multi-line content — a multi-line comment renders as
 literal text instead of being stripped, which is exactly what
 `_activity_timeline.html` and `_audit_history.html` did (both fixed to
 use `{% comment %}...{% endcomment %}` instead, which does support
-multiple lines). This was live on every Company/Contact/Lead/Deal
-detail page and no existing test caught it, since nothing asserted on
-the *absence* of that text.
+multiple lines). This was live on every detail page that includes those
+partials and no existing test caught it, since nothing asserted on the
+*absence* of that text. The Lead and Deal pages were two of them until
+Phase 18 unit 5 retired both.
 """
 
 from django.contrib.auth import get_user_model
 from django.test import TestCase
 
-from apps.crm.models import Company, Contact, Deal, Lead
+from apps.crm.models import Company, Contact
 from apps.crm.tests._helpers import grant_role
 
 User = get_user_model()
@@ -37,18 +38,6 @@ class TemplateCommentsAreNotLeakedTests(TestCase):
             first_name="Ada", last_name="Lovelace", created_by=self.user
         )
         response = self.client.get(contact.get_absolute_url())
-        self.assertNotContains(response, "Reusable activity timeline")
-        self.assertNotContains(response, "Reusable audit history")
-
-    def test_lead_detail_does_not_leak_partial_comments(self):
-        lead = Lead.objects.create(name="Jane Prospect", created_by=self.user)
-        response = self.client.get(lead.get_absolute_url())
-        self.assertNotContains(response, "Reusable activity timeline")
-
-    def test_deal_detail_does_not_leak_partial_comments(self):
-        company = Company.objects.create(name="Acme Corp", created_by=self.user)
-        deal = Deal.objects.create(title="Acme deal", company=company, created_by=self.user)
-        response = self.client.get(deal.get_absolute_url())
         self.assertNotContains(response, "Reusable activity timeline")
         self.assertNotContains(response, "Reusable audit history")
 
@@ -76,14 +65,6 @@ class CreateEditFormsHaveCancelLinksTests(TestCase):
     def test_contact_add_cancels_to_list(self):
         response = self.client.get("/contacts/add/")
         self.assertContains(response, 'href="/contacts/">Cancel')
-
-    def test_lead_add_cancels_to_list(self):
-        response = self.client.get("/leads/add/")
-        self.assertContains(response, 'href="/leads/">Cancel')
-
-    def test_deal_add_cancels_to_list(self):
-        response = self.client.get("/deals/add/")
-        self.assertContains(response, 'href="/deals/">Cancel')
 
     def test_task_add_cancels_to_list(self):
         response = self.client.get("/tasks/add/")
