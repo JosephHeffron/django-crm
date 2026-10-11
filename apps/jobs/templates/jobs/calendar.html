@@ -1,8 +1,24 @@
 {% extends "base.html" %}
+{% load static %}
+
+{% block extra_head %}{% if can_schedule %}<script src="{% static 'js/reschedule.js' %}" defer></script>{% endif %}{% endblock %}
 
 {% block title %}Scheduling{% endblock %}
 
 {% block content %}
+  {% if can_schedule %}
+    {% comment %}
+      Dragging submits this form rather than fetching, because
+      CSRF_COOKIE_HTTPONLY is on: no script in this app can read the
+      token, so it has to be a rendered field. static/js/reschedule.js
+      sets the action and the start and submits it.
+    {% endcomment %}
+    <form method="post" action="" class="is-hidden" data-move-form aria-hidden="true" tabindex="-1">
+      {% csrf_token %}
+      <input type="hidden" name="start" data-move-start>
+      <input type="hidden" name="next" value="{{ request.get_full_path }}">
+    </form>
+  {% endif %}
   <div class="dash-hero">
     <div>
       <h1>Scheduling</h1>
@@ -70,6 +86,9 @@
               {% if event.job_id and can_change_status %}
                 {% include "jobs/_status_actions.html" with job_id=event.job_id status=event.status back=request.get_full_path %}
               {% endif %}
+              {% if event.job_id and can_schedule %}
+                {% include "jobs/_move_actions.html" with job_id=event.job_id starts_at=event.starts_at back=request.get_full_path %}
+              {% endif %}
             </li>
           {% endfor %}
         </ul>
@@ -81,7 +100,7 @@
   {% elif cal.view == "week" %}
     <div class="cal-week">
       {% for day in days %}
-        <section class="cal-day{% if day.is_today %} is-today{% endif %}" aria-label="{{ day.date|date:'l, F j' }}">
+        <section class="cal-day{% if day.is_today %} is-today{% endif %}" aria-label="{{ day.date|date:'l, F j' }}"{% if can_schedule %} data-day="{{ day.date|date:'Y-m-d' }}"{% endif %}>
           <a class="cal-day-head" href="{{ day.url }}">
             <span>{{ day.date|date:"D" }}</span>
             <span class="cal-day-num">{{ day.date|date:"j" }}</span>
@@ -104,7 +123,7 @@
       {% for week in weeks %}
         <div class="cal-row" role="row">
           {% for day in week %}
-            <div class="cal-cell{% if day.is_today %} is-today{% endif %}{% if not day.in_month %} is-outside{% endif %}" role="cell">
+            <div class="cal-cell{% if day.is_today %} is-today{% endif %}{% if not day.in_month %} is-outside{% endif %}" role="cell"{% if can_schedule %} data-day="{{ day.date|date:'Y-m-d' }}"{% endif %}>
               <a class="cal-date" href="{{ day.url }}" aria-label="{{ day.date|date:'l, F j' }}: {{ day.events|length }} booking{{ day.events|length|pluralize }}">{{ day.date|date:"j" }}</a>
               {% if day.events %}{% include "jobs/_indicators.html" with indicators=day.indicators %}{% endif %}
               {% for event in day.events|slice:":2" %}

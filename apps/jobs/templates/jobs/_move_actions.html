@@ -1,0 +1,30 @@
+{% comment %}
+  Move a job to another time, without dragging (Phase 18 unit 4).
+
+  This is the baseline, not the fallback: it is plain form controls and
+  works with no JavaScript, on a keyboard, and with a screen reader.
+  Dragging on the week and month views is built on top of the same
+  endpoint.
+
+  Only on the day view, for the same reason the status buttons are: a
+  week or month chip is one <a> wrapping the whole thing
+  (jobs/_event.html) and a form cannot sit inside an anchor.
+
+  Expects `job_id`, `starts_at`, `back` and `nudges`.
+{% endcomment %}
+<div class="move-actions">
+  <form method="post" action="{% url 'jobs:job_reschedule' job_id %}" class="move-nudges">
+    {% csrf_token %}
+    <input type="hidden" name="next" value="{{ back }}">
+    {% for key, label, _ in nudges %}
+      <button type="submit" name="nudge" value="{{ key }}" class="btn-secondary btn-sm">{{ label }}</button>
+    {% endfor %}
+  </form>
+  <form method="post" action="{% url 'jobs:job_reschedule' job_id %}" class="move-exact">
+    {% csrf_token %}
+    <input type="hidden" name="next" value="{{ back }}">
+    <label for="id_start_{{ job_id }}" class="sr-only">New start for this job</label>
+    <input type="datetime-local" id="id_start_{{ job_id }}" name="start" value="{{ starts_at }}">
+    <button type="submit" class="btn-secondary btn-sm">Move</button>
+  </form>
+</div>

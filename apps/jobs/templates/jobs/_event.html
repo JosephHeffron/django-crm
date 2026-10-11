@@ -1,5 +1,14 @@
-{% comment %}A compact calendar chip (week and month views).{% endcomment %}
-<a class="event {{ event.tone_class }}{% if event.status == 'completed' %} is-done{% endif %}" href="{{ event.url }}">
+{% comment %}
+  A compact calendar chip (week and month views).
+
+  `draggable` and the data attributes are only set for someone who may
+  reschedule, so nobody drags a chip only to be refused. The chip stays
+  a plain link: dragging is an enhancement on top of the move controls
+  on the day view (jobs/_move_actions.html), which need no JavaScript.
+{% endcomment %}
+<a class="event {{ event.tone_class }}{% if event.status == 'completed' %} is-done{% endif %}"
+   href="{{ event.url }}"
+   {% if event.job_id and can_schedule %}draggable="true" data-job="{{ event.job_id }}" data-starts-at="{{ event.starts_at }}" data-move-url="{% url 'jobs:job_reschedule' event.job_id %}"{% endif %}>
   <span class="event-time">{{ event.start|time:"g:i A" }}</span>
   <span class="event-title">{{ event.title }}</span>
   <span class="event-sub">{{ event.subtitle }}</span>

@@ -91,8 +91,14 @@ class Event:
     status_label: str = ""
     crew: list = field(default_factory=list)
     # Set for jobs, left None for site visits — the day view offers
-    # status buttons only where there is a job to move.
+    # status and move controls only where there is a job to move.
     job_id: int | None = None
+
+    @property
+    def starts_at(self):
+        """The start as a datetime-local input wants it, so the move
+        box opens showing when the job currently runs."""
+        return timezone.localtime(self.start).strftime("%Y-%m-%dT%H:%M")
 
 
 def _job_events(user, start, end, crew_id):

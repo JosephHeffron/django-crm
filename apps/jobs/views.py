@@ -14,7 +14,7 @@ from django.http import Http404, HttpResponseBadRequest, StreamingHttpResponse
 from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse, reverse_lazy
 from django.utils import timezone
-from django.utils.dateparse import parse_date
+from django.utils.dateparse import parse_date, parse_datetime
 from django.views import View
 from django.views.generic import CreateView, DetailView, ListView, TemplateView, UpdateView
 
@@ -36,7 +36,7 @@ from apps.users.roles import (
     user_role,
 )
 
-from . import crew, reporting, reports, status
+from . import crew, reporting, reports, scheduling, status
 from .access import invoices_for, jobs_for, quotes_for
 from .calendar import DEFAULT_VIEW, VIEWS, calendar_days, calendar_range, day_bounds
 from .forms import (
@@ -131,6 +131,7 @@ class CalendarView(RoleRequiredMixin, TemplateView):
             can_schedule=can_schedule,
             can_change_status=can_change_status,
             quick_statuses=status.QUICK_STATUSES,
+            nudges=scheduling.NUDGES,
             new_job_url=reverse("jobs:job_create") if can_schedule else "",
             new_job_label="Schedule a job",
         )
@@ -733,6 +734,49 @@ JOB_PHOTO_KINDS = (
     (Photo.Kind.AFTER, "After"),
 )
 QUOTE_PHOTO_KINDS = ((Photo.Kind.REFERENCE, "Reference"),)
+
+
+class JobRescheduleView(SalesRoleRequiredMixin, PermissionRequiredMixin, View):
+    """Move a job to a different time. POST only — it writes.
+
+    Two ways in, one rule (`apps/jobs/scheduling.py`): the move
+    controls on the day schedule, which need no JavaScript, and
+    dragging a chip on the week or month view, which is built on top of
+    the same endpoint.
+
+    Sales roles only, deliberately. A crew member may say a job is
+    finished — that is reporting what happened — but moving a
+    customer's appointment to another day is a different kind of
+    decision, and it is the same rule the calendar already uses to
+    decide who sees "New job".
+    """
+
+    permission_required = "jobs.change_job"
+
+    def post(self, request, pk, *args, **kwargs):
+        job = jobs_for(request.user).filter(pk=pk).first()
+        if job is None:
+            raise Http404("No such job")
+        was = timezone.localtime(job.scheduled_start)
+
+        nudge = request.POST.get("nudge")
+        if nudge:
+            _, error = scheduling.nudge_job(job, nudge)
+        else:
+            start = parse_datetime(request.POST.get("start", "") or "")
+            _, error = scheduling.move_job(job, start)
+
+        if error:
+            messages.warning(request, error)
+        else:
+            audit.record(
+                request.user,
+                job,
+                AuditLogEntry.Action.UPDATED,
+                {"scheduled_start": [f"{was:%Y-%m-%d %H:%M}", scheduling.describe(job)]},
+            )
+            messages.success(request, f"{job.number} moved to {scheduling.describe(job)}.")
+        return redirect(redirects.safe_next(request, job.get_absolute_url()))
 
 
 class PhotoUploadView(RoleRequiredMixin, PermissionRequiredMixin, View):
