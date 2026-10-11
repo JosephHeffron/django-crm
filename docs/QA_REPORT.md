@@ -174,7 +174,7 @@ Four principles drove the work:
 | Automated tests executed | **1,054** |
 | Passed | **1,054** |
 | Failed | 0 |
-| Skipped | 0 in this environment (1 would skip without `pg_restore`) |
+| Skipped | **0**, locally and in CI — GitHub's runner ships `pg_restore`, confirmed on PR #153 |
 | Blocked | 0 |
 | Added by this audit | 54, in 5 files |
 
@@ -361,8 +361,11 @@ masked a result earlier in this project's history).
 - The backup-script ordering tests read script text, which is weak by
   nature but is the only way to assert that a check precedes a
   destructive step.
-- One test skips where `pg_restore` is absent, which may include CI. It
-  announces the skip rather than passing quietly.
+- One test skips where `pg_restore` is absent. It announces the skip
+  rather than passing quietly, and CI was checked after this audit: the
+  GitHub runner has `pg_restore`, so the run reported 1,054 tests and
+  **no skips**. A different runner image without postgresql-client
+  would silently lose that one assertion.
 - Only Chromium was driven. No Firefox or WebKit.
 - QA-002 is characterized, not fixed; its test will fail if someone
   improves the behaviour, which is intended.

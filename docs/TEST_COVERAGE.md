@@ -151,8 +151,11 @@ not a mock.
   before the destructive step", and it would catch the check being
   deleted or moved, which is the realistic regression.
 - **One test in that file skips** where no `pg_restore` is installed.
-  It says so when it skips rather than passing quietly, but it means
-  that assertion may not run in CI.
+  It says so when it skips rather than passing quietly. Checked after
+  the audit: GitHub's runner ships `pg_restore`, and the CI run on
+  PR #153 reported 1,054 tests with **no skips**, so the assertion does
+  execute there. A runner image without postgresql-client would lose
+  it.
 - **QA-002 is characterized, not fixed.** The test asserts today's
   behaviour, so it will fail if someone improves it. That is intended:
   it makes the change deliberate.
