@@ -131,7 +131,11 @@ podman exec "$DB_CONTAINER" sh -c 'pg_dump -Fc -U "$POSTGRES_USER" -d "$POSTGRES
 # because that is where a matching pg_restore is guaranteed to exist —
 # the host deliberately has no postgres client installed.
 echo "--- verifying the dump is readable ---"
-podman cp "$DEST/db.dump" "$DB_CONTAINER:/tmp/verify.dump"
+if ! podman cp "$DEST/db.dump" "$DB_CONTAINER:/tmp/verify.dump"; then
+	echo "ERROR: failed to copy the dump into the db container for verification." >&2
+	podman exec "$DB_CONTAINER" rm -f /tmp/verify.dump 2>/dev/null || true
+	exit 1
+fi
 podman exec "$DB_CONTAINER" pg_restore --list /tmp/verify.dump >/dev/null || {
 	echo "ERROR: the dump just written is not a readable PostgreSQL archive." >&2
 	echo "Refusing to record this as a successful backup. Check disk space on" >&2

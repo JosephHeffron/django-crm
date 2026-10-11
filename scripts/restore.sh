@@ -86,7 +86,14 @@ done
 # skipped with a loud warning rather than blocking a disaster recovery
 # that may be happening without a working network — the same reasoning
 # that makes the safety backup below best-effort.
-DB_IMAGE="${DB_IMAGE:-$(awk '/^[[:space:]]*db:/{f=1} f&&/image:/{print $2; exit}' "$COMPOSE_FILE")}"
+DB_IMAGE="${DB_IMAGE:-$(awk '
+	/^services:/ {in_services=1; next}
+	in_services && /^  [^[:space:]#][^:]*:/ {
+		if ($1 == "db:") {in_db=1; next}
+		if (in_db) exit
+	}
+	in_db && /^    image:/ {print $2; exit}
+' "$COMPOSE_FILE")}"
 echo "--- verifying db.dump is a readable archive before destroying anything ---"
 if [ -n "$DB_IMAGE" ] && podman image exists "$DB_IMAGE" 2>/dev/null; then
 	podman run --rm -v "$SRC:/backup:ro,z" "$DB_IMAGE" \

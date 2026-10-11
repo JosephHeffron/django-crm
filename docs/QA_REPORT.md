@@ -34,6 +34,19 @@ correct and pay is exact; every available fix makes something else
 worse. It now has a characterization test so changing it is a decision
 rather than an accident.
 
+A **MEDIUM** was then found in the audit's own fix, by review
+afterwards. The image lookup that decides which container validates the
+archive read the first `image:` after the first mention of `db:`, which
+is right for both compose files here and wrong for a `db` service built
+rather than pulled — it returned the *next* service's image. The
+consequence would have been `restore.sh` refusing valid backups. It is
+logged as QA-003 rather than quietly corrected, because the lesson cuts
+against this report: the fix was verified in a real container against
+five archives, but the lookup feeding it was only checked against the
+two files that happen to exist here. That is the same happy-path
+shortcut the audit criticises elsewhere, committed inside the fix for
+the HIGH.
+
 Nothing else of substance was found, and that is a real result rather
 than a shrug. The areas where a CRM usually rots — money arithmetic,
 permission boundaries, N+1 queries, migration reversibility — were
@@ -203,6 +216,7 @@ Beyond the suite:
 | Guard | Mutation | Result |
 |---|---|---|
 | Access sweep | Removed `SalesRoleRequiredMixin` from `CompanyDetailView` | Failed, both signed-out and role-less |
+| Image lookup (QA-003) | Restored the original one-liner | Failed, reporting `redis:7` |
 | N+1 probe | Dropped `select_related` from the Tasks hub | Failed: "grew by 15" for 15 extra rows |
 | Backup integrity | Made the dump verification advisory instead of fatal | Failed |
 | Browser CSP detection | Injected `style="color:red"` into a template | Reported the violation |
@@ -215,13 +229,16 @@ Beyond the suite:
 |---|---|---|---|
 | CRITICAL | 0 | — | 0 |
 | HIGH | 1 | 1 | 0 |
-| MEDIUM | 0 | — | 0 |
+| MEDIUM | 1 | 1 | 0 |
 | LOW | 1 | 0 | 1 (documented by decision) |
 
 - **QA-001 (HIGH, fixed)** — a backup was never checked to be readable,
   and the restore destroyed the live database before looking at it.
 - **QA-002 (LOW, documented)** — a timesheet's rows do not add up to
   its own total.
+- **QA-003 (MEDIUM, fixed)** — QA-001's fix read the wrong container
+  image out of the compose file, and would have refused valid backups.
+  **Found by review of this audit, not by the audit.** See below.
 
 Full detail, reproduction steps, root causes and verification in
 `docs/BUG_LOG.md`.

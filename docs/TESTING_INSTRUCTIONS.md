@@ -116,7 +116,13 @@ ships: the production image installs `requirements.txt` only. See
 with `sh -n`:
 
 ```sh
-for f in scripts/*.sh; do sh -n "$f" && echo "OK $f"; done
+for f in scripts/*.sh; do
+  if sh -n "$f"; then
+    echo "OK $f"
+  else
+    exit 1
+  fi
+done
 ```
 
 ## 6. Browser testing

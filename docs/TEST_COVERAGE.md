@@ -16,9 +16,9 @@ the application.
 | | Count |
 |---|---|
 | Test files | 70 |
-| Tests | 1,054 |
-| Added by this audit | 54, in 5 files |
-| Mutation-checked during the audit | 4 guards |
+| Tests | 1,059 |
+| Added by this audit | 59, in 5 files |
+| Mutation-checked during the audit | 5 guards |
 
 ## Added by this audit
 
@@ -26,7 +26,7 @@ the application.
 |---|---|---|
 | `apps/core/tests/test_access_sweep.py` | 10 | Every route, against signed-out and role-less visitors, built by walking the URL resolver |
 | `apps/core/tests/test_query_counts.py` | 14 | N+1 queries on 14 list and aggregate pages |
-| `apps/core/tests/test_backup_integrity.py` | 10 | QA-001: a backup must be readable, and verified before the restore destroys anything |
+| `apps/core/tests/test_backup_integrity.py` | 15 | QA-001: a backup must be readable, and verified before the restore destroys anything. QA-003: the right container image validates it |
 | `apps/jobs/tests/test_money_and_hours_invariants.py` | 15 | Money and hours where rounding can make figures disagree; QA-002 characterized |
 | `apps/jobs/tests/test_end_to_end_workflow.py` | 5 | The whole business sequence, enquiry to paid, asserted against the database |
 

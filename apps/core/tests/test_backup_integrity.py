@@ -108,10 +108,126 @@ class ScriptOrderTests(SimpleTestCase):
 
     def test_the_db_image_is_discoverable_from_the_compose_file(self):
         """restore.sh verifies in a throwaway container from the db
-        service's own image, so that lookup has to keep working."""
+        service's own image, so that lookup has to keep working.
+
+        Weak on purpose — the real assertions are in
+        `DbImageLookupTests`, which runs the script's own awk program.
+        This only catches the compose files losing their postgres image
+        altogether.
+        """
         for compose in ("compose.prod.yml", "compose.dev.yml"):
             text = (Path(settings.BASE_DIR) / compose).read_text()
             self.assertIn("postgres:", text, compose)
+
+
+def db_image_program():
+    """The awk program `restore.sh` uses to find the db service's image.
+
+    Extracted from the script rather than copied into this file, so the
+    test cannot keep passing against a version of the program the script
+    no longer runs.
+    """
+    text = (SCRIPTS / "restore.sh").read_text()
+    start = text.index("DB_IMAGE=\"${DB_IMAGE:-$(awk '") + len("DB_IMAGE=\"${DB_IMAGE:-$(awk '")
+    end = text.index('\' "$COMPOSE_FILE")}"', start)
+    return text[start:end]
+
+
+class DbImageLookupTests(SimpleTestCase):
+    """Which image the archive is validated in.
+
+    Found by review, after the audit's own first version of this lookup
+    got it wrong. The original was a one-liner —
+    `/^[[:space:]]*db:/{f=1} f&&/image:/{print $2; exit}` — which takes
+    the first `image:` line after the first line mentioning `db:` at any
+    indentation. Given a `db` service defined with `build:` and no
+    `image:`, that reaches past it and returns the **next service's**
+    image: measured, it returned `redis:7`.
+
+    The consequence is not cosmetic. `restore.sh` would have tried to
+    read a PostgreSQL archive with whatever binary that image happens to
+    ship, almost certainly failed, and refused a backup that was
+    perfectly good — on the day someone was trying to recover.
+
+    These cases are what separate the two versions.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls.program = db_image_program()
+        cls.tmp = Path(settings.BASE_DIR) / ".qa-tmp-compose"
+        cls.tmp.mkdir(exist_ok=True)
+
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(cls.tmp, ignore_errors=True)
+        super().tearDownClass()
+
+    def image_for(self, yaml):
+        path = self.tmp / "compose.yml"
+        path.write_text(yaml)
+        result = subprocess.run(["awk", self.program, str(path)], capture_output=True, text=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        return result.stdout.strip()
+
+    def test_the_real_compose_files_resolve_to_postgres(self):
+        """If this returns nothing, `restore.sh` falls through to its
+        warning branch and skips the verification entirely — the fix
+        would be silently disabled."""
+        for compose in ("compose.prod.yml", "compose.dev.yml"):
+            path = Path(settings.BASE_DIR) / compose
+            result = subprocess.run(
+                ["awk", self.program, str(path)], capture_output=True, text=True
+            )
+            found = result.stdout.strip()
+            self.assertIn("postgres", found, f"{compose} resolved to {found!r}")
+
+    def test_a_service_whose_name_merely_contains_db_is_not_mistaken_for_it(self):
+        self.assertEqual(
+            self.image_for(
+                "services:\n"
+                "  webdb:\n"
+                "    image: docker.io/library/nginx:1\n"
+                "  db:\n"
+                "    image: docker.io/library/postgres:18-alpine\n"
+            ),
+            "docker.io/library/postgres:18-alpine",
+        )
+
+    def test_a_db_service_with_no_image_yields_nothing_not_a_neighbours_image(self):
+        """The regression. The old lookup returned `redis:7` here."""
+        found = self.image_for(
+            "services:\n  db:\n    build: .\n  cache:\n    image: docker.io/library/redis:7\n"
+        )
+        self.assertEqual(found, "", f"reached past the db service and found {found!r}")
+
+    def test_a_nested_key_called_db_is_not_a_service(self):
+        self.assertEqual(
+            self.image_for(
+                "services:\n"
+                "  web:\n"
+                "    image: docker.io/library/python:3.12\n"
+                "    environment:\n"
+                "      db: something\n"
+                "  db:\n"
+                "    image: docker.io/library/postgres:18-alpine\n"
+            ),
+            "docker.io/library/postgres:18-alpine",
+        )
+
+    def test_nothing_outside_a_services_block_is_considered(self):
+        self.assertEqual(
+            self.image_for(
+                "x-templates:\n"
+                "  db:\n"
+                "    image: docker.io/library/mysql:8\n"
+                "services:\n"
+                "  db:\n"
+                "    image: docker.io/library/postgres:18-alpine\n"
+            ),
+            "docker.io/library/postgres:18-alpine",
+        )
 
 
 class ArchiveValidationTests(SimpleTestCase):

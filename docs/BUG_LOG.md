@@ -13,9 +13,13 @@ Severity, as the audit brief defines it:
 | MEDIUM | Significant feature defect with a workaround |
 | LOW | Minor functional or presentation defect |
 
-Summary: **1 HIGH, 1 LOW, 0 CRITICAL, 0 MEDIUM.** One fixed, one
+Summary: **1 HIGH, 1 MEDIUM, 1 LOW, 0 CRITICAL.** Two fixed, one
 documented with a characterization test rather than fixed, for the
 reason given below. Three bandit findings triaged as false positives.
+
+The MEDIUM (QA-003) was a defect **in this audit's own fix for the
+HIGH**, found by review afterwards and not by the audit. It is logged
+in full rather than quietly corrected.
 
 ---
 
@@ -190,6 +194,89 @@ the current behaviour, so changing it is a decision rather than an
 accident, plus
 `test_the_timesheet_page_really_does_show_both_figures`, without which
 the first test would be a claim about a template nobody had checked.
+
+---
+
+## QA-003 — The audit's own fix looked up the wrong container image
+
+**Severity:** MEDIUM
+**Status:** FIXED, regression-tested, mutation-checked
+**Files:** `scripts/restore.sh`
+**Found by:** code review of this audit, not by the audit
+
+### Description
+
+QA-001's fix validates `db.dump` inside a throwaway container built
+from the db service's image, which it reads out of the compose file.
+The first version read it with:
+
+```sh
+awk '/^[[:space:]]*db:/{f=1} f&&/image:/{print $2; exit}' "$COMPOSE_FILE"
+```
+
+That takes the first `image:` line after the first line mentioning
+`db:` at *any* indentation. It happens to be correct for both compose
+files in this repository, which is why the audit's own testing did not
+catch it — I verified the output against the real files and stopped
+there.
+
+Given a `db` service defined with `build:` and no `image:`, it reaches
+straight past that service and returns the **next service's** image.
+Measured:
+
+| compose shape | old lookup | new lookup |
+|---|---|---|
+| `db` with an image | `postgres:18-alpine` | `postgres:18-alpine` |
+| a `webdb` service before `db` | `postgres:18-alpine` | `postgres:18-alpine` |
+| `db:` as a nested environment key | `postgres:18-alpine` | `postgres:18-alpine` |
+| **`db` with `build:`, then a `cache` service** | **`redis:7`** | *(nothing)* |
+
+### Why it matters
+
+Not cosmetic. `restore.sh` would have tried to read a PostgreSQL
+archive using whatever binary that image ships, almost certainly
+failed, and **refused a backup that was perfectly good** — on the day
+somebody was trying to recover. A validation step that rejects valid
+backups is its own outage.
+
+Returning nothing is the correct behaviour: `restore.sh` then takes its
+documented warning branch and proceeds without verification, which is
+the deliberate choice for a host that cannot supply the image.
+
+### Fix
+
+An awk program that tracks the `services:` block and the service key's
+indentation, treats a new 2-space key as the end of the `db` service,
+and only reads `image:` at the service's own depth.
+
+### Regression test
+
+`DbImageLookupTests` in `apps/core/tests/test_backup_integrity.py`
+(5 tests). It **extracts the awk program from `restore.sh`** rather
+than copying it, so the test cannot keep passing against a version the
+script no longer runs, and runs it against synthetic compose files
+covering each row of the table above.
+
+Mutation-checked: restoring the original one-liner fails two tests, one
+of them reporting `reached past the db service and found
+'docker.io/library/redis:7'`.
+
+### What this says about the audit
+
+Worth recording rather than quietly fixing. The audit's method held in
+one respect and failed in another: the fix *was* verified end to end in
+a real container against five archives, but the **image lookup feeding
+it** was only checked against the two files that exist here. That is
+the same mistake the audit criticises elsewhere — testing the happy
+path on real data and calling it done — committed inside the fix for a
+HIGH-severity finding.
+
+Two smaller review findings were taken at the same time:
+
+- `backup.sh` now reports a failed `podman cp` explicitly rather than
+  relying on `set -e` alone. Functionally equivalent, better message.
+- The `sh -n` loop in `docs/TESTING_INSTRUCTIONS.md` now exits non-zero
+  on a syntax error; as written it printed nothing and carried on.
 
 ---
 
