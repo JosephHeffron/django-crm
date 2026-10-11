@@ -40,6 +40,83 @@ class AddMonthsTests(TestCase):
         self.assertEqual(add_months(date(2026, 1, 31), 12), date(2027, 1, 31))
 
 
+class PerServiceIntervalTests(TestCase):
+    """Each service waits its own interval.
+
+    Added during the Phase 19 verification pass. The roadmap lists
+    "per-service intervals" as a Phase 19 deliverable and the code does
+    read `service.followup_interval_months` — but every existing test
+    used one service, gutter cleaning, at six months. Hard-coding six
+    would have passed the whole suite.
+
+    The seeded catalogue (`jobs/0002_seed_service_catalog`) spans the
+    range deliberately: weed removal every 3 months, gutters every 6,
+    pressure washing every 12, tree removal never. One customer each,
+    one completed job each, the same number of days ago — so the only
+    thing that can separate them is the interval.
+    """
+
+    INTERVALS = (
+        ("weed-removal", 3),
+        ("gutter-cleaning", 6),
+        ("pressure-washing", 12),
+    )
+
+    def setUp(self):
+        self.rep = grant_role(f.user("rep"), Role.SALES_REP)
+        self.customers = {}
+        for slug, _ in self.INTERVALS:
+            self.customers[slug] = f.contact(self.rep, slug[:8], "Customer", owner=self.rep)
+
+    def due_slugs(self, days_ago):
+        for slug, _ in self.INTERVALS:
+            _completed_job(self.customers[slug], self.rep, days_ago, service_slug=slug)
+        return sorted(service.slug for _, service, _ in due_follow_ups(TODAY))
+
+    def test_the_catalogue_really_does_carry_three_different_intervals(self):
+        """Without this the cases below could all be testing one number."""
+        for slug, expected in self.INTERVALS:
+            self.assertEqual(f.service(slug).followup_interval_months, expected, slug)
+
+    def test_after_four_months_only_the_three_month_service_is_due(self):
+        self.assertEqual(self.due_slugs(days_ago=125), ["weed-removal"])
+
+    def test_after_seven_months_the_three_and_six_month_services_are_due(self):
+        self.assertEqual(self.due_slugs(days_ago=215), ["gutter-cleaning", "weed-removal"])
+
+    def test_after_thirteen_months_all_three_are_due(self):
+        self.assertEqual(
+            self.due_slugs(days_ago=400),
+            ["gutter-cleaning", "pressure-washing", "weed-removal"],
+        )
+
+    def test_a_service_with_no_interval_is_never_due(self):
+        """Tree removal is a one-off; chasing someone for another is
+        the kind of thing that loses a customer."""
+        customer = f.contact(self.rep, "Tree", "Customer", owner=self.rep)
+        _completed_job(customer, self.rep, days_ago=2000, service_slug="tree-removal")
+        self.assertEqual(
+            [slug for _, service, _ in due_follow_ups(TODAY) if (slug := service.slug)],
+            [],
+        )
+
+    def test_changing_a_service_interval_changes_when_it_is_due(self):
+        """The owner can edit intervals on the service catalogue, so the
+        stored value has to be what is read — not a constant that
+        happens to match it today.
+        """
+        customer = self.customers["pressure-washing"]
+        _completed_job(customer, self.rep, days_ago=215, service_slug="pressure-washing")
+        self.assertEqual(due_follow_ups(TODAY), [])
+
+        service = f.service("pressure-washing")
+        service.followup_interval_months = 6
+        service.save(update_fields=["followup_interval_months"])
+
+        (due,) = due_follow_ups(TODAY)
+        self.assertEqual(due[1].slug, "pressure-washing")
+
+
 class GenerateFollowUpsTests(TestCase):
     def setUp(self):
         self.rep = grant_role(f.user("rep"), Role.SALES_REP)
