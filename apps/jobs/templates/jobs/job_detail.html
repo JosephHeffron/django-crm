@@ -144,4 +144,6 @@
     <p class="section-gap"><a href="{{ job.quote.get_absolute_url }}">From quote {{ job.quote.number }}</a></p>
   {% endif %}
   <p class="section-gap"><a href="{% url 'jobs:calendar' %}?view=day&amp;date={{ job.scheduled_start|date:'Y-m-d' }}">Back to the calendar</a></p>
+  {% include "jobs/_photos.html" %}
+
 {% endblock %}

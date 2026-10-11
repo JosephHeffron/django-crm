@@ -6,6 +6,7 @@ from urllib.parse import urlencode
 from django.contrib import messages
 from django.contrib.auth import get_user_model
 from django.contrib.auth.mixins import PermissionRequiredMixin
+from django.core.exceptions import PermissionDenied
 from django.db import transaction
 from django.db.models import Q, Sum, Value
 from django.db.models.functions import Coalesce
@@ -45,6 +46,7 @@ from .forms import (
     JobForm,
     JobLineFormSet,
     PaymentForm,
+    PhotoForm,
     QuoteForm,
     QuoteLineFormSet,
     ServiceTypeForm,
@@ -60,6 +62,7 @@ from .models import (
     JobAssignment,
     JobLineItem,
     Payment,
+    Photo,
     Quote,
     ServiceType,
 )
@@ -166,6 +169,12 @@ class JobDetailView(RoleRequiredMixin, DetailView):
             is_owner=role in OWNER_ONLY,
             can_change_status=self.request.user.has_perm("jobs.change_job"),
             quick_statuses=status.QUICK_STATUSES,
+            **photo_context(
+                self.request.user,
+                job,
+                reverse("jobs:job_photo_add", args=[job.pk]),
+                JOB_PHOTO_KINDS,
+            ),
         )
         return context
 
@@ -385,6 +394,14 @@ class QuoteDetailView(SalesRoleRequiredMixin, DetailView):
         context = super().get_context_data(**kwargs)
         context["line_items"] = self.object.line_items.select_related("service_type")
         context["jobs"] = self.object.jobs.select_related("primary_service_type")
+        context.update(
+            photo_context(
+                self.request.user,
+                self.object,
+                reverse("jobs:quote_photo_add", args=[self.object.pk]),
+                QUOTE_PHOTO_KINDS,
+            )
+        )
         return context
 
 
@@ -757,6 +774,135 @@ class ExpenseCreateView(AuditedFormMixin, ExpenseFormMixin, CreateView):
 
 class ExpenseUpdateView(AuditedFormMixin, ExpenseFormMixin, UpdateView):
     permission_required = "jobs.change_expense"
+
+
+def photo_context(user, parent, upload_url, kinds):
+    """Photos for a job or estimate page, and the form to add one.
+
+    `may_remove` is worked out here rather than in the template: a
+    template cannot ask "is this person the owner", and putting the
+    rule in one place keeps it the same as the one PhotoDeleteView
+    enforces.
+    """
+    is_owner = user_role(user) in OWNER_ONLY
+    photos = list(parent.photos.select_related("uploaded_by"))
+    for photo in photos:
+        photo.may_remove = photo.uploaded_by_id == user.pk or is_owner
+    return {
+        "photos": photos,
+        "photo_form": PhotoForm(kinds=kinds),
+        "photo_upload_url": upload_url,
+        "can_add_photos": user.has_perm("jobs.add_photo"),
+    }
+
+
+JOB_PHOTO_KINDS = (
+    (Photo.Kind.BEFORE, "Before"),
+    (Photo.Kind.AFTER, "After"),
+)
+QUOTE_PHOTO_KINDS = ((Photo.Kind.REFERENCE, "Reference"),)
+
+
+class PhotoUploadView(RoleRequiredMixin, PermissionRequiredMixin, View):
+    """Add a photo to a job or an estimate. POST only — it writes.
+
+    Scoped the same way everything else is: a crew member may add a
+    photo to a job they are on and gets a 404 for one they are not,
+    because a 403 would confirm the job exists. Adding photos on a
+    phone, at the kerb, is the point of the feature, so crews are in.
+
+    The image is re-encoded on the way in (`apps/jobs/photos.py`),
+    which strips the location a phone records in a photo of somebody's
+    house.
+    """
+
+    allowed_roles = ALL_ROLES
+    permission_required = "jobs.add_photo"
+
+    def parent(self, request, pk):
+        """The job or estimate this belongs to, or None if out of scope."""
+        raise NotImplementedError
+
+    def post(self, request, pk, *args, **kwargs):
+        parent = self.parent(request, pk)
+        if parent is None:
+            raise Http404("No such record")
+        form = PhotoForm(request.POST, request.FILES, kinds=self.kinds)
+        if not form.is_valid():
+            for error in form.errors.get("image", []) or form.errors.get("kind", []):
+                messages.warning(request, error)
+            if not form.errors.get("image") and not form.errors.get("kind"):
+                messages.warning(request, "That photo couldn't be added.")
+            return redirect(self.back(parent))
+        photo = form.save(commit=False)
+        setattr(photo, self.parent_field, parent)
+        photo.uploaded_by = request.user
+        photo.save()
+        audit.record(request.user, photo, AuditLogEntry.Action.CREATED)
+        messages.success(request, "Photo added.")
+        return redirect(self.back(parent))
+
+    def back(self, parent):
+        return f"{parent.get_absolute_url()}#photos"
+
+
+class JobPhotoUploadView(PhotoUploadView):
+    kinds = JOB_PHOTO_KINDS
+    parent_field = "job"
+
+    def parent(self, request, pk):
+        return jobs_for(request.user).filter(pk=pk).first()
+
+
+class QuotePhotoUploadView(PhotoUploadView):
+    kinds = QUOTE_PHOTO_KINDS
+    parent_field = "quote"
+
+    def parent(self, request, pk):
+        return quotes_for(request.user).filter(pk=pk).first()
+
+
+class PhotoDeleteView(RoleRequiredMixin, View):
+    """Remove a photo. POST only.
+
+    Whoever added it can remove it, and so can the Owner. A crew
+    member who photographs the wrong house should be able to put that
+    right without asking.
+
+    The file goes with the row: a stored photograph of somebody's home
+    is not a thing to keep by accident, which is also why this is a
+    real delete rather than the `is_active` flag used for customers.
+    """
+
+    allowed_roles = ALL_ROLES
+
+    def post(self, request, uuid, *args, **kwargs):
+        photo = Photo.objects.filter(uuid=uuid).select_related("job", "quote").first()
+        if photo is None or not self.may_see(request.user, photo):
+            raise Http404("No such photo")
+        if not (photo.uploaded_by_id == request.user.pk or user_role(request.user) in OWNER_ONLY):
+            raise PermissionDenied("Only whoever added a photo, or the owner, can remove it.")
+        parent = photo.job or photo.quote
+        audit.record(
+            request.user,
+            photo,
+            AuditLogEntry.Action.UPDATED,
+            {"removed": [str(photo), None]},
+        )
+        # The row first, then the file: a missing file with a row left
+        # behind is a 404 on a page, while a row with no file is a
+        # broken image on every page that lists it.
+        photo.image.delete(save=False)
+        photo.delete()
+        messages.success(request, "Photo removed.")
+        return redirect(f"{parent.get_absolute_url()}#photos" if parent else "jobs:calendar")
+
+    def may_see(self, user, photo):
+        if photo.job_id:
+            return jobs_for(user).filter(pk=photo.job_id).exists()
+        if photo.quote_id:
+            return quotes_for(user).filter(pk=photo.quote_id).exists()
+        return False
 
 
 class JobStatusView(RoleRequiredMixin, PermissionRequiredMixin, View):
