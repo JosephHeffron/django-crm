@@ -11,6 +11,17 @@
     </div>
     <div class="cluster">
       {% include "jobs/_status_badge.html" with status=quote.status label=quote.get_status_display %}
+      {% if quote.status == "accepted" %}
+        {% comment %}
+          One click from an accepted estimate to the work being booked.
+          It opens the job form rather than creating the job outright,
+          because a job needs a date and a time and only a person knows
+          those; everything else is carried across.
+        {% endcomment %}
+        <a class="btn btn-sm" href="{% url 'jobs:job_create' %}?quote={{ quote.pk }}">
+          <svg class="icon" aria-hidden="true"><use href="#icon-calendar"/></svg>Schedule this work
+        </a>
+      {% endif %}
       <a class="btn btn-secondary btn-sm" href="{% url 'jobs:quote_update' quote.pk %}">
         <svg class="icon" aria-hidden="true"><use href="#icon-settings"/></svg>Edit
       </a>

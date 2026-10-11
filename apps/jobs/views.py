@@ -58,6 +58,7 @@ from .models import (
     InvoiceLineItem,
     Job,
     JobAssignment,
+    JobLineItem,
     Payment,
     Quote,
     ServiceType,
@@ -187,12 +188,59 @@ class JobFormMixin(SalesRoleRequiredMixin, PermissionRequiredMixin):
     form_class = JobForm
     template_name = "jobs/job_form.html"
 
+    def from_quote(self):
+        """The accepted estimate this job is being scheduled from.
+
+        Only an accepted one: scheduling work off an estimate the
+        customer hasn't agreed to is the wrong way round, and a
+        declined or expired one is worse. Scoped through `quotes_for`,
+        so an estimate the person may not see is simply absent.
+        """
+        pk = _int_or_none_str(self.request.GET.get("quote"))
+        if pk is None:
+            return None
+        return (
+            quotes_for(self.request.user)
+            .filter(pk=pk, status=Quote.Status.ACCEPTED)
+            .prefetch_related("line_items__service_type")
+            .first()
+        )
+
+    def line_initial(self):
+        """A job scheduled from an estimate starts with its work.
+
+        The whole point of the one-click route: what was quoted is what
+        gets done, without anybody retyping it.
+        """
+        quote = self.from_quote()
+        if quote is None:
+            return None
+        return [
+            {
+                "service_type": line.service_type_id,
+                "description": line.description,
+                "quantity": line.quantity,
+                "unit_price": line.unit_price,
+            }
+            for line in quote.line_items.all()
+        ]
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         if "lines" not in context:
-            context["lines"] = JobLineFormSet(
-                self.request.POST or None, instance=self.object, prefix="lines"
+            initial = self.line_initial()
+            # Sized to what it's seeded with: a formset renders `extra`
+            # rows however many initial ones it's given, so a
+            # three-line estimate would otherwise show one and quietly
+            # drop the other two. Same trap as invoicing a job.
+            formset = line_formset(Job, JobLineItem, extra=len(initial) + 1 if initial else 1)
+            context["lines"] = formset(
+                self.request.POST or None,
+                instance=self.object,
+                prefix="lines",
+                initial=initial,
             )
+            context["from_quote"] = self.from_quote()
         # Where the quick-add pages send the user back to, and which
         # customer the new-address page should start with. The full path
         # means a job begun from a calendar day returns to that day.
@@ -212,6 +260,13 @@ class JobFormMixin(SalesRoleRequiredMixin, PermissionRequiredMixin):
         with transaction.atomic():
             if not form.instance.pk:
                 form.instance.created_by = self.request.user
+                # Link it back to the estimate it was scheduled from.
+                # Set here rather than offered as a field: which
+                # estimate a job came from is decided by how you
+                # reached this page, not chosen from a list.
+                quote = self.from_quote()
+                if quote is not None:
+                    form.instance.quote = quote
             status.stamp_completion(form.instance)
             self.object = form.save()
             lines.instance = self.object
@@ -239,6 +294,19 @@ class JobCreateView(AuditedFormMixin, JobFormMixin, CreateView):
     def get_initial(self):
         initial = super().get_initial()
         initial.setdefault("sales_rep", self.request.user.pk)
+        # Scheduling an accepted estimate: carry across who it's for,
+        # where, what service and who sold it, so the only thing left
+        # to decide is when. The line items come from line_initial().
+        quote = self.from_quote()
+        if quote is not None:
+            initial.setdefault("contact", quote.contact_id)
+            if quote.service_property_id:
+                initial.setdefault("service_property", quote.service_property_id)
+            if quote.prepared_by_id:
+                initial["sales_rep"] = quote.prepared_by_id
+            first_line = quote.line_items.first()
+            if first_line is not None:
+                initial.setdefault("primary_service_type", first_line.service_type_id)
         contact = self.request.GET.get("contact", "")
         if contact.isdigit():
             initial.setdefault("contact", int(contact))
