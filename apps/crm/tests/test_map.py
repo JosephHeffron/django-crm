@@ -1,4 +1,5 @@
 import json
+from datetime import datetime, timedelta
 from decimal import Decimal
 from io import BytesIO, StringIO
 from unittest import mock
@@ -167,13 +168,55 @@ class MapPageTests(MapTestCase):
         self.assertEqual(pin["title"], str(self.customer))
 
     def test_a_pin_carries_the_next_job_booked_there(self):
+        """The clock is pinned, and it has to be.
+
+        The map shows Monday-to-Sunday of the *current* week
+        (`MapView.get_context_data` -> `crew.week_bounds`). This test
+        used to book the job at `now + 2 hours`, which is inside that
+        window almost always and outside it in a two-hour slot once a
+        week: run late on a Sunday evening, the job lands on Monday, in
+        the next week, and the pin correctly reports no jobs.
+
+        It is not hypothetical. CI hit it at 2026-10-11 22:20 local — a
+        Sunday — and failed with `0 != 1` on a pull request that had
+        not touched the map. Roughly 1% of runs.
+
+        Pinned to a Wednesday so the job and the window are both fixed
+        and the assertion means what it says.
+        """
         geocoding.place_by_hand(self.address, "41.5", "-87.5")
-        start = timezone.localtime() + timezone.timedelta(hours=2)
-        f.job(self.customer, self.owner, start=start, service_property=self.address, lines=[])
-        pin = json.loads(self.client.get(MAP).context["pins_json"])[0]
+        wednesday = timezone.make_aware(datetime(2026, 10, 7, 9, 0))
+        f.job(
+            self.customer,
+            self.owner,
+            start=wednesday + timedelta(hours=2),
+            service_property=self.address,
+            lines=[],
+        )
+        with mock.patch.object(timezone, "localdate", return_value=wednesday.date()):
+            pin = json.loads(self.client.get(MAP).context["pins_json"])[0]
         self.assertEqual(pin["jobs"], 1)
         self.assertTrue(pin["when"])
         self.assertTrue(pin["service"])
+
+    def test_a_job_in_another_week_is_not_on_the_pin(self):
+        """The other half, which nothing asserted.
+
+        Without this, pinning the clock above could hide a map that had
+        stopped filtering by week at all — every test would still pass.
+        """
+        geocoding.place_by_hand(self.address, "41.5", "-87.5")
+        wednesday = timezone.make_aware(datetime(2026, 10, 7, 9, 0))
+        f.job(
+            self.customer,
+            self.owner,
+            start=wednesday + timedelta(days=9),
+            service_property=self.address,
+            lines=[],
+        )
+        with mock.patch.object(timezone, "localdate", return_value=wednesday.date()):
+            pin = json.loads(self.client.get(MAP).context["pins_json"])[0]
+        self.assertEqual(pin["jobs"], 0)
 
     def test_the_page_lists_every_pin_without_javascript(self):
         geocoding.place_by_hand(self.address, "41.5", "-87.5")
