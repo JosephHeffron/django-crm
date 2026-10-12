@@ -4,7 +4,7 @@ from django.db.models import Q
 
 from apps.jobs.access import quotes_for
 
-from .models import Activity, Company, Contact, Property, Task
+from .models import Activity, Company, Contact, Note, Property, Task
 
 
 class ContactChoiceField(forms.ModelChoiceField):
@@ -231,3 +231,78 @@ class TaskForm(forms.ModelForm):
         if contact and quote and quote.contact_id != contact.pk:
             self.add_error("quote", "That estimate belongs to a different customer.")
         return cleaned
+
+
+class NoteForm(forms.ModelForm):
+    """A note: general, about a customer, or about a job.
+
+    Until now notes could only be written in the Django admin, which
+    is why `NoteListView`'s docstring said "Adding and editing notes
+    lands in Phase 19".
+    """
+
+    class Meta:
+        model = Note
+        fields = ["body", "contact", "job", "pinned"]
+        labels = {
+            "body": "The note",
+            "contact": "About a customer",
+            "job": "About a job",
+            "pinned": "Keep it at the top",
+        }
+        help_texts = {
+            "job": "Optional. Shown on that job's page.",
+        }
+        widgets = {"body": forms.Textarea(attrs={"rows": 5})}
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Said on the form rather than left to be discovered: a note
+        # about a customer is readable by any crew member working at
+        # that customer's address, which is the owner's deliberate
+        # choice and not obvious while writing one.
+        self.fields["contact"] = ContactChoiceField(
+            queryset=contact_choices(self.instance.contact_id),
+            required=False,
+            label="About a customer",
+            help_text=(
+                "Optional. Crews working at this customer's address can read "
+                "notes about them, so keep commercial detail out of these."
+            ),
+        )
+        self.fields["job"].queryset = (
+            self.fields["job"].queryset.select_related("contact").order_by("-scheduled_start")
+        )
+        self.fields["job"].required = False
+
+    def clean(self):
+        cleaned = super().clean()
+        contact, job = cleaned.get("contact"), cleaned.get("job")
+        # Two fields that must agree are two fields that can disagree —
+        # the same guard TaskForm and JobForm already apply. A note
+        # filed against one customer and another customer's job would
+        # show up in both places, each time beside the wrong person.
+        if contact and job and job.contact_id != contact.pk:
+            self.add_error("job", "That job belongs to a different customer.")
+        return cleaned
+
+
+class JobNoteForm(forms.ModelForm):
+    """A note about one job, written from the job's own page.
+
+    One field, because the job is already decided by the page you are
+    on and the person writing it is standing at the kerb. `users/0004`
+    gives crews `add_note` for exactly this — "Crews update their own
+    jobs (status, hours) and add photos/notes" — and nothing had ever
+    built it.
+    """
+
+    class Meta:
+        model = Note
+        fields = ["body"]
+        labels = {"body": "Add a note about this job"}
+        widgets = {
+            "body": forms.Textarea(
+                attrs={"rows": 3, "placeholder": "e.g. Gate code 4821, side entrance"}
+            )
+        }

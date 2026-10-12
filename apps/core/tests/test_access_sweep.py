@@ -34,7 +34,7 @@ from django.test import TestCase
 from django.urls import URLPattern, URLResolver, get_resolver, reverse
 from django.utils import timezone
 
-from apps.crm.models import Company, Property, Task
+from apps.crm.models import Company, Note, Property, Task
 from apps.crm.tests._helpers import grant_role
 from apps.jobs.models import Expense, Photo
 from apps.jobs.tests import _factories as f
@@ -124,6 +124,7 @@ class RouteSweep(TestCase):
             job=cls.job, uploaded_by=cls.owner, image="private/photos/x.jpg"
         )
         cls.service = f.service()
+        cls.note = Note.objects.create(body="Gate code 4821", job=cls.job, author=cls.owner)
 
     def args_for(self, name, params):
         """Concrete arguments for one route, or None if we cannot."""
@@ -148,6 +149,8 @@ class RouteSweep(TestCase):
             "jobs:job_status": [self.job.pk],
             "jobs:job_reschedule": [self.job.pk],
             "jobs:job_photo_add": [self.job.pk],
+            "jobs:job_note_create": [self.job.pk],
+            "crm:note_update": [self.note.pk],
             "jobs:quote_detail": [self.quote.pk],
             "jobs:quote_update": [self.quote.pk],
             "jobs:quote_photo_add": [self.quote.pk],

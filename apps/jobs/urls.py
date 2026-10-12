@@ -11,6 +11,7 @@ urlpatterns = [
     path("jobs/<int:pk>/edit/", views.JobUpdateView.as_view(), name="job_update"),
     path("jobs/<int:pk>/status/", views.JobStatusView.as_view(), name="job_status"),
     path("jobs/<int:pk>/move/", views.JobRescheduleView.as_view(), name="job_reschedule"),
+    path("jobs/<int:pk>/notes/add/", views.JobNoteCreateView.as_view(), name="job_note_create"),
     path("jobs/<int:pk>/photos/add/", views.JobPhotoUploadView.as_view(), name="job_photo_add"),
     path(
         "quotes/<int:pk>/photos/add/",

@@ -5,6 +5,16 @@
 {% block content %}
   {% include "crm/_hub_tabs.html" %}
 
+  <div class="page-header">
+    <div>
+      <h1>Notes</h1>
+      <p class="page-subtitle">Anything worth remembering, pinned first.</p>
+    </div>
+    <div class="page-actions">
+      <a class="btn" href="{% url 'crm:note_create' %}"><svg class="icon" aria-hidden="true"><use href="#icon-plus"/></svg>New note</a>
+    </div>
+  </div>
+
   <form method="get" class="filter-form">
     <label for="id_q" class="sr-only">Search notes</label>
     <input type="search" id="id_q" name="q" value="{{ query }}" placeholder="Search notes">
@@ -29,6 +39,7 @@
             {% if note.job %}<span>on <a href="{{ note.job.get_absolute_url }}">{{ note.job.number }} · {{ note.job.primary_service_type.name }}</a></span>{% endif %}
           </div>
           <div class="timeline-description note-body">{{ note.body|linebreaksbr }}</div>
+          <p class="cluster"><a class="btn btn-secondary btn-sm" href="{% url 'crm:note_update' note.pk %}?next={{ request.get_full_path|urlencode }}">Edit</a></p>
         </li>
       {% endfor %}
     </ul>
