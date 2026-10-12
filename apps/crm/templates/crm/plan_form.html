@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+
+{% block title %}{% if object %}Edit plan{% else %}New plan{% endif %}{% endblock %}
+
+{% block content %}
+  <div class="settings-shell">
+    <div class="page-header">
+      <div>
+        <h1>{% if object %}Edit plan{% else %}New plan{% endif %}</h1>
+        <p class="page-subtitle">Work on the business rather than in it. Steps go on once it's saved.</p>
+      </div>
+      <div class="page-actions">
+        {% include "partials/_save_button.html" with form_id="plan-form" %}
+      </div>
+    </div>
+
+    <form id="plan-form" method="post" novalidate>
+      {% csrf_token %}
+      {{ form.non_field_errors }}
+
+      <section class="section-card">
+        <div class="section-card-head"><svg class="icon" aria-hidden="true"><use href="#icon-target"/></svg><h2>What it is</h2></div>
+        {% include "partials/_field.html" with field=form.title %}
+        {% include "partials/_field.html" with field=form.description %}
+      </section>
+
+      <section class="section-card">
+        <div class="section-card-head"><svg class="icon" aria-hidden="true"><use href="#icon-user"/></svg><h2>Who and when</h2></div>
+        <div class="field-row">
+          {% include "partials/_field.html" with field=form.owner %}
+          {% include "partials/_field.html" with field=form.due_date %}
+        </div>
+        <div class="field-row">
+          {% include "partials/_field.html" with field=form.status %}
+          {% include "partials/_field.html" with field=form.priority %}
+        </div>
+      </section>
+
+      <div class="form-actions">
+        <button type="submit"><svg class="icon" aria-hidden="true"><use href="#icon-save"/></svg>{% if object %}Save changes{% else %}Create plan{% endif %}</button>
+        <a class="btn btn-secondary" href="{% if object %}{{ object.get_absolute_url }}{% else %}{% url 'crm:plan_list' %}{% endif %}">Cancel</a>
+      </div>
+    </form>
+  </div>
+{% endblock %}

@@ -529,6 +529,17 @@ class PlanChecklistItem(models.Model):
     is_done = models.BooleanField(default=False)
     position = models.PositiveSmallIntegerField(default=0)
 
+    def get_absolute_url(self):
+        """The plan it belongs to — an item has no page of its own.
+
+        Needed because ticking an item is recorded in the change log,
+        and that page links every entry to `record.get_absolute_url`.
+        Without this the link renders with an empty href: Django
+        resolves a missing template attribute to the empty string
+        silently, so it would be a broken link rather than an error.
+        """
+        return self.plan.get_absolute_url()
+
     class Meta:
         ordering = ["position", "pk"]
 

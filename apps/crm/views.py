@@ -1,6 +1,7 @@
 from django.contrib import messages
 from django.contrib.auth.mixins import PermissionRequiredMixin
 from django.contrib.contenttypes.models import ContentType
+from django.db import models
 from django.db.models import Case, Count, F, Q, When
 from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse
@@ -20,6 +21,8 @@ from . import audit
 from .followups import record_completion
 from .forms import (
     ActivityForm,
+    BusinessPlanForm,
+    ChecklistItemForm,
     CompanyForm,
     ContactForm,
     NoteForm,
@@ -35,6 +38,7 @@ from .models import (
     Company,
     Contact,
     Note,
+    PlanChecklistItem,
     Property,
     Tag,
     Task,
@@ -673,7 +677,122 @@ class PlanDetailView(TasksHubMixin, SalesRoleRequiredMixin, DetailView):
         items = list(self.object.items.all())
         context["items"] = items
         context["done_count"] = sum(item.is_done for item in items)
+        context["item_form"] = ChecklistItemForm()
         return context
+
+
+class PlanFormMixin(audit.AuditedFormMixin, SalesRoleRequiredMixin, PermissionRequiredMixin):
+    """Write a plan. Owner and sales reps; `users/0004` gives cleaners
+    no businessplan permissions, and the Tasks hub they live in is
+    sales-and-owner anyway."""
+
+    model = BusinessPlan
+    form_class = BusinessPlanForm
+    template_name = "crm/plan_form.html"
+    hub_tab = "plans"
+
+    def get_initial(self):
+        initial = super().get_initial()
+        # Most plans are the author's own, so offer that rather than an
+        # empty picker — it is still a field, so it can be changed.
+        initial.setdefault("owner", self.request.user.pk)
+        return initial
+
+    def form_valid(self, form):
+        if not form.instance.pk:
+            form.instance.created_by = self.request.user
+        response = super().form_valid(form)
+        messages.success(self.request, f"Saved {self.object.title}.")
+        return response
+
+
+class PlanCreateView(PlanFormMixin, CreateView):
+    permission_required = "crm.add_businessplan"
+
+
+class PlanUpdateView(PlanFormMixin, UpdateView):
+    permission_required = "crm.change_businessplan"
+
+
+class ChecklistItemCreateView(SalesRoleRequiredMixin, PermissionRequiredMixin, View):
+    """Add one step to a plan. POST only — it writes.
+
+    Lands back on the plan with the box ready for the next step, since
+    steps are usually added several in a row.
+    """
+
+    permission_required = "crm.add_planchecklistitem"
+
+    def post(self, request, pk, *args, **kwargs):
+        plan = get_object_or_404(BusinessPlan, pk=pk)
+        form = ChecklistItemForm(request.POST)
+        if not form.is_valid():
+            for error in form.errors.get("text", ["That step couldn't be added."]):
+                messages.warning(request, error)
+            return redirect(plan.get_absolute_url())
+        item = form.save(commit=False)
+        item.plan = plan
+        # Appended, not inserted: a checklist is a sequence of thoughts
+        # and the order they arrived in is the useful one.
+        item.position = (plan.items.aggregate(last=models.Max("position"))["last"] or 0) + 1
+        item.save()
+        audit.record(request.user, item, AuditLogEntry.Action.CREATED, {})
+        return redirect(plan.get_absolute_url())
+
+
+class ChecklistItemToggleView(SalesRoleRequiredMixin, PermissionRequiredMixin, View):
+    """Tick a step off, or back on. POST only — it writes.
+
+    One request per item, which is why it is this rather than a form
+    over the whole checklist: ticking one step should not resubmit the
+    other fourteen, and it keeps working with no JavaScript.
+
+    Recorded in the change log, consistent with `JobStatusView` doing
+    the same for a POST-only status change. The volume is real — a
+    fifteen-step plan worked through over a week is fifteen entries —
+    but the log is paginated and filterable by record type, and a log
+    that records some writes and not others is worse than a noisy one.
+    `undo.UNDOABLE_MODELS` does not list this model, so the entry is
+    history rather than something with an Undo button.
+    """
+
+    permission_required = "crm.change_planchecklistitem"
+
+    def post(self, request, pk, *args, **kwargs):
+        item = get_object_or_404(PlanChecklistItem.objects.select_related("plan"), pk=pk)
+        was = item.is_done
+        item.is_done = not was
+        item.save(update_fields=["is_done"])
+        audit.record(
+            request.user,
+            item,
+            AuditLogEntry.Action.UPDATED,
+            {"is_done": [str(was), str(item.is_done)]},
+        )
+        return redirect(item.plan.get_absolute_url())
+
+
+class ChecklistItemDeleteView(SalesRoleRequiredMixin, PermissionRequiredMixin, View):
+    """Remove a step. POST only — it writes.
+
+    A real delete, not a flag: a mistyped step is clutter, not history,
+    and there is nothing to preserve. Without this, a typo would be
+    permanent, which is the kind of hole that gets reported as a bug.
+
+    Sales reps have `delete_planchecklistitem` in `users/0004`, unlike
+    `delete_businessplan` — removing a step off your own list is not
+    the same as discarding the plan.
+    """
+
+    permission_required = "crm.delete_planchecklistitem"
+
+    def post(self, request, pk, *args, **kwargs):
+        item = get_object_or_404(PlanChecklistItem.objects.select_related("plan"), pk=pk)
+        plan, text = item.plan, item.text
+        audit.record(request.user, item, AuditLogEntry.Action.UPDATED, {"removed": [text, ""]})
+        item.delete()
+        messages.success(request, f"Removed “{text}”.")
+        return redirect(plan.get_absolute_url())
 
 
 NOTE_FILTERS = {

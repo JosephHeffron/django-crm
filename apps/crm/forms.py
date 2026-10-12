@@ -4,7 +4,16 @@ from django.db.models import Q
 
 from apps.jobs.access import quotes_for
 
-from .models import Activity, Company, Contact, Note, Property, Task
+from .models import (
+    Activity,
+    BusinessPlan,
+    Company,
+    Contact,
+    Note,
+    PlanChecklistItem,
+    Property,
+    Task,
+)
 
 
 class ContactChoiceField(forms.ModelChoiceField):
@@ -231,6 +240,65 @@ class TaskForm(forms.ModelForm):
         if contact and quote and quote.contact_id != contact.pk:
             self.add_error("quote", "That estimate belongs to a different customer.")
         return cleaned
+
+
+class BusinessPlanForm(forms.ModelForm):
+    """A piece of work on the business rather than in it.
+
+    The app has had no plan form at all until now: plans could only be
+    created through the Django admin, which is why `plan_detail.html`
+    carried the line "Editing plans and ticking off steps arrives in
+    Phase 19". This is that.
+    """
+
+    class Meta:
+        model = BusinessPlan
+        fields = ["title", "description", "owner", "due_date", "status", "priority"]
+        labels = {"due_date": "Aim to finish by", "owner": "Whose it is"}
+        help_texts = {
+            "due_date": "Optional. A plan without a date sorts to the end of the list.",
+        }
+        widgets = {
+            "description": forms.Textarea(attrs={"rows": 4}),
+            "due_date": forms.DateInput(attrs={"type": "date"}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Only people who could actually act on it. A plan assigned to a
+        # crew member would sit on a page they cannot open — the Tasks
+        # hub is sales-and-owner, and `users/0004` gives cleaners no
+        # businessplan permissions at all.
+        from apps.users.roles import Role
+
+        self.fields["owner"].queryset = (
+            self.fields["owner"]
+            .queryset.filter(
+                is_active=True,
+                groups__name__in=[Role.OWNER.value, Role.SALES_REP.value],
+            )
+            .distinct()
+            .order_by("first_name", "last_name", "username")
+        )
+
+
+class ChecklistItemForm(forms.ModelForm):
+    """One step on a plan.
+
+    Deliberately one field. Steps get added as they are thought of,
+    usually several in a row, so anything more than a single box and a
+    button gets in the way.
+    """
+
+    class Meta:
+        model = PlanChecklistItem
+        fields = ["text"]
+        labels = {"text": "Next step"}
+        widgets = {
+            "text": forms.TextInput(
+                attrs={"placeholder": "e.g. Price up the van wrap", "autocomplete": "off"}
+            )
+        }
 
 
 class NoteForm(forms.ModelForm):

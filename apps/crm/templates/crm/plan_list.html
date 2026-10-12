@@ -5,6 +5,16 @@
 {% block content %}
   {% include "crm/_hub_tabs.html" %}
 
+  <div class="page-header">
+    <div>
+      <h1>Plans</h1>
+      <p class="page-subtitle">Work on the business rather than in it.</p>
+    </div>
+    <div class="page-actions">
+      <a class="btn" href="{% url 'crm:plan_create' %}"><svg class="icon" aria-hidden="true"><use href="#icon-plus"/></svg>New plan</a>
+    </div>
+  </div>
+
   <nav class="cluster filter-form" aria-label="Show">
     <a class="btn btn-sm {% if show != 'active' %}btn-secondary{% endif %}" href="{% url 'crm:plan_list' %}"{% if show == "active" %} aria-current="page"{% endif %}>Active</a>
     <a class="btn btn-sm {% if show != 'done' %}btn-secondary{% endif %}" href="{% url 'crm:plan_list' %}?show=done"{% if show == "done" %} aria-current="page"{% endif %}>Done</a>
