@@ -4,7 +4,7 @@ Update this file at the end of every session (see `CLAUDE.md`'s Session
 Close Procedure). Do not describe anything as complete unless it was
 actually verified.
 
-> **Last updated 2026-10-11.** Repo is clean (`main` up to date, nothing
+> **Last updated 2026-10-13.** Repo is clean (`main` up to date, nothing
 > uncommitted). The original 14-phase roadmap is fully complete (see
 > "Project complete" below). The post-release roadmap
 > (`docs/ROADMAP.md`'s "Phase 15+") is now underway: **Phase 15
@@ -27,6 +27,21 @@ actually verified.
 > by editing the quote, not by a one-click button the way a job's is
 > (Phase 18.5 unit 3 built `JobStatusView` for jobs only) — a UX
 > difference, not a missing roadmap item.
+> **Phase 19 (follow-up automation and tasks hub) is complete** —
+> three units merged (PRs #154, #155, #156), 1,137 tests. A
+> verification pass ran before any code, because the roadmap entry
+> described five items as though the phase were nearly done: it was
+> about half done. Generation and completion-logging were built and
+> tested in Phase 17; **per-service intervals were built but
+> unasserted** (hard-coding the interval to 6 passed all 14 existing
+> tests); and **business-plan checklists and notes were not built at
+> all**, only displayed, with the Django admin the only way in. Phase
+> 18's close-out needed the same check, so treat a roadmap entry as a
+> statement of intent until verified.
+> Unit 3 also closed a promise unkept since Phase 17: crews have held
+> `crm.add_note` for two phases with no view to use it. See
+> `docs/PERMISSIONS.md` — 9 of the 50 seeded grants reach no code path,
+> and one of them (`jobs.add_servicetype`) is a real gap.
 > Unit 1 closed a live exposure — job photos and profile pictures under
 > `media/private/` were served straight from disk by Caddy and readable
 > by anyone with the URL. Worth reading its phase log before trusting a
@@ -72,7 +87,7 @@ actually verified.
 The original 14-phase roadmap (Phases 0-14) is fully complete — see
 "Project complete," below, for the summary, and "Completed" for full
 phase-by-phase detail. The post-release roadmap is now underway:
-Phases 15-18.5 are complete — see "Post-release roadmap progress,"
+Phases 15-19 are complete — see "Post-release roadmap progress,"
 below, for current status. This section deliberately stays short and points at
 those two rather than duplicating them, so it can't drift out of sync
 with them the way an earlier version of this section once did (it
@@ -1194,45 +1209,171 @@ roadmap completed:
   wait two days. 1,000 tests (down from 1,084 — four lead/deal test
   files removed). Full detail in
   `logs/claude/phase-18-unit5-retire-lead-and-deal.md`.
-- Phases 19-25: not yet started (re-sequenced in `docs/ROADMAP.md`).
+- Phase 19 unit 1 — **the daily follow-up timer**.
+  `generate_followups` had existed since Phase 17, idempotent and
+  tested, with nothing to run it. `scripts/followups.sh` runs it inside
+  the web container (the host has no application environment) and
+  `crm-followups.timer` fires it at 07:00 daily. 07:00 rather than the
+  small hours because generation creates a *notification*: 03:00 would
+  buzz a phone about a gutter clean in the middle of the night.
+
+  The failure mode worth knowing: a **skipped** day costs nothing, since
+  due-ness is computed from whether the interval has elapsed rather than
+  from whether yesterday's run happened — a customer due yesterday is
+  still due today. A **broken** timer is the risk, because follow-ups
+  then stop and the only symptom is their absence. So the script exits
+  non-zero on every failure path and `ADMIN_GUIDE.md` carries
+  `systemctl --user list-timers 'crm-*'` as the health check, including
+  the fact that `Created 0 follow-up task(s)` is the normal healthy
+  output most days.
+
+  The verification pass found **per-service intervals were unasserted**:
+  every test used gutter cleaning at six months, so hard-coding `6`
+  passed all 14. Six tests now span the catalogue's 3, 6, 12 and never.
+  Units are checked by `systemd-analyze` rather than pattern-matched.
+  1,081 tests. Full detail in
+  `logs/claude/phase-19-unit1-followup-timer.md`.
+- Phase 19 unit 2 — **plans and checklists**. Plans can be created and
+  edited in the app for the first time; `plan_detail.html` had carried
+  the line "Editing plans and ticking off steps arrives in Phase 19"
+  since Phase 17, and the Django admin was the only way in. Checklists
+  work: add a step, tick it, untick it, remove it, **one POST per step**
+  so ticking one does not resubmit the other fourteen, and it works
+  with no JavaScript.
+
+  Three defects found by reading rather than assuming, all of them in
+  the new code before it shipped: an invented icon (`icon-clipboard`
+  does not exist); a missing `get_absolute_url` on
+  `PlanChecklistItem`, which would have made every change-log entry a
+  silently broken link, because Django resolves a missing template
+  attribute to the empty string rather than erroring; and a CSS
+  selector (`li.is-done > span:nth-child(2)`) that my own markup
+  change broke, quietly removing the strike-through from completed
+  steps. The last is the same class as Phase 18.5's `.inline-form`
+  bug.
+
+  The QA audit's access sweep then caught four new routes falling
+  outside it — on the full suite, after every targeted run had passed.
+  That is the omission failure mode it was written for, landing on its
+  author three days later. 1,085 tests. Full detail in
+  `logs/claude/phase-19-unit2-plans-and-checklists.md`.
+- Phase 19 unit 3 — **notes, including from the kerb**. Notes can be
+  written from the Tasks hub by sales and the owner, and from a job's
+  own page by the crew working it.
+
+  That second path closed a promise unkept since Phase 17.
+  `users/0004_field_service_permissions` grants cleaners `add_note`
+  with the comment "Crews update their own jobs (status, hours) and add
+  photos/notes — which jobs is enforced row-by-row in the views", and
+  **no such view existed**. A crew member held the permission for two
+  phases and could reach no note interface at all. It is scoped through
+  `jobs_for` now: 404, not 403, for a job they are not on.
+
+  The owner chose that a crew member on a job sees notes about the
+  **customer** as well as the job — more useful at the house, less
+  private. Asserted both ways: they can read the customer's notes, and
+  still cannot reach the notes list or edit any note, not even their
+  own. Because that makes a rep's customer notes field-visible,
+  `NoteForm` now says so on the form itself; a rep otherwise had no way
+  to know, and that mitigation matters more than the feature.
+
+  CI then caught a **latent flake unrelated to this unit**: the map's
+  next-job test booked a job at `now + 2 hours` against a Monday-to-
+  Sunday window, so it failed for a two-hour slot once a week. CI ran
+  on a Sunday at 22:20 local. Reproduced both ways before fixing, then
+  pinned — the second time-dependent failure this session, after the
+  seed leaving Payroll empty before mid-morning. 1,137 tests. Full
+  detail in `logs/claude/phase-19-unit3-notes.md`.
+- Phases 20-25: not yet started (re-sequenced in `docs/ROADMAP.md`).
 
 ## Currently working on
 
-Nothing in flight — Phase 18 is complete (PRs #130, #148, #149, #150,
+Nothing in flight. Phase 18 is complete (PRs #130, #148, #149, #150,
 #151), as is Phase 18.5 (PRs #133, #135, #137, #139, #144, #146, plus
-the seed fix #145).
+the seed fix #145), the QA audit (#153) and Phase 19 (#154, #155,
+#156).
 
 ## Next
 
-Phase 18 and Phase 18.5 are both complete, so the roadmap moves on to
-**Phase 19 — follow-up automation and tasks hub**: daily follow-up
-generation via a systemd timer (the same pattern as the backup timer),
-per-service intervals, completion logging a contact touch,
-business-plan checklists, notes.
+Phase 19 is complete, so the roadmap moves to **Phase 20 — invoicing
+and financials**: invoices from completed jobs, payments, expenses, the
+Owner-only Financials page, profile stats hardening.
 
-Three things already in place that Phase 19 should build on rather than
-rebuild:
+**Run the verification pass first.** This is the third phase in a row
+where the roadmap entry turned out to describe intent rather than
+delivery, and Phase 20's entry lists things that look very much like
+they already exist:
 
-1. **Follow-ups already exist as a model and a page.** `Task.Kind.FOLLOW_UP`,
-   the `follow_up_has_contact_and_service` database check, and the
-   `/tasks/follow-ups/` hub tab were all built in Phase 17, and
-   `apps/crm/tests/test_followups.py` covers the overdue logic. What is
-   missing is the *generation* — nothing creates one on a schedule.
-2. **The timer pattern is established.** Phase 15's backup timer is the
-   model to copy: a rootless systemd user timer, not cron, and not
-   Celery (`CLAUDE.md`'s complexity rule).
-3. **Business plans and checklists already exist** (`BusinessPlan`,
-   `PlanChecklistItem`, `/tasks/plans/`), as do notes.
+- Invoices, payments and expenses all have models, forms, list pages
+  and create views, built in Phase 17 and exercised by the QA audit's
+  end-to-end test (enquiry → paid invoice).
+- Financials exists, with revenue, collected, expenses, net, breakdowns
+  by service and rep, aged balances and a trend chart.
+- `apps/jobs/reports.py` and `apps/jobs/reporting.py` are substantial
+  and tested.
 
-One carry-over worth doing early: Sourcery's weekly review budget was
-spent on Phase 18 unit 5, so that PR went in self-reviewed and on CI.
-The budget resets around **2026-10-13** — if anything in unit 5 wants a
-second pair of eyes, `@sourcery-ai review` on a follow-up PR is the
-cheapest way to get it.
+So Phase 20 may be mostly done, mostly undone, or — most likely, on the
+evidence of Phases 18 and 19 — built but unasserted in places. The
+method that worked twice: take each item in the roadmap entry, find the
+code, then **mutate it and see whether anything fails**. Per-service
+intervals passed 14 tests with the interval hard-coded; that is what an
+unasserted feature looks like.
+
+Two known gaps that belong to Phase 20's territory and are already
+written down under "Known issues": a service cannot be added in the
+app, and a payment cannot be corrected.
+
+### Worth considering for its own unit
+
+**Run the suite under a pinned clock in CI.** Two time-dependent
+failures this session — the seed leaving Payroll empty before
+mid-morning, and the map's week window failing on a Sunday night — both
+passed locally and failed elsewhere. Each was fixed by pinning that
+test. The general fix is a CI job that runs the whole suite at a few
+simulated hours, or under a frozen clock, so "it depends what time it
+is" stops being a way for tests to be wrong. The sweep after the map
+flake checked 18 call sites by reasoning; reasoning is weaker evidence
+than a clock that cannot vary.
 
 ## Known issues
 
-None currently known. (The three findings previously tracked here —
+**A service cannot be added in the app.** `ServiceListView` and
+`ServiceUpdateView` exist; there is no create route, so a business that
+starts offering a new service has to use the Django admin. The Owner is
+granted `jobs.add_servicetype` and cannot use it. Found by measuring
+permissions against views during Phase 19's close-out
+(`docs/PERMISSIONS.md`). Small and self-contained — a form, a view, a
+route — and a candidate for Phase 20, which already touches the
+catalogue.
+
+**A payment cannot be corrected and an expense cannot be removed.**
+Same measurement: `jobs.change_payment` and `jobs.delete_expense` are
+granted with no code path. A mistyped payment currently needs the
+admin.
+
+**On a Sunday evening the Map says nothing about tomorrow.** It shows
+the current week, Monday to Sunday, so a job at 8am Monday is not on it
+until Monday. Correct by its own definition and unhelpful at the moment
+someone is most likely to be planning. Surfaced by a flaky test rather
+than by a complaint (see
+`logs/claude/phase-19-unit3-notes.md`) — the test was fixed, the
+behaviour was left alone, because changing the window is a product
+decision. Candidate: show the next seven days rather than the calendar
+week.
+
+**QA-002, from `docs/BUG_LOG.md`:** a timesheet's rows do not add up to
+its own total, because per-row and period figures round at different
+points. Both are individually correct and pay is exact. Left alone
+deliberately — every available fix trades it for something worse — and
+held in place by a characterization test so changing it is a decision.
+
+**The restore path has never run end to end.** QA-001's fix is verified
+for its validation step and its ordering, but the full
+`scripts/restore.sh` has not been executed. It needs a staging host.
+`docs/TESTING_INSTRUCTIONS.md` §7 has the drill, and it is still the
+most valuable untested path in the project.
+
+(The three findings previously tracked here —
 Activity's `CASCADE` behavior, `on_delete` ORM-only enforcement, and
 Activity immutability — are resolved; see "Completed" above and
 `docs/DATABASE_REVIEW.md` for the full resolution detail.)

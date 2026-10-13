@@ -108,6 +108,71 @@ jobs, a user changing only their own channel read marker) in Phases
 `test_migrations.py::FieldServicePermissionSeedTests` cover what exists
 today.
 
+### A permission can be granted years before the view that honours it
+
+Worth knowing, because it happened and took two phases to notice. The
+Cleaner column above has said `add note` since Phase 17, and
+`users/0004_field_service_permissions` carries the comment:
+
+> Crews update their own jobs (status, hours) and add photos/notes —
+> which jobs is enforced row-by-row in the views.
+
+**No such view existed until Phase 19 unit 3.** A crew member held
+`crm.add_note` for two phases and could reach no note interface at all:
+the only way in was the Tasks hub, which is sales-and-owner. The
+permission was not wrong and the comment was not wrong — the view it
+described had simply never been written.
+
+Nothing complains about this. A permission with no view is invisible:
+no 403, no error, no failing test. `FieldServicePermissionSeedTests`
+asserts the grant exists, which it does, and tells you nothing about
+whether anything uses it.
+
+So read this table as **what a role is allowed to do**, not as what
+the application offers them. Those are maintained in different places
+and nothing keeps them in step.
+
+Measured during Phase 19's close-out, across the 50 grants
+`users/0004` seeds:
+
+| | Count |
+|---|---|
+| Enforced by name (`permission_required` or `has_perm`) | 21 |
+| Written only through a parent form, so Django checks nothing | 20 |
+| Reachable by no code path at all | 9 |
+
+The middle row is not a defect. Line items, crew assignments, tags and
+channel memberships are only ever written through a parent's form or
+formset, and Django checks no permission for those — the parent view's
+own gate is the real one. A reviewer should not expect to find
+`jobs.add_joblineitem` anywhere.
+
+The last row is the one to know about:
+
+- `crm.delete_businessplan`, `crm.delete_note`, `crm.delete_property`,
+  `messaging.change_message` — the app deliberately offers none of
+  these. Nothing is hard-deleted through the UI except photos and
+  checklist items, and a message is immutable.
+- `jobs.change_photo`, `jobs.delete_photo` — removal *is* offered, but
+  `PhotoDeleteView` gates it on "whoever uploaded it, or the Owner"
+  rather than on the permission (Phase 18 unit 2's decision). The grant
+  is decorative; the ownership rule is the real one.
+- `jobs.change_payment`, `jobs.delete_expense` — a payment can be
+  recorded but not corrected, and an expense edited but not removed.
+- **`jobs.add_servicetype`** — the Owner is granted it and **there is
+  no create route**: `ServiceListView` and `ServiceUpdateView` exist,
+  nothing adds a service. A business that starts offering a new service
+  must use the Django admin. Noted in `docs/PROJECT_STATE.md`'s known
+  issues.
+
+To check a row yourself: find the permission in
+`users/0004_field_service_permissions.py`, then grep for both
+`permission_required = "<app>.<codename>"` and
+`has_perm("<app>.<codename>")`. A grant matching neither is either
+written through a parent form or a promise nothing keeps — and the two
+look identical from here, which is why the list above is spelled out
+rather than left as a method.
+
 ## Field-service pages (Phase 17 unit 3)
 
 Messages: a public channel's `audience` decides who may read and post

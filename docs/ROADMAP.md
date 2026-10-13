@@ -197,11 +197,35 @@ insufficient.
             forms, reaching its form through the HTML `form` attribute,
             so no JavaScript and no CSP change (PR #146).
 
-- [ ] **Phase 19 — Follow-up automation and tasks hub.** Daily
-      follow-up generation via a systemd timer (same pattern as the
-      backup timer), per-service intervals, completion logging a
+- [x] **Phase 19 — Follow-up automation and tasks hub.** Complete.
+      Daily follow-up generation via a systemd timer (same pattern as
+      the backup timer), per-service intervals, completion logging a
       contact touch, business-plan checklists, notes. (Absorbs the
-      earlier "task automation" item.)
+      earlier "task automation" item.) Three units.
+
+      **Read this before trusting a roadmap entry.** A verification
+      pass ran first, and found this entry described intent rather than
+      delivery. Of the five items above: generation and
+      completion-logging were built and tested in Phase 17; per-service
+      intervals were built but **unasserted** — every existing test
+      used one service at six months, so hard-coding `6` passed all 14
+      of them; and business-plan checklists and notes were **not built
+      at all**, only displayed, with the Django admin the only way to
+      create either. The phase read as nearly done and was about half
+      done. Phase 18's close-out needed the same check, which makes
+      this a pattern rather than an incident.
+      - [x] Unit 1 — `scripts/followups.sh` and `crm-followups.timer`
+            raise the day's follow-ups at 07:00 daily. The command had
+            existed since Phase 17 with nothing to run it. Also added
+            the six tests that make per-service intervals real
+            (PR #154).
+      - [x] Unit 2 — plans can be created and edited in the app, and
+            their checklists worked through: add a step, tick it,
+            untick it, remove it, one POST per step (PR #155).
+      - [x] Unit 3 — notes can be written: from the Tasks hub by sales
+            and the owner, and from a job's own page by the crew
+            working it — the row-scoped path `users/0004` has promised
+            since Phase 17 and nothing had built (PR #156).
 - [ ] **Phase 20 — Invoicing and financials.** Invoices from completed
       jobs, payments, expenses, the Owner-only Financials page
       (daily/weekly/monthly/YTD, by service and by rep, server-rendered
