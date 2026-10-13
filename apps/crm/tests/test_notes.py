@@ -94,6 +94,14 @@ class HubNoteTests(TestCase):
         help_text = str(response.context["form"].fields["contact"].help_text)
         self.assertIn("crew", help_text.lower())
         self.assertContains(response, "commercial detail")
+        # The reach has to be stated accurately, which the first
+        # version of this warning did not: it said "this customer's
+        # address", while `JobDetailView` filters notes by **contact**.
+        # A customer with three addresses has their notes readable by a
+        # crew member on any one of those jobs. A warning that
+        # understates itself is worse than none.
+        self.assertIn("jobs", help_text.lower())
+        self.assertNotIn("this customer's address", help_text)
 
     def test_a_note_can_be_edited(self):
         note = Note.objects.create(body="Typo", author=self.owner)
@@ -254,6 +262,36 @@ class WhatTheJobPageShowsTests(TestCase):
         is known about the household is useful."""
         response = self.shown("casey")
         self.assertContains(response, "Gate code 4821")
+        self.assertContains(response, "Prefers a morning slot")
+
+    def test_a_crew_member_sees_customer_notes_from_a_job_at_another_address(self):
+        """What the warning on the form actually promises.
+
+        The job page filters customer notes by **contact**, not by
+        address. A customer with two addresses therefore has their
+        notes readable by a crew member on either job. Asserted because
+        review found the warning describing it as address-scoped, and
+        nothing here contradicted that.
+        """
+        from apps.crm.models import Property
+
+        second = Property.objects.create(
+            contact=self.customer,
+            street="99 Other St",
+            city="Rochester",
+            state="NY",
+            postal_code="14610",
+        )
+        elsewhere = f.job(
+            self.customer,
+            self.owner,
+            start=timezone.now() + timedelta(days=3),
+            service_property=second,
+        )
+        f.assign(elsewhere, self.casey)
+        self.client.login(username="casey", password=PASSWORD)
+        response = self.client.get(elsewhere.get_absolute_url())
+        self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Prefers a morning slot")
 
     def test_an_unrelated_note_is_not_shown(self):

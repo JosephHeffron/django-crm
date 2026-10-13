@@ -141,18 +141,56 @@ Measured during Phase 19's close-out, across the 50 grants
 | Written only through a parent form, so Django checks nothing | 20 |
 | Reachable by no code path at all | 9 |
 
-The middle row is not a defect. Line items, crew assignments, tags and
-channel memberships are only ever written through a parent's form or
-formset, and Django checks no permission for those — the parent view's
-own gate is the real one. A reviewer should not expect to find
+The middle row is **not one category but two**, and the first version
+of this section got that wrong by calling it all "parent forms".
+Review corrected it; the distinction matters to anyone tracing a write.
+
+**Written through a parent's form or formset.** Quote, job and invoice
+line items, and tags on a contact. Django checks no permission for a
+formset's own model — the parent view's gate (`jobs.change_quote` and
+so on) is the real one, so do not expect to find
 `jobs.add_joblineitem` anywhere.
+
+**Written by a service function, with no permission check at all.**
+These are not parent-form writes and nothing in the permission system
+guards them:
+
+| Write | Where | What actually gates it |
+|---|---|---|
+| `ChannelMembership` created on first read of a channel | `messaging/services.py` (`mark_read`) | the channel's own audience rule |
+| `ChannelMembership` created for a direct message | `messaging/services.py` (`direct_channel`) | both parties being real users |
+| `JobAssignment` created by clocking **off** a job you were not assigned to | `jobs/crew.py` (`clock_out` → `_add_hours_to_assignment`) | `jobs_for` scoping on the time-clock view |
+| `JobAssignment` created/deleted by editing a job's crew | `jobs/views.py` (`JobFormMixin`) | `jobs.change_job` on the job view |
+
+That is defensible — each has a real gate, just not a permission-shaped
+one — but it means the grants for those models are decorative, and a
+reviewer looking for the permission that protects a channel membership
+will not find one.
 
 The last row is the one to know about:
 
 - `crm.delete_businessplan`, `crm.delete_note`, `crm.delete_property`,
-  `messaging.change_message` — the app deliberately offers none of
-  these. Nothing is hard-deleted through the UI except photos and
-  checklist items, and a message is immutable.
+  `messaging.change_message` — the app offers none of these. A plan, a
+  note and an address can be created and edited but not removed, and a
+  message is immutable.
+
+  The first version of this said "nothing is hard-deleted through the
+  UI except photos and checklist items", which review showed was
+  wrong. The full inventory of **user-facing hard deletes**:
+
+  | What | How |
+  |---|---|
+  | A photo | its own remove button (uploader or Owner) |
+  | A checklist step | its own remove button |
+  | A quote, job or invoice **line item** | the **Remove** checkbox on the edit form (`can_delete=True`, rendered by `jobs/_line_row.html`) |
+  | A **crew assignment** | taking someone off a job in the job edit form (`JobFormMixin` deletes the row) |
+
+  The last two are easy to miss because they look like edits rather
+  than deletions — you untick a box or deselect a name — and that is
+  exactly why they belong in this list. Note the crew-assignment delete
+  is deliberately *not* a replace-all: `JobFormMixin` adds and removes
+  individually so hours already logged against someone survive an
+  unrelated edit.
 - `jobs.change_photo`, `jobs.delete_photo` — removal *is* offered, but
   `PhotoDeleteView` gates it on "whoever uploaded it, or the Owner"
   rather than on the permission (Phase 18 unit 2's decision). The grant

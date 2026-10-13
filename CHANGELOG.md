@@ -249,6 +249,7 @@ for meaningful changes — not for every small fix or documentation tweak.
   side entrance" can be left at the kerb, on a phone.
 - A job's page now shows notes about the customer as well as notes
   about the job, marked so it is clear which is which. Crews can read
-  them; the note form says so, because a note about a customer is
-  readable by anyone working at their address.
+  them, and the note form says so: a note about a customer is readable
+  by any crew member assigned to any of that customer's jobs, at any of
+  their addresses.
 

@@ -17,6 +17,7 @@ which is what moves the clock forward.
 """
 
 import calendar
+import logging
 from datetime import date
 
 from django.contrib.auth import get_user_model
@@ -30,6 +31,8 @@ from apps.jobs.models import JobLineItem, ServiceType
 from apps.users.roles import Role
 
 from .models import Activity, Contact, Task
+
+logger = logging.getLogger(__name__)
 
 
 def add_months(day: date, months: int) -> date:
@@ -99,9 +102,26 @@ def due_follow_ups(today, contact_ids=None):
     return due
 
 
-def generate_follow_ups(today=None, contact_ids=None):
+def generate_follow_ups(today=None, contact_ids=None, skipped=None):
     """Create every due follow-up task (optionally only for
-    ``contact_ids``); returns the created tasks."""
+    ``contact_ids``); returns the created tasks.
+
+    ``skipped`` is an optional list the caller may pass in to collect
+    ``(contact, service)`` pairs that were **due and not created**,
+    because there was nobody to assign them to — no active owner on the
+    contact and no active Owner-group user or superuser to fall back
+    to. An out-parameter rather than a changed return type, because
+    fifteen call sites and the demo seed already treat the return value
+    as the list of created tasks.
+
+    Collecting them matters more than it looks. Without it the daily
+    command reports ``Created 0 follow-up task(s)`` and exits 0 for a
+    run that silently dropped work, and systemd records a healthy run —
+    exactly the "broken looks healthy" failure
+    ``docs/ADMIN_GUIDE.md`` warns about for this timer. Found by review
+    of Phase 19's own close-out, which had just described that failure
+    mode without noticing this instance of it.
+    """
     today = today or timezone.localdate()
     fallback = _fallback_assignee()
     due = due_follow_ups(today, contact_ids)
@@ -112,7 +132,19 @@ def generate_follow_ups(today=None, contact_ids=None):
         owner = contact.owner if contact.owner and contact.owner.is_active else None
         assignee = owner or fallback
         if assignee is None:
-            continue  # no active owner anywhere to assign it to
+            # Nobody to give it to: no active owner on the contact and
+            # no active Owner-group user or superuser either. Logged so
+            # the journal shows it, and collected so the caller can
+            # fail rather than report a healthy zero.
+            logger.warning(
+                "Follow-up for %s (%s) is due and has no assignee: no active owner "
+                "on the customer and no active Owner-group user or superuser.",
+                contact,
+                service.name,
+            )
+            if skipped is not None:
+                skipped.append((contact, service))
+            continue
         try:
             with transaction.atomic():
                 task = Task.objects.create(

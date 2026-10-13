@@ -20,5 +20,17 @@ class Command(BaseCommand):
             today = parse_date(options["date"])
             if today is None:
                 raise CommandError(f"Not a date: {options['date']!r} (expected YYYY-MM-DD)")
-        created = generate_follow_ups(today)
+        skipped = []
+        created = generate_follow_ups(today, skipped=skipped)
         self.stdout.write(f"Created {len(created)} follow-up task(s) for {today}.")
+        if skipped:
+            # A non-zero exit, so systemd records a failure. Zero
+            # created is the normal healthy result most days; zero
+            # created *because nobody could be assigned* is not, and
+            # the two are indistinguishable from the journal otherwise.
+            raise CommandError(
+                f"{len(skipped)} follow-up(s) were due and could not be assigned: "
+                + "; ".join(f"{contact} ({service.name})" for contact, service in skipped)
+                + ". Give the customer an active owner, or make sure at least one "
+                "active Owner-group user exists."
+            )
