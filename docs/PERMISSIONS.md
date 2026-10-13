@@ -132,14 +132,31 @@ So read this table as **what a role is allowed to do**, not as what
 the application offers them. Those are maintained in different places
 and nothing keeps them in step.
 
-Measured during Phase 19's close-out, across the 50 grants
-`users/0004` seeds:
+Measured during Phase 19's close-out. Three different numbers get
+confused here, so all three are stated:
+
+| | Count |
+|---|---|
+| Role-to-permission assignments live on the groups | 106 (Owner 61, Sales Rep 38, Cleaner 7) |
+| **Distinct permission codenames** granted to any group | 61 |
+| Of those, distinct codenames seeded by `apps/users/migrations/0004_field_service_permissions.py` | 50 |
+
+The breakdown below counts **distinct codenames from that one
+migration** — the 50 — because that is the migration this section is
+about:
 
 | | Count |
 |---|---|
 | Enforced by name (`permission_required` or `has_perm`) | 21 |
-| Written only through a parent form, so Django checks nothing | 20 |
+| Written through a parent form, or by a service function | 20 |
 | Reachable by no code path at all | 9 |
+
+The other 11 codenames come from `apps/users/migrations/0002_roles.py`
+and `apps/crm/migrations/0005_seed_staff_group.py` — the original CRM
+models — and are not analysed here. Four of them (`add_lead`,
+`change_lead`, `add_deal`, `change_deal`) are for models **retired in
+Phase 18 unit 5**; the stale rows are left deliberately and
+`apps/crm/migrations/0011_retire_lead_and_deal.py` says why.
 
 The middle row is **not one category but two**, and the first version
 of this section got that wrong by calling it all "parent forms".
@@ -204,7 +221,8 @@ The last row is the one to know about:
   issues.
 
 To check a row yourself: find the permission in
-`users/0004_field_service_permissions.py`, then grep for both
+`apps/users/migrations/0004_field_service_permissions.py`, then grep
+for both
 `permission_required = "<app>.<codename>"` and
 `has_perm("<app>.<codename>")`. A grant matching neither is either
 written through a parent form or a promise nothing keeps — and the two
