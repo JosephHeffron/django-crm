@@ -467,6 +467,23 @@ class Note(models.Model):
     def __str__(self):
         return self.body[:60]
 
+    def get_absolute_url(self):
+        """Wherever the note is actually read.
+
+        A note has no page of its own: it is shown on the job or the
+        customer it is about, or in the hub's list if it is about
+        neither. Needed because writing a note is recorded in the
+        change log, and that page links every entry to
+        `record.get_absolute_url` — Django resolves a missing template
+        attribute to the empty string silently, so without this it
+        would render a link that goes nowhere.
+        """
+        if self.job_id:
+            return self.job.get_absolute_url()
+        if self.contact_id:
+            return self.contact.get_absolute_url()
+        return reverse("crm:note_list")
+
 
 class BusinessPlan(models.Model):
     """A goal or initiative (e.g. "Launch gutter-guard upsell"), with an

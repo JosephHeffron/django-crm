@@ -71,6 +71,8 @@ urlpatterns = [
         name="plan_item_remove",
     ),
     path("tasks/notes/", views.NoteListView.as_view(), name="note_list"),
+    path("tasks/notes/new/", views.NoteCreateView.as_view(), name="note_create"),
+    path("tasks/notes/<int:pk>/edit/", views.NoteUpdateView.as_view(), name="note_update"),
     path("addresses/add/", views.PropertyCreateView.as_view(), name="property_create"),
     path("addresses/<int:pk>/edit/", views.PropertyUpdateView.as_view(), name="property_update"),
     path("tasks/add/", views.TaskCreateView.as_view(), name="task_create"),

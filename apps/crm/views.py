@@ -25,6 +25,7 @@ from .forms import (
     ChecklistItemForm,
     CompanyForm,
     ContactForm,
+    NoteForm,
     PropertyForm,
     TaskForm,
     contact_choices,
@@ -802,8 +803,58 @@ NOTE_FILTERS = {
 }
 
 
+class NoteFormMixin(audit.AuditedFormMixin, SalesRoleRequiredMixin, PermissionRequiredMixin):
+    """Write a note from the Tasks hub.
+
+    Sales-and-owner, like the hub itself. Crews add notes too — that is
+    what `users/0004` grants them `add_note` for — but from the job
+    they are standing at, through `jobs:job_note_create`, not from a
+    list spanning every customer.
+    """
+
+    model = Note
+    form_class = NoteForm
+    template_name = "crm/note_form.html"
+    hub_tab = "notes"
+
+    def get_initial(self):
+        initial = super().get_initial()
+        for field in ("contact", "job"):
+            value = _int_or_none(self.request.GET.get(field))
+            if value is not None:
+                initial.setdefault(field, value)
+        return initial
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["back"] = redirects.safe_next(self.request)
+        return context
+
+    def form_valid(self, form):
+        if not form.instance.pk:
+            form.instance.author = self.request.user
+        response = super().form_valid(form)
+        messages.success(self.request, "Saved the note.")
+        return response
+
+    def get_success_url(self):
+        return redirects.safe_next(self.request) or reverse("crm:note_list")
+
+
+class NoteCreateView(NoteFormMixin, CreateView):
+    permission_required = "crm.add_note"
+
+
+class NoteUpdateView(NoteFormMixin, UpdateView):
+    """Editing is sales-and-owner: `users/0004` gives crews `add_note`
+    and nothing more, so a crew member can leave a note and cannot go
+    back and change what it said."""
+
+    permission_required = "crm.change_note"
+
+
 class NoteListView(TasksHubMixin, SalesRoleRequiredMixin, PerPageMixin, ListView):
-    """Notes, pinned first. Adding and editing notes lands in Phase 19."""
+    """Notes, pinned first."""
 
     hub_tab = "notes"
     template_name = "crm/note_list.html"

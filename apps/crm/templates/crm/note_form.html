@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+
+{% block title %}{% if object %}Edit note{% else %}New note{% endif %}{% endblock %}
+
+{% block content %}
+  <div class="settings-shell">
+    <div class="page-header">
+      <div>
+        <h1>{% if object %}Edit note{% else %}New note{% endif %}</h1>
+        <p class="page-subtitle">Something worth remembering. Link it to a customer or a job, or leave it general.</p>
+      </div>
+      <div class="page-actions">
+        {% include "partials/_save_button.html" with form_id="note-form" %}
+      </div>
+    </div>
+
+    <form id="note-form" method="post" novalidate>
+      {% csrf_token %}
+      {{ form.non_field_errors }}
+      {% if back %}<input type="hidden" name="next" value="{{ back }}">{% endif %}
+
+      <section class="section-card">
+        <div class="section-card-head"><svg class="icon" aria-hidden="true"><use href="#icon-file-text"/></svg><h2>The note</h2></div>
+        {% include "partials/_field.html" with field=form.body %}
+      </section>
+
+      <section class="section-card">
+        <div class="section-card-head"><svg class="icon" aria-hidden="true"><use href="#icon-share"/></svg><h2>What it's about</h2></div>
+        <div class="field-row">
+          {% include "partials/_field.html" with field=form.contact %}
+          {% include "partials/_field.html" with field=form.job %}
+        </div>
+        {% include "partials/_field.html" with field=form.pinned %}
+      </section>
+
+      <div class="form-actions">
+        <button type="submit"><svg class="icon" aria-hidden="true"><use href="#icon-save"/></svg>{% if object %}Save changes{% else %}Add note{% endif %}</button>
+        <a class="btn btn-secondary" href="{% if back %}{{ back }}{% else %}{% url 'crm:note_list' %}{% endif %}">Cancel</a>
+      </div>
+    </form>
+  </div>
+{% endblock %}

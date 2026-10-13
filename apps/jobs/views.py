@@ -23,8 +23,9 @@ from apps.core.pagination import PerPageMixin
 from apps.core.templatetags.crm_format import money
 from apps.crm import audit, geocoding
 from apps.crm.audit import AuditedFormMixin
+from apps.crm.forms import JobNoteForm
 from apps.crm.hub import TasksHubMixin
-from apps.crm.models import AuditLogEntry, Property
+from apps.crm.models import AuditLogEntry, Note, Property
 from apps.users.roles import (
     ALL_ROLES,
     OWNER_ONLY,
@@ -164,7 +165,17 @@ class JobDetailView(RoleRequiredMixin, DetailView):
             is_sales=role in SALES_ROLES,
             line_items=job.line_items.select_related("service_type"),
             assignments=job.assignments.select_related("user").order_by("user__first_name"),
-            job_notes=job.note_set.select_related("author"),
+            # Notes about this job **and** about its customer. The
+            # owner chose the wider view: a crew member standing at the
+            # house benefits from everything known about it. The cost
+            # is that a rep's notes about a customer are readable in the
+            # field, which is why `NoteForm` says so on the form rather
+            # than leaving it to be discovered.
+            job_notes=Note.objects.filter(Q(job=job) | Q(contact=job.contact_id)).select_related(
+                "author", "contact", "job"
+            ),
+            note_form=JobNoteForm(),
+            can_add_note=self.request.user.has_perm("crm.add_note"),
             invoices=invoices_for(self.request.user).filter(job=job).with_balances(),
             today=timezone.localdate(),
             is_owner=role in OWNER_ONLY,
@@ -888,6 +899,43 @@ class PhotoUploadView(RoleRequiredMixin, PermissionRequiredMixin, View):
 
     def back(self, parent):
         return f"{parent.get_absolute_url()}#photos"
+
+
+class JobNoteCreateView(RoleRequiredMixin, PermissionRequiredMixin, View):
+    """Leave a note about a job, from the job's page. POST only.
+
+    Crews included, and that is the point. `users/0004` grants them
+    `add_note` with the comment "Crews update their own jobs (status,
+    hours) and add photos/notes — which jobs is enforced row-by-row in
+    the views", and nothing had ever built the view that enforces it.
+    This is that view: scoped through `jobs_for`, so a crew member can
+    note a job they are on and gets a **404, not a 403**, for one they
+    are not. A 403 would confirm the job exists.
+
+    The note is attached to the job, never to the customer. A crew
+    member's note about today's work is not a note on the customer's
+    permanent record, and they cannot reach a customer page anyway.
+    """
+
+    allowed_roles = ALL_ROLES
+    permission_required = "crm.add_note"
+
+    def post(self, request, pk, *args, **kwargs):
+        job = jobs_for(request.user).filter(pk=pk).first()
+        if job is None:
+            raise Http404("No such job")
+        form = JobNoteForm(request.POST)
+        if not form.is_valid():
+            for error in form.errors.get("body", ["That note couldn't be saved."]):
+                messages.warning(request, error)
+            return redirect(job.get_absolute_url())
+        note = form.save(commit=False)
+        note.job = job
+        note.author = request.user
+        note.save()
+        audit.record(request.user, note, AuditLogEntry.Action.CREATED, {})
+        messages.success(request, "Added the note.")
+        return redirect(job.get_absolute_url())
 
 
 class JobPhotoUploadView(PhotoUploadView):

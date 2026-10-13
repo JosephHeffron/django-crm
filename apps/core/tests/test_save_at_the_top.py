@@ -36,6 +36,7 @@ FORM_TEMPLATES = {
     "apps/crm/templates/crm/activity_form.html": "activity-form",
     "apps/crm/templates/crm/property_form.html": "address-form",
     "apps/crm/templates/crm/plan_form.html": "plan-form",
+    "apps/crm/templates/crm/note_form.html": "note-form",
     "apps/jobs/templates/jobs/job_form.html": "job-form",
     "apps/jobs/templates/jobs/quote_form.html": "quote-form",
     "apps/jobs/templates/jobs/invoice_form.html": "invoice-form",

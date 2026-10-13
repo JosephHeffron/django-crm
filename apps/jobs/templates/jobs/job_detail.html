@@ -102,22 +102,39 @@
     {% if job.notes %}<p>{{ job.notes|linebreaksbr }}</p>{% endif %}
   </section>
 
-  {% if job_notes %}
-    <section class="card section-gap">
-      <h2 class="card-title">Notes</h2>
+  <section class="card section-gap">
+    <h2 class="card-title">Notes</h2>
+    {% if job_notes %}
       <ul class="timeline">
         {% for note in job_notes %}
           <li class="timeline-entry">
             <div class="timeline-meta">
               <strong>{{ note.author.get_full_name|default:note.author.get_username }}</strong>
               <span>{{ note.created_at|date:"M j, g:i A" }}</span>
+              {% comment %}
+              Said on the page, because the owner chose to show notes
+              about the customer here too: a crew member reading this
+              list should know which notes are about today's work and
+              which are about the household generally.
+              {% endcomment %}
+              {% if not note.job_id %}<span class="badge">about the customer</span>{% endif %}
             </div>
-            <div class="timeline-description">{{ note.body|linebreaksbr }}</div>
+            <div class="timeline-description note-body">{{ note.body|linebreaksbr }}</div>
           </li>
         {% endfor %}
       </ul>
-    </section>
-  {% endif %}
+    {% else %}
+      <p class="muted">Nothing noted yet.</p>
+    {% endif %}
+
+    {% if can_add_note %}
+      <form method="post" action="{% url 'jobs:job_note_create' job.pk %}">
+        {% csrf_token %}
+        {% include "partials/_field.html" with field=note_form.body %}
+        <button type="submit"><svg class="icon" aria-hidden="true"><use href="#icon-plus"/></svg>Add note</button>
+      </form>
+    {% endif %}
+  </section>
 
   {% if is_owner %}
     <section class="card section-gap">
