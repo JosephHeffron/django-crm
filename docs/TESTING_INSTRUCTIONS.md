@@ -141,7 +141,17 @@ python -m venv /tmp/pw-venv
 ```
 
 Create a settings module that keeps the policy and relaxes only what
-plain HTTP on localhost needs:
+plain HTTP on localhost needs. **Put it somewhere that is not garbage
+collected.** It must stay out of the repository — it is a
+production-settings shim and shipping it would be a mistake — but
+`/tmp` is the wrong kind of "outside": a tmpfiles sweep removed both
+this file and the Playwright virtualenv between two runs of the same
+session. The failure that produced was misleading rather than obvious:
+with its settings module gone, Django fell back to the core
+`runserver`, which has no `--insecure`, so the error read
+`unrecognized arguments: --insecure` and pointed at the flag instead of
+at the missing file. `~/.local/share/django-crm-qa/` or similar is a
+better home.
 
 ```python
 # csp_test_settings.py — keep this OUTSIDE the repo
@@ -183,6 +193,17 @@ Three things that will waste an hour if you miss them:
    server. The audit's first positive control reported no violation for
    exactly this reason and nearly recorded a working check as broken.
 3. **`collectstatic` first**, or the same 404s appear.
+
+### Compare text case-insensitively
+
+`innerText` returns text **as rendered**, and this project's tables
+apply `text-transform: uppercase` to their headers and row labels. A
+check for `"Jobs done"` fails against a page that renders
+`JOBS DONE` — eight assertions in the Phase 20 browser pass failed that
+way, all of them the harness's fault rather than the application's.
+Django's `assertContains` is not affected: it reads the raw HTML, where
+the original casing survives. Lower-case both sides, or assert on
+`textContent` through `page.evaluate`.
 
 ### Assert on all of these
 
