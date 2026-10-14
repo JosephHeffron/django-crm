@@ -549,14 +549,34 @@ now; automatic updates come in a later update.
 
 ## Profile and team
 
-**Profile** shows your details and your numbers for the last 30, 90, or
-365 days:
+**Profile** shows your details and your numbers. The cards at the top
+cover the last 30, 90, or 365 days — pick one with the tabs:
 
 - **Field work** (crew): jobs completed, hours logged and per week,
   average job value, average customer rating, upcoming jobs.
 - **Sales** (Owner and sales reps): quotes sent, close rate (won out of
   quotes that were accepted, declined, or expired), value of accepted
   quotes, follow-ups done.
+
+Below the cards is a **sheet with every period at once** — this week, 1
+month, 3 months, 6 months, 12 months — so you can see whether things
+are picking up rather than checking one window at a time:
+
+- **Field work by period**: jobs done, what that work was worth, hours,
+  average rating.
+- **Sales by period**: how many you sold, what they were worth, quotes
+  sent, close rate.
+
+Two of those columns count different things on purpose, and it matters
+if you are comparing them. **Sold** and **worth** count quotes
+*accepted* in the period — a quote you raised in spring and the
+customer signed last week counts as last week's sale. **Close rate**
+covers quotes *raised* in the period, however they turned out, because
+that is the only way to ask "of what I quoted then, how much came in".
+A close rate measured by when things were signed would flatter itself.
+
+If a row is all zeros, nothing happened in that period; a dash under
+Rating means nobody has rated that work.
 
 **Edit profile** changes your name, email, title, phone, and your
 calendar color. The Owner also sees **Team** — everyone's role, title,

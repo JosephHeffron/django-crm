@@ -246,7 +246,21 @@ class Job(TotalMixin, models.Model):
 
     class Meta:
         ordering = ["scheduled_start", "pk"]
-        indexes = [models.Index(fields=["scheduled_start"])]
+        indexes = [
+            models.Index(fields=["scheduled_start"]),
+            # `completed_at` is the most filtered field in this
+            # application: fifteen places outside tests range over it,
+            # because every count of finished work reads it rather than
+            # `status` (CLAUDE.md). It had no index.
+            #
+            # Plain rather than composite with `status`: `status` is
+            # already indexed, so the planner can combine the two for
+            # the common `status=completed AND completed_at BETWEEN`
+            # shape, while a composite led by `status` could not serve
+            # the several places that range over `completed_at` alone
+            # or reach it through a join.
+            models.Index(fields=["completed_at"]),
+        ]
         constraints = [
             models.CheckConstraint(
                 condition=Q(scheduled_end__gt=F("scheduled_start")),

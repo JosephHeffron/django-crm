@@ -45,10 +45,22 @@ PERIODS = (
 )
 
 
-def crew_stats(user, days):
-    since = timezone.now() - timedelta(days=days)
+def crew_stats(user, days, now=None):
+    """`now` is captured by the caller so a sheet's five rows share one
+    clock, and bounds every period **above** as well as below.
+
+    Without the upper bound a completion stamped in the future — a bad
+    import, an admin edit, a clock skew — lands in every period whose
+    start it follows, inflating all of them at once. `__gte` alone
+    makes "this week" include work dated next year.
+    """
+    now = now or timezone.now()
+    since = now - timedelta(days=days)
     done = JobAssignment.objects.filter(
-        user=user, job__status=Job.Status.COMPLETED, job__completed_at__gte=since
+        user=user,
+        job__status=Job.Status.COMPLETED,
+        job__completed_at__gte=since,
+        job__completed_at__lt=now,
     )
     totals = done.aggregate(count=Count("pk"), hours=Sum("hours_worked"))
     jobs = Job.objects.filter(pk__in=done.values("job_id"))
@@ -64,18 +76,23 @@ def crew_stats(user, days):
         "value": (money["total"] or Decimal("0")).quantize(Decimal("0.01")),
         "average_job_value": value.quantize(Decimal("0.01")) if value is not None else None,
         "average_rating": jobs.aggregate(avg=Avg("customer_rating"))["avg"],
+        # Deliberately unbounded above: "upcoming" means everything
+        # still to come, not everything in the window.
         "upcoming": JobAssignment.objects.filter(
-            user=user, job__status=Job.Status.SCHEDULED, job__scheduled_start__gte=timezone.now()
+            user=user, job__status=Job.Status.SCHEDULED, job__scheduled_start__gte=now
         ).count(),
     }
 
 
-def sales_stats(user, days):
-    since = timezone.now() - timedelta(days=days)
+def sales_stats(user, days, now=None):
+    """See `crew_stats` on `now`: one clock per sheet, and every period
+    bounded above as well as below."""
+    now = now or timezone.now()
+    since = now - timedelta(days=days)
     mine = Quote.objects.filter(prepared_by=user)
-    decided = mine.filter(created_at__gte=since, status__in=Quote.DECIDED_STATUSES).aggregate(
-        won=Count("pk", filter=Q(status=Quote.Status.ACCEPTED)), total=Count("pk")
-    )
+    decided = mine.filter(
+        created_at__gte=since, created_at__lt=now, status__in=Quote.DECIDED_STATUSES
+    ).aggregate(won=Count("pk", filter=Q(status=Quote.Status.ACCEPTED)), total=Count("pk"))
     # What they sold *in* the period, counted and valued from one
     # queryset so the two cannot disagree.
     #
@@ -92,10 +109,12 @@ def sales_stats(user, days):
     # and `close_rate` answer "of what I quoted then, how much came
     # in", which is the honest way to measure a close rate and the
     # reason it is dated by creation.
-    accepted = mine.filter(status=Quote.Status.ACCEPTED, accepted_at__gte=since)
+    accepted = mine.filter(
+        status=Quote.Status.ACCEPTED, accepted_at__gte=since, accepted_at__lt=now
+    )
     sold = accepted.with_totals().aggregate(count=Count("pk"), total=Sum("total_amount"))
     return {
-        "quotes_sent": mine.filter(sent_at__gte=since).count(),
+        "quotes_sent": mine.filter(sent_at__gte=since, sent_at__lt=now).count(),
         "sold": sold["count"],
         "decided": decided["total"],
         "won": decided["won"],
@@ -106,6 +125,7 @@ def sales_stats(user, days):
             status=Task.Status.COMPLETED,
             completed_by=user,
             completed_at__gte=since,
+            completed_at__lt=now,
         ).count(),
         "open_quotes": mine.filter(status__in=Quote.OPEN_STATUSES).count(),
     }
@@ -121,22 +141,53 @@ def crew_sheet(user):
     `test_the_sheet_agrees_with_the_single_window_figures` holds them
     together.
 
-    Five calls means five times the queries, which was measured rather
-    than guessed at before being accepted: against the demo data (135
-    jobs, 203 assignments) a crew sheet is 20 queries and 26 ms, and an
-    Owner's profile, which renders both sheets, is 45 queries and 45 ms
-    — call it 150-250 ms on a Pi. One page, not a list, and every query
-    is an aggregate on an indexed column.
+    Five calls means five times the queries, measured rather than
+    guessed at. The first version of this note gave 45 queries for "an
+    Owner's profile", which was the **sheets alone** — review caught
+    that it understated the request, so these are whole-request
+    figures against the demo data (137 jobs, 203 assignments):
+
+        a Cleaner's profile          33 queries    47 ms
+        a Sales Rep's profile        40 queries    32 ms
+        both sheets at once          64 queries    75 ms
+
+    The last row had to be arranged: no demo user has both, so an
+    assignment was given to the Owner, measured, and removed. Call it
+    200-350 ms on a Pi for the worst case.
+
+    One page, not a list, and every query is an aggregate on an indexed
+    column — `Job.completed_at` included, since `jobs/0005` added the
+    index it had been missing. That field is filtered in fifteen places
+    outside tests and had none.
 
     Conditional aggregation would collapse it to one query per metric,
     at the cost of a second definition of each figure. `CLAUDE.md` says
-    not to optimise a speculative problem, and 45 ms is not a problem.
+    not to optimise a speculative problem, and 75 ms is not a problem.
     Worth revisiting if a profile ever feels slow, and worth
     re-measuring first.
+
+    One known limitation, raised in review and accepted rather than
+    fixed: a row is several queries, so another request completing a
+    job or accepting a quote mid-row can leave two figures describing
+    different committed states — "0 jobs worth $x" for an instant.
+    PostgreSQL's default READ COMMITTED gives each query its own
+    snapshot, and the only real fixes are one aggregate per row, which
+    would mean a second definition of every figure and lose the
+    agreement with the cards, or a higher isolation level for a profile
+    page. For a single-operator business reading its own profile the
+    window is milliseconds and the cost of closing it is a worse
+    design. Noted so the next person does not rediscover it as a bug.
     """
-    return [{"days": days, "label": label, **crew_stats(user, days)} for days, label in PERIODS]
+    now = timezone.now()
+    return [
+        {"days": days, "label": label, **crew_stats(user, days, now=now)} for days, label in PERIODS
+    ]
 
 
 def sales_sheet(user):
     """What this person sold, over each of `PERIODS`. See `crew_sheet`."""
-    return [{"days": days, "label": label, **sales_stats(user, days)} for days, label in PERIODS]
+    now = timezone.now()
+    return [
+        {"days": days, "label": label, **sales_stats(user, days, now=now)}
+        for days, label in PERIODS
+    ]

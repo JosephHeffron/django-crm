@@ -28,6 +28,7 @@ like.
 
 from datetime import timedelta
 from decimal import Decimal
+from unittest import mock
 
 from django.test import TestCase
 from django.urls import reverse
@@ -143,6 +144,76 @@ class CrewSheetTests(TestCase):
         self.assertEqual(self.rows()[365]["jobs_completed"], 0)
 
 
+class FutureDatedEventTests(TestCase):
+    """A timestamp in the future must not land in every period.
+
+    Raised in review. Every period filtered `__gte=since` with no upper
+    bound, so a completion or acceptance stamped later than now fell
+    into every period whose start it followed — "this week" counting
+    work dated next year, and all five rows inflated at once.
+
+    Reachable through a bad import, an admin edit, or clock skew
+    between a container and its host. The fix is an exclusive upper
+    bound from one captured `now`, which also gives a sheet's five rows
+    a single clock instead of five.
+    """
+
+    def setUp(self):
+        self.owner = grant_role(f.user("boss"), Role.OWNER)
+        self.casey = grant_role(f.user("casey"), Role.CLEANER)
+        self.riley = grant_role(f.user("riley"), Role.SALES_REP)
+        self.customer = f.contact(self.owner)
+
+    def test_a_job_completed_in_the_future_is_in_no_period(self):
+        job = f.job(self.customer, self.owner, lines=[(Decimal("1"), Decimal("900"))])
+        f.assign(job, self.casey, hours=Decimal("4"))
+        completed(job, days_ago=-30)  # stamped a month from now
+        rows = {row["days"]: row for row in crew_sheet(self.casey)}
+        self.assertEqual(
+            {days: rows[days]["jobs_completed"] for days in (7, 30, 90, 180, 365)},
+            {7: 0, 30: 0, 90: 0, 180: 0, 365: 0},
+        )
+        self.assertEqual(rows[365]["value"], Decimal("0.00"))
+
+    def test_a_quote_accepted_in_the_future_is_in_no_period(self):
+        quote = f.quote(self.customer, self.riley, lines=[(Decimal("1"), Decimal("700"))])
+        ahead = timezone.now() + timedelta(days=30)
+        Quote.objects.filter(pk=quote.pk).update(
+            status=Quote.Status.ACCEPTED, accepted_at=ahead, sent_at=ahead, created_at=ahead
+        )
+        rows = {row["days"]: row for row in sales_sheet(self.riley)}
+        self.assertEqual(
+            {days: rows[days]["sold"] for days in (7, 30, 90, 180, 365)},
+            {7: 0, 30: 0, 90: 0, 180: 0, 365: 0},
+        )
+        self.assertEqual(rows[365]["value_won"], Decimal("0"))
+
+    def test_todays_work_still_counts(self):
+        """The bound is exclusive on `now`, so it must not exclude work
+        that happened a moment ago."""
+        job = f.job(self.customer, self.owner, lines=[(Decimal("1"), Decimal("120"))])
+        f.assign(job, self.casey, hours=Decimal("1"))
+        Job.objects.filter(pk=job.pk).update(
+            status=Job.Status.COMPLETED, completed_at=timezone.now() - timedelta(seconds=5)
+        )
+        rows = {row["days"]: row for row in crew_sheet(self.casey)}
+        self.assertEqual(rows[7]["jobs_completed"], 1)
+
+    def test_upcoming_work_is_still_counted_though(self):
+        """`upcoming` is deliberately unbounded above — it means
+        everything still to come, not everything in the window."""
+        job = f.job(self.customer, self.owner, start=timezone.now() + timedelta(days=400), lines=[])
+        f.assign(job, self.casey)
+        self.assertEqual(crew_stats(self.casey, 7)["upcoming"], 1)
+
+    def test_one_clock_for_the_whole_sheet(self):
+        """Five rows computed from five `timezone.now()` calls could
+        disagree about where a period starts. The sheet captures one."""
+        with mock.patch("apps.users.stats.timezone.now", wraps=timezone.now) as clock:
+            crew_sheet(self.casey)
+        self.assertEqual(clock.call_count, 1, "the sheet read the clock more than once")
+
+
 class SalesSheetTests(TestCase):
     def setUp(self):
         self.owner = grant_role(f.user("boss"), Role.OWNER)
@@ -179,7 +250,13 @@ class SalesSheetTests(TestCase):
         self.sold(days_ago=2, price="400")
         self.sold(days_ago=3, price="600")
         week = self.rows()[7]
-        self.assertEqual(week["won"], 2)
+        # `sold`, not `won`. An earlier edit here silently did not
+        # apply — ruff had reformatted the docstring above, the
+        # `str.replace` matched nothing, and nothing asserted that it
+        # had. The test then passed anyway, because these two quotes
+        # are created *and* accepted recently so `won` agrees by
+        # accident, leaving the figure the test exists for unchecked.
+        self.assertEqual(week["sold"], 2)
         self.assertEqual(week["value_won"], Decimal("1000"))
 
     def test_a_sale_counts_only_in_the_periods_that_contain_it(self):
@@ -277,14 +354,24 @@ class ProfilePageTests(TestCase):
         self.assertIsNotNone(response.context["sales_periods"])
         self.assertContains(response, "Sales by period")
 
-    def test_the_figures_appear_in_the_page_not_just_the_context(self):
-        """A context variable no template renders is not a feature."""
+    def test_the_figures_appear_in_the_sheet_not_just_the_context(self):
+        """A context variable no template renders is not a feature.
+
+        Scoped to the sheet's own table on purpose. The first version
+        searched the whole page for "275", which also appears in the
+        average-job-value card — so it passed whether or not the sheet
+        rendered at all, which is the one thing it was meant to
+        establish.
+        """
         job = f.job(self.customer, self.owner, lines=[(Decimal("1"), Decimal("275"))])
         f.assign(job, self.casey, hours=Decimal("3"))
         completed(job, days_ago=2)
         self.client.login(username="casey", password=PASSWORD)
         body = self.client.get(reverse("people:profile")).content.decode()
-        self.assertIn("275", body)
+        table = body[body.index("Field work by period") :]
+        table = table[: table.index("</table>")]
+        self.assertIn("275", table)
+        self.assertIn("This week", table)
 
     def test_the_cards_still_work(self):
         """The sheet was added beside them, not instead of them."""
@@ -301,6 +388,10 @@ class ProfilePageTests(TestCase):
         response = self.client.get(reverse("people:profile"))
         self.assertIsNotNone(response.context["crew_periods"])
         self.assertIsNotNone(response.context["sales_periods"])
+        # The template can drop either sheet while both context values
+        # stay populated, so assert on what was rendered.
+        self.assertContains(response, "Field work by period")
+        self.assertContains(response, "Sales by period")
 
     def test_someone_elses_profile_shows_their_sheet_not_mine(self):
         job = f.job(self.customer, self.owner, lines=[(Decimal("1"), Decimal("640"))])
