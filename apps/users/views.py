@@ -24,7 +24,7 @@ from .roles import (
     roles_for,
     user_role,
 )
-from .stats import DEFAULT_WINDOW, WINDOWS, crew_stats, sales_stats
+from .stats import DEFAULT_WINDOW, WINDOWS, crew_sheet, crew_stats, sales_sheet, sales_stats
 
 User = get_user_model()
 
@@ -55,6 +55,12 @@ def profile_context(person, request):
         "windows": WINDOWS,
         "crew": crew_stats(person, days) if is_crew else None,
         "sales": sales_stats(person, days) if role in SALES_ROLES else None,
+        # The same figures over every period, so the trend is readable
+        # without loading the page five times. The cards above stay:
+        # they carry detail (rating, hours per week, what's upcoming)
+        # that does not belong in a row.
+        "crew_periods": crew_sheet(person) if is_crew else None,
+        "sales_periods": sales_sheet(person) if role in SALES_ROLES else None,
     }
 
 
