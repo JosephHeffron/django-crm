@@ -233,3 +233,23 @@ for meaningful changes — not for every small fix or documentation tweak.
 - Submitting the move form without changing the time, or dragging a job
   back where it started, no longer records a change that did not
   happen.
+
+### Added
+- Follow-ups now appear on their own. A daily timer raises them at
+  07:00, so a customer who is due for a repeat service turns up on the
+  follow-ups list without anyone remembering to look. The generator
+  itself has been there since Phase 17; nothing ran it.
+- Business plans can be written and edited in the app, and their
+  checklists worked through — add a step, tick it off, untick it,
+  remove it. Until now a plan could only be created through the Django
+  admin.
+- Notes can be written in the app, which also was admin-only. From the
+  Tasks page for a general note or one about a customer or a job, and
+  from a job's own page for the crew working it — so "gate code 4821,
+  side entrance" can be left at the kerb, on a phone.
+- A job's page now shows notes about the customer as well as notes
+  about the job, marked so it is clear which is which. Crews can read
+  them, and the note form says so: a note about a customer is readable
+  by any crew member assigned to any of that customer's jobs, at any of
+  their addresses.
+

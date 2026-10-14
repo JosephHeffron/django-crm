@@ -239,6 +239,64 @@ class CompletingAFollowUpTests(TestCase):
         self.assertFalse(Activity.objects.filter(contact=self.customer).exists())
 
 
+class UnassignableFollowUpTests(TestCase):
+    """A follow-up nobody can be given must not look like a quiet day.
+
+    Found by review of Phase 19's close-out. `generate_follow_ups`
+    skips a due row when there is no active owner on the customer and
+    no active Owner-group user or superuser to fall back to — and the
+    command reported `Created 0 follow-up task(s)` and exited 0, which
+    systemd records as a healthy run. Zero created is the normal result
+    most days; zero created *because the work was dropped* is not, and
+    from the journal the two were identical.
+
+    That is the same "broken looks healthy" failure the admin guide
+    warns about for this timer, which the close-out had just finished
+    describing.
+    """
+
+    def setUp(self):
+        self.rep = grant_role(f.user("rep"), Role.SALES_REP)
+        # Owned by nobody, so generation has to fall back.
+        self.customer = f.contact(self.rep, owner=None)
+        _completed_job(self.customer, self.rep, days_ago=400)
+
+    def test_a_due_follow_up_with_nobody_to_assign_it_to_is_reported(self):
+        skipped = []
+        created = generate_follow_ups(TODAY, skipped=skipped)
+        self.assertEqual(created, [])
+        self.assertEqual(len(skipped), 1)
+        contact, service = skipped[0]
+        self.assertEqual(contact, self.customer)
+        self.assertEqual(service.slug, "gutter-cleaning")
+
+    def test_the_command_fails_rather_than_reporting_a_quiet_day(self):
+        with self.assertRaises(CommandError) as caught:
+            call_command("generate_followups", "--date", TODAY.isoformat(), stdout=StringIO())
+        self.assertIn("could not be assigned", str(caught.exception))
+        self.assertIn(str(self.customer), str(caught.exception))
+
+    def test_it_is_logged_so_the_journal_shows_it(self):
+        with self.assertLogs("apps.crm.followups", level="WARNING") as logged:
+            generate_follow_ups(TODAY)
+        self.assertTrue(any("no assignee" in line for line in logged.output))
+
+    def test_an_owner_exists_so_nothing_is_skipped(self):
+        """The other half: with somebody to assign to, this is an
+        ordinary successful run."""
+        grant_role(f.user("boss"), Role.OWNER)
+        skipped = []
+        created = generate_follow_ups(TODAY, skipped=skipped)
+        self.assertEqual(len(created), 1)
+        self.assertEqual(skipped, [])
+
+    def test_the_command_succeeds_when_nothing_was_dropped(self):
+        grant_role(f.user("boss"), Role.OWNER)
+        out = StringIO()
+        call_command("generate_followups", "--date", TODAY.isoformat(), stdout=out)
+        self.assertIn("Created 1 follow-up task(s)", out.getvalue())
+
+
 class GenerateFollowUpsCommandTests(TestCase):
     def test_reports_what_it_created(self):
         rep = grant_role(f.user("rep"), Role.SALES_REP)

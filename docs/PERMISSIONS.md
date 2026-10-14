@@ -108,6 +108,127 @@ jobs, a user changing only their own channel read marker) in Phases
 `test_migrations.py::FieldServicePermissionSeedTests` cover what exists
 today.
 
+### A permission can be granted years before the view that honours it
+
+Worth knowing, because it happened and took two phases to notice. The
+Cleaner column above has said `add note` since Phase 17, and
+`users/0004_field_service_permissions` carries the comment:
+
+> Crews update their own jobs (status, hours) and add photos/notes —
+> which jobs is enforced row-by-row in the views.
+
+**No such view existed until Phase 19 unit 3.** A crew member held
+`crm.add_note` for two phases and could reach no note interface at all:
+the only way in was the Tasks hub, which is sales-and-owner. The
+permission was not wrong and the comment was not wrong — the view it
+described had simply never been written.
+
+Nothing complains about this. A permission with no view is invisible:
+no 403, no error, no failing test. `FieldServicePermissionSeedTests`
+asserts the grant exists, which it does, and tells you nothing about
+whether anything uses it.
+
+So read this table as **what a role is allowed to do**, not as what
+the application offers them. Those are maintained in different places
+and nothing keeps them in step.
+
+Measured during Phase 19's close-out. Three different numbers get
+confused here, so all three are stated:
+
+| | Count |
+|---|---|
+| Role-to-permission assignments live on the groups | 106 (Owner 61, Sales Rep 38, Cleaner 7) |
+| **Distinct permission codenames** granted to any group | 61 |
+| Of those, distinct codenames seeded by `apps/users/migrations/0004_field_service_permissions.py` | 50 |
+
+The breakdown below counts **distinct codenames from that one
+migration** — the 50 — because that is the migration this section is
+about:
+
+| | Count |
+|---|---|
+| Enforced by name (`permission_required` or `has_perm`) | 21 |
+| Written through a parent form, or by a service function | 20 |
+| Reachable by no code path at all | 9 |
+
+The other 11 codenames come from `apps/users/migrations/0002_roles.py`
+and `apps/crm/migrations/0005_seed_staff_group.py` — the original CRM
+models — and are not analysed here. Four of them (`add_lead`,
+`change_lead`, `add_deal`, `change_deal`) are for models **retired in
+Phase 18 unit 5**; the stale rows are left deliberately and
+`apps/crm/migrations/0011_retire_lead_and_deal.py` says why.
+
+The middle row is **not one category but two**, and the first version
+of this section got that wrong by calling it all "parent forms".
+Review corrected it; the distinction matters to anyone tracing a write.
+
+**Written through a parent's form or formset.** Quote, job and invoice
+line items, and tags on a contact. Django checks no permission for a
+formset's own model — the parent view's gate (`jobs.change_quote` and
+so on) is the real one, so do not expect to find
+`jobs.add_joblineitem` anywhere.
+
+**Written by a service function, with no permission check at all.**
+These are not parent-form writes and nothing in the permission system
+guards them:
+
+| Write | Where | What actually gates it |
+|---|---|---|
+| `ChannelMembership` created on first read of a channel | `messaging/services.py` (`mark_read`) | the channel's own audience rule |
+| `ChannelMembership` created for a direct message | `messaging/services.py` (`direct_channel`) | both parties being real users |
+| `JobAssignment` created by clocking **off** a job you were not assigned to | `jobs/crew.py` (`clock_out` → `_add_hours_to_assignment`) | `jobs_for` scoping on the time-clock view |
+| `JobAssignment` created/deleted by editing a job's crew | `jobs/views.py` (`JobFormMixin`) | `jobs.change_job` on the job view |
+
+That is defensible — each has a real gate, just not a permission-shaped
+one — but it means the grants for those models are decorative, and a
+reviewer looking for the permission that protects a channel membership
+will not find one.
+
+The last row is the one to know about:
+
+- `crm.delete_businessplan`, `crm.delete_note`, `crm.delete_property`,
+  `messaging.change_message` — the app offers none of these. A plan, a
+  note and an address can be created and edited but not removed, and a
+  message is immutable.
+
+  The first version of this said "nothing is hard-deleted through the
+  UI except photos and checklist items", which review showed was
+  wrong. The full inventory of **user-facing hard deletes**:
+
+  | What | How |
+  |---|---|
+  | A photo | its own remove button (uploader or Owner) |
+  | A checklist step | its own remove button |
+  | A quote, job or invoice **line item** | the **Remove** checkbox on the edit form (`can_delete=True`, rendered by `jobs/_line_row.html`) |
+  | A **crew assignment** | taking someone off a job in the job edit form (`JobFormMixin` deletes the row) |
+
+  The last two are easy to miss because they look like edits rather
+  than deletions — you untick a box or deselect a name — and that is
+  exactly why they belong in this list. Note the crew-assignment delete
+  is deliberately *not* a replace-all: `JobFormMixin` adds and removes
+  individually so hours already logged against someone survive an
+  unrelated edit.
+- `jobs.change_photo`, `jobs.delete_photo` — removal *is* offered, but
+  `PhotoDeleteView` gates it on "whoever uploaded it, or the Owner"
+  rather than on the permission (Phase 18 unit 2's decision). The grant
+  is decorative; the ownership rule is the real one.
+- `jobs.change_payment`, `jobs.delete_expense` — a payment can be
+  recorded but not corrected, and an expense edited but not removed.
+- **`jobs.add_servicetype`** — the Owner is granted it and **there is
+  no create route**: `ServiceListView` and `ServiceUpdateView` exist,
+  nothing adds a service. A business that starts offering a new service
+  must use the Django admin. Noted in `docs/PROJECT_STATE.md`'s known
+  issues.
+
+To check a row yourself: find the permission in
+`apps/users/migrations/0004_field_service_permissions.py`, then grep
+for both
+`permission_required = "<app>.<codename>"` and
+`has_perm("<app>.<codename>")`. A grant matching neither is either
+written through a parent form or a promise nothing keeps — and the two
+look identical from here, which is why the list above is spelled out
+rather than left as a method.
+
 ## Field-service pages (Phase 17 unit 3)
 
 Messages: a public channel's `audience` decides who may read and post

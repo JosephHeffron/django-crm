@@ -326,16 +326,26 @@ class NoteForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         # Said on the form rather than left to be discovered: a note
-        # about a customer is readable by any crew member working at
-        # that customer's address, which is the owner's deliberate
+        # about a customer is readable by any crew member assigned to
+        # any of that customer's jobs, which is the owner's deliberate
         # choice and not obvious while writing one.
+        #
+        # The wording is "one of this customer's jobs", not "this
+        # customer's address", and the difference is the point. The job
+        # page filters notes by **contact**, not by address
+        # (`JobDetailView`), so a customer with three addresses has
+        # their notes readable by a crew member on any one of those
+        # jobs. Review caught the first version of this text
+        # understating its own warning, which is the worst thing a
+        # warning can do.
         self.fields["contact"] = ContactChoiceField(
             queryset=contact_choices(self.instance.contact_id),
             required=False,
             label="About a customer",
             help_text=(
-                "Optional. Crews working at this customer's address can read "
-                "notes about them, so keep commercial detail out of these."
+                "Optional. Any crew member assigned to one of this customer's "
+                "jobs can read notes about them — at any of their addresses — "
+                "so keep commercial detail out of these."
             ),
         )
         self.fields["job"].queryset = (
