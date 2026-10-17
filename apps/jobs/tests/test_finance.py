@@ -1,6 +1,7 @@
 import re
 from datetime import date, timedelta
 from decimal import Decimal
+from unittest import mock
 
 from django.test import TestCase
 from django.urls import reverse
@@ -165,6 +166,66 @@ class InvoicingTests(FinanceTestCase):
         self.assertContains(response, "Invoice this job")
         f.invoice(self.job)
         self.assertNotContains(self.client.get(self.job.get_absolute_url()), "Invoice this job")
+
+
+class FactoryDateTests(FinanceTestCase):
+    """The test factory's own dates must not rot.
+
+    `f.invoice`'s `issued` defaulted to a hard-coded
+    `date(2026, 10, 2)`. `due_on` is `issued + 14 days`, so from
+    **2026-10-17** every invoice built without an explicit date was
+    overdue — and `payment_status` checks `due_on < today` before it
+    checks whether anything has been paid.
+
+    `test_a_part_payment_leaves_a_balance` read "Overdue" where it
+    expected "Part paid" and stayed broken: a test that passed until a
+    date and failed for ever after, which is worse than a flake
+    because nothing about it looks time-dependent. It took the whole
+    suite down on `main`, on a branch that had not touched invoices.
+    """
+
+    def test_a_freshly_built_invoice_is_not_already_overdue(self):
+        # Two clock reads here are safe: `due_on` is today + 14, so a
+        # midnight slip between them compares today+14 against today+1
+        # and the assertion still holds. Only the equality test above
+        # needed pinning.
+        invoice = f.invoice(self.job)
+        today = timezone.localdate()
+        self.assertGreaterEqual(invoice.due_on, today)
+        self.assertNotEqual(invoice.payment_status(today), "overdue")
+
+    def test_the_default_moves_with_the_clock(self):
+        """Not merely "not overdue today" — relative.
+
+        A second hard-coded date far enough in the future would pass
+        the test above for years and then fail the same way.
+
+        The clock is pinned, and review was right to insist. The first
+        version read `timezone.localdate()` twice — once inside the
+        factory, once in the assertion — so local midnight falling
+        between them failed the test for a correct factory. A
+        time-dependent test inside the fix for a time-dependent test.
+
+        Patching the attribute on `django.utils.timezone` covers both
+        reads, because the factory looks it up on the module at call
+        time rather than importing the function.
+        """
+        pinned = date(2026, 5, 4)
+        with mock.patch.object(timezone, "localdate", return_value=pinned):
+            self.assertEqual(f.invoice(self.job).issued_on, pinned)
+            self.assertEqual(f.invoice(self.job).due_on, pinned + timedelta(days=14))
+
+    def test_an_explicit_date_is_still_honoured(self):
+        """Most callers that care pass one, including the overdue
+        fixture in `InvoiceListTests`."""
+        invoice = f.invoice(self.job, issued=date(2026, 1, 5))
+        self.assertEqual(invoice.issued_on, date(2026, 1, 5))
+        self.assertEqual(invoice.due_on, date(2026, 1, 19))
+
+    def test_a_past_date_still_reads_as_overdue(self):
+        """The behaviour the fix must not paper over."""
+        invoice = f.invoice(self.job, issued=timezone.localdate() - timedelta(days=40))
+        self.assertEqual(invoice.payment_status(timezone.localdate()), "overdue")
 
 
 class InvoiceListTests(FinanceTestCase):
