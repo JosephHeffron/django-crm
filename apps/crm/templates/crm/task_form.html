@@ -30,6 +30,28 @@
           {% include "partials/_field.html" with field=form.contact %}
           {% include "partials/_field.html" with field=form.quote %}
         </div>
+        {% comment %}
+          A task for somebody who isn't on the books yet, without
+          abandoning the form. The same round trip the job form uses:
+          this opens its own page and comes back with the new customer
+          chosen, which needs no JavaScript and so works on a phone
+          with a bad signal.
+
+          Create only. On the edit form the round trip would come back
+          to a page still showing the saved customer — `TaskUpdateView`
+          has no `get_initial`, and `chosen_contact()` reads the saved
+          record before `?contact=` — so the button would appear to do
+          nothing. Adding a customer part-way through editing a task is
+          a rare need; a button that silently fails is not worth it.
+        {% endcomment %}
+        {% if not object %}
+          <p class="cluster">
+            <a class="btn btn-secondary btn-sm" href="{% url 'crm:contact_create' %}?next={{ return_to|urlencode }}">
+              <svg class="icon" aria-hidden="true"><use href="#icon-user-plus"/></svg>New customer
+            </a>
+          </p>
+          <p class="helptext">This opens a new page and comes back here. Anything else you've typed isn't kept yet.</p>
+        {% endif %}
         {% if chosen_contact %}
           {% comment %}
             Server-rendered from the saved or prefilled customer, so
