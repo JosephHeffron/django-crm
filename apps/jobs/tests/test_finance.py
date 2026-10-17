@@ -167,6 +167,49 @@ class InvoicingTests(FinanceTestCase):
         self.assertNotContains(self.client.get(self.job.get_absolute_url()), "Invoice this job")
 
 
+class FactoryDateTests(FinanceTestCase):
+    """The test factory's own dates must not rot.
+
+    `f.invoice`'s `issued` defaulted to a hard-coded
+    `date(2026, 10, 2)`. `due_on` is `issued + 14 days`, so from
+    **2026-10-17** every invoice built without an explicit date was
+    overdue — and `payment_status` checks `due_on < today` before it
+    checks whether anything has been paid.
+
+    `test_a_part_payment_leaves_a_balance` read "Overdue" where it
+    expected "Part paid" and stayed broken: a test that passed until a
+    date and failed for ever after, which is worse than a flake
+    because nothing about it looks time-dependent. It took the whole
+    suite down on `main`, on a branch that had not touched invoices.
+    """
+
+    def test_a_freshly_built_invoice_is_not_already_overdue(self):
+        invoice = f.invoice(self.job)
+        today = timezone.localdate()
+        self.assertGreaterEqual(invoice.due_on, today)
+        self.assertNotEqual(invoice.payment_status(today), "overdue")
+
+    def test_the_default_moves_with_the_clock(self):
+        """Not merely "not overdue today" — relative.
+
+        A second hard-coded date far enough in the future would pass
+        the test above for years and then fail the same way.
+        """
+        self.assertEqual(f.invoice(self.job).issued_on, timezone.localdate())
+
+    def test_an_explicit_date_is_still_honoured(self):
+        """Most callers that care pass one, including the overdue
+        fixture in `InvoiceListTests`."""
+        invoice = f.invoice(self.job, issued=date(2026, 1, 5))
+        self.assertEqual(invoice.issued_on, date(2026, 1, 5))
+        self.assertEqual(invoice.due_on, date(2026, 1, 19))
+
+    def test_a_past_date_still_reads_as_overdue(self):
+        """The behaviour the fix must not paper over."""
+        invoice = f.invoice(self.job, issued=timezone.localdate() - timedelta(days=40))
+        self.assertEqual(invoice.payment_status(timezone.localdate()), "overdue")
+
+
 class InvoiceListTests(FinanceTestCase):
     def setUp(self):
         super().setUp()
