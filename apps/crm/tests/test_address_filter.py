@@ -147,6 +147,152 @@ class CustomerAddressFilterTests(AddressFilterTestCase):
         self.assertEqual(page_two.context["paginator"].count, 30)
         self.assertNotIn(away.pk, [c.pk for c in page_two.context["contacts"]])
 
+    def test_customers_can_be_found_by_part_of_a_street(self):
+        """The thing the exact-match postcode box could not do."""
+        here = self.customer("Pat", "Here")
+        self.address(here, "Penfield", street="118 Castlebar Rd")
+        away = self.customer("Sam", "Away")
+        self.address(away, "Penfield", street="7 Elm Ave")
+        shown = self.listing(CUSTOMERS, address="castlebar").context["contacts"]
+        self.assertEqual([c.pk for c in shown], [here.pk])
+
+    def test_the_address_search_also_matches_a_town(self):
+        here = self.customer("Pat", "Here")
+        self.address(here, "Penfield")
+        away = self.customer("Sam", "Away")
+        self.address(away, "Webster")
+        shown = self.listing(CUSTOMERS, address="penf").context["contacts"]
+        self.assertEqual([c.pk for c in shown], [here.pk])
+
+    def test_the_address_search_matches_part_of_a_postcode(self):
+        """Partial, unlike the box it replaced, which needed the lot."""
+        here = self.customer("Pat", "Here")
+        self.address(here, "Penfield", postal="14526")
+        away = self.customer("Sam", "Away")
+        self.address(away, "Webster", postal="14580")
+        shown = self.listing(CUSTOMERS, address="145 2").context["contacts"]
+        self.assertEqual(shown.count(), 0, "a space-separated fragment should not match")
+        shown = self.listing(CUSTOMERS, address="1452").context["contacts"]
+        self.assertEqual([c.pk for c in shown], [here.pk])
+
+    def test_a_customer_with_two_matching_addresses_appears_once(self):
+        """The join bug, in the form this filter is most likely to hit.
+
+        Two addresses on the same street both match `address=elm`. A
+        join would list the customer twice and report 2; the row count
+        alone would look right on a page of one.
+        """
+        both = self.customer("Pat", "Twice")
+        self.address(both, "Penfield", street="3 Elm Ave")
+        self.address(both, "Webster", street="9 Elm Rd")
+        response = self.listing(CUSTOMERS, address="elm")
+        shown = response.context["contacts"]
+        self.assertEqual([c.pk for c in shown], [both.pk])
+        self.assertEqual(response.context["paginator"].count, 1)
+
+    def test_a_town_and_an_address_must_match_the_same_address(self):
+        """Why this is a third filter and not a second subquery.
+
+        Pat has a home in Penfield and a rental on Elm St in Webster.
+        Neither address is both, so `?town=Penfield&address=Elm` must
+        not find them. Two independent `pk__in` subqueries would, and
+        that is the reading
+        `test_a_town_and_a_postcode_must_match_the_same_address`
+        already rejected for town plus postcode.
+        """
+        pat = self.customer("Pat", "Split")
+        self.address(pat, "Penfield", street="1 Home Way")
+        self.address(pat, "Webster", street="2 Elm St")
+        shown = self.listing(CUSTOMERS, town="Penfield", address="Elm").context["contacts"]
+        self.assertEqual(shown.count(), 0)
+
+        # And the other way: one address satisfying both does match.
+        sam = self.customer("Sam", "Both")
+        self.address(sam, "Penfield", street="4 Elm Close")
+        shown = self.listing(CUSTOMERS, town="Penfield", address="Elm").context["contacts"]
+        self.assertEqual([c.pk for c in shown], [sam.pk])
+
+    def test_the_address_asked_for_comes_back_to_the_box(self):
+        response = self.listing(CUSTOMERS, address="castlebar")
+        self.assertEqual(response.context["address"], "castlebar")
+        self.assertContains(response, 'value="castlebar"')
+
+    def test_an_old_postcode_bookmark_still_filters(self):
+        """Its input is gone from the page; the URL must keep working."""
+        here = self.customer("Pat", "Here")
+        self.address(here, "Penfield", postal="14526")
+        away = self.customer("Sam", "Away")
+        self.address(away, "Webster", postal="14580")
+        shown = self.listing(CUSTOMERS, postal="14526").context["contacts"]
+        self.assertEqual([c.pk for c in shown], [here.pk])
+
+    def test_the_address_filter_survives_paging(self):
+        for i in range(30):
+            self.address(self.customer(f"Pat{i}", "Here"), "Penfield", street=f"{i} Elm Ave")
+        response = self.listing(CUSTOMERS, address="elm", page=2)
+        self.assertEqual(response.context["paginator"].count, 30)
+        self.assertTrue(response.context["contacts"])
+
+    def test_the_address_shows_in_the_row(self):
+        pat = self.customer("Pat", "Here")
+        self.address(pat, "Penfield", street="118 Castlebar Rd")
+        response = self.listing(CUSTOMERS)
+        self.assertContains(response, "118 Castlebar Rd, Penfield")
+
+    def test_a_customer_with_no_address_still_renders(self):
+        self.customer("Pat", "Nowhere")
+        self.assertContains(self.listing(CUSTOMERS), "Nowhere")
+
+    def test_the_row_shows_the_main_address_and_counts_the_rest(self):
+        """The main one, not merely the first one by street.
+
+        The streets are named so that the main address sorts **last**
+        alphabetically. Written the other way round the test passes
+        even with `Property.Meta.ordering` cut down to `["street"]`,
+        which is what makes `is_primary` the reason this works —
+        confirmed by mutating that `Meta.ordering` and watching this
+        test go from green to red.
+        """
+        pat = self.customer("Pat", "Several")
+        self.address(pat, "Webster", street="1 Second St")
+        main = self.address(pat, "Penfield", street="9 Main St")
+        main.is_primary = True
+        main.save(update_fields=["is_primary"])
+        response = self.listing(CUSTOMERS)
+        self.assertContains(response, "9 Main St, Penfield")
+        self.assertContains(response, "+1 more")
+        self.assertNotContains(response, "1 Second St")
+
+    def test_showing_the_address_costs_no_query_per_customer(self):
+        """The N+1 this column would introduce if written with `.first`
+        and without the prefetch. Compared at two sizes rather than
+        pinned to a measured number."""
+
+        def queries_for(count):
+            Property.objects.all().delete()
+            Contact.objects.all().delete()
+            for i in range(count):
+                self.address(self.customer(f"Pat{i}", "Here"), "Penfield", street=f"{i} Elm Ave")
+            with CaptureQueriesContext(connection) as captured:
+                self.client.get(CUSTOMERS)
+            return len(captured.captured_queries)
+
+        few, many = queries_for(3), queries_for(18)
+        self.assertEqual(few, many, f"{few} queries for 3 customers, {many} for 18")
+
+    def test_filtering_by_address_costs_no_query_per_customer(self):
+        def queries_for(count):
+            Property.objects.all().delete()
+            Contact.objects.all().delete()
+            for i in range(count):
+                self.address(self.customer(f"Pat{i}", "Here"), "Penfield", street=f"{i} Elm Ave")
+            with CaptureQueriesContext(connection) as captured:
+                self.client.get(CUSTOMERS, {"address": "elm"})
+            return len(captured.captured_queries)
+
+        few, many = queries_for(3), queries_for(18)
+        self.assertEqual(few, many, f"{few} queries for 3 customers, {many} for 18")
+
     def test_filtering_by_town_costs_no_query_per_customer(self):
         """The cost must not grow with the number of customers.
 

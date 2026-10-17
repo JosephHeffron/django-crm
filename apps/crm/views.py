@@ -223,8 +223,8 @@ CONTACT_SORTS = {
 }
 
 
-def contacts_at(town="", postal=""):
-    """Contact ids with a service address in that town or postcode.
+def contacts_at(town="", postal="", text=""):
+    """Contact ids with a service address matching all of these.
 
     Returned as a subquery for `pk__in`, never as a join. Joining
     `properties` would multiply the contact rows — a customer with a
@@ -232,12 +232,31 @@ def contacts_at(town="", postal=""):
     both the rows shown and `paginator.count`, and still looks correct
     on page one. The tag filter below and `with_last_dates` follow the
     same discipline for the same reason.
+
+    `text` is the free-text address search: street, town or postcode,
+    partially. It is a third filter on the **same** queryset rather
+    than a second subquery, and that is the whole point. Two
+    independent `pk__in` subqueries would mean "a customer with *an*
+    address in Penfield and *an* address on Elm St", so somebody with
+    a home in Penfield and a rental on Elm St in Webster would match
+    `?town=Penfield&address=Elm`. One queryset means one address has
+    to satisfy everything asked — the same reading
+    `test_a_town_and_a_postcode_must_match_the_same_address` already
+    pins for town plus postcode.
+
+    `state` and `label` are left out deliberately. A two-letter query
+    against `state` matches every customer in a single-state book of
+    business, and "Home" is a label half of them share.
     """
     addresses = Property.objects.all()
     if town:
         addresses = addresses.filter(city__iexact=town)
     if postal:
         addresses = addresses.filter(postal_code__iexact=postal)
+    if text:
+        addresses = addresses.filter(
+            Q(street__icontains=text) | Q(city__icontains=text) | Q(postal_code__icontains=text)
+        )
     return addresses.values("contact_id")
 
 
@@ -262,7 +281,15 @@ class ContactListView(SalesRoleRequiredMixin, PerPageMixin, ListView):
     def get_queryset(self):
         params = self.request.GET
         queryset = with_last_dates(
-            super().get_queryset().select_related("company", "owner").prefetch_related("tags")
+            super()
+            .get_queryset()
+            .select_related("company", "owner")
+            # `properties` for the address column: one extra query for
+            # the whole page, rather than one per row. The template
+            # reads `properties.all|first`, which `Property.Meta`'s
+            # `["-is_primary", "street"]` ordering makes the main
+            # address.
+            .prefetch_related("tags", "properties")
         )
         query = params.get("q", "").strip()
         if query:
@@ -293,8 +320,9 @@ class ContactListView(SalesRoleRequiredMixin, PerPageMixin, ListView):
             )
 
         town, postal = address_filters(params)
-        if town or postal:
-            queryset = queryset.filter(pk__in=contacts_at(town, postal))
+        address = params.get("address", "").strip()
+        if town or postal or address:
+            queryset = queryset.filter(pk__in=contacts_at(town, postal, address))
 
         _, ordering = CONTACT_SORTS.get(params.get("sort"), CONTACT_SORTS["name"])
         return queryset.order_by(*ordering)
@@ -313,6 +341,12 @@ class ContactListView(SalesRoleRequiredMixin, PerPageMixin, ListView):
         context["stage_choices"] = Contact.Status.choices
         context["sort_choices"] = [(key, label) for key, (label, _) in CONTACT_SORTS.items()]
         context["town"], context["postal"] = address_filters(params)
+        # `postal` keeps being honoured though its own box is gone from
+        # the page — an old bookmark should not silently stop working.
+        # It has no input to echo into, so the only way out of it is to
+        # press Filter, which drops it along with anything else the
+        # form does not carry.
+        context["address"] = params.get("address", "").strip()
         context["towns"] = towns_on_record()
         return context
 
