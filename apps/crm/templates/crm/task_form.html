@@ -44,7 +44,13 @@
           nothing. Adding a customer part-way through editing a task is
           a rare need; a button that silently fails is not worth it.
         {% endcomment %}
-        {% if not object %}
+        {% comment %}
+          Gated on the permission `ContactCreateView` itself requires.
+          No seeded role has `add_task` without `add_contact` — both
+          are in `users/0002`'s SALES_PERMISSIONS — but a permission
+          edited by hand could leave the button leading to a 403.
+        {% endcomment %}
+        {% if not object and perms.crm.add_contact %}
           <p class="cluster">
             <a class="btn btn-secondary btn-sm" href="{% url 'crm:contact_create' %}?next={{ return_to|urlencode }}">
               <svg class="icon" aria-hidden="true"><use href="#icon-user-plus"/></svg>New customer

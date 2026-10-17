@@ -2,6 +2,7 @@ import datetime
 import re
 
 from django.contrib.auth import get_user_model
+from django.contrib.auth.models import Group, Permission
 from django.db import connection
 from django.test import TestCase
 from django.test.utils import CaptureQueriesContext
@@ -10,6 +11,7 @@ from django.utils import timezone
 
 from apps.crm.models import Company, Contact, Task
 from apps.crm.tests._helpers import grant_role
+from apps.users.roles import Role
 
 User = get_user_model()
 
@@ -560,6 +562,79 @@ class TaskCustomerContextTests(TestCase):
         self.assertEqual(response.context["form"].initial.get("contact"), created.pk)
         self.assertEqual(response.context["chosen_contact"], created)
         self.assertContains(response, "585-555-0199")
+
+    def test_a_customer_added_inactive_is_still_saved_on_the_task(self):
+        """Sourcery's catch on PR #164, and it was a real one.
+
+        `ContactForm` offers `is_active`, so the quick-add page can
+        create a customer with that box unchecked. `contact_choices`
+        hands back active customers only, so the returned `?contact=`
+        was not one of the dropdown's options — while
+        `chosen_contact()`, which does an unfiltered `pk=` lookup,
+        named them and printed their phone. The page said they were
+        chosen; the browser submitted nothing for the field; the task
+        saved with no customer and no complaint.
+
+        Walks the whole round trip, because the bug lives in the join
+        between the two halves: asserting only that the option renders
+        would pass with the POST still dropping the value.
+        """
+        back = reverse("crm:task_create")
+        self.client.post(
+            f"{reverse('crm:contact_create')}?next={back}",
+            {
+                "first_name": "Quietly",
+                "last_name": "Inactive",
+                "status": Contact.Status.CUSTOMER,
+                "phone": "585-555-0177",
+                # Unchecked. A browser sends nothing at all for a
+                # cleared checkbox, which is why it is absent rather
+                # than "off".
+            },
+            follow=True,
+        )
+        created = Contact.objects.get(last_name="Inactive")
+        self.assertFalse(created.is_active, "the fixture needs an inactive customer")
+
+        form = self.client.get(back, {"contact": created.pk}).context["form"]
+        self.assertIn(created, form.fields["contact"].queryset)
+
+        self.client.post(
+            f"{back}?contact={created.pk}",
+            {
+                "title": "Ring the new one",
+                "assigned_to": self.user.pk,
+                "contact": created.pk,
+                "priority": "medium",
+                "status": "pending",
+            },
+        )
+        self.assertEqual(Task.objects.get(title="Ring the new one").contact, created)
+
+    def test_an_inactive_customer_is_still_not_offered_to_everyone_else(self):
+        """The escape hatch stays narrow: it is for the customer the
+        page is about, not a general unlocking of inactive records."""
+        hidden = Contact.objects.create(
+            first_name="Long", last_name="Gone", created_by=self.user, is_active=False
+        )
+        form = self.client.get(reverse("crm:task_create")).context["form"]
+        self.assertNotIn(hidden, form.fields["contact"].queryset)
+
+    def test_the_button_is_hidden_from_someone_who_cannot_add_customers(self):
+        """`ContactCreateView` requires `crm.add_contact`; a button
+        leading to a 403 is worse than no button.
+
+        No seeded role has `add_task` without `add_contact`, so the
+        permission is taken away here the only way it can happen in
+        practice — edited by hand. `TestCase` rolls the group change
+        back with the rest of the transaction.
+        """
+        Group.objects.get(name=Role.SALES_REP.value).permissions.remove(
+            Permission.objects.get(codename="add_contact", content_type__app_label="crm")
+        )
+        response = self.client.get(reverse("crm:task_create"))
+        self.assertEqual(response.status_code, 200, "the task form itself must still open")
+        self.assertEqual(self.quick_add_links(response), [])
 
     def test_a_next_pointing_off_this_site_is_refused(self):
         response = self.client.post(
