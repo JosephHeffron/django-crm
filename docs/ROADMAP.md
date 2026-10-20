@@ -73,7 +73,8 @@ functionality it deliberately deferred, plus hardening work identified
 along the way (`docs/PRODUCTION_READINESS.md`'s still-open findings).
 Phases 15-17.5 are complete. Phase 18 is underway: unit 1
 (private media) is merged. Phase 18.5, twelve items the owner reported
-after testing the running app, is complete. From Phase 17 the roadmap pivots the CRM to
+after testing the running app, is complete, as is Phase 19.5, three
+more reported the same way. From Phase 17 the roadmap pivots the CRM to
 the owner's exterior home-services business (service catalog, quotes,
 crew-scheduled jobs, invoicing, follow-up automation, team messaging,
 mobile-first PWA) — see `docs/decisions/0008-roles-and-row-level-scoping.md`
@@ -226,6 +227,40 @@ insufficient.
             and the owner, and from a job's own page by the crew
             working it — the row-scoped path `users/0004` has promised
             since Phase 17 and nothing had built (PR #156).
+- [x] **Phase 19.5 — Owner-requested usability fixes.** Complete:
+      three items the owner reported after using the running app.
+      Numbered like Phase 18.5 and for the same reason — they cut
+      across phases (the task form, the customer list, the schedule)
+      rather than belonging to one, so they are tracked as their own
+      group instead of folded in. Three units, three PRs.
+      - [x] Unit 1 — a **New customer** button on the task form, so a
+            task for somebody not yet on the books no longer means
+            abandoning the form. Create-only: on the edit form the
+            round trip would come back showing the old customer, so
+            the button would appear to do nothing (PR #164).
+      - [x] Unit 2 — **address search** on the customer list (street,
+            town or postcode, partially — the box it replaced needed
+            the whole postcode exactly), with each customer's address
+            shown after their phone. Added as a third filter on the
+            same queryset, not a second subquery, so one address has
+            to satisfy everything asked (PR #165).
+      - [x] Unit 3 — **booking from the schedule**: any day cell on
+            the week or month view opens that day, and a day's
+            schedule offers half-hour slots from 6am to 8pm that open
+            the job form at that time with two hours booked. A slot
+            already covered says Busy and still books, because two
+            crews can be out at once (PR #166).
+
+      **Sourcery found a real bug in each of the three**, every one
+      after CI was green: a customer added with "Active" unchecked was
+      shown as chosen and then dropped by the save; the retired
+      postcode box kept filtering invisibly and was discarded on the
+      next submit; and the indicator dots left a dead patch in the
+      middle of a cell built to be clickable. Each unit's log has the
+      detail. Two live bugs in existing code were fixed on the way —
+      a 500 on the reschedule endpoint and a drag outline whose CSS
+      named a class no page has ever rendered.
+
 - [ ] **Phase 20 — Invoicing and financials.** Invoices from completed
       jobs, payments, expenses, the Owner-only Financials page
       (daily/weekly/monthly/YTD, by service and by rep, server-rendered

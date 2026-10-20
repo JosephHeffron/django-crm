@@ -113,6 +113,15 @@ for meaningful changes — not for every small fix or documentation tweak.
   and private direct messages with unread counts; profiles with
   per-role stats and an Owner team view. Search also finds contacts
   by phone and jobs/quotes by number.
+- Three things asked for after using the app: a **New customer**
+  button on the task form, so a task for somebody not yet on the
+  books no longer means abandoning the form; **address search** on
+  the customer list (street, town or postcode, partially) with each
+  customer's address shown after their phone; and **booking from the
+  schedule** — any day cell on Week or Month opens that day, and a
+  day's schedule offers half-hour slots from 6am to 8pm that open the
+  job form at that time with two hours booked. A slot that already
+  has a job says Busy and still works.
 
 ### Changed
 - Access control is now role-based: Owner, Sales Rep, and Cleaner
@@ -169,6 +178,14 @@ for meaningful changes — not for every small fix or documentation tweak.
   list looked random.
 - A task can no longer be saved against an estimate belonging to a
   different customer.
+- Moving a job no longer fails on an impossible or offset-carrying
+  time. The reschedule endpoint crashed on a value like
+  `2026-02-30T09:00` instead of refusing it.
+- A customer added from the task form with "Active" unchecked is now
+  kept on the task. The page showed them as chosen while the save
+  dropped them.
+- The drag-and-drop outline on the week and month schedule now shows.
+  Its style named a class no page has ever rendered.
 
 ### Added
 - The Tasks page narrows to one customer, and adding a task from there

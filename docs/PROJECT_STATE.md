@@ -4,8 +4,11 @@ Update this file at the end of every session (see `CLAUDE.md`'s Session
 Close Procedure). Do not describe anything as complete unless it was
 actually verified.
 
-> **Last updated 2026-10-13.** Repo is clean (`main` up to date, nothing
-> uncommitted). The original 14-phase roadmap is fully complete (see
+> **Last updated 2026-10-20.** `main` carries PRs #164, #165 and #166.
+> PR #158 is open (see "Currently working on"). Four Dependabot PRs
+> are open and unreviewed: #159 (ruff 0.17.0), #160 (Django 6.1.2),
+> #161 (pre-commit 4.7.0), #162 (ruff-pre-commit 0.17.0).
+> The original 14-phase roadmap is fully complete (see
 > "Project complete" below). The post-release roadmap
 > (`docs/ROADMAP.md`'s "Phase 15+") is now underway: **Phase 15
 > (Backup hardening)'s off-host, encrypted backup mechanism** — `restic`,
@@ -1284,18 +1287,63 @@ roadmap completed:
   pinned — the second time-dependent failure this session, after the
   seed leaving Payroll empty before mid-morning. 1,137 tests. Full
   detail in `logs/claude/phase-19-unit3-notes.md`.
+- **Phase 19.5 — Owner-requested usability fixes: DONE.** Three items
+  reported after using the running app, numbered like Phase 18.5
+  because they cut across phases rather than belonging to one: a New
+  customer button on the task form (#164), address search and an
+  address column on the customer list (#165), and booking a job by
+  clicking a day or a half-hour slot on the schedule (#166). 1,181
+  tests (1,150 before). Sourcery found a real bug in each of the
+  three, every one **after CI was green** — read
+  `logs/claude/owner-request-*.md` before treating a green tick as
+  done. Two live bugs in existing code fixed on the way: a 500 on the
+  reschedule endpoint (`parse_datetime` raises on an impossible date
+  rather than returning None) and a drag outline whose CSS named a
+  class no template has ever rendered.
 - Phases 20-25: not yet started (re-sequenced in `docs/ROADMAP.md`).
 
 ## Currently working on
 
-Nothing in flight. Phase 18 is complete (PRs #130, #148, #149, #150,
-#151), as is Phase 18.5 (PRs #133, #135, #137, #139, #144, #146, plus
-the seed fix #145), the QA audit (#153) and Phase 19 (#154, #155,
-#156).
+**Phase 19.5 — three usability items the owner asked for after using
+the app** — is done and merged, each item its own PR: a New customer
+button on the task form (#164, merged `0e588c1`), address search and
+an address column on the customer list (#165, merged `46b49b4`), and
+booking a job by clicking a day or a half-hour slot on the schedule
+(#166, merged `50748b5`). Logs:
+`logs/claude/owner-request-*.md`. Sourcery found a real bug in each of
+the three — read the logs before assuming a green CI meant done.
+
+Also open: **#158, the role-based stats sheet** (each person's figures
+over every period rather than one at a time), written alongside Phase
+20's verification pass. Its branch is behind `main` and needs its CI
+re-run before it can merge — its earlier green tick predates the
+factory-date fix below. Read that PR for what the verification pass
+found; it is not restated here.
+
+Phase 18 is complete (PRs #130, #148, #149, #150, #151), as is Phase
+18.5 (PRs #133, #135, #137, #139, #144, #146, plus the seed fix #145),
+the QA audit (#153) and Phase 19 (#154, #155, #156).
+
+**`main`'s suite was broken for a day and a half** — not by a change,
+by the calendar. `_factories.invoice` hard-coded
+`issued=date(2026, 10, 2)`, so `due_on` was 2026-10-16 and from
+**2026-10-17** every invoice built from the factory was overdue, which
+`payment_status` checks before the part-paid branch. Confirmed against
+clean `main` with all work stashed. Fixed in #163: the factory issues
+today unless told otherwise, with four guard tests. One of those guards
+read `timezone.localdate()` twice and was itself time-dependent —
+Sourcery caught it — and is now pinned with `mock.patch.object`. Third
+time-dependent failure in this stretch of work; see "Worth considering
+for its own unit", below.
 
 ## Next
 
-Phase 19 is complete, so the roadmap moves to **Phase 20 — invoicing
+The three owner-reported items are built, tested, browser-verified and
+merged; nothing about them is outstanding. **#158 (the stats sheet) is
+the one piece of work left in flight** — it needs a branch update and a
+CI re-run before it can merge.
+
+Then back to the roadmap: **Phase 20 — invoicing
 and financials**: invoices from completed jobs, payments, expenses, the
 Owner-only Financials page, profile stats hardening.
 
@@ -1325,15 +1373,29 @@ app, and a payment cannot be corrected.
 
 ### Worth considering for its own unit
 
-**Run the suite under a pinned clock in CI.** Two time-dependent
-failures this session — the seed leaving Payroll empty before
+**Carry the crew filter into a booking.** Picking a crew member on the
+schedule and then booking from a slot creates an unassigned job, which
+vanishes from that filtered view. `JobCreateView` does not read
+`?crew=` at all, so this needs the link, `get_initial` seeding the
+`crew` many-to-many, and a test that booking from a filtered schedule
+assigns that crew. Not a regression — the hero **New job** button has
+always dropped the filter the same way. Raised by Sourcery on PR #166
+and declined there as scope rather than built half-way.
+
+**Run the suite under a pinned clock in CI.** Now three
+time-dependent failures — the seed leaving Payroll empty before
 mid-morning, and the map's week window failing on a Sunday night — both
 passed locally and failed elsewhere. Each was fixed by pinning that
 test. The general fix is a CI job that runs the whole suite at a few
 simulated hours, or under a frozen clock, so "it depends what time it
 is" stops being a way for tests to be wrong. The sweep after the map
 flake checked 18 call sites by reasoning; reasoning is weaker evidence
-than a clock that cannot vary.
+than a clock that cannot vary. The third case makes the argument
+better than the first two: `_factories.invoice`'s hard-coded date was
+not a flake at all. It passed every run until 2026-10-17 and failed
+every run after, on a branch that had changed nothing — a test that
+expires. A pinned clock catches the flakes; a *moving* clock in CI (a
+job that runs the suite a few months ahead) is what catches these.
 
 ## Known issues
 
@@ -1350,6 +1412,27 @@ catalogue.
 Same measurement: `jobs.change_payment` and `jobs.delete_expense` are
 granted with no code path. A mistyped payment currently needs the
 admin.
+
+**A job that starts the day before and runs past midnight is not
+marked on the next day's booking grid.** `calendar_days` has placed
+events by the local date they **start** on since Phase 17, so such a
+job is already absent from the next day's agenda too — the grid is
+consistent with the page it sits on, not a new inconsistency. Narrow
+in practice: the grid only reaches below 6am to cover that day's own
+bookings, so the overlap is only on screen if the day already has a
+booking early enough to widen the window, and `busy` is advisory
+anyway (a busy slot still books, by the owner's decision). The fix,
+if it is ever wanted, is a second scoped query for jobs overlapping
+the day — a change to how the calendar places events, not to the
+grid. Raised by Sourcery on PR #166.
+
+**A booking slot on the spring-forward morning would open the form at
+a different time.** 2:00-3:00am does not exist locally on that one
+night, and the slot grid is built on the wall clock, so a slot
+labelled 2:30 AM resolves elsewhere when the form parses it. Reachable
+only if a job is already booked at 2am on that night, since the grid
+only widens below 6am to cover existing bookings. Documented in
+`apps/jobs/calendar.py` and accepted rather than solved.
 
 **On a Sunday evening the Map says nothing about tomorrow.** It shows
 the current week, Monday to Sunday, so a job at 8am Monday is not on it
