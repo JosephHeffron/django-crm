@@ -51,8 +51,8 @@
         <option value="{{ name }}" {% if town == name %}selected{% endif %}>{{ name }}</option>
       {% endfor %}
     </select>
-    <label for="id_postal" class="sr-only">Postal code</label>
-    <input type="search" id="id_postal" name="postal" value="{{ postal }}" placeholder="Postal code">
+    <label for="id_address" class="sr-only">Address</label>
+    <input type="search" id="id_address" name="address" value="{{ address }}" placeholder="Street, town or postcode">
     <label for="id_sort" class="sr-only">Sort by</label>
     <select id="id_sort" name="sort">
       {% for value, label in sort_choices %}
@@ -69,6 +69,7 @@
         <tr>
           <th>Name</th>
           <th>Phone</th>
+          <th>Address</th>
           <th>Last job</th>
           <th>Last contact</th>
           <th>Owner</th>
@@ -85,6 +86,31 @@
               {% with contact_tags=contact.tags.all %}{% if contact_tags %}<div class="tag-list">{% for tag in contact_tags %}<span class="badge">{{ tag.name }}</span>{% endfor %}</div>{% endif %}{% endwith %}
             </td>
             <td data-label="Phone">{% if contact.phone %}<a href="tel:{{ contact.phone }}">{{ contact.phone }}</a>{% else %}—{% endif %}</td>
+            {% comment %}
+              `properties.all|first` rather than `properties.first`.
+              Both read the prefetch cache today, because
+              `Property.Meta.ordering` makes the queryset ordered and
+              `.first()` then returns from the cache — so this is not
+              about a present-day N+1. It is that `.all` is resolved
+              once here and reused for the count below, and that the
+              cell stays cache-safe if that `Meta.ordering` is ever
+              removed, which would otherwise turn this column into a
+              silent query per row.
+
+              No "Primary" badge: the first address is "flagged
+              primary, else alphabetically first street", and
+              `is_primary` defaults to False, so badging it would
+              assert something false for the common case of a customer
+              with one unflagged address.
+            {% endcomment %}
+            <td data-label="Address">
+              {% with places=contact.properties.all %}
+                {% if places %}
+                  {% with main=places|first %}{{ main.street }}, {{ main.city }}{% endwith %}
+                  {% if places|length > 1 %}<div class="muted">+{{ places|length|add:"-1" }} more</div>{% endif %}
+                {% else %}—{% endif %}
+              {% endwith %}
+            </td>
             <td data-label="Last job">{{ contact.last_job_at|date:"M j, Y"|default:"—" }}</td>
             <td data-label="Last contact">{{ contact.last_touch_at|date:"M j, Y"|default:"—" }}</td>
             <td data-label="Owner">{{ contact.owner.get_full_name|default:contact.owner|default:"—" }}</td>
