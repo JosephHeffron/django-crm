@@ -14,6 +14,7 @@ vanish from the figures.
 """
 
 from datetime import timedelta
+from datetime import timezone as dt_timezone
 
 from django.test import TestCase
 from django.urls import reverse
@@ -114,6 +115,35 @@ class MovingTests(RescheduleTestCase):
         self.job.refresh_from_db()
         self.assertEqual(self.job.scheduled_start, was)
         self.assertIn("date and time", " ".join(str(m) for m in response.context["messages"]))
+
+    def test_an_impossible_date_is_refused_rather_than_500ing(self):
+        """A live 500, not a hypothetical one.
+
+        `parse_datetime` **raises** ValueError on a well-formed but
+        impossible value — 30 February — rather than returning None,
+        and this endpoint passed its result straight to `move_job`.
+        Anyone who could reach the move controls could crash the
+        request by editing the field's value. Found while adding
+        `?start=` to the job form, which needed the same guard.
+        """
+        was = self.job.scheduled_start
+        response = self.client.post(self.url, {"start": "2026-02-30T09:00"}, follow=True)
+        self.job.refresh_from_db()
+        self.assertEqual(self.job.scheduled_start, was)
+        self.assertIn("date and time", " ".join(str(m) for m in response.context["messages"]))
+
+    def test_a_time_carrying_an_offset_moves_the_job_to_that_instant(self):
+        """The other half of the same bug: `parse_datetime` returns an
+        **aware** datetime when the value carries an offset, and
+        `make_aware` then raises on it. Nothing the move box sends
+        looks like this, but the endpoint is a URL."""
+        when = (self.start + timedelta(days=1)).replace(microsecond=0)
+        response = self.client.post(
+            self.url, {"start": when.astimezone(dt_timezone.utc).strftime("%Y-%m-%dT%H:%M:%S%z")}
+        )
+        self.assertEqual(response.status_code, 302)
+        self.job.refresh_from_db()
+        self.assertEqual(local(self.job.scheduled_start), local(when))
 
     def test_a_missing_time_is_refused(self):
         was = self.job.scheduled_start
