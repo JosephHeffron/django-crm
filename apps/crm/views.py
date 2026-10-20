@@ -1003,6 +1003,11 @@ class TaskFormUserMixin:
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context["chosen_contact"] = self.chosen_contact()
+        # Where the quick-add page should come back to, carrying
+        # whatever brought us here (`?quote=` included). Same
+        # expression `JobFormMixin` uses, and
+        # `ContactCreateView.get_success_url` does the rest.
+        context["return_to"] = self.request.get_full_path()
         return context
 
 

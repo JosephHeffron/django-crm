@@ -203,8 +203,20 @@ class TaskForm(forms.ModelForm):
         # This used to ask for a Deal, which had been empty since
         # Phase 17 folded every one into a Quote; the model itself was
         # retired in Phase 18 unit 5.
+        #
+        # The customer the page is *about* stays choosable even when
+        # they're inactive: `instance.contact_id` when editing, and
+        # `initial["contact"]` for the `?contact=` the quick-add round
+        # trip returns with. `ContactForm` offers `is_active`, so a
+        # customer created from that button with the box unchecked
+        # would otherwise be named — with their phone — by
+        # `chosen_contact()` while the dropdown held no such option:
+        # the page claiming them as chosen and the save quietly
+        # dropping them. `get_initial` runs on POST too (the form has
+        # no action, so it posts back carrying `?contact=`), so the
+        # option is there to validate against as well as to render.
         self.fields["contact"] = ContactChoiceField(
-            queryset=contact_choices(self.instance.contact_id),
+            queryset=contact_choices(self.instance.contact_id or self.initial.get("contact")),
             # Task.contact is null=True/blank=True: a general to-do
             # needn't name anyone. clean_contact() still insists for a
             # follow-up, which the database also checks.
