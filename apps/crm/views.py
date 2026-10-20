@@ -341,12 +341,20 @@ class ContactListView(SalesRoleRequiredMixin, PerPageMixin, ListView):
         context["stage_choices"] = Contact.Status.choices
         context["sort_choices"] = [(key, label) for key, (label, _) in CONTACT_SORTS.items()]
         context["town"], context["postal"] = address_filters(params)
-        # `postal` keeps being honoured though its own box is gone from
-        # the page — an old bookmark should not silently stop working.
-        # It has no input to echo into, so the only way out of it is to
-        # press Filter, which drops it along with anything else the
-        # form does not carry.
-        context["address"] = params.get("address", "").strip()
+        # `postal` keeps being honoured though its own box is gone —
+        # an old bookmark should not silently stop working — and it is
+        # echoed into the address box so the page shows the filter that
+        # is actually in effect. Press Filter and it goes back as
+        # `?address=14526`, which the free-text branch matches on
+        # `postal_code__icontains`: the same customer, by a filter you
+        # can now see and clear. Without this the box looked empty
+        # while the results were narrowed, and submitting the form
+        # widened them with nothing on the page to say why.
+        #
+        # A URL carrying both is not one this page ever produces;
+        # `address` wins the box, and `postal` still filters until the
+        # form is submitted.
+        context["address"] = params.get("address", "").strip() or context["postal"]
         context["towns"] = towns_on_record()
         return context
 

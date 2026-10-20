@@ -227,11 +227,58 @@ class CustomerAddressFilterTests(AddressFilterTestCase):
         self.assertEqual([c.pk for c in shown], [here.pk])
 
     def test_the_address_filter_survives_paging(self):
+        """Page two has to be filtered too.
+
+        The first version of this seeded 30 matching customers and
+        nothing else, so dropping the filter when building page two
+        left the same 30 rows and the same count — it passed either
+        way. Sourcery caught that on PR #165. The non-matching dozen
+        is what makes it bite: unfiltered, the count would be 42 and
+        page two would be full of Oak Dr.
+        """
         for i in range(30):
             self.address(self.customer(f"Pat{i}", "Here"), "Penfield", street=f"{i} Elm Ave")
+        for i in range(12):
+            self.address(self.customer(f"Sam{i}", "Away"), "Webster", street=f"{i} Oak Dr")
         response = self.listing(CUSTOMERS, address="elm", page=2)
         self.assertEqual(response.context["paginator"].count, 30)
-        self.assertTrue(response.context["contacts"])
+        shown = list(response.context["contacts"])
+        self.assertEqual(len(shown), 5, "25 on page one, the rest here")
+        self.assertEqual([c.last_name for c in shown], ["Here"] * 5)
+
+    def test_an_old_postcode_bookmark_shows_up_in_the_address_box(self):
+        """So the page admits what it is filtering by.
+
+        The postcode input is gone, and `?postal=` still filters, so
+        without this the box read empty while the results were
+        narrowed — and pressing Filter dropped the postcode and
+        widened them with nothing on the page to explain it.
+        """
+        response = self.listing(CUSTOMERS, postal="14526")
+        self.assertEqual(response.context["address"], "14526")
+        self.assertContains(response, 'value="14526"')
+
+    def test_resubmitting_the_box_keeps_the_same_customers(self):
+        """The other half: what the box hands back has to still work.
+
+        `?postal=` matches exactly and `?address=` matches partially,
+        so these are not the same query — this pins that they pick the
+        same people for a whole postcode, which is the only kind of
+        value the box can be handed this way.
+        """
+        here = self.customer("Pat", "Here")
+        self.address(here, "Penfield", postal="14526")
+        away = self.customer("Sam", "Away")
+        self.address(away, "Webster", postal="14580")
+
+        bookmarked = self.listing(CUSTOMERS, postal="14526")
+        echoed = bookmarked.context["address"]
+        resubmitted = self.listing(CUSTOMERS, address=echoed)
+        self.assertEqual(
+            [c.pk for c in resubmitted.context["contacts"]],
+            [c.pk for c in bookmarked.context["contacts"]],
+        )
+        self.assertEqual([c.pk for c in resubmitted.context["contacts"]], [here.pk])
 
     def test_the_address_shows_in_the_row(self):
         pat = self.customer("Pat", "Here")
