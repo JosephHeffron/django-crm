@@ -1,7 +1,7 @@
 from datetime import datetime, time, timedelta
 from decimal import Decimal
 
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 from django.utils.html import escape
@@ -192,9 +192,14 @@ class BookingTests(SchedulingTestCase):
             response = self.client.get(NEW, {"start": value})
             self.assertEqual(response.status_code, 200, value)
 
+    @override_settings(TIME_ZONE="America/New_York")
     def test_a_start_carrying_an_offset_is_taken_as_that_instant(self):
         """Not refused — read as the moment it says. 13:30 UTC is 8:30
-        in the morning here, which is what the form should open at."""
+        in the morning here, which is what the form should open at.
+
+        Pinned to the default zone: `CRM_TIME_ZONE` is configurable
+        and 08:30 is only right in New York.
+        """
         response = self.client.get(NEW, {"start": "2026-11-03T13:30+00:00"})
         self.assertContains(response, 'value="2026-11-03T08:30"')
 

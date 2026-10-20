@@ -227,7 +227,14 @@ def day_slots(day, events):
         # it holds the half hour it starts in and no more. Left as
         # None it would read as free and the grid would offer a time
         # the sales rep is already driving to.
-        end = _local_naive(event.end) if event.end else start + step
+        #
+        # The end is the end of the slot the visit starts in, not
+        # thirty minutes after the visit: a visit at 14:10 plus half
+        # an hour runs to 14:40 and marks the 14:30 slot as well,
+        # which contradicts the one-slot rule above. Caught by
+        # Sourcery on PR #166 — the first test used 14:00 exactly, so
+        # it agreed with the claim without checking it.
+        end = _local_naive(event.end) if event.end else _floor_to_slot(start) + step
         spans.append((start, end))
         opens = min(opens, start)
         closes = max(closes, end)

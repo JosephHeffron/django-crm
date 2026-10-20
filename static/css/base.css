@@ -2205,13 +2205,20 @@ dd {
   inset: 0;
 }
 
-/* Above the stretched layer, so chips, dots and "+n more" keep their
-   own clicks and their own drags. */
+/* Above the stretched layer, so the chips keep their own clicks and
+   their own drags.
+
+   The indicator dots and "No jobs" are deliberately **not** in this
+   list. They are not links, so lifting them above the stretched layer
+   only created a dead patch in the middle of a cell that is supposed
+   to open the day — Sourcery caught that on PR #166. Below the layer
+   they lose their `title` tooltips on hover, which is the right way
+   round: the dots are decorative (the count beside them carries the
+   meaning for a screen reader), a `title` tooltip does not exist on a
+   touch screen at all, and this app is used on a phone in somebody's
+   driveway. */
 .cal-day > .event,
-.cal-day > .day-dots,
-.cal-day > .cal-none,
 .cal-cell > .event,
-.cal-cell > .day-dots,
 .cal-cell > .cal-more {
   position: relative;
 }

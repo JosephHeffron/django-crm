@@ -1,7 +1,7 @@
 from datetime import date, datetime, time, timedelta
 from zoneinfo import ZoneInfo
 
-from django.test import SimpleTestCase, TestCase
+from django.test import SimpleTestCase, TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 
@@ -58,8 +58,18 @@ def event(start, end=None, kind="job"):
     )
 
 
+@override_settings(TIME_ZONE="America/New_York")
 class DaySlotTests(SimpleTestCase):
-    """The grid of times you can click on the day schedule."""
+    """The grid of times you can click on the day schedule.
+
+    Pinned to the business's default zone. `CRM_TIME_ZONE` is
+    configurable, and two of these build a New York instant and assert
+    a wall-clock label, so they would fail under another setting even
+    though the code reads the configured zone correctly — Sourcery's
+    catch on PR #166. Pinning is right rather than deriving the
+    expectations: a clock whose labels are computed from the same code
+    under test asserts very little.
+    """
 
     day = date(2026, 10, 1)
 
@@ -108,6 +118,18 @@ class DaySlotTests(SimpleTestCase):
         it reads as free, and the grid offers a time the rep is
         already driving to."""
         slots = day_slots(self.day, [event(local(self.day, 14), None, kind="visit")])
+        self.assertEqual(self.busy(slots), ["2:00 PM"])
+
+    def test_a_site_visit_off_the_half_hour_still_holds_one_slot(self):
+        """The version of the test above that actually checks the
+        claim. Sourcery's catch on PR #166: a visit at 2:10 plus half
+        an hour runs to 2:40 and marked the 2:30 slot too, so the
+        grid said two slots while the docstring said one. A visit on
+        the boundary — the only case the first test used — agrees with
+        either implementation.
+        """
+        at_ten_past = timezone.make_aware(datetime.combine(self.day, time(14, 10)))
+        slots = day_slots(self.day, [event(at_ten_past, None, kind="visit")])
         self.assertEqual(self.busy(slots), ["2:00 PM"])
 
     def test_the_window_widens_for_an_early_start(self):
