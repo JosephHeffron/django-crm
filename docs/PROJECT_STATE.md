@@ -1292,8 +1292,12 @@ roadmap completed:
   because they cut across phases rather than belonging to one: a New
   customer button on the task form (#164), address search and an
   address column on the customer list (#165), and booking a job by
-  clicking a day or a half-hour slot on the schedule (#166). 1,181
-  tests (1,150 before). Sourcery found a real bug in each of the
+  clicking a day or a half-hour slot on the schedule (#166). **1,196
+  tests on `main`** with all three merged, from 1,150 before the group
+  began. The per-unit logs each record what their own verification run
+  printed — 1,157, 1,162, 1,181 — which are lower because each was
+  measured on its own branch before the others merged. Those are left
+  as measured rather than back-dated to the total. Sourcery found a real bug in each of the
   three, every one **after CI was green** — read
   `logs/claude/owner-request-*.md` before treating a green tick as
   done. Two live bugs in existing code fixed on the way: a 500 on the

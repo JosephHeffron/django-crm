@@ -153,7 +153,8 @@ and the dragged job was dragged back.
 ## Verification
 
 ```
-python manage.py test        # 1,181 pass
+python manage.py test        # 1,181 pass on this branch
+                             # (1,196 on main once #165 was in)
 ruff check . && ruff format --check .
 python manage.py makemigrations --check
 ```
