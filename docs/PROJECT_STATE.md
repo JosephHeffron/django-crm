@@ -1417,22 +1417,30 @@ admin.
 marked on the next day's booking grid.** `calendar_days` has placed
 events by the local date they **start** on since Phase 17, so such a
 job is already absent from the next day's agenda too — the grid is
-consistent with the page it sits on, not a new inconsistency. Narrow
-in practice: the grid only reaches below 6am to cover that day's own
-bookings, so the overlap is only on screen if the day already has a
-booking early enough to widen the window, and `busy` is advisory
-anyway (a busy slot still books, by the owner's decision). The fix,
-if it is ever wanted, is a second scoped query for jobs overlapping
-the day — a change to how the calendar places events, not to the
-grid. Raised by Sourcery on PR #166.
+consistent with the page it sits on, not a new inconsistency.
+
+An earlier version of this entry claimed the overlap was only on
+screen if that day already had an early booking to widen the window.
+**That is wrong**, and Sourcery said so on PR #167: a job running to,
+say, 07:00 reaches into the default 6am-8pm window, so the 6:00 and
+6:30 slots read free with no early booking involved. What does limit
+it is the business — exterior work does not run through the night —
+and the fact that `busy` is advisory anyway: a busy slot still books,
+by the owner's decision, so the cost is a missing mark rather than a
+refused or double booking.
+
+The fix, if it is ever wanted, is a second scoped query for jobs
+overlapping the day — a change to how the calendar places events, not
+to the grid. Raised by Sourcery on PR #166.
 
 **A booking slot on the spring-forward morning would open the form at
 a different time.** 2:00-3:00am does not exist locally on that one
 night, and the slot grid is built on the wall clock, so a slot
-labelled 2:30 AM resolves elsewhere when the form parses it. Reachable
-only if a job is already booked at 2am on that night, since the grid
-only widens below 6am to cover existing bookings. Documented in
-`apps/jobs/calendar.py` and accepted rather than solved.
+labelled 2:30 AM resolves elsewhere when the form parses it. It takes
+a booking earlier than 2am on that one night to widen the grid through
+the missing hour — any early booking will do, not one at 2am
+specifically (corrected after Sourcery's note on PR #167). Documented
+in `apps/jobs/calendar.py` and accepted rather than solved.
 
 **On a Sunday evening the Map says nothing about tomorrow.** It shows
 the current week, Monday to Sunday, so a job at 8am Monday is not on it

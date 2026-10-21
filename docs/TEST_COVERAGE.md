@@ -22,7 +22,7 @@ the application.
 
 The figures above are the audit's own, kept as a record of what it
 measured on 2026-10-11. The suite has grown since; `python manage.py
-test` prints the current count (1,180 as of 2026-10-19). What has
+test` prints the current count (1,181 as of 2026-10-20). What has
 **not** changed is the method or anything in "Not covered", below —
 read that section before trusting a number.
 

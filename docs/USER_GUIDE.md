@@ -538,7 +538,16 @@ but Activities themselves are immutable by design).
 
 Tasks themselves are assignable to-dos, optionally linked to a
 Contact, with a due date, priority (Low/Medium/High), and status
-(Pending/Completed/Cancelled). Useful list filters:
+(Pending/Completed/Cancelled).
+
+**Who it's for** picks the customer. If they aren't on the books yet,
+**New customer** beside the dropdown adds them without losing the
+form: it opens the customer page, and saving comes back here with them
+already chosen. Anything else you had typed into the task is not kept,
+which the page says. The button is on a new task only — while editing
+an existing one it would appear to do nothing, so it isn't there.
+
+Useful list filters:
 
 - `?mine=1` — only tasks assigned to you.
 - `?overdue=1` — pending tasks past their due date.
