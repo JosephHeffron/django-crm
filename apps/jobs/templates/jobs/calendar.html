@@ -95,6 +95,33 @@
       {% else %}
         {% include "partials/_empty_state.html" with icon="calendar" title="Nothing scheduled" text="No jobs or site visits on this day." action_url=new_job_url action_label=new_job_label %}
       {% endif %}
+
+      {% comment %}
+        Below the agenda, under its own heading, deliberately: put it
+        in place of the empty state and "Nothing scheduled" stops
+        being true, which is what test_scheduling.py asserts on an
+        empty day.
+
+        Ordinary links, no JavaScript. A busy slot still links —
+        two crews can be out at once, and the job form would take the
+        booking anyway; marking it is information, not a refusal.
+      {% endcomment %}
+      {% if slots %}
+        <section class="card slot-picker" aria-labelledby="slots-heading">
+          <h2 id="slots-heading" class="card-title">Book a time</h2>
+          <p class="helptext">Pick a start time and the job form opens with it filled in, running two hours.</p>
+          <ul class="slot-grid">
+            {% for slot in slots %}
+              <li>
+                <a class="slot{% if slot.busy %} is-busy{% endif %}" href="{% url 'jobs:job_create' %}?start={{ slot.value }}">
+                  <span>{{ slot.label }}</span>
+                  {% if slot.busy %}<span class="slot-note">Busy</span>{% endif %}
+                </a>
+              </li>
+            {% endfor %}
+          </ul>
+        </section>
+      {% endif %}
     {% endwith %}
 
   {% elif cal.view == "week" %}

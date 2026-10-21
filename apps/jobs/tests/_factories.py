@@ -2,7 +2,7 @@
 module). Kept explicit rather than a factory library — the project
 has no test-data dependency and doesn't need one for this."""
 
-from datetime import date, datetime, timedelta
+from datetime import datetime, timedelta
 from decimal import Decimal
 
 from django.contrib.auth import get_user_model
@@ -69,7 +69,23 @@ def quote(contact, prepared_by, lines=((Decimal("1"), Decimal("100")),), **extra
     return q
 
 
-def invoice(job, lines=((Decimal("1"), Decimal("175")),), issued=date(2026, 10, 2), **extra):
+def invoice(job, lines=((Decimal("1"), Decimal("175")),), issued=None, **extra):
+    """An invoice issued today unless told otherwise.
+
+    `issued` used to default to a hard-coded `date(2026, 10, 2)`, which
+    was presumably "now" when it was written. `due_on` is `issued + 14
+    days`, so from **2026-10-17** every invoice built from this factory
+    was overdue — and `Invoice.payment_status` checks `due_on < today`
+    *before* it checks whether anything has been paid. On that date
+    `test_a_part_payment_leaves_a_balance` started reading "Overdue"
+    where it expected "Part paid", and stayed broken: not a flake, a
+    test that passes until a date and fails for ever after.
+
+    Relative to today, the default can never rot. Callers that need a
+    specific date already pass one, and most of them pass
+    `timezone.localdate()` or a month boundary.
+    """
+    issued = issued or timezone.localdate()
     extra.setdefault("status", Invoice.Status.SENT)
     inv = Invoice.objects.create(
         job=job,

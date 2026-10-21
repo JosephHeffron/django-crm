@@ -39,7 +39,7 @@ from apps.users.roles import (
 
 from . import crew, reporting, reports, scheduling, status
 from .access import invoices_for, jobs_for, quotes_for
-from .calendar import DEFAULT_VIEW, VIEWS, calendar_days, calendar_range, day_bounds
+from .calendar import DEFAULT_VIEW, VIEWS, calendar_days, calendar_range, day_bounds, day_slots
 from .forms import (
     ExpenseForm,
     InvoiceForm,
@@ -136,6 +136,13 @@ class CalendarView(RoleRequiredMixin, TemplateView):
             nudges=scheduling.NUDGES,
             new_job_url=reverse("jobs:job_create") if can_schedule else "",
             new_job_label="Schedule a job",
+            # Times to click, on the day view only, and only for
+            # somebody who may book: a crew member gains no create
+            # affordance from this page. Built from the day's events
+            # so a slot already covered says so.
+            slots=(
+                day_slots(cal.anchor, days[0]["events"]) if view == "day" and can_schedule else []
+            ),
         )
         return context
 
@@ -335,6 +342,13 @@ class JobCreateView(AuditedFormMixin, JobFormMixin, CreateView):
         address = self.request.GET.get("service_property", "")
         if address.isdigit():
             initial.setdefault("service_property", int(address))
+        # Arriving from a slot on the day schedule: that exact time.
+        # Set before `?date=` so a request carrying both takes the
+        # more precise one — `setdefault` keeps the first value set.
+        at = _parse_start(self.request.GET.get("start"))
+        if at:
+            initial.setdefault("scheduled_start", at)
+            initial.setdefault("scheduled_end", at + timedelta(hours=2))
         start = _parse_day(self.request.GET.get("date"))
         if start:
             # Arriving from a day on the schedule: start that morning.
@@ -842,8 +856,10 @@ class JobRescheduleView(SalesRoleRequiredMixin, PermissionRequiredMixin, View):
         if nudge:
             _, error = scheduling.nudge_job(job, nudge)
         else:
-            start = parse_datetime(request.POST.get("start", "") or "")
-            _, error = scheduling.move_job(job, start)
+            # Through the helper: posting `start=2026-02-30T09:00` to
+            # this endpoint was a 500, and an offset-carrying value was
+            # another. `move_job` reports a bad value as a message.
+            _, error = scheduling.move_job(job, _parse_start(request.POST.get("start")))
 
         if error:
             messages.warning(request, error)
@@ -1452,6 +1468,27 @@ def _parse_day(value):
         return parse_date(value or "")
     except ValueError:  # well-formed but impossible, e.g. 2026-02-30
         return None
+
+
+def _parse_start(value):
+    """A `YYYY-MM-DDTHH:MM` query or form value as an aware datetime,
+    or None if it isn't one.
+
+    Three ways it can fail, and all three arrive from a URL or a form
+    post somebody can type: `parse_datetime` returns None for
+    nonsense, **raises** ValueError for a well-formed impossibility
+    like `2026-02-30T09:00`, and returns an **aware** datetime when
+    the string carries an offset (`...T09:30Z`), which then makes
+    `make_aware` raise in its turn. Only the first of those was
+    handled before, and `JobRescheduleView` 500ed on the other two.
+    """
+    try:
+        moment = parse_datetime(value or "")
+    except ValueError:  # well-formed but impossible, as _parse_day
+        return None
+    if moment is None:
+        return None
+    return moment if timezone.is_aware(moment) else timezone.make_aware(moment)
 
 
 def calendar_url(view, day, crew_id=None):
