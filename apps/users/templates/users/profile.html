@@ -52,15 +52,73 @@
       <div class="stat-card"><div class="stat-label">Customer rating</div><div class="stat-value">{% if crew.average_rating %}{{ crew.average_rating|floatformat:1 }} / 5{% else %}—{% endif %}</div></div>
       <div class="stat-card"><div class="stat-label">Upcoming jobs</div><div class="stat-value">{{ crew.upcoming }}</div></div>
     </div>
+
+    {% comment %}
+    The sheet: the same figures over every period, so the question
+    "am I doing more than I was" has an answer without loading the page
+    five times. The cards above keep the detail that doesn't belong in
+    a row — rating, hours per week, what's upcoming.
+    {% endcomment %}
+    <div class="table-responsive section-gap">
+      <table class="data-table stack-mobile">
+        <caption class="sr-only">Field work by period</caption>
+        <thead>
+          <tr>
+            <th scope="col">Period</th>
+            <th scope="col" class="text-right">Jobs done</th>
+            <th scope="col" class="text-right">Worth</th>
+            <th scope="col" class="text-right">Hours</th>
+            <th scope="col" class="text-right">Rating</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in crew_periods %}
+            <tr>
+              <th scope="row">{{ row.label }}</th>
+              <td data-label="Jobs done" class="text-right">{{ row.jobs_completed }}</td>
+              <td data-label="Worth" class="text-right">{{ row.value|money }}</td>
+              <td data-label="Hours" class="text-right">{{ row.hours|floatformat:"-1" }}</td>
+              <td data-label="Rating" class="text-right">{% if row.average_rating %}{{ row.average_rating|floatformat:1 }}{% else %}—{% endif %}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
   {% endif %}
 
   {% if sales %}
     <h2>Sales</h2>
     <div class="stat-grid">
       <div class="stat-card"><div class="stat-label">Quotes sent</div><div class="stat-value">{{ sales.quotes_sent }}</div><div class="stat-meta">{{ sales.open_quotes }} open now</div></div>
-      <div class="stat-card"><div class="stat-label">Close rate</div><div class="stat-value">{% if sales.close_rate is not None %}{{ sales.close_rate }}%{% else %}—{% endif %}</div><div class="stat-meta">{{ sales.won }} won of {{ sales.decided }} decided</div></div>
-      <div class="stat-card"><div class="stat-label">Value won</div><div class="stat-value">{{ sales.value_won|money }}</div><div class="stat-meta">Accepted quotes</div></div>
+      <div class="stat-card"><div class="stat-label">Close rate</div><div class="stat-value">{% if sales.close_rate is not None %}{{ sales.close_rate }}%{% else %}—{% endif %}</div><div class="stat-meta">{{ sales.won }} won of {{ sales.decided }} decided, of those raised in this window</div></div>
+      <div class="stat-card"><div class="stat-label">Value won</div><div class="stat-value">{{ sales.value_won|money }}</div><div class="stat-meta">{{ sales.sold }} accepted in this window</div></div>
       <div class="stat-card"><div class="stat-label">Follow-ups done</div><div class="stat-value">{{ sales.follow_ups_completed }}</div></div>
+    </div>
+
+    <div class="table-responsive section-gap">
+      <table class="data-table stack-mobile">
+        <caption class="sr-only">Sales by period. Sold and worth count quotes accepted in each period; close rate covers quotes raised in it.</caption>
+        <thead>
+          <tr>
+            <th scope="col">Period</th>
+            <th scope="col" class="text-right">Sold</th>
+            <th scope="col" class="text-right">Worth</th>
+            <th scope="col" class="text-right">Quotes sent</th>
+            <th scope="col" class="text-right">Close rate <span class="muted">(of quotes raised then)</span></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in sales_periods %}
+            <tr>
+              <th scope="row">{{ row.label }}</th>
+              <td data-label="Sold" class="text-right">{{ row.sold }}</td>
+              <td data-label="Worth" class="text-right">{{ row.value_won|money }}</td>
+              <td data-label="Quotes sent" class="text-right">{{ row.quotes_sent }}</td>
+              <td data-label="Close rate" class="text-right">{% if row.close_rate is not None %}{{ row.close_rate }}%{% else %}—{% endif %}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
     </div>
   {% endif %}
 
