@@ -1,6 +1,6 @@
 repos:
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.17.0
+    rev: v0.17.1
     hooks:
       - id: ruff
         args: [--fix]
@@ -9,8 +9,14 @@ repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v6.0.0
     hooks:
+      # Vendored assets are kept byte-for-byte as upstream ships them,
+      # so the whitespace hooks skip them. Every other hook here still
+      # applies to them — including check-added-large-files, which is
+      # the one that matters for a vendored bundle.
       - id: trailing-whitespace
+        exclude: ^static/vendor/
       - id: end-of-file-fixer
+        exclude: ^static/vendor/
       - id: check-yaml
       - id: check-json
       - id: check-toml
