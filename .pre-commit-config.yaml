@@ -11,8 +11,8 @@ repos:
     hooks:
       # Vendored assets are kept byte-for-byte as upstream ships them,
       # so the whitespace hooks skip them. Every other hook here still
-      # applies to them — including check-added-large-files, which is
-      # the one that matters for a vendored bundle.
+      # applies to them — including the size limit below, which is the
+      # one that matters for a vendored bundle.
       - id: trailing-whitespace
         exclude: ^static/vendor/
       - id: end-of-file-fixer
@@ -21,6 +21,11 @@ repos:
       - id: check-json
       - id: check-toml
       - id: check-added-large-files
-        args: [--maxkb=2048]
+        # --enforce-all because the name is misleading: by default this
+        # only weighs files being *added*, so replacing a vendored
+        # bundle with a 10MB one would sail through. The biggest thing
+        # tracked here is leaflet.js at 148KB, so nothing existing is
+        # near the limit. Sourcery caught the gap on PR #169.
+        args: [--maxkb=2048, --enforce-all]
       - id: detect-private-key
       - id: check-merge-conflict
