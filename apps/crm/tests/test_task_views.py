@@ -2,6 +2,7 @@ import datetime
 import re
 
 from django.contrib.auth import get_user_model
+from django.contrib.auth.models import Group, Permission
 from django.db import connection
 from django.test import TestCase
 from django.test.utils import CaptureQueriesContext
@@ -10,6 +11,7 @@ from django.utils import timezone
 
 from apps.crm.models import Company, Contact, Task
 from apps.crm.tests._helpers import grant_role
+from apps.users.roles import Role
 
 User = get_user_model()
 
@@ -494,6 +496,181 @@ class TaskCustomerContextTests(TestCase):
             response = self.client.get(reverse(name))
             self.assertEqual(response.status_code, 200, name)
             self.assertEqual(self.add_task_link(response), reverse("crm:task_create"), name)
+
+    def quick_add_links(self, response):
+        """The quick-add anchors in the form, and nothing else.
+
+        Matched on the `?next=` parameter, because the nav's create
+        menu and the dashboard quick actions **both** contain a "New
+        customer" link to the same view. The first version of this test
+        asserted on `reverse("crm:contact_create")` and on the words
+        "New customer", either of which the nav satisfies on its own —
+        so it passed whether or not the form had a button. The
+        `?next=` is what only the form's own button carries.
+        """
+        import re
+
+        return re.findall(
+            rf'href="{re.escape(reverse("crm:contact_create"))}\?next=([^"]*)"',
+            response.content.decode(),
+        )
+
+    def test_the_form_offers_a_way_to_add_a_customer_who_is_not_on_the_books(self):
+        response = self.client.get(reverse("crm:task_create"))
+        self.assertEqual(len(self.quick_add_links(response)), 1)
+
+    def test_the_buttons_next_points_back_at_this_form(self):
+        from urllib.parse import unquote
+
+        response = self.client.get(reverse("crm:task_create"), {"quote": 7})
+        (target,) = self.quick_add_links(response)
+        self.assertEqual(unquote(target), f"{reverse('crm:task_create')}?quote=7")
+
+    def test_the_button_comes_back_to_the_task_form_it_left(self):
+        """Including whatever brought you here.
+
+        `return_to` is the full path, so starting a task from an
+        estimate and then adding a customer returns to the form with
+        the estimate still named.
+        """
+        response = self.client.get(reverse("crm:task_create"), {"quote": 7})
+        self.assertEqual(response.context["return_to"], f"{reverse('crm:task_create')}?quote=7")
+
+    def test_adding_a_customer_comes_back_with_them_chosen(self):
+        """The assertion that matters.
+
+        Checking only that the link is in the HTML passes even if the
+        return trip drops the new customer on the floor — the link is
+        the easy half. This walks it: post the customer with `next=`
+        pointing at the task form, follow the redirect, and the form
+        has to come back with them selected **and** their details
+        shown.
+        """
+        back = reverse("crm:task_create")
+        response = self.client.post(
+            f"{reverse('crm:contact_create')}?next={back}",
+            {
+                "first_name": "Brand",
+                "last_name": "New",
+                "status": Contact.Status.CUSTOMER,
+                "phone": "585-555-0199",
+                "is_active": "on",
+            },
+            follow=True,
+        )
+        created = Contact.objects.get(last_name="New")
+        self.assertEqual(response.context["form"].initial.get("contact"), created.pk)
+        self.assertEqual(response.context["chosen_contact"], created)
+        self.assertContains(response, "585-555-0199")
+
+    def test_a_customer_added_inactive_is_still_saved_on_the_task(self):
+        """Sourcery's catch on PR #164, and it was a real one.
+
+        `ContactForm` offers `is_active`, so the quick-add page can
+        create a customer with that box unchecked. `contact_choices`
+        hands back active customers only, so the returned `?contact=`
+        was not one of the dropdown's options — while
+        `chosen_contact()`, which does an unfiltered `pk=` lookup,
+        named them and printed their phone. The page said they were
+        chosen; the browser submitted nothing for the field; the task
+        saved with no customer and no complaint.
+
+        Walks the whole round trip, because the bug lives in the join
+        between the two halves: asserting only that the option renders
+        would pass with the POST still dropping the value.
+        """
+        back = reverse("crm:task_create")
+        self.client.post(
+            f"{reverse('crm:contact_create')}?next={back}",
+            {
+                "first_name": "Quietly",
+                "last_name": "Inactive",
+                "status": Contact.Status.CUSTOMER,
+                "phone": "585-555-0177",
+                # Unchecked. A browser sends nothing at all for a
+                # cleared checkbox, which is why it is absent rather
+                # than "off".
+            },
+            follow=True,
+        )
+        created = Contact.objects.get(last_name="Inactive")
+        self.assertFalse(created.is_active, "the fixture needs an inactive customer")
+
+        form = self.client.get(back, {"contact": created.pk}).context["form"]
+        self.assertIn(created, form.fields["contact"].queryset)
+
+        self.client.post(
+            f"{back}?contact={created.pk}",
+            {
+                "title": "Ring the new one",
+                "assigned_to": self.user.pk,
+                "contact": created.pk,
+                "priority": "medium",
+                "status": "pending",
+            },
+        )
+        self.assertEqual(Task.objects.get(title="Ring the new one").contact, created)
+
+    def test_an_inactive_customer_is_still_not_offered_to_everyone_else(self):
+        """The escape hatch stays narrow: it is for the customer the
+        page is about, not a general unlocking of inactive records."""
+        hidden = Contact.objects.create(
+            first_name="Long", last_name="Gone", created_by=self.user, is_active=False
+        )
+        form = self.client.get(reverse("crm:task_create")).context["form"]
+        self.assertNotIn(hidden, form.fields["contact"].queryset)
+
+    def test_the_button_is_hidden_from_someone_who_cannot_add_customers(self):
+        """`ContactCreateView` requires `crm.add_contact`; a button
+        leading to a 403 is worse than no button.
+
+        No seeded role has `add_task` without `add_contact`, so the
+        permission is taken away here the only way it can happen in
+        practice — edited by hand. `TestCase` rolls the group change
+        back with the rest of the transaction.
+        """
+        Group.objects.get(name=Role.SALES_REP.value).permissions.remove(
+            Permission.objects.get(codename="add_contact", content_type__app_label="crm")
+        )
+        response = self.client.get(reverse("crm:task_create"))
+        self.assertEqual(response.status_code, 200, "the task form itself must still open")
+        self.assertEqual(self.quick_add_links(response), [])
+
+    def test_a_next_pointing_off_this_site_is_refused(self):
+        response = self.client.post(
+            f"{reverse('crm:contact_create')}?next=https://evil.test/steal",
+            {
+                "first_name": "Brand",
+                "last_name": "New",
+                "status": Contact.Status.CUSTOMER,
+                "is_active": "on",
+            },
+        )
+        self.assertEqual(response.status_code, 302)
+        self.assertNotIn("evil.test", response["Location"])
+
+    def test_the_edit_form_does_not_offer_the_button(self):
+        """Create only, and deliberately.
+
+        On the edit form the round trip would come back to a page still
+        showing the saved customer: `TaskUpdateView` has no
+        `get_initial`, and `chosen_contact()` reads the saved record
+        before `?contact=`. A button that appears to do nothing is
+        worse than no button, so it is not rendered there. If this ever
+        changes, both of those have to change with it.
+        """
+        task = self.task(contact=self.customer)
+        response = self.client.get(reverse("crm:task_update", args=[task.pk]))
+        self.assertEqual(response.status_code, 200)
+        # Not `assertNotContains(response, "New customer")` — the nav's
+        # create menu says that on every page.
+        self.assertEqual(self.quick_add_links(response), [])
+
+    def test_the_edit_form_still_knows_its_customer(self):
+        """The behaviour the create-only decision rests on."""
+        task = self.task(contact=self.customer)
+        response = self.client.get(reverse("crm:task_update", args=[task.pk]))
+        self.assertEqual(response.context["chosen_contact"], self.customer)
 
     def test_the_form_shows_the_customers_phone_and_email_when_prefilled(self):
         response = self.client.get(reverse("crm:task_create"), {"contact": self.customer.pk})

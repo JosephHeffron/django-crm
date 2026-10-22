@@ -1,9 +1,10 @@
 from datetime import datetime, time, timedelta
 from decimal import Decimal
 
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
+from django.utils.html import escape
 
 from apps.crm.models import Property
 from apps.crm.tests._helpers import grant_role
@@ -163,6 +164,45 @@ class BookingTests(SchedulingTestCase):
         self.assertContains(response, 'value="2026-11-03T09:00"')
         self.assertContains(response, 'value="2026-11-03T11:00"')
 
+    def test_a_slot_on_the_schedule_prefills_that_exact_time(self):
+        response = self.client.get(NEW, {"start": "2026-11-03T07:30"})
+        self.assertContains(response, 'value="2026-11-03T07:30"')
+        self.assertContains(response, 'value="2026-11-03T09:30"', msg_prefix="two hours")
+
+    def test_a_slot_beats_a_bare_day_when_both_are_given(self):
+        """`setdefault` order, pinned: the more precise parameter wins.
+
+        Nothing on the page produces a URL with both, but a hand-made
+        one should take the time rather than silently falling back to
+        nine in the morning.
+        """
+        response = self.client.get(NEW, {"start": "2026-11-03T07:30", "date": "2026-11-03"})
+        self.assertContains(response, 'value="2026-11-03T07:30"')
+        self.assertNotContains(response, 'value="2026-11-03T09:00"')
+
+    def test_a_nonsense_start_is_ignored_rather_than_crashing(self):
+        """Three shapes of bad value, all typeable into the URL bar.
+
+        `parse_datetime` returns None for the first, **raises**
+        ValueError for the second, and hands back an *aware* datetime
+        for the third — which used to make `make_aware` raise in its
+        turn. Only the first was handled.
+        """
+        for value in ("soon", "2026-02-30T09:00", "2026-11-03T09:30Z", "", "2026-11-03"):
+            response = self.client.get(NEW, {"start": value})
+            self.assertEqual(response.status_code, 200, value)
+
+    @override_settings(TIME_ZONE="America/New_York")
+    def test_a_start_carrying_an_offset_is_taken_as_that_instant(self):
+        """Not refused — read as the moment it says. 13:30 UTC is 8:30
+        in the morning here, which is what the form should open at.
+
+        Pinned to the default zone: `CRM_TIME_ZONE` is configurable
+        and 08:30 is only right in New York.
+        """
+        response = self.client.get(NEW, {"start": "2026-11-03T13:30+00:00"})
+        self.assertContains(response, 'value="2026-11-03T08:30"')
+
     def test_a_customer_can_be_prefilled_from_their_page(self):
         response = self.client.get(NEW, {"contact": str(self.customer.pk)})
         self.assertContains(response, f'<option value="{self.customer.pk}" selected>')
@@ -303,6 +343,52 @@ class ScheduleePageTests(SchedulingTestCase):
         response = self.client.get(reverse("jobs:calendar"), {"view": "day", "date": "2026-11-03"})
         self.assertEqual(response.context["days"][0]["indicators"]["done"], 1)
         self.assertContains(response, "1 finished")
+
+    def test_the_day_schedule_offers_half_hour_slots_to_book(self):
+        response = self.client.get(reverse("jobs:calendar"), {"view": "day", "date": "2026-11-03"})
+        self.assertContains(response, "Book a time")
+        booked = f"{NEW}?start=2026-11-03T07:30"
+        self.assertContains(response, booked)
+        self.assertEqual(len(response.context["slots"]), 28)
+
+    def test_a_slot_already_covered_says_so_and_still_links(self):
+        """Marked, not refused. Two crews can be out at once, and the
+        job form would accept the booking anyway — a dead link would
+        be the page lying about what it will allow."""
+        f.job(self.customer, self.owner, start=self.start, lines=[])  # 9am, two hours
+        response = self.client.get(reverse("jobs:calendar"), {"view": "day", "date": "2026-11-03"})
+        slots = {slot["label"]: slot for slot in response.context["slots"]}
+        self.assertTrue(slots["9:00 AM"]["busy"])
+        self.assertFalse(slots["11:00 AM"]["busy"], "the job ends at 11")
+        self.assertContains(response, f"{NEW}?start=2026-11-03T09:00")
+        self.assertContains(response, "Busy")
+
+    def test_a_cleaner_is_offered_no_slots_at_all(self):
+        """The same gate as the New job button: a crew member gets no
+        create affordance from this page."""
+        self.client.login(username="casey", password=PASSWORD)
+        response = self.client.get(reverse("jobs:calendar"), {"view": "day", "date": "2026-11-03"})
+        self.assertEqual(response.context["slots"], [])
+        self.assertNotContains(response, "Book a time")
+
+    def test_the_week_and_month_views_offer_no_slot_grid(self):
+        """The grid is the day view's. Week and month cells link to a
+        day instead, which is one anchor each and no new parameter."""
+        for view in ("week", "month"):
+            response = self.client.get(
+                reverse("jobs:calendar"), {"view": view, "date": "2026-11-03"}
+            )
+            self.assertEqual(response.context["slots"], [], view)
+            self.assertNotContains(response, "Book a time", msg_prefix=view)
+
+    def test_every_day_cell_links_to_its_own_schedule(self):
+        """What makes the whole cell clickable: the anchor is already
+        there, and CSS stretches it. If these links went missing the
+        stretched hit area would have nothing behind it."""
+        response = self.client.get(reverse("jobs:calendar"), {"view": "week", "date": "2026-11-03"})
+        for day in response.context["days"]:
+            # Escaped: the url carries `&` between its parameters.
+            self.assertContains(response, f'href="{escape(day["url"])}"')
 
     def test_an_empty_schedule_offers_to_book_one(self):
         response = self.client.get(reverse("jobs:calendar"), {"view": "day", "date": "2030-01-01"})
