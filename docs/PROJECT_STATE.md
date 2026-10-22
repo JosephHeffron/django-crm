@@ -6,7 +6,7 @@ actually verified.
 
 > **Last updated 2026-10-21.** Repo is clean: `main` up to date,
 > nothing uncommitted, **no open pull requests**, 1,226 tests passing.
-> Ten PRs landed in this stretch — #164, #165, #166 and the #167
+> Eleven PRs landed in this stretch — #164, #165, #166 and the #167
 > close-out (Phase 19.5); #168 and #160 (two security upgrades); #159,
 > #161, #162 and #169 (tooling); and #158, the role-based stats sheet.
 > The original 14-phase roadmap is fully complete (see
@@ -1345,9 +1345,15 @@ which this app uses formsets throughout for, `parse_header_parameters`
 `get_supported_language_variant`.
 
 PR #169 is worth a note of its own: aligning the pre-commit hook to the
-pinned ruff meant running `pre-commit run --all-files`, which **looks
-like it had never been run in this repo**. Three files failed
-`end-of-file-fixer`. Two were our own docs; the third was vendored
+pinned ruff meant running `pre-commit run --all-files`, which **had not
+been run across the whole tree since Phase 0** — `phase-00-ai-rules.md`
+records it passing there, on a repo a fraction of this size, and
+the hooks have only seen staged files since. Three files failed
+`end-of-file-fixer`, every one of them added or edited in the phases
+after that run. (An earlier version of this note said the command had
+never been run here; Sourcery corrected it against the Phase 0 log.)
+
+Two of the three were our own docs; the third was vendored
 `leaflet.js`, now excluded from the whitespace hooks so our rules do
 not put a diff between us and upstream. Sourcery then caught that the
 comment written beside that exclusion overclaimed:
