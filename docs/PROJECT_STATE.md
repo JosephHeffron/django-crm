@@ -1328,6 +1328,32 @@ Phase 18 is complete (PRs #130, #148, #149, #150, #151), as is Phase
 18.5 (PRs #133, #135, #137, #139, #144, #146, plus the seed fix #145),
 the QA audit (#153) and Phase 19 (#154, #155, #156).
 
+**Every branch failed `dependency-audit` on 2026-10-21, and no change
+caused it.** `pip-audit` began reporting **24 known vulnerabilities in
+Pillow 12.3.0**, all fixed in 13.0.0. That check is required for merge,
+so `main`, the close-out, the stats sheet and all four Dependabot PRs
+were blocked at once by an advisory batch published against a version
+that had been pinned for weeks. **Dependabot did not raise it** — so
+the dependency PRs it does open are not evidence that the pinned set is
+clean.
+
+Pillow is load-bearing here: `apps/jobs/photos.py` re-encodes every
+uploaded job photo, and that re-encode is what strips the GPS location
+out of a picture of a customer's house (ADR 0009). An image-parser CVE
+batch is the relevant kind of finding, not an incidental one.
+
+Fixed in PR #168 (`caad214`). A major version, so reviewed by running
+it: the whole Pillow surface this project uses is `Image.new`,
+`Image.open`, `ImageOps.exif_transpose`,
+`Image.Resampling.LANCZOS`, the `thumbnail`/`convert`/`save` methods
+and `UnidentifiedImageError`, and none of 13.0.0's removals touch it.
+1,196 tests pass under it and `pip-audit` then reports nothing.
+
+**The lesson for next time:** when every PR goes red on
+`dependency-audit` at once, read the audit output before looking at the
+diffs — the first instinct was that the Django bump had broken
+something, and it had changed one line in `requirements.txt`.
+
 **`main`'s suite was broken for a day and a half** — not by a change,
 by the calendar. `_factories.invoice` hard-coded
 `issued=date(2026, 10, 2)`, so `due_on` was 2026-10-16 and from

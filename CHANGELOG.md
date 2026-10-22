@@ -140,6 +140,14 @@ for meaningful changes — not for every small fix or documentation tweak.
   actually change, and records tag changes by name.
 
 ### Security
+- Pillow upgraded to 13.0.0, which fixes 24 CVEs reported against
+  12.3.0. It is what re-encodes every uploaded job photo, and that
+  re-encode is what strips the picture's GPS location, so it parses
+  attacker-supplied images by design.
+- Django upgraded to 6.1.2, a security release (five CVEs, of which
+  forging actions in model formsets, `parse_header_parameters` and
+  memory exhaustion in `get_supported_language_variant` are reachable
+  from this app).
 - Job photos and profile pictures are no longer served from disk.
   Everything under `media/private/` now goes through a login-gated
   view that also checks whether the person may see the job or estimate
