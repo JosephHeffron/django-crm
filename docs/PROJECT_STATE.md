@@ -4,10 +4,11 @@ Update this file at the end of every session (see `CLAUDE.md`'s Session
 Close Procedure). Do not describe anything as complete unless it was
 actually verified.
 
-> **Last updated 2026-10-20.** `main` carries PRs #164, #165 and #166.
-> PR #158 is open (see "Currently working on"). Four Dependabot PRs
-> are open and unreviewed: #159 (ruff 0.17.0), #160 (Django 6.1.2),
-> #161 (pre-commit 4.7.0), #162 (ruff-pre-commit 0.17.0).
+> **Last updated 2026-10-21.** Repo is clean: `main` up to date,
+> nothing uncommitted, **no open pull requests**, 1,226 tests passing.
+> Eleven PRs landed in this stretch — #164, #165, #166 and the #167
+> close-out (Phase 19.5); #168 and #160 (two security upgrades); #159,
+> #161, #162 and #169 (tooling); and #158, the role-based stats sheet.
 > The original 14-phase roadmap is fully complete (see
 > "Project complete" below). The post-release roadmap
 > (`docs/ROADMAP.md`'s "Phase 15+") is now underway: **Phase 15
@@ -1294,7 +1295,8 @@ roadmap completed:
   address column on the customer list (#165), and booking a job by
   clicking a day or a half-hour slot on the schedule (#166). **1,196
   tests on `main`** with all three merged, from 1,150 before the group
-  began. The per-unit logs each record what their own verification run
+  began (1,226 now, with the stats sheet in). The per-unit logs each
+  record what their own verification run
   printed — 1,157, 1,162, 1,181 — which are lower because each was
   measured on its own branch before the others merged. Those are left
   as measured rather than back-dated to the total. Sourcery found a real bug in each of the
@@ -1308,6 +1310,8 @@ roadmap completed:
 
 ## Currently working on
 
+**Nothing in flight.** What follows is what most recently landed.
+
 **Phase 19.5 — three usability items the owner asked for after using
 the app** — is done and merged, each item its own PR: a New customer
 button on the task form (#164, merged `0e588c1`), address search and
@@ -1317,12 +1321,47 @@ booking a job by clicking a day or a half-hour slot on the schedule
 `logs/claude/owner-request-*.md`. Sourcery found a real bug in each of
 the three — read the logs before assuming a green CI meant done.
 
-Also open: **#158, the role-based stats sheet** (each person's figures
-over every period rather than one at a time), written alongside Phase
-20's verification pass. Its branch is behind `main` and needs its CI
-re-run before it can merge — its earlier green tick predates the
-factory-date fix below. Read that PR for what the verification pass
+**#158, the role-based stats sheet** (each person's figures over every
+period rather than one at a time), written alongside Phase 20's
+verification pass, is also merged (`799bc63`) after the CI re-run its
+stale green tick needed. Read that PR for what the verification pass
 found; it is not restated here.
+
+**Dependency work, all merged.** Two of these are security upgrades
+and the rest is tooling:
+
+| PR | Change | Merge |
+|---|---|---|
+| #168 | Pillow 12.3.0 → **13.0.0** (24 CVEs) | `caad214` |
+| #160 | Django 6.1.1 → **6.1.2** (security, 5 CVEs) | `db7ca17` |
+| #159 | ruff 0.16.10 → 0.17.1 | `e264c3b` |
+| #162 | ruff-pre-commit hook → v0.17.0 | `a153615` |
+| #161 | pre-commit 4.6.2 → 4.7.0 | `b90f2bd` |
+| #169 | hook aligned to ruff 0.17.1; vendor + size-limit fixes | `8ae1a6f` |
+
+Django 6.1.2's five CVEs include forging actions in model formsets,
+which this app uses formsets throughout for, `parse_header_parameters`
+(reached by photo uploads) and memory exhaustion in
+`get_supported_language_variant`.
+
+PR #169 is worth a note of its own: aligning the pre-commit hook to the
+pinned ruff meant running `pre-commit run --all-files`, which **had not
+been run across the whole tree since Phase 0** — `phase-00-ai-rules.md`
+records it passing there, on a repo a fraction of this size, and
+the hooks have only seen staged files since. Three files failed
+`end-of-file-fixer`, every one of them added or edited in the phases
+after that run. (An earlier version of this note said the command had
+never been run here; Sourcery corrected it against the Phase 0 log.)
+
+Two of the three were our own docs; the third was vendored
+`leaflet.js`, now excluded from the whitespace hooks so our rules do
+not put a diff between us and upstream. Sourcery then caught that the
+comment written beside that exclusion overclaimed:
+`check-added-large-files` only weighs files being **added**, so
+replacing a vendored bundle with a 10MB one would have passed.
+`--enforce-all` closes it, verified by dropping the limit to 100KB and
+watching the hook fail on `leaflet.js` with the flag and pass without
+it.
 
 Phase 18 is complete (PRs #130, #148, #149, #150, #151), as is Phase
 18.5 (PRs #133, #135, #137, #139, #144, #146, plus the seed fix #145),
@@ -1369,11 +1408,10 @@ for its own unit", below.
 ## Next
 
 The three owner-reported items are built, tested, browser-verified and
-merged; nothing about them is outstanding. **#158 (the stats sheet) is
-the one piece of work left in flight** — it needs a branch update and a
-CI re-run before it can merge.
+merged; nothing about them is outstanding, and neither is anything
+else — there is no work in flight and no open PR.
 
-Then back to the roadmap: **Phase 20 — invoicing
+So: back to the roadmap: **Phase 20 — invoicing
 and financials**: invoices from completed jobs, payments, expenses, the
 Owner-only Financials page, profile stats hardening.
 
