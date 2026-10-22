@@ -137,12 +137,21 @@ quiet day from a full one at a glance; a day with more than six shows
 "+3" and the rest. The day view puts the same thing in words above the
 list: how many jobs, how many are finished, and how many site visits.
 
+**Clicking a day** — anywhere in its cell on Week or Month, not just
+the number — opens that day's schedule.
+
 Tap a job for its page: when and where, the customer's phone (tap to
 call) and address (tap for directions), the crew and hours, the work,
 and notes. Owners and Sales Reps also see prices and the estimate it
 came from; the Owner also sees its invoices and whether they're paid.
 
 ### Booking a job (Owner and Sales Reps)
+
+**Book a time** at the bottom of a day's schedule is the quickest way:
+half-hour slots from 6am to 8pm (wider if something is booked earlier
+or later that day), and clicking one opens the job form at that time
+with two hours booked. A slot that already has a job on it says
+**Busy** and still works — you may have two crews out at once.
 
 **New job** on Scheduling, in the **Create** menu, or on the dashboard.
 You pick the customer and, if they have more than one, the address;
@@ -432,9 +441,18 @@ Contacts, activity timeline, and an edit history section.
 **Contacts** (`Contacts`): your customers and leads. Tabs switch
 between All, Leads, and Customers; search by name, email, or phone; and
 filter by tag, company, or active/inactive. The list shows each
-contact's last completed job and last contact, and can be sorted by
-**Longest since contact** — the people most overdue for a call come
-first. On a phone each contact is a card.
+contact's **address** after their phone — the main one, with "+1 more"
+if they have others — their last completed job and last contact, and
+can be sorted by **Longest since contact** — the people most overdue
+for a call come first. On a phone each contact is a card.
+
+**Searching by address** is the second box: a street, a town or a
+postcode, and part of any of them will do, so "castlebar" finds 118
+Castlebar Rd. The town dropdown still narrows to one town, and the two
+work together — a town plus a street fragment means one address has to
+be both, not that the customer has one of each somewhere. Older links
+that carry an exact postcode still work; the postcode appears in the
+address box so you can see and clear it.
 
 A contact's page shows their phone (tap to call), email, preferred way
 to be reached, where they came from, properties (tap an address for
@@ -442,8 +460,7 @@ directions), upcoming jobs, tasks, and a **Timeline** of everything
 that's happened — jobs, quotes, notes, logged calls and texts, and team
 messages that mention them (a direct message only shows to the people
 in that conversation). **Edit** sets whether they're a lead or a
-customer, the lead source, and tags. Adding and changing service
-addresses arrives with the quote builder in Phase 18.
+customer, the lead source, and tags.
 
 Both use **Add** to create, **Edit** to update, and **Deactivate**
 instead of delete — deactivating just sets a record inactive (it stops
@@ -521,7 +538,16 @@ but Activities themselves are immutable by design).
 
 Tasks themselves are assignable to-dos, optionally linked to a
 Contact, with a due date, priority (Low/Medium/High), and status
-(Pending/Completed/Cancelled). Useful list filters:
+(Pending/Completed/Cancelled).
+
+**Who it's for** picks the customer. If they aren't on the books yet,
+**New customer** beside the dropdown adds them without losing the
+form: it opens the customer page, and saving comes back here with them
+already chosen. Anything else you had typed into the task is not kept,
+which the page says. The button is on a new task only — while editing
+an existing one it would appear to do nothing, so it isn't there.
+
+Useful list filters:
 
 - `?mine=1` — only tasks assigned to you.
 - `?overdue=1` — pending tasks past their due date.

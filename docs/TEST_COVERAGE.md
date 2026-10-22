@@ -20,6 +20,12 @@ the application.
 | Added by this audit | 59, in 5 files |
 | Mutation-checked during the audit | 5 guards |
 
+The figures above are the audit's own, kept as a record of what it
+measured on 2026-10-11. The suite has grown since; `python manage.py
+test` prints the current count (1,196 as of 2026-10-21). What has
+**not** changed is the method or anything in "Not covered", below —
+read that section before trusting a number.
+
 ## Added by this audit
 
 | File | Tests | What it protects |
@@ -36,6 +42,23 @@ a seeding function run twice in the other. That is deliberate. The
 failure mode they guard against is omission, and a hand-maintained list
 of routes or pages is only ever as complete as the person who last
 edited it.
+
+## Mutation testing since the audit
+
+The audit mutation-checked 5 guards. That has since become the default
+for anything new, because three separate findings this project has made
+were **tests that could not fail for the reason they claimed** — an
+`assertIn("275", body)` that the average-job-value card also satisfied,
+an `assertContains` on a create link that the navigation menu carries
+on every page, and a paging test seeded only with matching rows.
+
+The three owner-reported units of 2026-10-17..19 ran 50 mutations
+between them, which caught four weaknesses in the tests themselves and
+one wrong explanation in a comment. What the exercise is worth
+recording for: **a mutation that does not apply reports success.** A
+`str.replace` whose anchor had been reflowed by `ruff format` has
+reported "OK" here more than once. Every mutation run asserts the edit
+landed before trusting the result.
 
 ## Python coverage, by area
 
