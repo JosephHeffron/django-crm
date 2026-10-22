@@ -582,4 +582,3 @@ Channel 1──* ChannelMembership *──1 User;  Channel 1──* Message
 - **Reference data ships as migrations**, not demo data: the ten
   default services (with follow-up intervals) in `jobs/0002`, the
   `#general` / `#crew` / `#sales` channels in `messaging/0002`.
-

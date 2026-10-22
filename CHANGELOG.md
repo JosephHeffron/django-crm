@@ -277,4 +277,3 @@ for meaningful changes — not for every small fix or documentation tweak.
   them, and the note form says so: a note about a customer is readable
   by any crew member assigned to any of that customer's jobs, at any of
   their addresses.
-
