@@ -17,8 +17,10 @@ a business that does not invoice:
   Financials headline, the trend chart, revenue-by-service,
   revenue-by-rep and the average invoice are all built on it. The
   dashboard's revenue cards use the same function.
-- **`Payment.invoice` is a required foreign key**, and the only route
-  to creating one is `invoices/<pk>/payments/new/`.
+- **`Payment.invoice` is a required foreign key**, and the only
+  app-facing route to creating one is `invoices/<pk>/payments/new/`.
+  (`PaymentInline` on `InvoiceAdmin` is a second path, through the
+  Django admin, which is not where the business works.)
 
 Together: with no invoices there is **no revenue on the Financials page
 however much work is sold and paid for, and nowhere to record the money
@@ -150,9 +152,10 @@ column, one widened column, and no data destroyed.
   `on_delete` does not hold outside the ORM
   (`docs/DATABASE_REVIEW.md` finding #1). There are no such writes
   today, and the guard belongs where the data comes in.
-- `docs/DATABASE_DESIGN.md`, `docs/ARCHITECTURE.md` and
-  `docs/USER_GUIDE.md` all describe invoice-driven money and need
-  revising. `docs/ROADMAP.md`'s Phase 20 line ("invoices from completed
+- `docs/DATABASE_DESIGN.md` and `docs/USER_GUIDE.md` describe
+  invoice-driven money and need revising. `docs/ARCHITECTURE.md` does
+  **not** — it has no invoice, payment or reporting content, checked
+  rather than assumed after this ADR first listed it. `docs/ROADMAP.md`'s Phase 20 line ("invoices from completed
   jobs") is superseded by this ADR.
 - The demo seed creates payments through invoices; it needs to create
   some directly against jobs, or the demo data will not exercise the

@@ -179,17 +179,24 @@ class UnguardedFigureTests(TestCase):
         self.assertEqual(figures["net"], Decimal("-40"))
 
     def test_the_average_invoice_is_rounded_to_money(self):
-        """Three invoices worth 250 average 83.33..., and a figure
-        printed as money has to be money. The fixture above divides
-        250 by 2 exactly, so the rounding never showed."""
-        for day, amount in ((3, "100"), (10, "100"), (17, "50")):
+        """Three invoices worth 50 average 16.666..., which **rounds**
+        to 16.67 and **truncates** to 16.66 — so this fails for either
+        mistake. The fixture above divides 250 by 2 exactly, so the
+        rounding never showed at all.
+
+        The first version of this test used 250 over 3. That is
+        83.333..., which rounds and truncates to the same 83.33, so it
+        asserted two decimal places and called it rounding — caught by
+        Sourcery on PR #171.
+        """
+        for day, amount in ((3, "20"), (10, "20"), (17, "10")):
             f.invoice(
                 self.job,
                 lines=[(Decimal("1"), Decimal(amount))],
                 issued=date(2026, 9, day),
             )
         average = reports.summary(self.period)["average_invoice"]
-        self.assertEqual(average, Decimal("83.33"))
+        self.assertEqual(average, Decimal("16.67"), "16.66 means it was truncated, not rounded")
         self.assertEqual(average.as_tuple().exponent, -2, "two decimal places, not a long third")
 
     def test_jobs_completed_counts_only_what_was_finished_in_the_period(self):
