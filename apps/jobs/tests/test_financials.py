@@ -1,4 +1,4 @@
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from decimal import Decimal
 
 from django.test import SimpleTestCase, TestCase
@@ -120,6 +120,101 @@ class FigureTests(TestCase):
         self.assertEqual(len(reports.trend(ytd)[1]), 9)
         quarter = reports.report_period("custom", date(2026, 7, 1), TODAY, TODAY)[0]
         self.assertEqual(reports.trend(quarter)[0], "week")
+
+
+class UnguardedFigureTests(TestCase):
+    """The four summary figures a mutation pass found nothing holding.
+
+    Each rule here was already correct and had **nothing asserting
+    it**: taking it out passed all 1,226 tests. `FigureTests` above is
+    why, and it is worth seeing how — its fixture has no payment
+    against a void invoice, no expense outside the window, a revenue
+    that divides evenly (250 over 2), and no completed jobs at all. So
+    each of these rules was invisible to the test that looked closest
+    to covering it.
+
+    One rule, one fixture, one assertion each, so a failure names the
+    thing that broke.
+    """
+
+    def setUp(self):
+        self.owner = grant_role(f.user("boss"), Role.OWNER)
+        self.customer = f.contact(self.owner)
+        self.job = f.job(self.customer, self.owner, lines=[])
+        self.period = reports.report_period("month", None, None, TODAY)[0]
+
+    def pay(self, invoice, amount, on=date(2026, 9, 25)):
+        return Payment.objects.create(
+            invoice=invoice,
+            amount=Decimal(amount),
+            received_on=on,
+            recorded_by=self.owner,
+        )
+
+    def test_a_payment_against_a_void_invoice_is_not_collected(self):
+        """Money taken on an invoice that was later voided is not
+        income. Both payments are inside the period, so the date
+        filter cannot be what separates them — only the invoice's
+        status can."""
+        sent = f.invoice(self.job, lines=[(Decimal("1"), Decimal("30"))], issued=date(2026, 9, 3))
+        voided = f.invoice(
+            self.job,
+            lines=[(Decimal("1"), Decimal("70"))],
+            issued=date(2026, 9, 4),
+            status=Invoice.Status.VOID,
+        )
+        self.pay(sent, "30")
+        self.pay(voided, "70")
+        self.assertEqual(reports.summary(self.period)["collected"], Decimal("30"))
+
+    def test_an_expense_outside_the_period_is_not_counted(self):
+        """And `net` has to move with it, because `net` is the figure
+        someone acts on."""
+        for day, amount in ((date(2026, 9, 10), "40"), (date(2026, 8, 10), "500")):
+            Expense.objects.create(
+                date=day, amount=Decimal(amount), category="fuel", recorded_by=self.owner
+            )
+        figures = reports.summary(self.period)
+        self.assertEqual(figures["expenses"], Decimal("40"))
+        self.assertEqual(figures["net"], Decimal("-40"))
+
+    def test_the_average_invoice_is_rounded_to_money(self):
+        """Three invoices worth 50 average 16.666..., which **rounds**
+        to 16.67 and **truncates** to 16.66 — so this fails for either
+        mistake. The fixture above divides 250 by 2 exactly, so the
+        rounding never showed at all.
+
+        The first version of this test used 250 over 3. That is
+        83.333..., which rounds and truncates to the same 83.33, so it
+        asserted two decimal places and called it rounding — caught by
+        Sourcery on PR #171.
+        """
+        for day, amount in ((3, "20"), (10, "20"), (17, "10")):
+            f.invoice(
+                self.job,
+                lines=[(Decimal("1"), Decimal(amount))],
+                issued=date(2026, 9, day),
+            )
+        average = reports.summary(self.period)["average_invoice"]
+        self.assertEqual(average, Decimal("16.67"), "16.66 means it was truncated, not rounded")
+        self.assertEqual(average.as_tuple().exponent, -2, "two decimal places, not a long third")
+
+    def test_jobs_completed_counts_only_what_was_finished_in_the_period(self):
+        """`completed_at`, not `status`, is what every count of
+        finished work reads — the rule the whole app depends on, and
+        the one with nothing holding it here. The job finished in
+        August still has status COMPLETED, so counting by status alone
+        would find two."""
+        august = f.job(self.customer, self.owner, lines=[])
+        for job, when in (
+            (self.job, timezone.make_aware(datetime(2026, 9, 15, 10))),
+            (august, timezone.make_aware(datetime(2026, 8, 15, 10))),
+        ):
+            job.status = Job.Status.COMPLETED
+            job.completed_at = when
+            job.save(update_fields=["status", "completed_at"])
+        f.job(self.customer, self.owner, lines=[])  # still scheduled
+        self.assertEqual(reports.summary(self.period)["jobs_completed"], 1)
 
 
 class AgingTests(TestCase):
