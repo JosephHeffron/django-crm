@@ -122,10 +122,15 @@ def _invoices():
 
 
 def _payments():
-    payments = Payment.objects.select_related("invoice", "recorded_by").order_by("pk")
+    payments = Payment.objects.select_related("job", "invoice", "recorded_by").order_by("pk")
     for p in payments.iterator(chunk_size=500):
         yield {
-            "invoice": p.invoice.number,
+            # `job` first: since ADR 0013 that is what a payment is
+            # against, and `invoice` is optional. Reading
+            # `p.invoice.number` unguarded was an AttributeError the
+            # moment a payment was taken without one.
+            "job": p.job.number,
+            "invoice": p.invoice.number if p.invoice_id else "",
             "amount": str(p.amount),
             "received": _iso(p.received_on),
             "method": p.method,
