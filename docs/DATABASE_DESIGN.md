@@ -441,7 +441,8 @@ Contact 1──* Quote 1──* QuoteLineItem *──1 ServiceType
 Quote 0..1──* Job 1──* JobLineItem *──1 ServiceType
 Job 1──* JobAssignment *──1 User (crew)
 Job/Quote 1──* Photo
-Job 1──* Invoice 1──* InvoiceLineItem;  Invoice 1──* Payment
+Job 1──* Invoice 1──* InvoiceLineItem
+Job 1──* Payment *──0..1 Invoice   (the invoice is optional: ADR 0013)
 Contact 1──* Activity (existing, contact-touch log)
 Task *──0..1 Contact / ServiceType / Quote / Job
 BusinessPlan 1──* PlanChecklistItem
@@ -509,9 +510,17 @@ Channel 1──* ChannelMembership *──1 User;  Channel 1──* Message
   contact (PROTECT), issued_on, due_on, status (draft/sent/void —
   paid / partially paid / overdue are derived from payments and dates,
   never stored).
-  **InvoiceLineItem** (as quote lines). **Payment**: invoice (PROTECT),
-  amount (> 0), received_on, method (cash/check/card/transfer/other),
-  recorded_by.
+  **InvoiceLineItem** (as quote lines).
+- **Payment** (ADR 0013): **job** (PROTECT, required), invoice
+  (PROTECT, **optional**), amount (> 0), received_on, method
+  (cash/check/card/transfer/other), recorded_by. A payment belongs to
+  the job — this business is paid before the work is finished and
+  issues no invoice for most of it. `save()` fills `job` from the
+  invoice when only the invoice is given, so no payment can exist that
+  the job-based figures cannot see; `clean()` refuses an invoice
+  belonging to a different job, and says in the code that it holds
+  through forms rather than in the database (a check constraint cannot
+  compare across tables).
 - **Expense**: date, amount, category, description, recorded_by.
 - **TimeEntry** (Phase 17.5 step 7): user (PROTECT), job? (SET_NULL),
   started_at, ended_at? (null = still running), notes. Constraints: ends
@@ -574,7 +583,16 @@ Channel 1──* ChannelMembership *──1 User;  Channel 1──* Message
   no "next number" race and no uniqueness to maintain by hand.
 - **Invoice payment state is derived.** Only draft/sent/void are
   stored; `payment_status()` computes paid / partially paid / overdue /
-  unpaid from payments and the due date.
+  unpaid from the payments **against that invoice** and the due date.
+  Note it does not see payments taken against the job directly, which
+  is deliberate: a job can carry more than one invoice, and counting
+  one payment in both balances would be a different wrong answer. The
+  invoice page reports what the job has received instead.
+- **Money figures read the job, not the invoice** (ADR 0013). Revenue
+  is the line totals of jobs completed in the period, dated by
+  `completed_at`; outstanding is completed work whose payments do not
+  cover it. `Invoice` is kept, and drives no figure. The definitions
+  live in one place, `apps/jobs/reports.py`'s module docstring.
 - **Totals and balances use `Subquery` annotations, not JOINs**
   (`with_totals()`, `with_balances()`), so annotating line-item and
   payment sums on the same queryset can't multiply rows into each

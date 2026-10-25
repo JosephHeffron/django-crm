@@ -13,6 +13,7 @@ from apps.core.management.commands.seed_demo import DEMO_PREFIX, DEMO_USERS, TOW
 from apps.core.models import Goal, Notification
 from apps.crm.models import Contact, Property, Task
 from apps.crm.tests._helpers import grant_role
+from apps.jobs import reports
 from apps.jobs.models import Invoice, Job, Payment, Quote, ServiceType, TimeEntry
 from apps.messaging.models import Channel, ChannelMembership, Message
 from apps.messaging.services import direct_channel
@@ -145,6 +146,37 @@ class SeedDemoTests(TestCase):
             {"general", "crew", "sales"},
         )
 
+    def test_payments_are_taken_against_jobs_rather_than_invoices(self):
+        """The demo has to show how the business works (ADR 0013), or
+        it teaches the wrong thing about the app: money against the
+        job, with an invoice only for the minority who ask."""
+        seed()
+        payments = Payment.objects.count()
+        without = Payment.objects.filter(invoice__isnull=True).count()
+        self.assertGreater(payments, 20, "not enough money in the demo to judge")
+        self.assertGreater(without / payments, 0.5, "most payments should have no invoice")
+        self.assertTrue(
+            Invoice.objects.exists(), "some invoices, for the customer who asks for one"
+        )
+
+    def test_no_demo_payment_arrives_after_the_work_was_finished(self):
+        """The business rule the whole model exists for: paid **before**
+        completion. Demo data that contradicted it would be read as
+        permission to contradict it."""
+        seed()
+        late = [
+            (p.pk, p.received_on, timezone.localdate(p.job.completed_at))
+            for p in Payment.objects.select_related("job")
+            if p.job.completed_at and p.received_on > timezone.localdate(p.job.completed_at)
+        ]
+        self.assertEqual(late, [], "payments received after the job was finished")
+
+    def test_some_finished_work_is_left_unpaid(self):
+        """So the unpaid-finished-work table has something in it. An
+        exception report with nothing to show teaches nothing."""
+        seed()
+        self.assertGreater(reports.outstanding()["count"], 0)
+
     def test_reset_clears_a_payment_recorded_against_a_job(self):
         """`--reset` collected payments through `invoice__job` only.
 
@@ -156,14 +188,20 @@ class SeedDemoTests(TestCase):
         """
         seed()
         job = Job.objects.filter(contact__created_by__username__startswith=DEMO_PREFIX).first()
-        Payment.objects.create(
+        mine = Payment.objects.create(
             job=job,
             amount=Decimal("95"),
             received_on=date.today(),
             recorded_by=User.objects.filter(username__startswith=DEMO_PREFIX).first(),
         )
         seed("--reset")
-        self.assertFalse(Payment.objects.filter(invoice__isnull=True).exists())
+        # This payment specifically, not "no job-only payments exist":
+        # the seed itself creates those now, because taking payment
+        # against the job with no invoice is how the business works
+        # (ADR 0013). Asserting none remained passed only while the
+        # seed happened to make none.
+        self.assertFalse(Payment.objects.filter(pk=mine.pk).exists())
+        self.assertFalse(Job.objects.filter(pk=job.pk).exists(), "its job went too")
 
     def test_generates_a_password_when_none_is_given(self):
         out = StringIO()

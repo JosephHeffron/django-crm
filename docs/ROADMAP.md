@@ -71,9 +71,9 @@ explicitly deferred until this scope is working reliably on the Raspberry Pi.
 The initial release scope above is done. The phases below pick up the
 functionality it deliberately deferred, plus hardening work identified
 along the way (`docs/PRODUCTION_READINESS.md`'s still-open findings).
-Phases 15-19 are complete. Phase 18.5, twelve items the
+Phases 15-20 are complete. Phase 18.5, twelve items the
 owner reported after testing the running app, is complete, as is
-Phase 19.5, three more reported the same way. Phase 20 is next.
+Phase 19.5, three more reported the same way. Phase 21 is next.
 From Phase 17 the roadmap pivots the CRM to
 the owner's exterior home-services business (service catalog, quotes,
 crew-scheduled jobs, invoicing, follow-up automation, team messaging,
@@ -261,11 +261,41 @@ insufficient.
       a 500 on the reschedule endpoint and a drag outline whose CSS
       named a class no page has ever rendered.
 
-- [ ] **Phase 20 — Invoicing and financials.** Invoices from completed
-      jobs, payments, expenses, the Owner-only Financials page
-      (daily/weekly/monthly/YTD, by service and by rep, server-rendered
-      SVG charts), profile stats hardening. (Absorbs the earlier
-      "reporting" item.)
+- [x] **Phase 20 — Money: payment on the job, revenue from finished
+      work.** Complete, and **not what this entry originally said.**
+
+      The entry read "Invoices from completed jobs, payments, expenses,
+      the Owner-only Financials page (daily/weekly/monthly/YTD, by
+      service and by rep, server-rendered SVG charts), profile stats
+      hardening". A verification pass found most of that already built
+      and genuinely tested — the presets, the custom range, the
+      Owner-only gate, the charts, the breakdowns — with four figures
+      unasserted, and the profile stats delivered separately as the
+      role stats sheet (#158).
+
+      It also found what no mutation could: **every revenue figure came
+      from sent invoices, and `Payment.invoice` was required**, so a
+      business that takes payment before completion and issues no
+      invoices would see zero revenue and have nowhere to record the
+      money. "Invoices from completed jobs" was never implemented
+      either, and should not be: the owner does not invoice.
+
+      `docs/decisions/0013-payment-on-the-job-revenue-from-completed-work.md`
+      records the decision. Four units:
+      - [x] Unit 0 — the four unasserted figures guarded, and the ADR
+            written (#171).
+      - [x] Unit 1 — `Payment.job` required, `Payment.invoice`
+            optional, money recorded from the job page (#172).
+      - [x] Unit 2 — revenue is the work you finish, dated by
+            `completed_at`, everywhere a figure is shown — including
+            the monthly goal (#173).
+      - [x] Unit 3 — outstanding is finished work nobody has paid for,
+            aged by how long ago it was finished (#174).
+      - [x] Unit 4 — the demo seed takes payment the way the business
+            does, and the documents describe the model that shipped.
+
+      **Invoices are kept and demoted**, not deleted: they drive no
+      figure, and remain for the customer who asks for one.
 - [ ] **Phase 21 — Messaging live delivery and PWA polish.** Short
       polling for new messages (no Redis/WebSockets — see the Phase 17
       plan), unread badges, job/contact references in the composer,
