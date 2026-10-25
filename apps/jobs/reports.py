@@ -87,15 +87,16 @@ def outstanding():
 def _unpaid():
     """Completed jobs whose payments do not cover their value.
 
-    `completed_at__isnull=False` as well as the status, because the
-    admin can leave one set without the other (see
-    `test_cancelled_work_is_not_revenue_even_with_a_completion_date`),
-    and a job with no completion date has nothing to age it by.
+    Status only. An earlier version also required `completed_at`, on
+    the grounds that a job with no date has nothing to age it by —
+    but that hid money the business is owed, which is worse than
+    having nowhere tidy to put it. Such a job is bad data (the admin
+    could write it before `JobAdmin.save_model` started stamping), and
+    `aging` puts it in the oldest bucket so the buckets still add up
+    to the total. Sourcery caught it on PR #174.
     """
     return (
-        Job.objects.filter(status=Job.Status.COMPLETED, completed_at__isnull=False)
-        .with_balances()
-        .filter(balance_amount__gt=0)
+        Job.objects.filter(status=Job.Status.COMPLETED).with_balances().filter(balance_amount__gt=0)
     )
 
 
@@ -259,12 +260,23 @@ def aging(today):
     # that local day — comparing a datetime against a date would
     # quietly drop everything finished after midnight on the edge.
     at7, at30, at60, at90 = (day_bounds(d, d)[0] for d in (d7, d30, d60, d90))
+    # The five buckets partition the set, so their totals always add
+    # up to `outstanding()["total"]`. Two deliberate edges:
+    #
+    # - A job with **no** completion date goes in `older`. It is bad
+    #   data rather than old work, but it is money owed, and dropping
+    #   it would leave the buckets short of the total with nothing on
+    #   the page to say why.
+    # - A completion date in the **future** falls in `days_7`, which
+    #   is not bounded above. Also bad data; the alternative is a row
+    #   that belongs to no bucket and disappears from the table while
+    #   still counting in the headline.
     filters = {
         "days_7": Q(completed_at__gte=at7),
         "days_30": Q(completed_at__lt=at7, completed_at__gte=at30),
         "days_60": Q(completed_at__lt=at30, completed_at__gte=at60),
         "days_90": Q(completed_at__lt=at60, completed_at__gte=at90),
-        "older": Q(completed_at__lt=at90),
+        "older": Q(completed_at__lt=at90) | Q(completed_at__isnull=True),
     }
     totals = _unpaid().aggregate(
         **{key: _money("balance_amount", filter=q) for key, q in filters.items()}
@@ -273,7 +285,11 @@ def aging(today):
 
 
 def oldest_unpaid(limit=10):
-    """Longest-finished first — the work waiting on money the longest."""
+    """Longest-finished first — the work waiting on money the longest.
+
+    `completed_at` nulls sort first on PostgreSQL ascending, which
+    suits this list: a job with no date is the one to look at.
+    """
     return _unpaid().select_related("contact").order_by("completed_at", "pk")[:limit]
 
 

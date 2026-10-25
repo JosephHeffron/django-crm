@@ -25,16 +25,20 @@ ZERO = Decimal("0.00")
 TONE_VALIDATORS = [MinValueValidator(1), MaxValueValidator(10)]
 
 
-def _sum_subquery(model, fk_name, expression):
+def _sum_subquery(model, fk_name, expression, where=None):
     """Σ expression over `model` rows pointing at the outer row, as a
     Subquery — not a JOIN, so annotating several of these on one
-    queryset can't multiply rows into each other's sums."""
+    queryset can't multiply rows into each other's sums.
+
+    `where` narrows which rows count, for the one case that needs it:
+    money against a voided invoice is not money received.
+    """
+    rows = model.objects.filter(**{fk_name: OuterRef("pk")})
+    if where is not None:
+        rows = rows.filter(where)
     return Coalesce(
         Subquery(
-            model.objects.filter(**{fk_name: OuterRef("pk")})
-            .values(fk_name)
-            .annotate(total=Sum(expression))
-            .values("total")[:1],
+            rows.values(fk_name).annotate(total=Sum(expression)).values("total")[:1],
             output_field=TOTAL_FIELD,
         ),
         Value(ZERO),
@@ -227,10 +231,24 @@ class JobQuerySet(DocumentQuerySet):
         `Payment` is defined further down this module and is resolved
         when this method runs, not when the class is built — exactly
         how the invoice version has always done it.
+
+        A payment against a **voided** invoice does not count, the
+        same rule `reports.summary`'s "collected" follows. Without
+        that, a job settled by a payment that was later voided looked
+        paid here and was missing from the unpaid-work report, while
+        the money was absent from collected — two pages disagreeing
+        about the same job. Sourcery caught it on PR #174.
         """
         return (
             self.with_totals()
-            .annotate(paid_amount=_sum_subquery(Payment, "job", F("amount")))
+            .annotate(
+                paid_amount=_sum_subquery(
+                    Payment,
+                    "job",
+                    F("amount"),
+                    where=~Q(invoice__status=Invoice.Status.VOID),
+                )
+            )
             .annotate(balance_amount=F("total_amount") - F("paid_amount"))
         )
 
