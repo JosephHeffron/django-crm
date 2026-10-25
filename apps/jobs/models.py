@@ -520,6 +520,18 @@ class Payment(models.Model):
         """
         if self.job_id is None and self.invoice_id:
             self.job_id = self.invoice.job_id
+        elif self.job_id and self.invoice_id and self.invoice.job_id != self.job_id:
+            # `clean()` says the same thing, but `clean()` only runs
+            # through forms and `full_clean()`. A mismatched pair
+            # written by ordinary ORM code would count toward one job
+            # in the job balances and another in the invoice's, so the
+            # check belongs on the write path as well. Raw SQL and
+            # `QuerySet.update()` still bypass it — the same limit
+            # `on_delete` has (`docs/DATABASE_REVIEW.md` finding #1).
+            raise ValueError(
+                f"Payment names job {self.job_id} but invoice {self.invoice_id}, "
+                f"which is for job {self.invoice.job_id}."
+            )
         super().save(*args, **kwargs)
 
     def clean(self):
@@ -541,7 +553,11 @@ class Payment(models.Model):
             )
 
     def __str__(self):
-        return f"${self.amount} on {self.invoice.number}"
+        # The invoice is optional since ADR 0013, and this read
+        # `self.invoice.number` straight through — an AttributeError
+        # from anything that stringifies a payment, the admin and the
+        # change log included.
+        return f"${self.amount} on {self.invoice.number if self.invoice_id else self.job.number}"
 
 
 class Expense(models.Model):

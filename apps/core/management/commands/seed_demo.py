@@ -28,6 +28,7 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
 from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
+from django.db.models import Q
 from django.utils import timezone
 
 from apps.core.models import Goal, Notification
@@ -231,7 +232,12 @@ def remove_demo_data():
         kind=Channel.Kind.DIRECT,
         pk__in=ChannelMembership.objects.filter(user__in=demo_users).values("channel_id"),
     ).delete()
-    Payment.objects.filter(invoice__job__in=demo_jobs).delete()
+    # Both ways a payment reaches a demo job: against the job itself
+    # (ADR 0013, the normal case now) or against one of its invoices.
+    # Collecting only the second left job-only payments behind, and
+    # `Payment.job` is PROTECT, so the next line's job delete failed
+    # with a ProtectedError and the whole reset stopped.
+    Payment.objects.filter(Q(job__in=demo_jobs) | Q(invoice__job__in=demo_jobs)).delete()
     Invoice.objects.filter(job__in=demo_jobs).delete()
     Task.objects.filter(created_by__in=demo_users).delete()
     Task.objects.filter(contact__in=demo_contacts).delete()

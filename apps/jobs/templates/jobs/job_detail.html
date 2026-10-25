@@ -145,9 +145,11 @@
     {% comment %}
       Payment before completion is how this business works (ADR 0013),
       so this comes above invoices, which are now the exception. The
-      balance is the job's value less what has been received; it is
-      negative when a customer has overpaid, which is allowed and
-      worth showing rather than clamping to zero.
+      balance is the job's value less what has been received. It goes
+      negative when a customer has overpaid, which is allowed, so
+      that case says the amount — an earlier version of this comment
+      claimed as much while the markup showed "Paid in full" and hid
+      the figure.
     {% endcomment %}
     <section class="card section-gap">
       <h2 class="card-title">Payments</h2>
@@ -156,7 +158,15 @@
         <span>·</span>
         <span>Paid {{ paid|money }}</span>
         <span>·</span>
-        <strong>{% if balance > 0 %}{{ balance|money }} outstanding{% else %}Paid in full{% endif %}</strong>
+        <strong>
+          {% if balance > 0 %}
+            {{ balance|money }} outstanding
+          {% elif balance < 0 %}
+            Overpaid by {{ balance|money }}
+          {% else %}
+            Paid in full
+          {% endif %}
+        </strong>
       </p>
       {% if payments %}
         <ul class="list-plain">

@@ -594,6 +594,17 @@ class InvoiceDetailView(OwnerRequiredMixin, DetailView):
             payments=self.object.payments.select_related("recorded_by"),
             today=timezone.localdate(),
             payment_status=self.object.payment_status(timezone.localdate()),
+            # Money already taken for this job that is not against this
+            # invoice — since ADR 0013 that is the normal way it
+            # arrives. Without saying so, an invoice raised after the
+            # customer paid would show the full amount due and invite
+            # billing them twice. It is reported rather than folded
+            # into `balance`: a job can carry two invoices, and
+            # counting the same payment against both would be a
+            # different wrong answer.
+            paid_on_the_job=self.object.job.payments.exclude(invoice=self.object).aggregate(
+                total=Coalesce(Sum("amount"), Value(ZERO), output_field=TOTAL_FIELD)
+            )["total"],
         )
         return context
 
@@ -739,11 +750,17 @@ class PaymentCreateMixin(OwnerRequiredMixin, PermissionRequiredMixin):
         payable = self.payable()
         self.attach(form.instance, payable)
         form.instance.recorded_by = self.request.user
-        self.object = form.save()
-        # This view owns its form_valid and doesn't call super(), so
-        # AuditedFormMixin can't wrap it — a mixin in the bases of a
-        # class that defines form_valid itself never runs.
-        audit.record(self.request.user, self.object, AuditLogEntry.Action.CREATED)
+        # One transaction, because the alternative is a payment that
+        # saved and an audit entry that did not: the request fails,
+        # the owner records the money again, and it is in twice.
+        # Money is the one place where a half-written pair is worse
+        # than no write at all.
+        with transaction.atomic():
+            self.object = form.save()
+            # This view owns its form_valid and doesn't call super(),
+            # so AuditedFormMixin can't wrap it — a mixin in the bases
+            # of a class that defines form_valid itself never runs.
+            audit.record(self.request.user, self.object, AuditLogEntry.Action.CREATED)
         over = getattr(form, "overpayment", None)
         extra = f" That's {money(over)} more than the balance." if over else ""
         messages.success(

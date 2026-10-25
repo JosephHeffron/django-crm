@@ -18,10 +18,13 @@ holds it there, because nothing on a rendered page would show the
 difference.
 """
 
+import importlib
 from datetime import date
 from decimal import Decimal
 
+from django.apps import apps as django_apps
 from django.core.exceptions import ValidationError
+from django.db import migrations
 from django.test import TestCase
 from django.urls import reverse
 
@@ -31,6 +34,8 @@ from apps.jobs.models import Invoice, Payment
 from apps.users.roles import Role
 
 from . import _factories as f
+
+migration = importlib.import_module("apps.jobs.migrations.0006_payment_belongs_to_the_job")
 
 PASSWORD = "correct-horse-battery"
 TODAY = date(2026, 9, 29)
@@ -169,6 +174,117 @@ class JobPaymentTests(TestCase):
             self.assertEqual(self.client.get(self.url).status_code, 403, username)
             self.assertEqual(self.client.post(self.url, self.form()).status_code, 403, username)
         self.assertFalse(Payment.objects.exists())
+
+    def test_a_payment_with_no_invoice_can_be_stringified(self):
+        """`__str__` read `self.invoice.number` straight through, so
+        anything that printed a job payment — the admin, the change
+        log — raised AttributeError."""
+        self.client.post(self.url, self.form())
+        payment = Payment.objects.get()
+        self.assertIn(self.job.number, str(payment))
+
+    def test_a_mismatched_pair_is_refused_on_an_ordinary_save(self):
+        """`clean()` only runs through forms. An ordinary `save()` of a
+        job and an invoice for different jobs would have counted the
+        same money toward one job in the job balances and another in
+        the invoice's."""
+        other = f.job(self.customer, self.owner, lines=[(Decimal("1"), Decimal("50"))])
+        invoice = f.invoice(other, lines=[(Decimal("1"), Decimal("50"))])
+        with self.assertRaises(ValueError):
+            Payment.objects.create(
+                job=self.job,
+                invoice=invoice,
+                amount=Decimal("50"),
+                received_on=date(2026, 9, 20),
+                recorded_by=self.owner,
+            )
+        self.assertFalse(Payment.objects.exists())
+
+    def test_overpaying_says_by_how_much_on_the_job(self):
+        """The balance goes negative, and the page used to show only
+        "Paid in full" — hiding the figure while a comment beside it
+        claimed otherwise."""
+        self.client.post(self.url, self.form(amount="250"))
+        response = self.client.get(self.job.get_absolute_url())
+        self.assertEqual(response.context["balance"], Decimal("-50"))
+        self.assertContains(response, "Overpaid by")
+        self.assertNotContains(response, "Paid in full")
+
+    def test_an_invoice_raised_later_says_the_job_was_already_paid(self):
+        """The foot-gun: pay on the job, invoice afterwards, and the
+        invoice counts none of it. Without a word on the page that is
+        an invitation to bill the customer twice.
+
+        Also pins that `exclude(invoice=...)` keeps the payments whose
+        invoice is NULL — the same nullable-join trap as `collected`,
+        in a second place.
+        """
+        self.client.post(self.url, self.form(amount="200"))
+        invoice = f.invoice(
+            self.job, lines=[(Decimal("1"), Decimal("200"))], issued=date(2026, 9, 3)
+        )
+        response = self.client.get(invoice.get_absolute_url())
+        self.assertEqual(response.context["paid_on_the_job"], Decimal("200"))
+        self.assertContains(response, "already been received")
+        self.assertContains(response, "before chasing payment")
+
+    def test_a_payment_against_this_invoice_is_not_counted_as_elsewhere(self):
+        """The other half, or the note would appear on every invoice
+        that has ever been paid."""
+        invoice = f.invoice(
+            self.job, lines=[(Decimal("1"), Decimal("200"))], issued=date(2026, 9, 3)
+        )
+        self.client.post(reverse("jobs:payment_create", args=[invoice.pk]), self.form())
+        response = self.client.get(invoice.get_absolute_url())
+        self.assertEqual(response.context["paid_on_the_job"], Decimal("0"))
+        self.assertNotContains(response, "already been received")
+
+    def test_nothing_is_saved_when_the_audit_write_fails(self):
+        """Money is the one place a half-written pair is worse than no
+        write: the request fails, the owner records it again, and it is
+        in twice."""
+        from unittest import mock
+
+        with mock.patch("apps.crm.audit.record", side_effect=RuntimeError("boom")):
+            with self.assertRaises(RuntimeError):
+                self.client.post(self.url, self.form())
+        self.assertFalse(Payment.objects.exists())
+
+    def test_reversing_the_migration_refuses_rather_than_losing_money(self):
+        """The reverse makes `Payment.invoice` NOT NULL again, which a
+        job-only payment cannot satisfy.
+
+        The two ways to make a rollback succeed would be to invent an
+        invoice or to delete the payment, and neither is a decision a
+        migration should take on its own. Called directly, the way
+        `test_migrations.py` exercises the Phase 17 functions.
+        """
+        self.client.post(self.url, self.form())
+        with self.assertRaises(RuntimeError) as caught:
+            migration.refuse_if_payments_have_no_invoice(django_apps, None)
+        message = str(caught.exception)
+        self.assertIn("cannot represent", message)
+        self.assertIn("1 payment", message)
+        self.assertTrue(Payment.objects.exists(), "it must not delete anything")
+
+    def test_the_reverse_guard_is_wired_into_the_migration(self):
+        """Calling the function directly says nothing about whether
+        the migration uses it.
+
+        Mutating the operation back to `RunPython.noop` left every
+        other test here green — the guard would simply never run on a
+        real rollback. So this asserts the wiring, not the behaviour.
+        """
+        run_python = next(
+            op for op in migration.Migration.operations if isinstance(op, migrations.RunPython)
+        )
+        self.assertIs(run_python.code, migration.fill_job_from_invoice)
+        self.assertIs(run_python.reverse_code, migration.refuse_if_payments_have_no_invoice)
+
+    def test_reversing_is_fine_while_every_payment_has_an_invoice(self):
+        invoice = f.invoice(self.job, lines=[(Decimal("1"), Decimal("200"))])
+        self.client.post(reverse("jobs:payment_create", args=[invoice.pk]), self.form())
+        migration.refuse_if_payments_have_no_invoice(django_apps, None)  # does not raise
 
     def test_the_payment_list_names_the_job(self):
         self.client.post(self.url, self.form())

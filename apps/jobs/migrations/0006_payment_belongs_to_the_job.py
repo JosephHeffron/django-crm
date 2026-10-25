@@ -9,8 +9,14 @@ Every existing payment reaches a job through its invoice
 guessed. Measured before writing this: 93 payments, 93 with an
 invoice, 0 without.
 
-Reversible. The reverse drops the column, so the data step's reverse
-is a no-op — there is nothing to put back.
+**Reversible only until the first job-only payment is taken.** The
+reverse restores `Payment.invoice` to NOT NULL, and a payment recorded
+against a job with no invoice cannot be expressed in the old schema at
+all. Rather than let PostgreSQL refuse it with a message about a
+constraint, or — far worse — delete the rows to make the rollback
+succeed, the reverse data step counts them and explains. An earlier
+version of this docstring simply claimed "reversible", which was true
+only on the day it was written.
 """
 
 import django.db.models.deletion
@@ -33,6 +39,27 @@ def fill_job_from_invoice(apps, schema_editor):
             f"{stranded} payment(s) have no invoice to take a job from, so this migration "
             "cannot fill Payment.job for them. Give each one a job (or delete it) and run "
             "the migration again."
+        )
+
+
+def refuse_if_payments_have_no_invoice(apps, schema_editor):
+    """The reverse of the step above.
+
+    Going back means `Payment.invoice` becomes NOT NULL again, which a
+    job-only payment cannot satisfy. Nothing here invents an invoice
+    and nothing deletes a payment — money is not something a rollback
+    should quietly destroy — so this stops with an explanation and
+    leaves the decision to a person.
+    """
+    Payment = apps.get_model("jobs", "Payment")
+    stranded = Payment.objects.filter(invoice__isnull=True).count()
+    if stranded:
+        raise RuntimeError(
+            f"{stranded} payment(s) were recorded against a job with no invoice, which the "
+            "schema before this migration cannot represent. Reversing would mean either "
+            "inventing an invoice for each or deleting the payment, and neither is a "
+            "decision a migration should make. Resolve them first (invoice the work, or "
+            "remove the payments deliberately), then reverse."
         )
 
 
@@ -61,7 +88,7 @@ class Migration(migrations.Migration):
                 to="jobs.invoice",
             ),
         ),
-        migrations.RunPython(fill_job_from_invoice, migrations.RunPython.noop),
+        migrations.RunPython(fill_job_from_invoice, refuse_if_payments_have_no_invoice),
         migrations.AlterField(
             model_name="payment",
             name="job",

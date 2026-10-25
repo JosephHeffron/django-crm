@@ -1,5 +1,6 @@
 import os
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
+from decimal import Decimal
 from io import StringIO
 from unittest import mock
 
@@ -12,7 +13,7 @@ from apps.core.management.commands.seed_demo import DEMO_PREFIX, DEMO_USERS, TOW
 from apps.core.models import Goal, Notification
 from apps.crm.models import Contact, Property, Task
 from apps.crm.tests._helpers import grant_role
-from apps.jobs.models import Invoice, Job, Quote, ServiceType, TimeEntry
+from apps.jobs.models import Invoice, Job, Payment, Quote, ServiceType, TimeEntry
 from apps.messaging.models import Channel, ChannelMembership, Message
 from apps.messaging.services import direct_channel
 from apps.users.models import UserProfile
@@ -143,6 +144,26 @@ class SeedDemoTests(TestCase):
             set(Channel.objects.filter(kind=Channel.Kind.PUBLIC).values_list("slug", flat=True)),
             {"general", "crew", "sales"},
         )
+
+    def test_reset_clears_a_payment_recorded_against_a_job(self):
+        """`--reset` collected payments through `invoice__job` only.
+
+        Since ADR 0013 a payment normally has no invoice, and
+        `Payment.job` is PROTECT — so a job-only payment survived the
+        sweep and the job delete that followed failed with
+        ProtectedError, taking the whole reset with it. Recorded here
+        the way the app records it: against the job, no invoice.
+        """
+        seed()
+        job = Job.objects.filter(contact__created_by__username__startswith=DEMO_PREFIX).first()
+        Payment.objects.create(
+            job=job,
+            amount=Decimal("95"),
+            received_on=date.today(),
+            recorded_by=User.objects.filter(username__startswith=DEMO_PREFIX).first(),
+        )
+        seed("--reset")
+        self.assertFalse(Payment.objects.filter(invoice__isnull=True).exists())
 
     def test_generates_a_password_when_none_is_given(self):
         out = StringIO()
