@@ -71,8 +71,13 @@ class GoalsForm(forms.Form):
         min_value=0,
         max_digits=12,
         decimal_places=2,
-        label="Revenue invoiced",
-        help_text="Invoiced in the calendar month.",
+        label="Revenue earned",
+        # ADR 0013: measured against the value of work finished in the
+        # month, the same definition Financials and the dashboard use.
+        # It said "Invoiced in the calendar month", which is a
+        # different figure and, for a business that issues no
+        # invoices, always zero.
+        help_text="The value of work finished in the calendar month.",
     )
     jobs = forms.IntegerField(
         required=False,

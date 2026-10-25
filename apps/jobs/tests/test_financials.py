@@ -1,12 +1,14 @@
 from datetime import date, datetime, timedelta
 from decimal import Decimal
 
+from django.contrib.admin.sites import site
 from django.test import SimpleTestCase, TestCase
 from django.urls import reverse
 from django.utils import timezone
 
 from apps.crm.tests._helpers import grant_role
 from apps.jobs import reports
+from apps.jobs.admin import JobAdmin
 from apps.jobs.models import Expense, Invoice, Job, Payment
 from apps.users.roles import Role
 
@@ -270,6 +272,53 @@ class UnguardedFigureTests(TestCase):
             job.save(update_fields=["status", "completed_at"])
         f.job(self.customer, self.owner, lines=[])  # still scheduled
         self.assertEqual(reports.summary(self.period)["jobs_completed"], 1)
+
+
+class AdminStampingTests(TestCase):
+    """The Django admin writes a job straight to the database, so it
+    is the one path where `status` and `completed_at` could drift —
+    and since ADR 0013 a drift either way costs money.
+
+    `JobAdmin.save_model` is called directly rather than through the
+    admin's HTTP layer: it is the hook under test, and this keeps the
+    test off the login and permission machinery.
+    """
+
+    def setUp(self):
+        self.owner = grant_role(f.user("boss"), Role.OWNER)
+        self.admin = JobAdmin(Job, site)
+        self.job = f.job(f.contact(self.owner), self.owner, lines=[(Decimal("1"), Decimal("400"))])
+
+    def save(self, job):
+        self.admin.save_model(request=None, obj=job, form=None, change=True)
+        job.refresh_from_db()
+        return job
+
+    def test_completing_a_job_in_the_admin_makes_it_revenue(self):
+        """Marking it complete and leaving the date blank produced work
+        worth nothing, because revenue reads `completed_at`."""
+        self.job.status = Job.Status.COMPLETED
+        self.save(self.job)
+        self.assertIsNotNone(self.job.completed_at)
+        period = reports.report_period("month", None, None, timezone.localdate())[0]
+        self.assertEqual(reports.summary(period)["revenue"], Decimal("400"))
+
+    def test_cancelling_a_finished_job_in_the_admin_clears_the_date(self):
+        """The other direction: the date left behind was only kept out
+        of the figures by the status filter."""
+        self.job.status = Job.Status.COMPLETED
+        self.save(self.job)
+        self.job.status = Job.Status.CANCELLED
+        self.save(self.job)
+        self.assertIsNone(self.job.completed_at)
+
+    def test_it_does_not_move_a_date_that_is_already_set(self):
+        """Saving a finished job again must not re-date the work to
+        today — the same rule `stamp_completion` has always had."""
+        when = at(2026, 9, 10)
+        f.finish(self.job, when)
+        self.save(self.job)
+        self.assertEqual(self.job.completed_at, when)
 
 
 class AgingTests(TestCase):

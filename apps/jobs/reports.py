@@ -1,12 +1,17 @@
 """Money figures for the dashboard and Financials. Every figure is a
 database aggregate — nothing loads invoice rows into Python to add up.
 
-Definitions (one place, so every page agrees):
-- **Revenue**: line totals of *sent* invoices, by issue date. A draft
-  isn't billed yet, and a voided invoice was never owed.
-- **Collected**: payments by the date received (not on voided invoices).
-- **Outstanding**: unpaid balance of sent invoices, aged by how far past
-  their due date they are as of today.
+Definitions (one place, so every page agrees) — ADR 0013 moved these
+off invoices and onto the work itself, because this business is paid
+before a job is finished and issues no invoices:
+- **Revenue**: line totals of jobs **completed** in the period, dated
+  by `completed_at`. Invoice status has nothing to do with it.
+- **Collected**: payments by the date received. A payment against a
+  voided invoice is not income; a payment with no invoice at all is
+  the normal case.
+- **Outstanding**: completed work whose payments do not cover its
+  value, aged by how long ago it was finished. Should normally be
+  empty here, which makes it an exception report.
 - **Net**: revenue − expenses (a cash-basis owner's view, not an
   accountant's profit and loss).
 """

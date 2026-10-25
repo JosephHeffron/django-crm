@@ -63,6 +63,17 @@ class OwnerDashboardTests(DashboardTestCase):
             f.job(customer, self.user, lines=[(Decimal("1"), Decimal("50"))]), f.finished_at(monday)
         )
         f.job(customer, self.user, lines=[(Decimal("1"), Decimal("900"))])  # not finished
+        # Cancelled but still carrying a completion date, which is the
+        # state the admin can leave behind. Without it this test could
+        # not tell the status filter from the date filter — the
+        # unfinished job above has a null `completed_at`, so dropping
+        # the status check would change nothing. Sourcery caught that
+        # on PR #173.
+        stale = f.finish(
+            f.job(customer, self.user, lines=[(Decimal("1"), Decimal("600"))]),
+            f.finished_at(today),
+        )
+        Job.objects.filter(pk=stale.pk).update(status=Job.Status.CANCELLED)
         f.finish(
             f.job(customer, self.user, lines=[(Decimal("1"), Decimal("700"))]),
             f.finished_at(monday - timedelta(days=1)),
