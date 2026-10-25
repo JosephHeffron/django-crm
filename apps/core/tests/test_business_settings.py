@@ -303,6 +303,22 @@ class ExportTests(MediaTestCase):
         self.assertFalse(row["balance"].startswith("'"))
         self.assertEqual(Decimal(row["balance"]), Decimal("-50"))
 
+    def test_a_payment_with_no_invoice_exports(self):
+        """Since ADR 0013 a payment normally has no invoice, and the
+        export read `p.invoice.number` straight through — an
+        AttributeError on the first job payment anyone took."""
+        job = f.job(f.contact(self.owner), self.owner)
+        Payment.objects.create(
+            job=job,
+            amount=Decimal("120"),
+            received_on=date.today(),
+            recorded_by=self.owner,
+        )
+        body = b"".join(self.download("payments").streaming_content).decode()
+        row = next(iter(csv.DictReader(io.StringIO(body))))
+        self.assertEqual(row["job"], job.number)
+        self.assertEqual(row["invoice"], "", "no invoice, not a crash")
+
     def test_team_export_has_roles_and_no_passwords(self):
         body = b"".join(self.download("team").streaming_content).decode()
         rows = list(csv.DictReader(io.StringIO(body)))

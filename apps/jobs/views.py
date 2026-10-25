@@ -184,6 +184,14 @@ class JobDetailView(RoleRequiredMixin, DetailView):
             note_form=JobNoteForm(),
             can_add_note=self.request.user.has_perm("crm.add_note"),
             invoices=invoices_for(self.request.user).filter(job=job).with_balances(),
+            # Money against the job itself (ADR 0013). Owner-only, the
+            # same rule the invoice list on this page follows, and
+            # `is_owner` below is what the template gates on.
+            payments=job.payments.select_related("recorded_by", "invoice").order_by(
+                "-received_on", "-pk"
+            ),
+            paid=job.paid,
+            balance=job.balance,
             today=timezone.localdate(),
             is_owner=role in OWNER_ONLY,
             can_change_status=self.request.user.has_perm("jobs.change_job"),
@@ -586,6 +594,17 @@ class InvoiceDetailView(OwnerRequiredMixin, DetailView):
             payments=self.object.payments.select_related("recorded_by"),
             today=timezone.localdate(),
             payment_status=self.object.payment_status(timezone.localdate()),
+            # Money already taken for this job that is not against this
+            # invoice — since ADR 0013 that is the normal way it
+            # arrives. Without saying so, an invoice raised after the
+            # customer paid would show the full amount due and invite
+            # billing them twice. It is reported rather than folded
+            # into `balance`: a job can carry two invoices, and
+            # counting the same payment against both would be a
+            # different wrong answer.
+            paid_on_the_job=self.object.job.payments.exclude(invoice=self.object).aggregate(
+                total=Coalesce(Sum("amount"), Value(ZERO), output_field=TOTAL_FIELD)
+            )["total"],
         )
         return context
 
@@ -681,56 +700,113 @@ class InvoiceUpdateView(AuditedFormMixin, InvoiceFormMixin, UpdateView):
         return invoices_for(self.request.user)
 
 
-class PaymentCreateView(OwnerRequiredMixin, PermissionRequiredMixin, CreateView):
-    """Money received against one invoice."""
+class PaymentCreateMixin(OwnerRequiredMixin, PermissionRequiredMixin):
+    """Record money received, against a job or against an invoice.
+
+    One mixin and two entrances rather than two copies: what differs
+    is only which record is being paid and what gets stamped on the
+    payment. `payable()` returns a `Job` or an `Invoice` — both carry
+    `number`, `contact`, `total`, `paid`, `balance` and
+    `get_absolute_url` — and `attach()` writes the keys.
+    """
 
     model = Payment
     form_class = PaymentForm
     template_name = "jobs/payment_form.html"
     permission_required = "jobs.add_payment"
+    payable_label = ""
 
-    def invoice(self):
-        return get_object_or_404(
-            invoices_for(self.request.user).with_balances(), pk=self.kwargs["pk"]
-        )
+    def payable(self):
+        raise NotImplementedError
+
+    def attach(self, payment, payable):
+        raise NotImplementedError
 
     def get_form_kwargs(self):
         kwargs = super().get_form_kwargs()
-        kwargs["invoice"] = self.invoice()
+        kwargs["payable"] = self.payable()
         return kwargs
 
     def get_initial(self):
         initial = super().get_initial()
-        invoice = self.invoice()
+        payable = self.payable()
         initial.setdefault("received_on", timezone.localdate())
-        # The rest of the bill, which is what's usually being paid.
+        # What is left to pay, which is what's usually being paid.
         # Quantized because the balance is a sum of sums and comes back
         # with more places than money has — a raw 300.0000 in a field
         # that steps in cents is one the browser refuses.
-        if invoice.balance > 0:
-            initial.setdefault("amount", invoice.balance.quantize(ZERO))
+        if payable.balance > 0:
+            initial.setdefault("amount", payable.balance.quantize(ZERO))
         return initial
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context["invoice"] = self.invoice()
+        payable = self.payable()
+        context["payable"] = payable
+        context["payable_label"] = self.payable_label
         return context
 
     def form_valid(self, form):
-        invoice = self.invoice()
-        form.instance.invoice = invoice
+        payable = self.payable()
+        self.attach(form.instance, payable)
         form.instance.recorded_by = self.request.user
-        self.object = form.save()
-        # This view owns its form_valid and doesn't call super(), so
-        # AuditedFormMixin can't wrap it — a mixin in the bases of a
-        # class that defines form_valid itself never runs.
-        audit.record(self.request.user, self.object, AuditLogEntry.Action.CREATED)
+        # One transaction, because the alternative is a payment that
+        # saved and an audit entry that did not: the request fails,
+        # the owner records the money again, and it is in twice.
+        # Money is the one place where a half-written pair is worse
+        # than no write at all.
+        with transaction.atomic():
+            self.object = form.save()
+            # This view owns its form_valid and doesn't call super(),
+            # so AuditedFormMixin can't wrap it — a mixin in the bases
+            # of a class that defines form_valid itself never runs.
+            audit.record(self.request.user, self.object, AuditLogEntry.Action.CREATED)
         over = getattr(form, "overpayment", None)
         extra = f" That's {money(over)} more than the balance." if over else ""
         messages.success(
-            self.request, f"Recorded {money(self.object.amount)} on {invoice.number}.{extra}"
+            self.request, f"Recorded {money(self.object.amount)} on {payable.number}.{extra}"
         )
-        return redirect(invoice.get_absolute_url())
+        return redirect(payable.get_absolute_url())
+
+
+class JobPaymentCreateView(PaymentCreateMixin, CreateView):
+    """Money received against a job, with no invoice in sight.
+
+    The usual way round here: payment comes before the work is
+    finished (ADR 0013), so there is normally no document to hang it
+    on. Scoped through `jobs_for` like every other job page, so out of
+    scope is a 404 rather than a 403.
+    """
+
+    payable_label = "Job"
+
+    def payable(self):
+        return get_object_or_404(jobs_for(self.request.user).with_balances(), pk=self.kwargs["pk"])
+
+    def attach(self, payment, payable):
+        payment.job = payable
+
+
+class PaymentCreateView(PaymentCreateMixin, CreateView):
+    """Money received against an invoice.
+
+    Still here. It sets only the invoice: `Payment.save()` derives the
+    job from it, which is the one mechanism that also covers the demo
+    seed, the admin inline and every caller written before ADR 0013.
+    Assigning `job` here as well read as belt-and-braces and was
+    really dead code — mutating it away changed no test, while
+    mutating the derivation away breaks four.
+    """
+
+    payable_label = "Invoice"
+
+    def payable(self):
+        return get_object_or_404(
+            invoices_for(self.request.user).with_balances(), pk=self.kwargs["pk"]
+        )
+
+    def attach(self, payment, payable):
+        payment.invoice = payable
 
 
 class PaymentListView(OwnerRequiredMixin, PerPageMixin, ListView):
@@ -740,7 +816,10 @@ class PaymentListView(OwnerRequiredMixin, PerPageMixin, ListView):
     context_object_name = "payments"
 
     def get_queryset(self):
-        return Payment.objects.select_related("invoice", "invoice__contact", "recorded_by")
+        # Through the job now, because the invoice is optional: a
+        # payment taken against a job has none, and reading the
+        # customer off `invoice__contact` would leave the column blank.
+        return Payment.objects.select_related("job", "job__contact", "invoice", "recorded_by")
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)

@@ -8,7 +8,7 @@
     <div class="page-header">
       <div>
         <h1>Record a payment</h1>
-        <p class="page-subtitle">{{ invoice.number }} for {{ invoice.contact }}</p>
+        <p class="page-subtitle">{{ payable.number }} for {{ payable.contact }}</p>
       </div>
       <div class="page-actions">
         {% include "partials/_save_button.html" with form_id="payment-form" %}
@@ -17,16 +17,16 @@
 
     <div class="stat-grid">
       <div class="stat-card is-tinted accent-blue">
-        <div class="stat-label">Invoice total</div>
-        <div class="stat-value">{{ invoice.total|money }}</div>
+        <div class="stat-label">{{ payable_label }} total</div>
+        <div class="stat-value">{{ payable.total|money }}</div>
       </div>
       <div class="stat-card accent-green">
         <div class="stat-label">Already paid</div>
-        <div class="stat-value">{{ invoice.paid|money }}</div>
+        <div class="stat-value">{{ payable.paid|money }}</div>
       </div>
       <div class="stat-card accent-orange">
         <div class="stat-label">Balance</div>
-        <div class="stat-value">{{ invoice.balance|money }}</div>
+        <div class="stat-value">{{ payable.balance|money }}</div>
       </div>
     </div>
 
@@ -45,7 +45,7 @@
       <p class="helptext">The amount starts at the balance. Change it for a part payment — paying more than the balance is allowed, and says so afterwards.</p>
       <div class="form-actions">
         <button type="submit"><svg class="icon" aria-hidden="true"><use href="#icon-save"/></svg>Record it</button>
-        <a class="btn btn-secondary" href="{{ invoice.get_absolute_url }}">Cancel</a>
+        <a class="btn btn-secondary" href="{{ payable.get_absolute_url }}">Cancel</a>
       </div>
     </form>
   </div>

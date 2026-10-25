@@ -76,6 +76,17 @@ class InvoiceLineItemInline(admin.TabularInline):
 
 
 class PaymentInline(admin.TabularInline):
+    """Payments on an invoice, in the admin.
+
+    Since ADR 0013 a payment also needs a job. This inline names no
+    `fields`, so Django shows every editable one and the job is
+    choosable here — and `Payment.clean()`, which admin forms run,
+    refuses a job that disagrees with the invoice's. Left as it is
+    rather than hiding the field and filling it from the parent: the
+    business does not work in here, and a visible field that is
+    checked beats a hidden one that is guessed.
+    """
+
     model = Payment
     extra = 0
 

@@ -160,6 +160,7 @@ class RouteSweep(TestCase):
             "jobs:job_reschedule": [self.job.pk],
             "jobs:job_photo_add": [self.job.pk],
             "jobs:job_note_create": [self.job.pk],
+            "jobs:job_payment_create": [self.job.pk],
             "crm:note_update": [self.note.pk],
             "jobs:quote_detail": [self.quote.pk],
             "jobs:quote_update": [self.quote.pk],

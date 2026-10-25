@@ -22,8 +22,13 @@
           <svg class="icon" aria-hidden="true"><use href="#icon-settings"/></svg>Edit
         </a>
       {% endif %}
+      {% if is_owner %}
+        <a class="btn btn-sm" href="{% url 'jobs:job_payment_create' job.pk %}">
+          <svg class="icon" aria-hidden="true"><use href="#icon-wallet"/></svg>Record a payment
+        </a>
+      {% endif %}
       {% if is_owner and not invoices %}
-        <a class="btn btn-sm" href="{% url 'jobs:invoice_create' %}?job={{ job.pk }}">
+        <a class="btn btn-secondary btn-sm" href="{% url 'jobs:invoice_create' %}?job={{ job.pk }}">
           <svg class="icon" aria-hidden="true"><use href="#icon-file-text"/></svg>Invoice this job
         </a>
       {% endif %}
@@ -137,6 +142,50 @@
   </section>
 
   {% if is_owner %}
+    {% comment %}
+      Payment before completion is how this business works (ADR 0013),
+      so this comes above invoices, which are now the exception. The
+      balance is the job's value less what has been received. It goes
+      negative when a customer has overpaid, which is allowed, so
+      that case says the amount — an earlier version of this comment
+      claimed as much while the markup showed "Paid in full" and hid
+      the figure.
+    {% endcomment %}
+    <section class="card section-gap">
+      <h2 class="card-title">Payments</h2>
+      <p class="cluster">
+        <span>Job value {{ job.total|money }}</span>
+        <span>·</span>
+        <span>Paid {{ paid|money }}</span>
+        <span>·</span>
+        <strong>
+          {% if balance > 0 %}
+            {{ balance|money }} outstanding
+          {% elif balance < 0 %}
+            Overpaid by {{ balance|money }}
+          {% else %}
+            Paid in full
+          {% endif %}
+        </strong>
+      </p>
+      {% if payments %}
+        <ul class="list-plain">
+          {% for payment in payments %}
+            <li>
+              {{ payment.received_on|date:"M j, Y" }} · {{ payment.amount|money }} ·
+              {{ payment.get_method_display }}
+              {% if payment.notes %}<span class="muted">({{ payment.notes }})</span>{% endif %}
+              {% if payment.invoice %}
+                <a href="{{ payment.invoice.get_absolute_url }}">{{ payment.invoice.number }}</a>
+              {% endif %}
+            </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p class="muted">Nothing received yet.</p>
+      {% endif %}
+    </section>
+
     <section class="card section-gap">
       <h2 class="card-title">Invoices</h2>
       {% if invoices %}

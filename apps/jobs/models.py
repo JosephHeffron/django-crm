@@ -12,6 +12,7 @@ from decimal import Decimal
 from pathlib import PurePath
 
 from django.conf import settings
+from django.core.exceptions import ValidationError
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 from django.db.models import DecimalField, F, OuterRef, Q, Subquery, Sum, Value
@@ -132,6 +133,26 @@ class TotalMixin:
         return self.line_items.aggregate(total=Coalesce(Sum(LINE_TOTAL), Value(ZERO)))["total"]
 
 
+class PaidMixin:
+    """`.paid` and `.balance` for anything money is received against.
+
+    Shared by `Invoice` and, since ADR 0013, `Job` — one definition
+    rather than two that can drift. `.paid` uses the
+    `with_balances()` annotation when it is there, otherwise one
+    aggregate, exactly as `TotalMixin` does for `.total`.
+    """
+
+    @property
+    def paid(self):
+        if hasattr(self, "paid_amount"):
+            return self.paid_amount
+        return self.payments.aggregate(total=Coalesce(Sum("amount"), Value(ZERO)))["total"]
+
+    @property
+    def balance(self):
+        return self.total - self.paid
+
+
 class QuoteQuerySet(DocumentQuerySet):
     fk_name = "quote"
 
@@ -197,8 +218,24 @@ class QuoteLineItem(LineItem):
 class JobQuerySet(DocumentQuerySet):
     fk_name = "job"
 
+    def with_balances(self):
+        """Job value, what has been paid against it, and the
+        difference — the same shape as `InvoiceQuerySet.with_balances`
+        and through the same subquery helper, so annotating both on
+        one queryset cannot multiply the sums into each other.
 
-class Job(TotalMixin, models.Model):
+        `Payment` is defined further down this module and is resolved
+        when this method runs, not when the class is built — exactly
+        how the invoice version has always done it.
+        """
+        return (
+            self.with_totals()
+            .annotate(paid_amount=_sum_subquery(Payment, "job", F("amount")))
+            .annotate(balance_amount=F("total_amount") - F("paid_amount"))
+        )
+
+
+class Job(TotalMixin, PaidMixin, models.Model):
     class Status(models.TextChoices):
         SCHEDULED = "scheduled", "Scheduled"
         IN_PROGRESS = "in_progress", "In progress"
@@ -373,7 +410,7 @@ class InvoiceQuerySet(DocumentQuerySet):
         )
 
 
-class Invoice(TotalMixin, models.Model):
+class Invoice(TotalMixin, PaidMixin, models.Model):
     # Only the states a person sets are stored. "Paid" / "partially
     # paid" / "overdue" are derived from payments and dates
     # (payment_status), so they can never drift out of sync with them.
@@ -412,16 +449,6 @@ class Invoice(TotalMixin, models.Model):
     def get_absolute_url(self):
         return reverse("jobs:invoice_detail", kwargs={"pk": self.pk})
 
-    @property
-    def paid(self):
-        if hasattr(self, "paid_amount"):
-            return self.paid_amount
-        return self.payments.aggregate(total=Coalesce(Sum("amount"), Value(ZERO)))["total"]
-
-    @property
-    def balance(self):
-        return self.total - self.paid
-
     def payment_status(self, today):
         if self.status == self.Status.VOID:
             return "void"
@@ -450,7 +477,19 @@ class Payment(models.Model):
         TRANSFER = "transfer", "Bank transfer"
         OTHER = "other", "Other"
 
-    invoice = models.ForeignKey(Invoice, on_delete=models.PROTECT, related_name="payments")
+    # ADR 0013: a payment is money against a **job**. This business
+    # takes payment before the work is finished, so requiring an
+    # invoice meant requiring a document it does not issue — and with
+    # `Payment.invoice` mandatory there was no way to record the money
+    # at all.
+    job = models.ForeignKey(Job, on_delete=models.PROTECT, related_name="payments")
+    # Kept, and optional: where an invoice exists it is the provenance
+    # of the payment, and `Invoice.paid_amount` still reads its own
+    # payments, so invoices behave exactly as before. Dropping the
+    # column would destroy that link and is not reversible.
+    invoice = models.ForeignKey(
+        Invoice, on_delete=models.PROTECT, related_name="payments", null=True, blank=True
+    )
     amount = models.DecimalField(**MONEY)
     received_on = models.DateField(db_index=True)
     method = models.CharField(max_length=10, choices=Method.choices, default=Method.CARD)
@@ -466,8 +505,59 @@ class Payment(models.Model):
             models.CheckConstraint(condition=Q(amount__gt=0), name="payment_amount_positive")
         ]
 
+    def save(self, *args, **kwargs):
+        """Fill `job` from the invoice when only the invoice is given.
+
+        An invoice is always for a job (`Invoice.job` is required), so
+        this is derivation, not a guess. It means every caller written
+        before ADR 0013 keeps working — the demo seed, the admin
+        inline, a dozen tests — and, more to the point, that there is
+        no way to write a payment with an invoice but no job, which
+        would be money none of the job-based figures could see.
+
+        A payment with neither still fails on the not-null
+        constraint, which is the right answer.
+        """
+        if self.job_id is None and self.invoice_id:
+            self.job_id = self.invoice.job_id
+        elif self.job_id and self.invoice_id and self.invoice.job_id != self.job_id:
+            # `clean()` says the same thing, but `clean()` only runs
+            # through forms and `full_clean()`. A mismatched pair
+            # written by ordinary ORM code would count toward one job
+            # in the job balances and another in the invoice's, so the
+            # check belongs on the write path as well. Raw SQL and
+            # `QuerySet.update()` still bypass it — the same limit
+            # `on_delete` has (`docs/DATABASE_REVIEW.md` finding #1).
+            raise ValueError(
+                f"Payment names job {self.job_id} but invoice {self.invoice_id}, "
+                f"which is for job {self.invoice.job_id}."
+            )
+        super().save(*args, **kwargs)
+
+    def clean(self):
+        """An invoice, if named, has to be for the same job.
+
+        Two foreign keys that can disagree is the thing `InvoiceForm`
+        avoids by not asking for a customer. This cannot be a check
+        constraint — a constraint cannot reach into `jobs_invoice` to
+        compare `job_id` — so it holds through forms and
+        `full_clean()`, and raw SQL or a `QuerySet.update()` can still
+        write a disagreeing pair. Same shape as `on_delete`, which
+        also only holds through the ORM
+        (`docs/DATABASE_REVIEW.md` finding #1).
+        """
+        super().clean()
+        if self.invoice_id and self.job_id and self.invoice.job_id != self.job_id:
+            raise ValidationError(
+                {"invoice": "That invoice is for a different job."},
+            )
+
     def __str__(self):
-        return f"${self.amount} on {self.invoice.number}"
+        # The invoice is optional since ADR 0013, and this read
+        # `self.invoice.number` straight through — an AttributeError
+        # from anything that stringifies a payment, the admin and the
+        # change log included.
+        return f"${self.amount} on {self.invoice.number if self.invoice_id else self.job.number}"
 
 
 class Expense(models.Model):

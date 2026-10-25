@@ -87,6 +87,14 @@
           <a class="btn btn-text btn-sm" href="{% url 'jobs:payment_create' invoice.pk %}">Record one</a>
         {% endif %}
       </div>
+      {% if paid_on_the_job %}
+        <p class="helptext">
+          {{ paid_on_the_job|money }} has already been received for
+          <a href="{{ invoice.job.get_absolute_url }}">{{ invoice.job.number }}</a>
+          outside this invoice. This invoice's balance does not count it —
+          check before chasing payment.
+        </p>
+      {% endif %}
       {% if payments %}
         <ul class="list-plain">
           {% for payment in payments %}

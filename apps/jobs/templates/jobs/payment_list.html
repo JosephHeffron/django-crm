@@ -28,14 +28,25 @@
     <div class="table-responsive card card-flush">
       <table class="data-table stack-mobile">
         <thead>
-          <tr><th>Received</th><th>Customer</th><th>Invoice</th><th>Method</th><th>Reference</th><th class="text-right">Amount</th></tr>
+          <tr><th>Received</th><th>Customer</th><th>Job</th><th>Invoice</th><th>Method</th><th>Reference</th><th class="text-right">Amount</th></tr>
         </thead>
         <tbody>
           {% for payment in payments %}
             <tr>
               <td data-label="Received">{{ payment.received_on|date:"M j, Y" }}</td>
-              <td data-label="Customer">{{ payment.invoice.contact }}</td>
-              <td data-label="Invoice"><a href="{{ payment.invoice.get_absolute_url }}">{{ payment.invoice.number }}</a></td>
+              <td data-label="Customer">{{ payment.job.contact }}</td>
+              <td data-label="Job"><a href="{{ payment.job.get_absolute_url }}">{{ payment.job.number }}</a></td>
+              {% comment %}
+                The invoice is optional since ADR 0013 — a payment
+                taken against a job has none — so this says so rather
+                than rendering an empty link, which is what reading
+                `payment.invoice.number` through a None would do.
+              {% endcomment %}
+              <td data-label="Invoice">
+                {% if payment.invoice %}
+                  <a href="{{ payment.invoice.get_absolute_url }}">{{ payment.invoice.number }}</a>
+                {% else %}—{% endif %}
+              </td>
               <td data-label="Method">{{ payment.get_method_display }}</td>
               <td data-label="Reference">{{ payment.notes|default:"—" }}</td>
               <td data-label="Amount" class="text-right">{{ payment.amount|money }}</td>
@@ -46,6 +57,6 @@
     </div>
     {% include "partials/_pagination.html" %}
   {% else %}
-    {% include "partials/_empty_state.html" with icon="wallet" title="Nothing received yet" text="Payments you record against an invoice show up here." %}
+    {% include "partials/_empty_state.html" with icon="wallet" title="Nothing received yet" text="Payments you record against a job show up here." %}
   {% endif %}
 {% endblock %}

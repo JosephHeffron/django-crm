@@ -33,6 +33,11 @@ urlpatterns = [
         views.PaymentCreateView.as_view(),
         name="payment_create",
     ),
+    path(
+        "jobs/<int:pk>/payments/new/",
+        views.JobPaymentCreateView.as_view(),
+        name="job_payment_create",
+    ),
     path("payments/", views.PaymentListView.as_view(), name="payment_list"),
     path("expenses/", views.ExpenseListView.as_view(), name="expense_list"),
     path("expenses/new/", views.ExpenseCreateView.as_view(), name="expense_create"),

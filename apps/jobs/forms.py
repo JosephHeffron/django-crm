@@ -369,8 +369,13 @@ InvoiceLineFormSet = line_formset(Invoice, InvoiceLineItem)
 
 
 class PaymentForm(forms.ModelForm):
-    """Money received against one invoice. The invoice comes from the
-    page you're on, not from a field."""
+    """Money received against a job, or against an invoice for one.
+
+    What it is against comes from the page you are on, not from a
+    field — `payable` is a `Job` or an `Invoice`, and both answer
+    `total` / `paid` / `balance` through the same two mixins. Since
+    ADR 0013 the job is the usual case: this business is paid before
+    the work is finished, so there is often no invoice at all."""
 
     class Meta:
         model = Payment
@@ -381,9 +386,9 @@ class PaymentForm(forms.ModelForm):
             "notes": forms.TextInput(attrs={"placeholder": "Check number, last four digits…"}),
         }
 
-    def __init__(self, *args, invoice=None, **kwargs):
+    def __init__(self, *args, payable=None, **kwargs):
         super().__init__(*args, **kwargs)
-        self.invoice = invoice
+        self.payable = payable
 
     def clean_amount(self):
         amount = self.cleaned_data["amount"]
@@ -394,10 +399,10 @@ class PaymentForm(forms.ModelForm):
     def clean(self):
         cleaned = super().clean()
         amount = cleaned.get("amount")
-        # Overpayment is allowed — a customer rounds up, or pays two
-        # invoices with one check — but it's worth saying out loud.
-        if amount and self.invoice is not None and amount > self.invoice.balance:
-            self.overpayment = amount - self.invoice.balance
+        # Overpayment is allowed — a customer rounds up, or pays for
+        # two jobs with one check — but it's worth saying out loud.
+        if amount and self.payable is not None and amount > self.payable.balance:
+            self.overpayment = amount - self.payable.balance
         return cleaned
 
 
