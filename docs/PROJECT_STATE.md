@@ -4,8 +4,10 @@ Update this file at the end of every session (see `CLAUDE.md`'s Session
 Close Procedure). Do not describe anything as complete unless it was
 actually verified.
 
-> **Last updated 2026-10-21.** Repo is clean: `main` up to date,
-> nothing uncommitted, **no open pull requests**, 1,226 tests passing.
+> **Last updated 2026-10-25.** Repo is clean: `main` up to date,
+> nothing uncommitted, 1,265 tests passing. **Phase 20 is complete**,
+> and it turned out to be a different phase from the one the roadmap
+> described — see "Post-release roadmap progress".
 > Eleven PRs landed in this stretch — #164, #165, #166 and the #167
 > close-out (Phase 19.5); #168 and #160 (two security upgrades); #159,
 > #161, #162 and #169 (tooling); and #158, the role-based stats sheet.
@@ -1306,11 +1308,43 @@ roadmap completed:
   reschedule endpoint (`parse_datetime` raises on an impossible date
   rather than returning None) and a drag outline whose CSS named a
   class no template has ever rendered.
-- Phases 20-25: not yet started (re-sequenced in `docs/ROADMAP.md`).
+- **Phase 20 — Money: payment on the job, revenue from finished work:
+  DONE**, and not the phase the entry described. Four units plus a
+  guards-and-ADR unit: `Payment.job` required and `Payment.invoice`
+  optional with money recorded from the job page (#172); revenue from
+  completed work everywhere a figure is shown, the monthly goal
+  included (#173); outstanding reframed as unpaid finished work, aged
+  by completion (#174); and the demo seed and documents brought into
+  line. 1,265 tests (1,226 before). Browser-verified under production
+  CSP across three roles, five money pages and three widths.
+- Phases 21-25: not yet started (re-sequenced in `docs/ROADMAP.md`).
 
 ## Currently working on
 
 **Nothing in flight.** What follows is what most recently landed.
+
+**Phase 20 — money — is complete** (PRs #171, #172, #173, #174 and
+this close-out), and it is the clearest case yet of a roadmap entry
+describing intent rather than delivery. The entry asked for "invoices
+from completed jobs, payments, expenses, the Owner-only Financials
+page, profile stats hardening". A verification pass found most of that
+built and genuinely tested — 16 mutations, 12 caught — with four
+figures unasserted, and the profile stats already delivered as the
+role stats sheet (#158).
+
+Then it found what no mutation could: **every revenue figure came from
+sent invoices and `Payment.invoice` was required**, so this business —
+which is paid before the work is finished and issues no invoices —
+would have seen zero revenue with nowhere to record the money at all.
+`docs/decisions/0013-payment-on-the-job-revenue-from-completed-work.md`
+records the decision; `logs/claude/phase-20-payment-on-the-job.md` is
+the one to read, especially the three findings with money attached and
+the six tests of mine that could not fail.
+
+A payment belongs to a job now; revenue is the work you finish, dated
+by `completed_at`; outstanding is finished work nobody has paid for.
+Invoices are kept and demoted — they drive no figure and remain for
+the customer who asks for one.
 
 **Phase 19.5 — three usability items the owner asked for after using
 the app** — is done and merged, each item its own PR: a New customer
@@ -1407,6 +1441,20 @@ for its own unit", below.
 
 ## Next
 
+**Phase 21 — messaging live delivery and PWA polish** is the next
+roadmap item. Before writing any of it, run the verification pass over
+its entry: four phases running now, the entry has described intent
+rather than delivery, and Phase 20's was wrong about the business
+model as well as the state of the code.
+
+Worth knowing from Phase 20 before the next one: `--parallel` is
+unusable for mutation testing in this project (a failing test whose
+traceback cannot be pickled crashes the runner, which a regex over the
+output reads as success — take the verdict from the exit code), and
+five of nine mutation harnesses written during the phase had bugs of
+their own, so every harness now asserts its anchor matched exactly
+once before applying.
+
 The three owner-reported items are built, tested, browser-verified and
 merged; nothing about them is outstanding, and neither is anything
 else — there is no work in flight and no open PR.
@@ -1479,7 +1527,9 @@ catalogue.
 **A payment cannot be corrected and an expense cannot be removed.**
 Same measurement: `jobs.change_payment` and `jobs.delete_expense` are
 granted with no code path. A mistyped payment currently needs the
-admin.
+admin — and this matters **more** since Phase 20, because a payment is
+no longer a line under an invoice but the primary record that money
+arrived. It is the first thing to build in this area.
 
 **A job that starts the day before and runs past midnight is not
 marked on the next day's booking grid.** `calendar_days` has placed

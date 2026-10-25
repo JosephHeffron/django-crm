@@ -124,6 +124,18 @@ for meaningful changes — not for every small fix or documentation tweak.
   has a job says Busy and still works.
 
 ### Changed
+- **Money follows the work, not a document.** A payment is recorded
+  against a **job** — this business is paid before the work is
+  finished, so there is usually no invoice — and revenue is the value
+  of jobs **completed** in the period, dated by when they were marked
+  complete. "Outstanding" is finished work nobody has paid for, aged
+  by how long ago it was finished; it should normally be empty, and
+  says so. The monthly revenue goal measures the same thing, so a goal
+  and the page it is judged against cannot disagree.
+  Invoices are kept for the customer who asks for one and drive no
+  figure (`docs/decisions/0013-payment-on-the-job-revenue-from-completed-work.md`).
+  **Revenue figures will move** on any install with invoices whose jobs
+  are not complete, or completed jobs that were never invoiced.
 - Access control is now role-based: Owner, Sales Rep, and Cleaner
   groups, enforced server-side, replace the Phase 6 "Staff" group and
   its implicit read-only tier. Existing Staff members become Sales

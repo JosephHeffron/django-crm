@@ -212,6 +212,12 @@ The last row is the one to know about:
   `PhotoDeleteView` gates it on "whoever uploaded it, or the Owner"
   rather than on the permission (Phase 18 unit 2's decision). The grant
   is decorative; the ownership rule is the real one.
+Note the job route is the normal one since ADR 0013: this business is
+paid before the work is finished, so most payments have no invoice.
+Both routes are Owner-only and require `jobs.add_payment`, which
+`users/0004` grants to the Owner alone — asserted by
+`test_only_owner_can_write_money_and_the_catalogue`.
+
 - `jobs.change_payment`, `jobs.delete_expense` — a payment can be
   recorded but not corrected, and an expense edited but not removed.
 - **`jobs.add_servicetype`** — the Owner is granted it and **there is
@@ -260,7 +266,8 @@ member of), so a direct message never leaks onto a contact page.
 | Book or change a job (`/jobs/new/`, `/jobs/<pk>/edit/`) | yes | yes | 403 |
 | Write or change an estimate (`/quotes/new/`, `/quotes/<pk>/edit/`) | yes | yes | 403 |
 | Invoices (`/invoices/`, create, edit) | yes | 403 | 403 |
-| Record a payment (`/invoices/<pk>/payments/new/`), Payments | yes | 403 | 403 |
+| Record a payment on a job (`/jobs/<pk>/payments/new/`) | yes | 403 | 403 |
+| Record a payment on an invoice (`/invoices/<pk>/payments/new/`), Payments | yes | 403 | 403 |
 | Expenses (`/expenses/`, create, edit) | yes | 403 | 403 |
 | Time clock (`/time-clock/`) | own | own | own |
 | Map (`/map/`) | yes | yes | 403 |

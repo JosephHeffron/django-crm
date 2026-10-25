@@ -458,7 +458,45 @@ class DemoSeeder:
             )
         return job
 
+    # How the demo data mirrors how the business works (ADR 0013).
+    # Payment comes before the work, against the job, with no document
+    # involved. A minority of jobs are also invoiced, because the
+    # invoice pages are still there for the customer who asks for one
+    # — and a few are left unpaid, so the "unpaid finished work" table
+    # has something in it to look at.
+    INVOICED_SHARE = 0.15
+    UNPAID_SHARE = 0.06
+
+    def settle(self, job):
+        """Take the money for a finished job, the way this business
+        does: against the job, on or before the day it was done."""
+        if self.rng.random() < self.UNPAID_SHARE:
+            return  # chased but not yet paid — the exception report
+        done = timezone.localdate(job.completed_at)
+        # Before the work, or on the day. Never after: that is the
+        # whole point of this business's billing, and demo data that
+        # contradicted it would teach the wrong thing about the app.
+        received = max(
+            done - timedelta(days=self.rng.randint(0, 6)), self.today - timedelta(days=400)
+        )
+        total = job.total
+        part_paid = self.rng.random() < 0.08
+        Payment.objects.create(
+            job=job,
+            amount=(total / 2).quantize(Decimal("0.01")) if part_paid else total,
+            received_on=min(received, self.today),
+            method=self.rng.choices(["card", "check", "cash", "transfer"], [50, 30, 10, 10])[0],
+            recorded_by=self.owner,
+        )
+        if self.rng.random() < self.INVOICED_SHARE:
+            self.invoice(job)
+
     def invoice(self, job):
+        """A document for the minority of customers who ask for one.
+
+        It no longer carries the payment — `settle` has already taken
+        that against the job — and it no longer decides any figure.
+        """
         issued = timezone.localdate(job.completed_at)
         age = (self.today - issued).days
         draft = age <= 2 and self.rng.random() < 0.5
@@ -478,21 +516,6 @@ class DemoSeeder:
                 unit_price=line.unit_price,
                 position=line.position,
             )
-        if draft:
-            return
-        paid_full, partial = (0.92, 0.05) if age > 30 else (0.6, 0.15)
-        roll = self.rng.random()
-        total = invoice.total
-        if roll < paid_full + partial:
-            amount = total if roll < paid_full else (total / 2).quantize(Decimal("0.01"))
-            received = min(issued + timedelta(days=self.rng.randint(0, 20)), self.today)
-            Payment.objects.create(
-                invoice=invoice,
-                amount=amount,
-                received_on=received,
-                method=self.rng.choices(["card", "check", "cash", "transfer"], [50, 30, 10, 10])[0],
-                recorded_by=self.owner,
-            )
 
     def history(self):
         """12 months of completed work, following each customer's usual
@@ -509,7 +532,7 @@ class DemoSeeder:
                 job = self.make_job(
                     contact, slugs, day, self.rng.choice([8, 9, 10, 11, 13]), Job.Status.COMPLETED
                 )
-                self.invoice(job)
+                self.settle(job)
 
     def upcoming(self):
         """Today's jobs (status by the clock) and the next three weeks."""
@@ -517,7 +540,7 @@ class DemoSeeder:
             contact = self.rng.choice(self.customers)
             job = self.make_job(contact, contact.profile_services[:1], self.today, hour, None)
             if job.status == Job.Status.COMPLETED:
-                self.invoice(job)
+                self.settle(job)
         for offset in range(1, 22):
             day = self.today + timedelta(days=offset)
             if day.weekday() >= 5:
@@ -554,7 +577,7 @@ class DemoSeeder:
                     self.rng.choice([8, 10, 13]),
                     Job.Status.COMPLETED,
                 )
-                self.invoice(job)
+                self.settle(job)
                 made += 1
             day -= timedelta(days=1)
         return made

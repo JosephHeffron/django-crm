@@ -76,11 +76,12 @@ open), and your tasks and recent activity.
 
 What the cards show depends on your role:
 
-- **Owner** — revenue invoiced this month (with today's and this week's
+- **Owner** — revenue earned this month (with today's and this week's
   on the second line, a small day-by-day chart, and how it compares with
-  the same stretch of last month), payments collected, the unpaid
-  balance still owed, and jobs completed. Money counts *sent* invoices:
-  a draft isn't billed yet, and a voided one was never owed.
+  the same stretch of last month), payments collected, anything finished
+  but unpaid, and jobs completed. **Revenue is the work you finish**:
+  a job counts on the day it's marked complete, for the value of its
+  lines. Invoices don't come into it — see **Profit**, below.
 - **Sales Rep** — your open estimates and their value, follow-ups due,
   jobs today, and unread messages. No money figures beyond your own
   estimates.
@@ -101,8 +102,9 @@ sooner.
 
 ### Monthly goals (Owner)
 
-**Settings gear → Monthly goals** sets a target for revenue invoiced,
-jobs completed, and new customers. The dashboard then shows how far
+**Settings gear → Monthly goals** sets a target for revenue earned
+(the value of work finished in the month), jobs completed, and new
+customers. The dashboard then shows how far
 through the current calendar month you are against each one. Leave a
 field empty to stop tracking it. Goals change nothing about what the
 business records — only what the dashboard compares against.
@@ -267,7 +269,7 @@ that opens in Excel.
 What's there:
 
 - **Revenue by service** — which work brings the money in.
-- **Revenue by sales rep** — who sold what got invoiced.
+- **Revenue by sales rep** — who sold the work that got done.
 - **Profit over time** — revenue against expenses, period by period.
 - **Expenses by category** — where the money goes.
 - **Crew hours and pay** — clocked time and what it cost, per person.
@@ -382,12 +384,28 @@ counted as revenue, **Sent** is owed, and **Void** was never owed.
 
 ### Payments
 
-On a sent invoice with a balance, **Record a payment** opens a short
-form. The amount starts at the balance, so settling a bill in full is
-two clicks; change it for a part payment. Paying more than the balance
-is allowed — a customer rounds up, or covers two bills with one check —
-and the app says so when it happens. **Payments** lists everything
-received, newest first, with the total.
+**Record a payment** on a **job** is the normal way: you're usually paid
+before the work is done, so there's no invoice to hang it on. The job
+page shows what the job is worth, what's been paid, and what's left, and
+the form opens at whatever is left — so settling in full is two clicks.
+Change the amount for a part payment.
+
+Paying more than the job is worth is allowed — a customer rounds up, or
+covers two jobs with one cheque — and the app says so when it happens,
+and shows the overpayment on the job.
+
+The same button is still on a sent invoice for the customers who ask for
+one. A payment taken that way is recorded against the job as well, so it
+shows up wherever the job's money does.
+
+**One thing to watch:** if you take payment on a job and raise an
+invoice for it afterwards, the invoice doesn't count that payment in its
+own balance — a job can carry more than one invoice, so counting it in
+both would be wrong. The invoice page tells you how much has already
+been received for the job, so check there before chasing anybody.
+
+**Payments** lists everything received, newest first, with the total and
+the job each one was for.
 
 ### Expenses
 
@@ -401,9 +419,11 @@ kind, with its total. What you record here is what **Profit** subtracts.
 **This month** (the default), **Year to date**, or any date range up to
 five years:
 
-- **Revenue** — what you invoiced (sent invoices, by the date issued;
-  drafts aren't billed yet and voided invoices don't count), with the
-  number of invoices and the average.
+- **Revenue** — the work you finished in the period, by the day it was
+  finished, for the value of each job's lines. Invoice status has
+  nothing to do with it. Shown with how many jobs that was and the
+  average job value. Reopening a finished job takes its value back out
+  of the period.
 - **Collected** — payments received in the period.
 - **Expenses** and **Profit** (revenue minus expenses — a quick owner's
   view, not your accountant's profit and loss).
@@ -411,8 +431,11 @@ five years:
 - A chart of revenue and expenses per day, week, or month (tap **Show
   as a table** for the numbers), and revenue split by service and by
   sales rep, and expenses by category.
-- **Outstanding today** — what customers still owe, grouped by how late
-  it is, and the oldest unpaid invoices (tap one to open its job).
+- **Unpaid finished work** — jobs you've completed that the money
+  hasn't come in for, grouped by how long ago they were finished, with
+  the ones waiting longest listed. Since you're normally paid up front
+  this should be empty, and it says so when it is: anything appearing
+  here is worth a phone call.
 
 The revenue and outstanding cards on your dashboard open this page.
 
