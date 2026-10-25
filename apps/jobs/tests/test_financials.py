@@ -322,37 +322,124 @@ class AdminStampingTests(TestCase):
 
 
 class AgingTests(TestCase):
-    def test_buckets_by_days_past_due(self):
-        owner = f.user("boss")
-        job = f.job(f.contact(owner), owner)
-        today = timezone.localdate()
-        # issued so that due_on (issued + 14) lands in each bucket
-        for days_late, amount in ((-5, "10"), (10, "20"), (45, "40"), (75, "80"), (120, "160")):
-            f.invoice(
-                job,
-                lines=[(Decimal("1"), Decimal(amount))],
-                issued=today - timedelta(days=14 + days_late),
-            )
-        paid = f.invoice(
-            job, lines=[(Decimal("1"), Decimal("999"))], issued=today - timedelta(days=200)
-        )
-        Payment.objects.create(
-            invoice=paid, amount=Decimal("999"), received_on=today, recorded_by=owner
+    """Finished work that has not been paid for, aged by how long ago
+    it was finished (ADR 0013) rather than by a due date on a document.
+
+    This replaced an invoice-aged table. It should normally be empty
+    for this business, which is the point of it.
+    """
+
+    def setUp(self):
+        self.owner = f.user("boss")
+        self.customer = f.contact(self.owner)
+        self.today = timezone.localdate()
+
+    def finished_days_ago(self, days, amount):
+        return f.finish(
+            f.job(self.customer, self.owner, lines=[(Decimal("1"), Decimal(amount))]),
+            f.finished_at(self.today - timedelta(days=days)),
         )
 
-        buckets = {b["key"]: b["total"] for b in reports.aging(today)}
+    def test_buckets_by_how_long_ago_the_work_was_finished(self):
+        # The amounts deliberately do **not** climb with age: the
+        # oldest job is not the biggest, so an ordering by balance
+        # cannot masquerade as an ordering by date in the assertion at
+        # the end. Sourcery caught that on PR #174 — the first version
+        # had 160 as both the oldest and the largest.
+        for days_ago, amount in ((2, "160"), (20, "20"), (45, "40"), (75, "80"), (120, "10")):
+            self.finished_days_ago(days_ago, amount)
+        # Paid in full, so it is not outstanding however old it is.
+        settled = self.finished_days_ago(200, "999")
+        Payment.objects.create(
+            job=settled, amount=Decimal("999"), received_on=self.today, recorded_by=self.owner
+        )
+        # Not finished, so it is not in this table at all — it is not
+        # late, it is not done.
+        f.job(self.customer, self.owner, lines=[(Decimal("1"), Decimal("500"))])
+
+        buckets = {b["key"]: b["total"] for b in reports.aging(self.today)}
         self.assertEqual(
             buckets,
             {
-                "current": Decimal("10"),
+                "days_7": Decimal("160"),
                 "days_30": Decimal("20"),
                 "days_60": Decimal("40"),
                 "days_90": Decimal("80"),
-                "older": Decimal("160"),
+                "older": Decimal("10"),
             },
         )
-        self.assertEqual(reports.outstanding()["total"], Decimal("310"))
-        self.assertEqual(reports.oldest_unpaid()[0].total, Decimal("160"))
+        self.assertEqual(reports.outstanding(), {"total": Decimal("310"), "count": 5})
+        # The buckets always add up to the headline, which is the
+        # property that makes the table trustworthy.
+        self.assertEqual(sum(buckets.values()), reports.outstanding()["total"])
+        # Longest-waiting first: the 120-day-old job, which is also
+        # the *smallest*, so this fails if the list is sorted by money.
+        self.assertEqual(reports.oldest_unpaid()[0].total, Decimal("10"))
+
+    def test_work_owed_for_with_no_completion_date_is_still_counted(self):
+        """Bad data, but money owed, so it must not vanish.
+
+        `JobAdmin.save_model` stamps the date now, so this state can
+        only be reached by a direct write — which is how the test
+        reaches it. It lands in the oldest bucket so the buckets still
+        add up to the headline. An earlier version of `_unpaid()`
+        required the date and dropped the debt entirely.
+        """
+        job = self.finished_days_ago(10, "120")
+        Job.objects.filter(pk=job.pk).update(completed_at=None)
+        self.assertEqual(reports.outstanding(), {"total": Decimal("120"), "count": 1})
+        buckets = {b["key"]: b["total"] for b in reports.aging(self.today)}
+        self.assertEqual(buckets["older"], Decimal("120"))
+        self.assertEqual(sum(buckets.values()), Decimal("120"))
+        self.assertEqual(reports.oldest_unpaid()[0].pk, job.pk, "no date, so look at it first")
+
+    def test_a_payment_against_a_voided_invoice_does_not_settle_a_job(self):
+        """`collected` has always excluded money on a voided invoice.
+        A job's own balance did not, so a job settled by a payment
+        that was later voided looked paid and vanished from this
+        report while the money was absent from collected — two pages
+        disagreeing about one job. Sourcery caught it on PR #174.
+
+        Also pins, for the third place in this codebase, that a filter
+        across the nullable `Payment.invoice` keeps the payments that
+        have no invoice at all.
+        """
+        job = self.finished_days_ago(10, "300")
+        voided = f.invoice(job, lines=[(Decimal("1"), Decimal("300"))], status=Invoice.Status.VOID)
+        Payment.objects.create(
+            job=job,
+            invoice=voided,
+            amount=Decimal("300"),
+            received_on=self.today,
+            recorded_by=self.owner,
+        )
+        self.assertEqual(reports.outstanding(), {"total": Decimal("300"), "count": 1})
+        # And a payment with no invoice does settle it, which is the
+        # normal case and must survive the same filter.
+        Payment.objects.create(
+            job=job, amount=Decimal("300"), received_on=self.today, recorded_by=self.owner
+        )
+        self.assertEqual(reports.outstanding(), {"total": Decimal("0"), "count": 0})
+
+    def test_a_part_payment_leaves_only_the_rest_outstanding(self):
+        job = self.finished_days_ago(20, "300")
+        Payment.objects.create(
+            job=job, amount=Decimal("100"), received_on=self.today, recorded_by=self.owner
+        )
+        self.assertEqual(reports.outstanding(), {"total": Decimal("200"), "count": 1})
+
+    def test_an_overpaid_job_is_not_outstanding_and_does_not_net_off(self):
+        """A negative balance must not reduce somebody else's debt.
+
+        `balance_amount__gt=0` is what keeps the overpaid job out, and
+        without it the total would read 150 rather than 200.
+        """
+        self.finished_days_ago(20, "200")
+        over = self.finished_days_ago(20, "100")
+        Payment.objects.create(
+            job=over, amount=Decimal("150"), received_on=self.today, recorded_by=self.owner
+        )
+        self.assertEqual(reports.outstanding(), {"total": Decimal("200"), "count": 1})
 
 
 class FinancialsPageTests(TestCase):

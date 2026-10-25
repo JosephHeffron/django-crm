@@ -154,26 +154,33 @@
       {% endif %}
     </section>
 
+    {% comment %}
+      Finished work that has not been paid for (ADR 0013). Payment
+      comes before the work here, so an empty table is the normal
+      state and anything in it wants chasing — which is why every
+      bucket but the first is marked late.
+    {% endcomment %}
     <section class="card" id="outstanding">
-      <h2 class="card-title">Outstanding today</h2>
-      <p><strong>{{ outstanding.total|money }}</strong> <span class="muted">across {{ outstanding.count }} unpaid invoice{{ outstanding.count|pluralize }}</span></p>
+      <h2 class="card-title">Unpaid finished work</h2>
+      {% if outstanding.count %}
+        <p><strong>{{ outstanding.total|money }}</strong> <span class="muted">across {{ outstanding.count }} job{{ outstanding.count|pluralize }}</span></p>
+      {% else %}
+        <p class="muted">Nothing outstanding — every finished job is paid for.</p>
+      {% endif %}
       <dl class="aging">
         {% for bucket in aging %}
           <dt>{{ bucket.label }}</dt>
-          <dd{% if bucket.key != "current" and bucket.total %} class="is-late"{% endif %}>{{ bucket.total|money }}</dd>
+          <dd{% if bucket.key != "days_7" and bucket.total %} class="is-late"{% endif %}>{{ bucket.total|money }}</dd>
         {% endfor %}
       </dl>
       {% if oldest_unpaid %}
-        <h3>Oldest unpaid</h3>
+        <h3>Waiting longest</h3>
         <ul class="list-plain">
-          {% for invoice in oldest_unpaid %}
-            {% with status=invoice|payment_status:today %}
-              <li>
-                <a href="{% url 'jobs:job_detail' invoice.job_id %}">{{ invoice.number }}</a> · {{ invoice.contact }}
-                <span class="muted">— {{ invoice.balance|money }} due {{ invoice.due_on|date:"M j" }}</span>
-                {% include "jobs/_status_badge.html" with status=status label=status|status_label %}
-              </li>
-            {% endwith %}
+          {% for job in oldest_unpaid %}
+            <li>
+              <a href="{{ job.get_absolute_url }}">{{ job.number }}</a> · {{ job.contact }}
+              <span class="muted">— {{ job.balance|money }} of {{ job.total|money }}, finished {{ job.completed_at|date:"M j" }}</span>
+            </li>
           {% endfor %}
         </ul>
       {% endif %}
