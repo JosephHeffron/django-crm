@@ -266,7 +266,12 @@ class DashboardView(LoginRequiredMixin, TemplateView):
             _card(
                 "Outstanding",
                 money(unpaid["total"]),
-                f"{unpaid['count']} unpaid invoice{pluralize(unpaid['count'])}",
+                # Finished work nobody has paid for (ADR 0013), not
+                # unpaid invoices: this business is paid before the
+                # work, so an empty card here is the normal state.
+                f"{unpaid['count']} finished job{pluralize(unpaid['count'])} unpaid"
+                if unpaid["count"]
+                else "Everything finished is paid for",
                 url=reverse("jobs:financials") + "#outstanding",
                 accent="orange" if unpaid["count"] else "green",
             ),

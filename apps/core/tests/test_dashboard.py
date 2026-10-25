@@ -10,7 +10,7 @@ from apps.core.views import _greeting
 from apps.crm.followups import add_months
 from apps.crm.models import Activity, Company, Task
 from apps.crm.tests._helpers import grant_role
-from apps.jobs.models import Invoice, Job, Payment, Quote
+from apps.jobs.models import Job, Payment, Quote
 from apps.jobs.tests import _factories as f
 from apps.users.roles import Role
 
@@ -85,23 +85,49 @@ class OwnerDashboardTests(DashboardTestCase):
         )
         self.assertEqual(context["revenue_week"], Decimal("250"))
 
-    def test_outstanding_is_the_unpaid_balance_of_sent_invoices(self):
-        job = f.job(f.contact(self.user), self.user)
-        partly = f.invoice(job, lines=[(Decimal("1"), Decimal("300"))])
-        Payment.objects.create(
-            invoice=partly,
-            amount=Decimal("100"),
-            received_on=partly.issued_on,
-            recorded_by=self.user,
+    def test_outstanding_is_finished_work_that_is_not_paid_for(self):
+        """ADR 0013. It was the unpaid balance of sent invoices, which
+        reports nothing for a business that issues none.
+
+        Three jobs, three reasons: part-paid (counts, for the rest),
+        paid in full (does not), and not finished (does not — it is
+        not late, it is not done).
+        """
+        customer = f.contact(self.user)
+        today = timezone.localdate()
+        partly = f.finish(
+            f.job(customer, self.user, lines=[(Decimal("1"), Decimal("300"))]),
+            f.finished_at(today),
         )
-        paid = f.invoice(job, lines=[(Decimal("1"), Decimal("80"))])
         Payment.objects.create(
-            invoice=paid, amount=Decimal("80"), received_on=paid.issued_on, recorded_by=self.user
+            job=partly, amount=Decimal("100"), received_on=today, recorded_by=self.user
         )
-        f.invoice(job, status=Invoice.Status.DRAFT)
+        settled = f.finish(
+            f.job(customer, self.user, lines=[(Decimal("1"), Decimal("80"))]),
+            f.finished_at(today),
+        )
+        Payment.objects.create(
+            job=settled, amount=Decimal("80"), received_on=today, recorded_by=self.user
+        )
+        f.job(customer, self.user, lines=[(Decimal("1"), Decimal("500"))])
 
         outstanding = self.get().context["outstanding"]
         self.assertEqual((outstanding["total"], outstanding["count"]), (Decimal("200"), 1))
+        self.assertContains(self.get(), "1 finished job unpaid")
+
+    def test_the_card_says_so_when_everything_is_paid(self):
+        f.finish(
+            f.job(f.contact(self.user), self.user, lines=[(Decimal("1"), Decimal("120"))]),
+            f.finished_at(timezone.localdate()),
+        )
+        job = Job.objects.get()
+        Payment.objects.create(
+            job=job,
+            amount=Decimal("120"),
+            received_on=timezone.localdate(),
+            recorded_by=self.user,
+        )
+        self.assertContains(self.get(), "Everything finished is paid for")
 
     def test_owner_sees_every_open_quote_and_follow_up(self):
         rep = grant_role(f.user("rep"), Role.SALES_REP)

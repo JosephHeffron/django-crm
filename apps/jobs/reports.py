@@ -72,13 +72,28 @@ def completed_revenue(first, last):
 
 
 def outstanding():
-    """Unpaid balance across sent invoices, and how many are unpaid."""
+    """Work that is finished and not paid for, and how many jobs.
+
+    ADR 0013. This business takes payment before the work is done, so
+    this should normally be empty — which makes it an exception report
+    rather than a routine one, and worth looking at when it is not.
+
+    It was the unpaid balance of sent invoices, which reported nothing
+    at all for a business that issues none.
+    """
     return _unpaid().aggregate(total=_money("balance_amount"), count=Count("pk"))
 
 
 def _unpaid():
+    """Completed jobs whose payments do not cover their value.
+
+    `completed_at__isnull=False` as well as the status, because the
+    admin can leave one set without the other (see
+    `test_cancelled_work_is_not_revenue_even_with_a_completion_date`),
+    and a job with no completion date has nothing to age it by.
+    """
     return (
-        Invoice.objects.filter(status=Invoice.Status.SENT)
+        Job.objects.filter(status=Job.Status.COMPLETED, completed_at__isnull=False)
         .with_balances()
         .filter(balance_amount__gt=0)
     )
@@ -223,23 +238,33 @@ def expenses_by_category(period, expenses=None):
 
 # ---------- Outstanding, as of today ----------
 
+# Aged by how long ago the work was finished, not by a due date on a
+# document (ADR 0013). There is no "not yet due" bucket any more:
+# payment is expected before the work is done here, so anything in
+# this table is already money that should have arrived. The first
+# bucket is a week rather than a day so that finishing a job on Friday
+# and banking the cheque on Monday does not look like a problem.
 AGING_BUCKETS = (
-    ("current", "Not yet due"),
-    ("days_30", "1–30 days late"),
-    ("days_60", "31–60 days late"),
-    ("days_90", "61–90 days late"),
-    ("older", "Over 90 days late"),
+    ("days_7", "Finished this week"),
+    ("days_30", "8–30 days ago"),
+    ("days_60", "31–60 days ago"),
+    ("days_90", "61–90 days ago"),
+    ("older", "Over 90 days ago"),
 )
 
 
 def aging(today):
-    d30, d60, d90 = (today - timedelta(days=n) for n in (30, 60, 90))
+    d7, d30, d60, d90 = (today - timedelta(days=n) for n in (7, 30, 60, 90))
+    # `completed_at` is a datetime, so each boundary is the start of
+    # that local day — comparing a datetime against a date would
+    # quietly drop everything finished after midnight on the edge.
+    at7, at30, at60, at90 = (day_bounds(d, d)[0] for d in (d7, d30, d60, d90))
     filters = {
-        "current": Q(due_on__gte=today),
-        "days_30": Q(due_on__lt=today, due_on__gte=d30),
-        "days_60": Q(due_on__lt=d30, due_on__gte=d60),
-        "days_90": Q(due_on__lt=d60, due_on__gte=d90),
-        "older": Q(due_on__lt=d90),
+        "days_7": Q(completed_at__gte=at7),
+        "days_30": Q(completed_at__lt=at7, completed_at__gte=at30),
+        "days_60": Q(completed_at__lt=at30, completed_at__gte=at60),
+        "days_90": Q(completed_at__lt=at60, completed_at__gte=at90),
+        "older": Q(completed_at__lt=at90),
     }
     totals = _unpaid().aggregate(
         **{key: _money("balance_amount", filter=q) for key, q in filters.items()}
@@ -248,7 +273,8 @@ def aging(today):
 
 
 def oldest_unpaid(limit=10):
-    return _unpaid().select_related("contact").order_by("due_on", "pk")[:limit]
+    """Longest-finished first — the work waiting on money the longest."""
+    return _unpaid().select_related("contact").order_by("completed_at", "pk")[:limit]
 
 
 # ---------- Trend ----------
