@@ -184,7 +184,11 @@ class Goal(models.Model):
     metric — the target in force, not a history of past months."""
 
     class Metric(models.TextChoices):
-        REVENUE = "revenue", "Revenue invoiced"
+        # The label, not the stored value: since ADR 0013 this goal is
+        # measured against work finished in the month, not invoices
+        # sent, so "invoiced" described something the figure no longer
+        # counts.
+        REVENUE = "revenue", "Revenue earned"
         JOBS = "jobs", "Jobs completed"
         CUSTOMERS = "customers", "New customers"
 

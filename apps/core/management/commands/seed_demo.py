@@ -59,7 +59,7 @@ from apps.jobs.models import (
     ServiceType,
     TimeEntry,
 )
-from apps.jobs.reports import invoiced_revenue
+from apps.jobs.reports import completed_revenue
 from apps.messaging.models import Channel, ChannelMembership, Message
 from apps.messaging.services import direct_channel, visible_channels
 from apps.users.models import get_profile
@@ -740,7 +740,7 @@ class DemoSeeder:
         """Targets a little above what this month has actually done, so
         the dashboard shows progress rather than a goal already met."""
         first = self.today.replace(day=1)
-        revenue = invoiced_revenue(first, self.today)
+        revenue = completed_revenue(first, self.today)
         completed = Job.objects.filter(
             status=Job.Status.COMPLETED, completed_at__gte=day_bounds(first, self.today)[0]
         ).count()

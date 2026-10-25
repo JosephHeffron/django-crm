@@ -26,8 +26,8 @@ from .models import (
     ZERO,
     Expense,
     Invoice,
-    InvoiceLineItem,
     Job,
+    JobLineItem,
     Payment,
 )
 
@@ -39,15 +39,31 @@ def _money(expression, **filter_kwargs):
     return Coalesce(Sum(expression, **filter_kwargs), Value(ZERO), output_field=TOTAL_FIELD)
 
 
-def _sent_lines(first, last):
-    return InvoiceLineItem.objects.filter(
-        invoice__status=Invoice.Status.SENT, invoice__issued_on__range=(first, last)
+def _completed_lines(first, last):
+    """The line items of work **finished** between two local dates.
+
+    ADR 0013: revenue is completed work, not sent invoices. This
+    business is paid before a job is finished and issues no invoices,
+    so an invoice-based figure reported nothing however much work was
+    sold and paid for.
+
+    Dated by `completed_at`, never by `status` alone — the same rule
+    every other count of finished work in this app follows, and the
+    reason a reopened job takes its value back out of the period.
+    `day_bounds` because `completed_at` is a datetime and the period
+    is a pair of local dates.
+    """
+    start, end = day_bounds(first, last)
+    return JobLineItem.objects.filter(
+        job__status=Job.Status.COMPLETED,
+        job__completed_at__gte=start,
+        job__completed_at__lt=end,
     )
 
 
-def invoiced_revenue(first, last):
-    """Σ line totals of sent invoices issued between two dates (inclusive)."""
-    return _sent_lines(first, last).aggregate(total=_money(LINE_TOTAL))["total"]
+def completed_revenue(first, last):
+    """Σ line totals of work finished between two dates (inclusive)."""
+    return _completed_lines(first, last).aggregate(total=_money(LINE_TOTAL))["total"]
 
 
 def outstanding():
@@ -110,14 +126,19 @@ def report_period(preset, start, end, today):
 
 def summary(period):
     first, last = period.first, period.last
-    revenue = invoiced_revenue(first, last)
+    revenue = completed_revenue(first, last)
     expenses = Expense.objects.filter(date__range=(first, last)).aggregate(total=_money("amount"))[
         "total"
     ]
-    invoices = Invoice.objects.filter(
-        status=Invoice.Status.SENT, issued_on__range=(first, last)
-    ).count()
     start, end = day_bounds(first, last)
+    # The jobs revenue is made of, so the count and the average cannot
+    # describe a different set from the total above them. `invoice_count`
+    # and `average_invoice` used to sit here and counted sent invoices
+    # — a second definition of "how much work was there", and one that
+    # reported nothing for a business that does not invoice (ADR 0013).
+    completed = Job.objects.filter(
+        status=Job.Status.COMPLETED, completed_at__gte=start, completed_at__lt=end
+    ).count()
     return {
         "revenue": revenue,
         "collected": Payment.objects.filter(received_on__range=(first, last))
@@ -125,11 +146,8 @@ def summary(period):
         .aggregate(total=_money("amount"))["total"],
         "expenses": expenses,
         "net": revenue - expenses,
-        "invoice_count": invoices,
-        "average_invoice": (revenue / invoices).quantize(ZERO) if invoices else None,
-        "jobs_completed": Job.objects.filter(
-            status=Job.Status.COMPLETED, completed_at__gte=start, completed_at__lt=end
-        ).count(),
+        "jobs_completed": completed,
+        "average_job": (revenue / completed).quantize(ZERO) if completed else None,
     }
 
 
@@ -142,7 +160,7 @@ def _with_share(rows, given=None):
 
 def revenue_by_service(period, revenue=None):
     rows = list(
-        _sent_lines(period.first, period.last)
+        _completed_lines(period.first, period.last)
         .values("service_type__name", "service_type__tone")
         .annotate(total=_money(LINE_TOTAL))
         .order_by("-total", "service_type__name")
@@ -158,29 +176,30 @@ def _whole(rows, given):
 
 
 def revenue_by_rep(period, revenue=None):
-    """Credited to the job's sales rep; jobs with none are "Unassigned"."""
+    """Credited to the job's sales rep; jobs with none are "Unassigned".
+
+    One join shorter than it was: the lines belong to the job now, not
+    to an invoice for the job.
+    """
     rows = list(
-        _sent_lines(period.first, period.last)
+        _completed_lines(period.first, period.last)
         .values(
-            "invoice__job__sales_rep",
-            "invoice__job__sales_rep__first_name",
-            "invoice__job__sales_rep__last_name",
-            "invoice__job__sales_rep__username",
+            "job__sales_rep",
+            "job__sales_rep__first_name",
+            "job__sales_rep__last_name",
+            "job__sales_rep__username",
         )
-        .annotate(total=_money(LINE_TOTAL), jobs=Count("invoice__job", distinct=True))
+        .annotate(total=_money(LINE_TOTAL), jobs=Count("job", distinct=True))
         .order_by("-total")
     )
     for row in rows:
         full = " ".join(
             filter(
                 None,
-                (
-                    row["invoice__job__sales_rep__first_name"],
-                    row["invoice__job__sales_rep__last_name"],
-                ),
+                (row["job__sales_rep__first_name"], row["job__sales_rep__last_name"]),
             )
         )
-        row["name"] = full or row["invoice__job__sales_rep__username"] or "Unassigned"
+        row["name"] = full or row["job__sales_rep__username"] or "Unassigned"
     return _with_share(rows, revenue)
 
 
@@ -260,8 +279,8 @@ def trend(period):
     kind = _granularity(period)
     revenue = {
         row["bucket"]: row["total"]
-        for row in _sent_lines(period.first, period.last)
-        .annotate(bucket=Trunc("invoice__issued_on", kind, output_field=DateField()))
+        for row in _completed_lines(period.first, period.last)
+        .annotate(bucket=Trunc("job__completed_at", kind, output_field=DateField()))
         .values("bucket")
         .annotate(total=_money(LINE_TOTAL))
     }

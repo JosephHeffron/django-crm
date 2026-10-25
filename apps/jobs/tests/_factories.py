@@ -2,7 +2,7 @@
 module). Kept explicit rather than a factory library — the project
 has no test-data dependency and doesn't need one for this."""
 
-from datetime import datetime, timedelta
+from datetime import datetime, time, timedelta
 from decimal import Decimal
 
 from django.contrib.auth import get_user_model
@@ -54,6 +54,30 @@ def job(contact, created_by, start=None, hours=2, lines=((Decimal("1"), Decimal(
     for qty, price in lines:
         JobLineItem.objects.create(job=j, service_type=svc, quantity=qty, unit_price=price)
     return j
+
+
+def finished_at(day, hour=12):
+    """Midday on a local date, as an aware datetime.
+
+    What `completed_at` takes, and what revenue reads since ADR 0013.
+    Midday rather than midnight so a fixture sits clear of both ends
+    of the day whatever the configured timezone.
+    """
+    return timezone.make_aware(datetime.combine(day, time(hour)))
+
+
+def finish(job, when):
+    """Mark a job completed at a given moment, and return it.
+
+    Both fields, always. `completed_at` — not `status` alone — is what
+    every count of finished work reads, and since ADR 0013 what
+    revenue reads too, so a fixture that sets only the status produces
+    work that earns nothing.
+    """
+    job.status = Job.Status.COMPLETED
+    job.completed_at = when
+    job.save(update_fields=["status", "completed_at"])
+    return job
 
 
 def assign(job, crew_member, hours=None):

@@ -44,17 +44,46 @@ class ReportPeriodTests(SimpleTestCase):
             self.assertTrue(error)
 
 
+def at(year, month, day, hour=12):
+    """A moment on a fixed date — `f.finished_at` taking the parts
+    rather than a date, because every fixture here is written out."""
+    return f.finished_at(date(year, month, day), hour)
+
+
 class FigureTests(TestCase):
     """Exact totals against fixed fixtures (plan: financial aggregates
-    against fixed fixtures)."""
+    against fixed fixtures).
+
+    Since ADR 0013 the **jobs** carry the money: revenue is work
+    finished in the period, dated by `completed_at`. The invoices here
+    are only for the figures that are still about invoices —
+    outstanding, aging, and the void-invoice rule for `collected`.
+    """
 
     def setUp(self):
         self.owner = grant_role(f.user("boss"), Role.OWNER)
         self.rep = grant_role(f.user("rep", first_name="Sam", last_name="Rivera"), Role.SALES_REP)
         customer = f.contact(self.owner)
-        sold = f.job(customer, self.owner, sales_rep=self.rep)
-        house = f.job(customer, self.owner)
-        f.invoice(sold, lines=[(Decimal("2"), Decimal("100"))], issued=date(2026, 9, 3))
+        sold = f.finish(
+            f.job(
+                customer,
+                self.owner,
+                sales_rep=self.rep,
+                lines=[(Decimal("2"), Decimal("100"))],
+            ),
+            at(2026, 9, 3),
+        )
+        house = f.finish(
+            f.job(customer, self.owner, lines=[(Decimal("1"), Decimal("50"))]),
+            at(2026, 9, 20),
+        )
+        # Outside the window on both sides, and both would show up in
+        # every figure below if the period were ignored: one finished
+        # last month, one not finished at all.
+        f.finish(
+            f.job(customer, self.owner, lines=[(Decimal("1"), Decimal("900"))]), at(2026, 8, 31)
+        )
+        f.job(customer, self.owner, lines=[(Decimal("1"), Decimal("700"))])
         other = f.invoice(house, lines=[(Decimal("1"), Decimal("50"))], issued=date(2026, 9, 20))
         f.invoice(sold, issued=date(2026, 9, 21), status=Invoice.Status.DRAFT)
         f.invoice(sold, issued=date(2026, 9, 22), status=Invoice.Status.VOID)
@@ -81,10 +110,34 @@ class FigureTests(TestCase):
     def test_summary(self):
         s = reports.summary(self.period)
         self.assertEqual(
-            (s["revenue"], s["collected"], s["expenses"], s["net"], s["invoice_count"]),
+            (s["revenue"], s["collected"], s["expenses"], s["net"], s["jobs_completed"]),
             (Decimal("250"), Decimal("30"), Decimal("125"), Decimal("125"), 2),
         )
-        self.assertEqual(s["average_invoice"], Decimal("125"))
+        self.assertEqual(s["average_job"], Decimal("125"))
+        self.assertNotIn(
+            "invoice_count", s, "counting sent invoices was a second definition of the work done"
+        )
+
+    def test_cancelled_work_is_not_revenue_even_with_a_completion_date(self):
+        """Belt and braces, and the braces turn out to be load-bearing.
+
+        `status.stamp_completion` clears `completed_at` whenever a job
+        leaves COMPLETED, so for anything done through the app the date
+        window alone already excludes cancelled work. The Django admin
+        saves the model directly and does no stamping, so a cancelled
+        job *can* keep its completion date — and without the status
+        filter that work would be counted as money earned.
+
+        Written with `update()` to reach the state the way the admin
+        does, bypassing the stamping, which is the whole point.
+        """
+        job = f.finish(
+            f.job(f.contact(self.owner), self.owner, lines=[(Decimal("1"), Decimal("400"))]),
+            at(2026, 9, 10),
+        )
+        self.assertEqual(reports.summary(self.period)["revenue"], Decimal("650"))
+        Job.objects.filter(pk=job.pk).update(status=Job.Status.CANCELLED)
+        self.assertEqual(reports.summary(self.period)["revenue"], Decimal("250"))
 
     def test_breakdowns(self):
         by_rep = reports.revenue_by_rep(self.period, Decimal("250"))
@@ -178,24 +231,26 @@ class UnguardedFigureTests(TestCase):
         self.assertEqual(figures["expenses"], Decimal("40"))
         self.assertEqual(figures["net"], Decimal("-40"))
 
-    def test_the_average_invoice_is_rounded_to_money(self):
-        """Three invoices worth 50 average 16.666..., which **rounds**
-        to 16.67 and **truncates** to 16.66 — so this fails for either
-        mistake. The fixture above divides 250 by 2 exactly, so the
-        rounding never showed at all.
+    def test_the_average_job_is_rounded_to_money(self):
+        """Three finished jobs worth 50 average 16.666..., which
+        **rounds** to 16.67 and **truncates** to 16.66 — so this fails
+        for either mistake.
 
-        The first version of this test used 250 over 3. That is
-        83.333..., which rounds and truncates to the same 83.33, so it
-        asserted two decimal places and called it rounding — caught by
-        Sourcery on PR #171.
+        Two earlier versions of this test were weaker. The first
+        divided 250 by 2 exactly, so no rounding happened at all; the
+        second used 250 over 3, which rounds and truncates to the same
+        83.33, so it asserted two decimal places and called that
+        rounding (Sourcery, PR #171). ADR 0013 then moved the figure
+        from invoices to finished work, which is why it builds jobs
+        now — the guard forced that move to be deliberate rather than
+        quiet, which is what it was for.
         """
         for day, amount in ((3, "20"), (10, "20"), (17, "10")):
-            f.invoice(
-                self.job,
-                lines=[(Decimal("1"), Decimal(amount))],
-                issued=date(2026, 9, day),
+            f.finish(
+                f.job(self.customer, self.owner, lines=[(Decimal("1"), Decimal(amount))]),
+                at(2026, 9, day),
             )
-        average = reports.summary(self.period)["average_invoice"]
+        average = reports.summary(self.period)["average_job"]
         self.assertEqual(average, Decimal("16.67"), "16.66 means it was truncated, not rounded")
         self.assertEqual(average.as_tuple().exponent, -2, "two decimal places, not a long third")
 
@@ -265,14 +320,26 @@ class FinancialsPageTests(TestCase):
             )
 
     def test_renders_every_preset_and_explains_a_bad_range(self):
+        """The fixture used to set `status=COMPLETED` and no
+        `completed_at`, so after ADR 0013 the job earned nothing — and
+        the test still passed, because the $175.00 it looked for was
+        coming from the unpaid-invoice table further down the page.
+        It finishes the job properly now, and names the card it is
+        reading so it cannot drift onto another figure again.
+        """
         owner = grant_role(f.user("boss"), Role.OWNER)
-        job = f.job(f.contact(owner), owner, status=Job.Status.COMPLETED)
+        job = f.finish(f.job(f.contact(owner), owner), f.finished_at(timezone.localdate()))
         f.invoice(job, issued=timezone.localdate())
         self.client.login(username="boss", password=PASSWORD)
         for preset in ("day", "week", "month", "ytd"):
             response = self.client.get(reverse("jobs:financials"), {"range": preset})
             self.assertEqual(response.status_code, 200, preset)
+            self.assertEqual(response.context["summary"]["revenue"], Decimal("175"), preset)
             self.assertContains(response, "$175.00")
+            # The meta under the revenue card, which reads two keys
+            # this unit renamed. A typo there renders as nothing at
+            # all, so it needs asserting rather than eyeballing.
+            self.assertContains(response, "1 job finished, avg $175.00")
         response = self.client.get(
             reverse("jobs:financials"),
             {"range": "custom", "start": "2026-05-01", "end": "2026-04-01"},

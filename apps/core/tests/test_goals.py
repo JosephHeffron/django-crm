@@ -80,12 +80,17 @@ class GoalProgressTests(TestCase):
 
     def test_revenue_progress_counts_this_month_only(self):
         Goal.objects.create(metric=Goal.Metric.REVENUE, target=Decimal("1000"))
-        job = f.job(f.contact(self.owner), self.owner)
-        f.invoice(job, lines=[(Decimal("1"), Decimal("400"))], issued=self.month_first)
-        f.invoice(
-            job,
-            lines=[(Decimal("1"), Decimal("999"))],
-            issued=self.month_first - timedelta(days=1),  # last month
+        customer = f.contact(self.owner)
+        # ADR 0013: the goal is measured against work finished in the
+        # month, the same definition Financials uses, so the two
+        # cannot disagree about what revenue is.
+        f.finish(
+            f.job(customer, self.owner, lines=[(Decimal("1"), Decimal("400"))]),
+            f.finished_at(self.month_first),
+        )
+        f.finish(
+            f.job(customer, self.owner, lines=[(Decimal("1"), Decimal("999"))]),
+            f.finished_at(self.month_first - timedelta(days=1)),  # last month
         )
         row = progress(self.today)[0]
         self.assertEqual(
@@ -97,8 +102,10 @@ class GoalProgressTests(TestCase):
 
     def test_a_met_goal_caps_the_bar_at_full(self):
         Goal.objects.create(metric=Goal.Metric.REVENUE, target=Decimal("100"))
-        job = f.job(f.contact(self.owner), self.owner)
-        f.invoice(job, lines=[(Decimal("1"), Decimal("250"))], issued=self.today)
+        f.finish(
+            f.job(f.contact(self.owner), self.owner, lines=[(Decimal("1"), Decimal("250"))]),
+            f.finished_at(self.today),
+        )
         row = progress(self.today)[0]
         self.assertEqual((row.percent, row.remaining), (100, Decimal("0")))
         self.assertTrue(row.is_met)

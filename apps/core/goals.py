@@ -16,7 +16,7 @@ from decimal import Decimal
 from apps.crm.models import Contact
 from apps.jobs.calendar import day_bounds
 from apps.jobs.models import Job
-from apps.jobs.reports import invoiced_revenue
+from apps.jobs.reports import completed_revenue
 
 from .models import Goal
 
@@ -56,7 +56,9 @@ def _actuals(today):
     first = month_start(today)
     start, end = day_bounds(first, today)
     return {
-        Goal.Metric.REVENUE: invoiced_revenue(first, today),
+        # The same definition Financials uses, so a goal and the page
+        # it is measured against cannot disagree (ADR 0013).
+        Goal.Metric.REVENUE: completed_revenue(first, today),
         Goal.Metric.JOBS: Decimal(
             Job.objects.filter(
                 status=Job.Status.COMPLETED, completed_at__gte=start, completed_at__lt=end

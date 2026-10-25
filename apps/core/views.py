@@ -38,7 +38,7 @@ from apps.jobs import reports
 from apps.jobs.access import jobs_for, quotes_for
 from apps.jobs.calendar import day_bounds
 from apps.jobs.models import Job, JobAssignment, Quote, ServiceType
-from apps.jobs.reports import invoiced_revenue, outstanding
+from apps.jobs.reports import completed_revenue, outstanding
 from apps.messaging.services import unread_count
 from apps.users.models import get_profile
 from apps.users.roles import (
@@ -234,15 +234,15 @@ class DashboardView(LoginRequiredMixin, TemplateView):
         previous_first = add_months(month_first, -1)
         previous_last = min(add_months(today, -1), month_first - timedelta(days=1))
         previous = (
-            invoiced_revenue(previous_first, previous_last)
+            completed_revenue(previous_first, previous_last)
             if previous_last >= previous_first
             else None
         )
         _, buckets = reports.trend(period)
         # Today and this week stay on the card's second line: the design
         # is month-first, but a day's takings are what an owner checks.
-        context["revenue_today"] = invoiced_revenue(today, today)
-        context["revenue_week"] = invoiced_revenue(week_start, today)
+        context["revenue_today"] = completed_revenue(today, today)
+        context["revenue_week"] = completed_revenue(week_start, today)
         context["revenue_spark"] = reports.sparkline(buckets)
         context["revenue_change"] = reports.change(figures["revenue"], previous)
         context["month_label"] = f"{today:%B}"
@@ -273,8 +273,13 @@ class DashboardView(LoginRequiredMixin, TemplateView):
             _card(
                 "Jobs completed",
                 figures["jobs_completed"],
-                f"This month · {figures['invoice_count']} invoice"
-                f"{pluralize(figures['invoice_count'])} sent",
+                # The money card above is the value of exactly these
+                # jobs now (ADR 0013), so the meta says what they are
+                # worth on average rather than counting invoices that
+                # this business does not send.
+                f"This month · avg {money(figures['average_job'])}"
+                if figures["average_job"]
+                else "This month",
                 url=reverse("jobs:calendar"),
                 accent="purple",
             ),
