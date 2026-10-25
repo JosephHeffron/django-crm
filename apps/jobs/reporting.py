@@ -298,13 +298,14 @@ CATALOGUE = (
         ),
         _revenue_by_service,
         owner_only=True,
-        note="Counts sent invoices by the date issued. Drafts aren't billed "
-        "yet; voided ones were never owed.",
+        note="Counts work finished in the period, by the day it was "
+        "finished. Jobs still scheduled or in progress aren't counted "
+        "yet, and reopening one takes its value back out.",
     ),
     Report(
         "revenue-by-rep",
         "Revenue by sales rep",
-        "Who sold the work that got invoiced.",
+        "Who sold the work that got done.",
         "users",
         (
             Column("name", "Sales rep"),

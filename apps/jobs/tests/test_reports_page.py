@@ -10,7 +10,7 @@ from django.utils import timezone
 from apps.crm.models import Contact
 from apps.crm.tests._helpers import grant_role
 from apps.jobs import crew, reporting
-from apps.jobs.models import Expense, Invoice, Job, Quote
+from apps.jobs.models import Expense, Job, Quote
 from apps.users.roles import Role
 
 from . import _factories as f
@@ -34,6 +34,13 @@ class ReportTestCase(TestCase):
 
     def rows(self, slug, **params):
         return self.client.get(detail(slug, **params)).context["table"].rows
+
+    def finished(self, amount, when=None, **extra):
+        """Work worth `amount`, finished — which is what revenue is
+        made of since ADR 0013. These fixtures used to put the money
+        on an invoice and leave the job empty."""
+        job = f.job(self.customer, self.owner, lines=[(Decimal("1"), Decimal(amount))], **extra)
+        return f.finish(job, when or f.finished_at(self.today))
 
 
 class CatalogueTests(ReportTestCase):
@@ -73,28 +80,32 @@ class CatalogueTests(ReportTestCase):
 
 
 class FiguresTests(ReportTestCase):
-    def test_revenue_by_service_matches_what_was_invoiced(self):
-        job = f.job(self.customer, self.owner, lines=[])
-        f.invoice(job, lines=[(Decimal("2"), Decimal("150"))], issued=self.today)
+    def test_revenue_by_service_matches_the_work_that_was_finished(self):
+        f.finish(
+            f.job(self.customer, self.owner, lines=[(Decimal("2"), Decimal("150"))]),
+            f.finished_at(self.today),
+        )
         rows = self.rows("revenue-by-service")
         self.assertEqual(rows[0]["total"], Decimal("300.00"))
         self.assertEqual(rows[0]["share"], 100)
 
-    def test_a_draft_invoice_is_not_revenue(self):
-        job = f.job(self.customer, self.owner, lines=[])
-        f.invoice(job, lines=[(Decimal("1"), Decimal("500"))], status=Invoice.Status.DRAFT)
+    def test_work_that_is_not_finished_is_not_revenue(self):
+        """It was a draft invoice that did not count. Since ADR 0013
+        the thing that does not count is unfinished work — and the
+        old version of this test passed trivially, because the job it
+        built had no line items at all."""
+        f.job(self.customer, self.owner, lines=[(Decimal("1"), Decimal("500"))])
         self.assertEqual(self.rows("revenue-by-service"), [])
+        self.assertEqual(self.rows("revenue-by-rep"), [])
 
     def test_revenue_by_rep_credits_the_jobs_rep(self):
-        job = f.job(self.customer, self.owner, sales_rep=self.rep, lines=[])
-        f.invoice(job, lines=[(Decimal("1"), Decimal("400"))], issued=self.today)
+        self.finished("400", sales_rep=self.rep)
         rows = self.rows("revenue-by-rep")
         self.assertEqual(rows[0]["name"], "Robin Reyes")
         self.assertEqual(rows[0]["total"], Decimal("400.00"))
 
     def test_profit_over_time_subtracts_expenses(self):
-        job = f.job(self.customer, self.owner, lines=[])
-        f.invoice(job, lines=[(Decimal("1"), Decimal("900"))], issued=self.today)
+        self.finished("900")
         Expense.objects.create(
             date=self.today,
             amount=Decimal("250"),
@@ -135,14 +146,8 @@ class FiguresTests(ReportTestCase):
     def test_shares_add_up_to_the_whole(self):
         # Derived from the rows themselves, so they can't disagree with
         # the totals beside them.
-        job = f.job(self.customer, self.owner, lines=[])
-        f.invoice(job, lines=[(Decimal("1"), Decimal("300"))], issued=self.today)
-        other = f.job(self.customer, self.owner, lines=[])
-        f.invoice(
-            other,
-            lines=[(Decimal("1"), Decimal("100"))],
-            issued=self.today,
-        )
+        self.finished("300")
+        self.finished("100")
         rows = self.rows("revenue-by-service")
         self.assertEqual(sum(row["share"] for row in rows), 100)
 
@@ -200,9 +205,8 @@ class FiguresTests(ReportTestCase):
         return first_of_month
 
     def test_the_period_follows_the_buttons(self):
-        job = f.job(self.customer, self.owner, lines=[])
         earlier = self.earlier_this_year()
-        f.invoice(job, lines=[(Decimal("1"), Decimal("100"))], issued=earlier)
+        self.finished("100", when=f.finished_at(earlier))
         if earlier.month != self.today.month:
             self.assertEqual(self.rows("revenue-by-service", range="month"), [])
         self.assertEqual(len(self.rows("revenue-by-service", range="ytd")), 1)
@@ -210,8 +214,7 @@ class FiguresTests(ReportTestCase):
 
 class TotalsTests(ReportTestCase):
     def test_money_and_counts_are_totalled_but_shares_are_not(self):
-        job = f.job(self.customer, self.owner, sales_rep=self.rep, lines=[])
-        f.invoice(job, lines=[(Decimal("1"), Decimal("250"))], issued=self.today)
+        self.finished("250", sales_rep=self.rep)
         table = self.client.get(detail("revenue-by-rep")).context["table"]
         self.assertEqual(table.totals["total"], Decimal("250.00"))
         self.assertEqual(table.totals["jobs"], 1)
@@ -227,8 +230,10 @@ class CsvTests(ReportTestCase):
         return response, list(csv.DictReader(io.StringIO(body)))
 
     def test_the_file_holds_what_the_page_shows(self):
-        job = f.job(self.customer, self.owner, lines=[])
-        f.invoice(job, lines=[(Decimal("3"), Decimal("100"))], issued=self.today)
+        f.finish(
+            f.job(self.customer, self.owner, lines=[(Decimal("3"), Decimal("100"))]),
+            f.finished_at(self.today),
+        )
         response, rows = self.download("revenue-by-service")
         self.assertIn("attachment", response["Content-Disposition"])
         self.assertIn("revenue-by-service-", response["Content-Disposition"])
@@ -255,9 +260,8 @@ class CsvTests(ReportTestCase):
         self.assertEqual(len(self.download("revenue-by-service", range="ytd")[1]), 1)
 
     def test_a_custom_range_is_carried_into_the_download(self):
-        job = f.job(self.customer, self.owner, lines=[])
         day = self.today - timedelta(days=3)
-        f.invoice(job, lines=[(Decimal("1"), Decimal("777"))], issued=day)
+        self.finished("777", when=f.finished_at(day))
         page = self.client.get(
             detail("revenue-by-service", range="custom", start=day.isoformat(), end=day.isoformat())
         )

@@ -43,7 +43,7 @@
     <div class="stat-card is-tinted accent-blue">
       <div class="stat-label">Revenue</div>
       <div class="stat-value">{{ summary.revenue|money }}</div>
-      <div class="stat-meta">{{ summary.invoice_count }} invoice{{ summary.invoice_count|pluralize }}{% if summary.average_invoice %}, avg {{ summary.average_invoice|money }}{% endif %}</div>
+      <div class="stat-meta">{{ summary.jobs_completed }} job{{ summary.jobs_completed|pluralize }} finished{% if summary.average_job %}, avg {{ summary.average_job|money }}{% endif %}</div>
     </div>
     <div class="stat-card accent-green">
       <div class="stat-label">Collected</div>

@@ -1,5 +1,6 @@
 from django.contrib import admin
 
+from . import status
 from .models import (
     Expense,
     Invoice,
@@ -62,6 +63,22 @@ class JobAdmin(admin.ModelAdmin):
     autocomplete_fields = ("contact",)
     date_hierarchy = "scheduled_start"
     inlines = [JobLineItemInline, JobAssignmentInline]
+
+    def save_model(self, request, obj, form, change):
+        """Keep `completed_at` in step with the status, the way every
+        other path does.
+
+        The admin writes the model directly, so it was the one place
+        the two could drift — in both directions, and both cost money
+        since ADR 0013. Marking a job completed here without filling
+        the date in produced work worth nothing (revenue reads
+        `completed_at`), and cancelling a completed job left the date
+        behind, which only the status filter kept out of the figures.
+        `status.stamp_completion` is the same helper the status button
+        and the job form use.
+        """
+        status.stamp_completion(obj)
+        super().save_model(request, obj, form, change)
 
 
 @admin.register(Photo)

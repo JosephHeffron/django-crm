@@ -45,16 +45,39 @@ class NoRoleDashboardTests(TestCase):
 class OwnerDashboardTests(DashboardTestCase):
     role = Role.OWNER
 
-    def test_revenue_counts_sent_invoices_by_issue_date(self):
+    def test_revenue_counts_work_finished_by_the_day_it_was_finished(self):
+        """ADR 0013: the dashboard's revenue is completed work, the
+        same definition Financials and the monthly goal use.
+
+        Each excluded job here is excluded for its own reason — one
+        is not finished, one finished last week — so a figure that
+        ignored either the status or the date would move.
+        """
         customer = f.contact(self.user)
-        job = f.job(customer, self.user)
         today = timezone.localdate()
         monday = today - timedelta(days=today.weekday())
-        f.invoice(job, lines=[(Decimal("2"), Decimal("100"))], issued=today)
-        f.invoice(job, lines=[(Decimal("1"), Decimal("50"))], issued=monday)
-        f.invoice(job, issued=today, status=Invoice.Status.DRAFT)  # not billed yet
-        f.invoice(job, issued=today, status=Invoice.Status.VOID)  # never owed
-        f.invoice(job, issued=monday - timedelta(days=1))  # last week
+        f.finish(
+            f.job(customer, self.user, lines=[(Decimal("2"), Decimal("100"))]), f.finished_at(today)
+        )
+        f.finish(
+            f.job(customer, self.user, lines=[(Decimal("1"), Decimal("50"))]), f.finished_at(monday)
+        )
+        f.job(customer, self.user, lines=[(Decimal("1"), Decimal("900"))])  # not finished
+        # Cancelled but still carrying a completion date, which is the
+        # state the admin can leave behind. Without it this test could
+        # not tell the status filter from the date filter — the
+        # unfinished job above has a null `completed_at`, so dropping
+        # the status check would change nothing. Sourcery caught that
+        # on PR #173.
+        stale = f.finish(
+            f.job(customer, self.user, lines=[(Decimal("1"), Decimal("600"))]),
+            f.finished_at(today),
+        )
+        Job.objects.filter(pk=stale.pk).update(status=Job.Status.CANCELLED)
+        f.finish(
+            f.job(customer, self.user, lines=[(Decimal("1"), Decimal("700"))]),
+            f.finished_at(monday - timedelta(days=1)),
+        )  # last week
 
         context = self.get().context
         self.assertEqual(
@@ -270,31 +293,42 @@ class DashboardLayoutTests(DashboardTestCase):
         self.assertEqual(cards[0]["label"], "Revenue this month")
 
     def test_the_revenue_card_keeps_today_and_this_week(self):
-        job = f.job(f.contact(self.user), self.user)
-        f.invoice(job, lines=[(Decimal("1"), Decimal("120"))], issued=timezone.localdate())
+        f.finish(
+            f.job(f.contact(self.user), self.user, lines=[(Decimal("1"), Decimal("120"))]),
+            f.finished_at(timezone.localdate()),
+        )
         context = self.get().context
         self.assertEqual(context["revenue_today"], Decimal("120"))
         self.assertIn("today", context["cards"][0]["meta"])
 
     def test_the_mini_chart_appears_once_there_is_revenue(self):
         self.assertIsNone(self.get().context["revenue_spark"])
-        job = f.job(f.contact(self.user), self.user)
-        f.invoice(job, lines=[(Decimal("1"), Decimal("120"))], issued=timezone.localdate())
+        f.finish(
+            f.job(f.contact(self.user), self.user, lines=[(Decimal("1"), Decimal("120"))]),
+            f.finished_at(timezone.localdate()),
+        )
         response = self.get()
         self.assertIsNotNone(response.context["revenue_spark"])
         self.assertContains(response, "spark-bar")
 
     def test_revenue_is_compared_with_the_same_stretch_of_last_month(self):
         today = timezone.localdate()
-        job = f.job(f.contact(self.user), self.user)
-        f.invoice(job, lines=[(Decimal("1"), Decimal("200"))], issued=today)
+        customer = f.contact(self.user)
+        f.finish(
+            f.job(customer, self.user, lines=[(Decimal("1"), Decimal("200"))]), f.finished_at(today)
+        )
         last_month = add_months(today.replace(day=1), -1)
-        f.invoice(job, lines=[(Decimal("1"), Decimal("100"))], issued=last_month)
+        f.finish(
+            f.job(customer, self.user, lines=[(Decimal("1"), Decimal("100"))]),
+            f.finished_at(last_month),
+        )
         self.assertEqual(self.get().context["revenue_change"], 100)
 
     def test_no_comparison_without_an_earlier_month(self):
-        job = f.job(f.contact(self.user), self.user)
-        f.invoice(job, lines=[(Decimal("1"), Decimal("200"))], issued=timezone.localdate())
+        f.finish(
+            f.job(f.contact(self.user), self.user, lines=[(Decimal("1"), Decimal("200"))]),
+            f.finished_at(timezone.localdate()),
+        )
         self.assertIsNone(self.get().context["revenue_change"])
 
     def test_quick_action_tiles_only_point_where_the_role_may_go(self):

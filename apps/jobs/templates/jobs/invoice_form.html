@@ -30,7 +30,7 @@
           {% include "partials/_field.html" with field=form.due_on %}
         </div>
         {% include "partials/_field.html" with field=form.status %}
-        <p class="helptext">A draft isn't billed yet and doesn't count as revenue. Void means it was never owed.</p>
+        <p class="helptext">A draft isn't billed yet; void means it was never owed. Neither affects revenue — since the switch to recording payment against the job, revenue is the work you finish, not the invoices you send.</p>
       </section>
 
       <section class="section-card">

@@ -8,7 +8,7 @@ from django.urls import reverse
 from django.utils import timezone
 
 from apps.crm.tests._helpers import grant_role
-from apps.jobs.models import Expense, Invoice, InvoiceLineItem, Payment
+from apps.jobs.models import Expense, Invoice, InvoiceLineItem, Job, Payment
 from apps.users.roles import Role
 
 from . import _factories as f
@@ -372,17 +372,20 @@ class ExpenseTests(FinanceTestCase):
 
 class ProfitTests(FinanceTestCase):
     def test_money_recorded_through_the_pages_reaches_profit(self):
+        """End to end, through the pages a person actually uses.
+
+        Rewritten for ADR 0013: revenue is the job being **finished**,
+        and the payment goes against the job, so this drives the
+        one-click status button and the job's own payment page rather
+        than issuing an invoice. `self.job` is worth 2 x 150.
+        """
         self.client.post(
-            NEW_INVOICE,
-            self.with_lines(
-                [{"service_type": self.service.pk, "quantity": "1", "unit_price": "500.00"}]
-            ),
+            reverse("jobs:job_status", args=[self.job.pk]), {"status": Job.Status.COMPLETED}
         )
-        invoice = Invoice.objects.get()
         self.client.post(
-            reverse("jobs:payment_create", args=[invoice.pk]),
+            reverse("jobs:job_payment_create", args=[self.job.pk]),
             {
-                "amount": "500.00",
+                "amount": "300.00",
                 "received_on": self.today.isoformat(),
                 "method": Payment.Method.CASH,
                 "notes": "",
@@ -398,21 +401,33 @@ class ProfitTests(FinanceTestCase):
             },
         )
         summary = self.client.get(reverse("jobs:financials"), {"range": "month"}).context["summary"]
-        self.assertEqual(summary["revenue"], Decimal("500.00"))
-        self.assertEqual(summary["collected"], Decimal("500.00"))
+        self.assertEqual(summary["revenue"], Decimal("300.00"))
+        self.assertEqual(summary["collected"], Decimal("300.00"))
         self.assertEqual(summary["expenses"], Decimal("125.00"))
-        self.assertEqual(summary["net"], Decimal("375.00"))
+        self.assertEqual(summary["net"], Decimal("175.00"))
 
-    def test_a_draft_invoice_is_not_revenue_yet(self):
+    def test_work_still_in_progress_is_not_revenue_yet(self):
+        """It was a draft invoice that did not count. Since ADR 0013 it
+        is unfinished work, and this drives the same status button to
+        get there — a job in progress earns nothing until it is done.
+        """
         self.client.post(
-            NEW_INVOICE,
-            self.with_lines(
-                [{"service_type": self.service.pk, "quantity": "1", "unit_price": "500.00"}],
-                status=Invoice.Status.DRAFT,
-            ),
+            reverse("jobs:job_status", args=[self.job.pk]), {"status": Job.Status.IN_PROGRESS}
         )
         summary = self.client.get(reverse("jobs:financials"), {"range": "month"}).context["summary"]
         self.assertEqual(summary["revenue"], Decimal("0.00"))
+
+    def test_reopening_finished_work_takes_its_value_back_out(self):
+        """The consequence ADR 0013 names: revenue moves when a job is
+        marked complete, so `completed_at` being cleared on reopening
+        is load-bearing for money now, not only for counts."""
+        complete = reverse("jobs:job_status", args=[self.job.pk])
+        self.client.post(complete, {"status": Job.Status.COMPLETED})
+        figures = self.client.get(reverse("jobs:financials"), {"range": "month"}).context["summary"]
+        self.assertEqual(figures["revenue"], Decimal("300.00"))
+        self.client.post(complete, {"status": Job.Status.IN_PROGRESS})
+        figures = self.client.get(reverse("jobs:financials"), {"range": "month"}).context["summary"]
+        self.assertEqual(figures["revenue"], Decimal("0.00"))
 
     def test_the_page_is_called_profit(self):
         response = self.client.get(reverse("jobs:financials"))

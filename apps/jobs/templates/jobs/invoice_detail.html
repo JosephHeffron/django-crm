@@ -28,7 +28,7 @@
   {% if invoice.status == "draft" %}
     <div class="info-banner">
       <svg class="icon" aria-hidden="true"><use href="#icon-info"/></svg>
-      <p>This is a draft. It isn't owed yet and doesn't count as revenue — open <strong>Edit</strong> and set it to Sent once you've billed it.</p>
+      <p>This is a draft — it isn't owed yet. Open <strong>Edit</strong> and set it to Sent once you've billed it. It doesn't change your revenue either way: that comes from the work you finish.</p>
     </div>
   {% elif invoice.status == "void" %}
     <div class="info-banner">
