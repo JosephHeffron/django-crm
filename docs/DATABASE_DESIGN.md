@@ -555,8 +555,10 @@ Channel 1──* ChannelMembership *──1 User;  Channel 1──* Message
   and nothing in the app reads these models; they stay for Phase 24
   (customer texting), which is what `Message.transport`, `direction`,
   `external_id` and `delivery_status` were added for.
-  `Message.ref_job` / `ref_contact` / `ref_quote` now have **no
-  reader at all** — a contact's timeline used to show them.
+  `Message.ref_job` / `ref_contact` / `ref_quote` have **no reader in
+  the application** — a contact's timeline used to show them. The
+  Django admin still exposes all three as `raw_id_fields`, which is
+  the only remaining way to see or change one.
 - **Channel** (`apps.messaging`): name, slug (unique), kind
   (public/direct; `customer_sms` reserved), audience (everyone / sales —
   who may read a public channel; #sales is sales-only, messaging/0003),
