@@ -94,7 +94,7 @@ actually verified.
 The original 14-phase roadmap (Phases 0-14) is fully complete — see
 "Project complete," below, for the summary, and "Completed" for full
 phase-by-phase detail. The post-release roadmap is now underway:
-Phases 15-19 are complete — see "Post-release roadmap progress,"
+Phases 15-21 are complete — see "Post-release roadmap progress,"
 below, for current status. This section deliberately stays short and points at
 those two rather than duplicating them, so it can't drift out of sync
 with them the way an earlier version of this section once did (it
@@ -1485,33 +1485,22 @@ The three owner-reported items are built, tested, browser-verified and
 merged; nothing about them is outstanding, and neither is anything
 else — there is no work in flight and no open PR.
 
-So: back to the roadmap: **Phase 20 — invoicing
-and financials**: invoices from completed jobs, payments, expenses, the
-Owner-only Financials page, profile stats hardening.
+**How that prediction turned out, kept as a record.** Before Phase 20
+started, this section predicted it was "mostly done, mostly undone,
+or — most likely — built but unasserted in places", and said to find
+each item's code and mutate it.
 
-**Run the verification pass first.** This is the third phase in a row
-where the roadmap entry turned out to describe intent rather than
-delivery, and Phase 20's entry lists things that look very much like
-they already exist:
+The prediction was right about the code and missed the bigger thing.
+16 mutations found 12 behaviours properly held and **four figures with
+nothing holding them**. What no mutation could find was that every
+revenue figure came from sent invoices while this business issues
+none — so the phase became ADR 0013 and a new money model, not the
+hardening the entry described. Phase 21 then went further: three of
+its five items were deleted rather than built.
 
-- Invoices, payments and expenses all have models, forms, list pages
-  and create views, built in Phase 17 and exercised by the QA audit's
-  end-to-end test (enquiry → paid invoice).
-- Financials exists, with revenue, collected, expenses, net, breakdowns
-  by service and rep, aged balances and a trend chart.
-- `apps/jobs/reports.py` and `apps/jobs/reporting.py` are substantial
-  and tested.
-
-So Phase 20 may be mostly done, mostly undone, or — most likely, on the
-evidence of Phases 18 and 19 — built but unasserted in places. The
-method that worked twice: take each item in the roadmap entry, find the
-code, then **mutate it and see whether anything fails**. Per-service
-intervals passed 14 tests with the interval hard-coded; that is what an
-unasserted feature looks like.
-
-Two known gaps that belong to Phase 20's territory and are already
-written down under "Known issues": a service cannot be added in the
-app, and a payment cannot be corrected.
+The method stands; the lesson added is that a verification pass should
+also ask whether the figures describe what the business actually does,
+not only whether the code is asserted.
 
 ### Worth considering for its own unit
 
@@ -1552,9 +1541,11 @@ catalogue.
 
 **The Inbox is gone and anyone who bookmarked it gets a 404.** No
 redirect was added, because there is nowhere to send them (ADR 0014).
-`Message.ref_job`, `ref_contact` and `ref_quote` now have no reader at
-all; they stay for Phase 24 and `docs/DATABASE_DESIGN.md` says so, so
-nobody mistakes them for live wiring.
+`Message.ref_job`, `ref_contact` and `ref_quote` have **no reader in
+the application** — the Django admin still shows them, as
+`MessageAdmin.raw_id_fields`, which is the only way to see or change
+one now. They stay for Phase 24 and `docs/DATABASE_DESIGN.md` says so,
+so nobody mistakes them for live wiring.
 
 **A payment cannot be corrected and an expense cannot be removed.**
 Same measurement: `jobs.change_payment` and `jobs.delete_expense` are

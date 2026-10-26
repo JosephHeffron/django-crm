@@ -114,10 +114,26 @@ timeline ever reads `ref_contact` again, that is what notices.
 
 ## Ten tests encoded the removed feature
 
-The navigation sidebar (three), the bottom bar, the owner's sidebar
-count guard, two dashboard card lists, the quick-action tiles, the
-profile's Message button, the seed's team-chat assertions, and the two
-timeline tests. All rewritten rather than deleted where there was
+Named, because an inventory that does not add up is worse than none —
+the first version of this list said "three" sidebar tests and then
+counted the sidebar count guard again, giving twelve items for ten
+failures:
+
+1. `test_sales_rep` — the sidebar's link list
+2. `test_cleaner_and_no_role` — the same, for a cleaner
+3. `test_owner` — the owner's sidebar **count** guard (21 now, was 22)
+4. `test_bottom_bar_per_role` — the cleaner's phone bar
+5. `test_a_cleaner_gets_their_own_cards_and_no_money` — card labels
+6. `test_quick_action_tiles_only_point_where_the_role_may_go`
+7. `test_owner_sees_a_teammates_stats_and_own_page_redirects` — the
+   profile's Message button
+8. `test_populates_every_area_with_real_data` — the seed's team-chat
+   assertions (its module also failed to import, since it pulled
+   `direct_channel` from the deleted `services.py`)
+9. `test_timeline_merges_every_kind_newest_first`
+10. `test_direct_messages_only_show_to_members`
+
+All rewritten rather than deleted where there was
 still something true to assert — the seed test now asserts the
 **absence** of messages and the presence of the three reference
 channels, because a seed that quietly started filling an unreachable
@@ -141,10 +157,11 @@ fourth item — all caught.
 
 - Anyone with the Inbox bookmarked gets a 404. No redirect: there is
   nowhere to send them.
-- `Message.ref_job`, `ref_contact` and `ref_quote` now have **no
-  reader at all**. They stay for Phase 24;
-  `docs/DATABASE_DESIGN.md` says so, so they are not mistaken for live
-  wiring.
+- `Message.ref_job`, `ref_contact` and `ref_quote` have **no reader
+  in the application**; `MessageAdmin.raw_id_fields` still exposes
+  them, so the Django admin is the one remaining way in. They stay for
+  Phase 24; `docs/DATABASE_DESIGN.md` says so, so they are not
+  mistaken for live wiring.
 - Phase 24 (customer texting over SMS) still stands. `transport`,
   `direction`, `external_id` and `delivery_status` were added for it
   and are still on the model.

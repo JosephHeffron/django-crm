@@ -106,8 +106,11 @@ it reversible from git.
 - **Every page gets one query cheaper** for logged-in users: the
   unread badge was an aggregate over a subquery per channel on every
   render.
-- `Message.ref_job`, `ref_contact` and `ref_quote` now have **no
-  reader at all**. They stay on the model for Phase 24, and
+- `Message.ref_job`, `ref_contact` and `ref_quote` have **no reader
+  in the application**. `MessageAdmin` still lists all three in
+  `raw_id_fields`, so the Django admin is the one place they can still
+  be seen or changed — worth knowing before concluding they are inert.
+  They stay on the model for Phase 24, and
   `docs/DATABASE_DESIGN.md` says so, so the next person does not
   mistake them for live wiring.
 - A customer's timeline loses an entry type. Jobs, quotes, notes and
