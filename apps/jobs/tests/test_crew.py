@@ -1,5 +1,6 @@
-from datetime import timedelta
+from datetime import datetime, time, timedelta
 from decimal import Decimal
+from unittest import mock
 
 from django.test import TestCase
 from django.urls import reverse
@@ -136,8 +137,38 @@ class TimeClockTests(CrewTestCase):
 
 
 class PayrollTests(CrewTestCase):
+    """The clock is pinned for this class, and it has to be.
+
+    `log()` clocks hours **ending now**, so an entry starts `hours`
+    earlier — and payroll filters on `started_at` within the week it
+    shows, which begins on Monday. Run at 00:31 on a Monday, a
+    four-hour entry started on Sunday evening: last week, outside the
+    window, so three of these tests reported zero hours. Caught on
+    2026-10-26, on `main`, with nothing uncommitted.
+
+    There is no fixture that fixes it, either: in the first four hours
+    of a Monday there is no room for a four-hour entry inside the week
+    at all. So the class pins "now" to midday on the Wednesday of
+    whatever week it runs in — late enough that hours fit behind it,
+    early enough to stay inside the week.
+
+    The **fourth** time-dependent failure in this project (after the
+    Payroll seed before mid-morning, the map's Sunday-night window and
+    the invoice factory's expiring date), which is why
+    `docs/PROJECT_STATE.md` wants the suite run under a pinned clock in
+    CI rather than one test pinned at a time.
+    """
+
     def setUp(self):
         super().setUp()
+        real_today = timezone.localdate()
+        wednesday = real_today - timedelta(days=real_today.weekday()) + timedelta(days=2)
+        pinned = timezone.make_aware(datetime.combine(wednesday, time(12)))
+        # `timezone.localdate()` calls the module's own `now`, so the
+        # view's idea of "this week" moves with the fixture's.
+        patcher = mock.patch.object(timezone, "now", return_value=pinned)
+        patcher.start()
+        self.addCleanup(patcher.stop)
         self.client.login(username="boss", password=PASSWORD)
         profile = get_profile(self.casey)
         profile.hourly_rate = Decimal("22.50")
