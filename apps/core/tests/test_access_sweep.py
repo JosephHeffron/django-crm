@@ -175,8 +175,6 @@ class RouteSweep(TestCase):
             "jobs:photo_remove": [self.photo.uuid],
             "jobs:report_detail": ["revenue-by-service"],
             "jobs:report_csv": ["revenue-by-service"],
-            "messaging:channel": ["general"],
-            "messaging:direct": [self.rep.username],
             "people:member": [self.rep.username],
             "people:avatar": [self.rep.username],
         }

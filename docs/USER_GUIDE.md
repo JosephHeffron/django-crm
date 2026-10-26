@@ -21,7 +21,7 @@ What you can see depends on your **role**, which the owner assigns:
 - **Cleaner** — your own schedule: the dashboard and calendar show only
   the jobs you're assigned to, and a job page shows the customer's name,
   phone, and address and the work to do (no prices). On a phone your
-  bottom bar is Dashboard, Scheduling, Inbox, and Profile.
+  bottom bar is Dashboard, Scheduling, Time clock, and Profile.
 
 If your dashboard says **"No role assigned yet"**, or you get a
 "permission denied" (403) page, your account doesn't have the role that
@@ -35,8 +35,7 @@ native app.
 ## Getting around
 
 **The sidebar** on the left lists everything you can open:
-**Dashboard**, **Inbox** (team messages; the red number is how many you
-haven't read), and groups that open a small menu beside it —
+**Dashboard** and groups that open a small menu beside it —
 **Customers** (customers, companies, follow-ups, tasks, notes,
 activities), **Crew**, **Job** (scheduling, estimates), and **Finance**.
 You only see what your role allows. The ☰ button at the top of the
@@ -58,7 +57,7 @@ top bar instead.
   switch.
 
 **Shortcuts:** press **G** then a letter to go somewhere — **G D**
-dashboard, **G I** inbox, **G S** scheduling, **G C** customers, **G T**
+dashboard, **G S** scheduling, **G C** customers, **G T**
 tasks, **G F** follow-ups, **G E** estimates — or **N C** / **N T** for
 a new customer or task. **?** opens the help button's list. (Shortcuts
 only include pages your role can open.)
@@ -83,10 +82,9 @@ What the cards show depends on your role:
   a job counts on the day it's marked complete, for the value of its
   lines. Invoices don't come into it — see **Profit**, below.
 - **Sales Rep** — your open estimates and their value, follow-ups due,
-  jobs today, and unread messages. No money figures beyond your own
-  estimates.
-- **Cleaner** — your jobs today, jobs completed and hours logged this
-  week, and unread messages.
+  and jobs today. No money figures beyond your own estimates.
+- **Cleaner** — your jobs today, and jobs completed and hours logged
+  this week.
 
 The Owner also gets two more cards: **Finish setting up** and goals.
 
@@ -123,8 +121,7 @@ Two things raise a notification today:
 - a follow-up comes due for a customer you own.
 
 Estimates accepted, jobs finished, and invoices paid join the list as
-those workflows arrive in the next phases. Team messages deliberately
-don't appear here: the Inbox carries its own unread count.
+those workflows arrive in the next phases.
 
 ## Scheduling
 
@@ -480,9 +477,8 @@ address box so you can see and clear it.
 A contact's page shows their phone (tap to call), email, preferred way
 to be reached, where they came from, properties (tap an address for
 directions), upcoming jobs, tasks, and a **Timeline** of everything
-that's happened — jobs, quotes, notes, logged calls and texts, and team
-messages that mention them (a direct message only shows to the people
-in that conversation). **Edit** sets whether they're a lead or a
+that's happened — jobs, quotes, notes, and logged calls and texts.
+**Edit** sets whether they're a lead or a
 customer, the lead source, and tags.
 
 Both use **Add** to create, **Edit** to update, and **Deactivate**
@@ -580,21 +576,6 @@ Use **Complete** on a task (a one-click action, separate from editing
 it) rather than editing its status by hand — it also stamps a
 completed-at time. A cancelled task can't be completed by mistake
 through this button; the form guards against it.
-
-## Messages
-
-**Messages** holds the team channels — **#general** for everyone,
-**#crew** for schedules and site notes, and **#sales** for quotes and
-leads (Owner and sales reps only) — plus direct messages. The red
-number on **Messages** in the menu is how many you haven't read; a
-channel you've never opened counts in full until you do. Opening a
-channel marks it read.
-
-Type in the box at the bottom and **Send**. To message one person,
-open **Message someone** on the Messages page (or **Message** on their
-profile). A direct message is private to the two of you — not even the
-Owner can read it. New messages appear when you reload the page for
-now; automatic updates come in a later update.
 
 ## Profile and team
 

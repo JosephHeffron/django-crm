@@ -1,7 +1,6 @@
 from django.conf import settings
 from django.urls import reverse
 
-from apps.messaging.services import unread_count
 from apps.users.models import UserProfile
 from apps.users.roles import user_role
 
@@ -37,8 +36,11 @@ def app_shell(request):
         return context
     match = getattr(request, "resolver_match", None)
     has_role = bool(user_role(user))
-    badges = {"unread_messages": unread_count(user)} if has_role else {}
-    context["nav"] = build_navigation(user, getattr(match, "view_name", "") or "", badges)
+    # No badges left since ADR 0014 retired the Inbox. Its unread count
+    # was an aggregate over a per-channel subquery on **every** page
+    # render for every logged-in user; `build_navigation` still takes
+    # the mapping because the next badge will want it.
+    context["nav"] = build_navigation(user, getattr(match, "view_name", "") or "", {})
     # The top bar's bell. Its list is rendered server-side (a <details>
     # dropdown works without JavaScript), which costs one indexed query
     # with a small LIMIT on every page — the price of the bell not

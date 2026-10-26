@@ -178,7 +178,6 @@ class TeamTests(TestCase):
         self.client.login(username="boss", password=PASSWORD)
         response = self.client.get(reverse("people:member", args=["crew"]))
         self.assertIsNotNone(response.context["crew"])
-        self.assertContains(response, reverse("messaging:direct", args=["crew"]))
         self.assertRedirects(
             self.client.get(reverse("people:member", args=["boss"])), reverse("people:profile")
         )

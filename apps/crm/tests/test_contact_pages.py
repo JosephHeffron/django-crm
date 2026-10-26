@@ -87,22 +87,42 @@ class ContactDetailTests(ContactPageTestCase):
             contact=self.contact,
             created_by=self.rep,
         )
-        general = Channel.objects.get(slug="general")
+        # A message referencing this customer, which the timeline used
+        # to show. ADR 0014 retired the messaging pages and the owner
+        # chose to drop these entries with them, so it must **not**
+        # appear — kept in the fixture deliberately, because asserting
+        # the absence is what would catch the timeline quietly reading
+        # `ref_contact` again and rendering an entry nobody can open.
         Message.objects.create(
-            channel=general,
+            channel=Channel.objects.get(slug="general"),
             author_user=self.rep,
             body="Pat asked for a quote",
             ref_contact=self.contact,
         )
 
         response, entries = self.timeline()
-        self.assertEqual({e.kind for e in entries}, {"job", "quote", "note", "activity", "message"})
+        self.assertEqual({e.kind for e in entries}, {"job", "quote", "note", "activity"})
+        self.assertNotContains(response, "Pat asked for a quote")
         self.assertEqual(entries[-1].kind, "job")  # 30 days ago: the oldest
         self.assertEqual(entries, sorted(entries, key=lambda e: e.when, reverse=True))
         self.assertContains(response, "Side gate sticks")
         self.assertContains(response, job.get_absolute_url())
 
-    def test_direct_messages_only_show_to_members(self):
+    def test_no_message_reaches_a_customer_page_whoever_wrote_it(self):
+        """What is left of `test_direct_messages_only_show_to_members`.
+
+        That test pinned the rule that made the old timeline safe: a
+        direct message about a customer, between two other people, must
+        not appear on that customer's page — and it asserted the other
+        half too, that a member of the conversation *did* see it.
+
+        ADR 0014 removed messages from the timeline entirely, so the
+        leak is impossible rather than prevented, and the second half
+        no longer has a behaviour to assert. This keeps the dangerous
+        fixture and checks the message stays off the page for the
+        viewer **and** for a member of the conversation: if the
+        timeline ever reads `ref_contact` again, this is what notices.
+        """
         other = grant_role(f.user("other"), Role.SALES_REP)
         dm = Channel.objects.create(
             name="Private", slug="dm-x", kind=Channel.Kind.DIRECT, created_by=other
@@ -116,9 +136,11 @@ class ContactDetailTests(ContactPageTestCase):
         self.assertNotIn("message", {e.kind for e in entries})
         self.assertNotContains(response, "Secret about Pat")
 
+        # Even to someone inside that conversation.
         ChannelMembership.objects.create(channel=dm, user=self.rep)
-        _, entries = self.timeline()
-        self.assertIn("message", {e.kind for e in entries})
+        response, entries = self.timeline()
+        self.assertNotIn("message", {e.kind for e in entries})
+        self.assertNotContains(response, "Secret about Pat")
 
     def test_upcoming_jobs_properties_and_stats(self):
         Property.objects.create(

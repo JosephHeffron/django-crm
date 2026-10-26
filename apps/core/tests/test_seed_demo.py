@@ -15,8 +15,7 @@ from apps.crm.models import Contact, Property, Task
 from apps.crm.tests._helpers import grant_role
 from apps.jobs import reports
 from apps.jobs.models import Invoice, Job, Payment, Quote, ServiceType, TimeEntry
-from apps.messaging.models import Channel, ChannelMembership, Message
-from apps.messaging.services import direct_channel
+from apps.messaging.models import Channel, Message
 from apps.users.models import UserProfile
 from apps.users.roles import Role, user_role
 
@@ -84,33 +83,19 @@ class SeedDemoTests(TestCase):
         )
         self.assertTrue(rates.exists())
         self.assertTrue(all(profile.working_days for profile in rates))
-        self.assertEqual(Message.objects.filter(channel__slug="crew").count(), 12)
-        self.assertEqual(Channel.objects.filter(kind=Channel.Kind.DIRECT).count(), 2)
-        # Opening a seeded DM in the app finds it rather than starting another.
-        direct_channel(
-            User.objects.get(username="demo_casey"), User.objects.get(username="demo_jordan")
+        # ADR 0014 retired the messaging pages, so the seed no longer
+        # creates team chat. The three channels still ship as reference
+        # data in `messaging/0002` and the tables stay, which is why
+        # this asserts the absence rather than ignoring it: a seed that
+        # quietly started filling an unreachable table again would be
+        # worth knowing about.
+        self.assertEqual(Message.objects.count(), 0)
+        self.assertEqual(Channel.objects.filter(kind=Channel.Kind.DIRECT).count(), 0)
+        self.assertEqual(
+            set(Channel.objects.values_list("slug", flat=True)),
+            {"general", "crew", "sales"},
+            "the seeded reference channels stay",
         )
-        self.assertEqual(Channel.objects.filter(kind=Channel.Kind.DIRECT).count(), 2)
-        # Posting order and timestamps agree.
-        times = list(
-            Message.objects.filter(channel__slug="crew")
-            .order_by("pk")
-            .values_list("created_at", flat=True)
-        )
-        self.assertEqual(times, sorted(times))
-        # #sales is sales-only, so no cleaner is a member.
-        self.assertFalse(
-            ChannelMembership.objects.filter(
-                channel__slug="sales", user__username="demo_casey"
-            ).exists()
-        )
-        # A message that names a customer links to them (contact timeline).
-        for message in Message.objects.filter(channel__slug="sales", ref_contact__isnull=True):
-            self.assertFalse(
-                any(str(c) in message.body for c in Contact.objects.all()), message.body
-            )
-        # Real accounts can read the demo chat…
-        self.assertTrue(ChannelMembership.objects.filter(user=self.real_user).exists())
 
     def test_never_modifies_real_records(self):
         seed()

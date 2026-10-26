@@ -48,20 +48,6 @@ SECTIONS = (
         link=NavLink("Dashboard", "core:index", "home", ALL_ROLES, ("core:index",), shortcut="g d"),
     ),
     NavSection(
-        "Inbox",
-        "inbox",
-        # Team messages until customer texting exists (Phase 24).
-        link=NavLink(
-            "Inbox",
-            "messaging:home",
-            "inbox",
-            ALL_ROLES,
-            ("messaging:",),
-            badge="unread_messages",
-            shortcut="g i",
-        ),
-    ),
-    NavSection(
         "Customers",
         "customers",
         children=(
@@ -219,7 +205,10 @@ SECTIONS = (
 BOTTOM_BAR = {
     Role.OWNER: ("core:index", "jobs:calendar", "crm:contact_list", "crm:task_list"),
     Role.SALES_REP: ("core:index", "jobs:calendar", "crm:contact_list", "crm:task_list"),
-    Role.CLEANER: ("core:index", "jobs:calendar", "messaging:home", "people:profile"),
+    # Time clock where the Inbox used to be (ADR 0014): clocking in is
+    # what a cleaner does most on a phone, and it fits "a cleaner's own
+    # day" better than team chat did.
+    Role.CLEANER: ("core:index", "jobs:calendar", "jobs:time_clock", "people:profile"),
 }
 
 CREATE_MENU = (
@@ -243,7 +232,6 @@ QUICK_ACTIONS = (
     NavLink("Follow-ups", "crm:task_followups", "refresh", SALES_ROLES),
     NavLink("Profit", "jobs:financials", "dollar", OWNER_ONLY),
     NavLink("Record a payment", "jobs:invoice_list", "wallet", OWNER_ONLY),
-    NavLink("Inbox", "messaging:home", "inbox", ALL_ROLES),
 )
 
 GEAR_MENU = (

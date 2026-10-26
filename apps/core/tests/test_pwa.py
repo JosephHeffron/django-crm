@@ -59,6 +59,39 @@ class ServiceWorkerTests(TestCase):
         for path in pwa.PRECACHE_STATIC:
             self.assertIsNotNone(finders.find(path), path)
 
+    def test_the_offline_page_is_actually_precached(self):
+        """Not merely defined — cached.
+
+        `test_precaches_the_shell_and_offline_page` asserts the
+        `OFFLINE_URL` const exists and that PRECACHE matches the
+        list. Neither says the offline page is put **in** the cache,
+        so dropping it from `addAll` left every test green and the
+        app with no offline fallback at all — the one thing the
+        service worker is for. Found by mutation during Phase 21's
+        verification pass.
+        """
+        install = re.search(r"cache\.addAll\((\[[^\]]*\])\)", self.body)
+        self.assertIsNotNone(install, "no addAll call in the install handler")
+        self.assertIn("OFFLINE_URL", install[1])
+        self.assertIn("PRECACHE", install[1])
+
+    def test_the_cache_name_is_tied_to_the_asset_version(self):
+        """Otherwise a deploy serves yesterday's CSS for ever.
+
+        The version tests below check `pwa.asset_version()` itself.
+        Nothing checked that the cache **name** uses it, so pinning
+        the name to a constant passed — and a stale shell would
+        survive every release.
+        """
+        self.assertRegex(self.body, r'const CACHE = "crm-shell-" \+ VERSION;')
+
+    def test_activating_deletes_the_older_shell_caches(self):
+        """Or the device accumulates one cache per release, for ever.
+
+        Nothing asserted the cleanup, so neutering the filter passed.
+        """
+        self.assertRegex(self.body, r'startsWith\("crm-shell-"\)\s*&&\s*key !== CACHE')
+
     def test_never_caches_navigations(self):
         # Pages (which hold customer data) are only ever fetched from the
         # network; the offline page is the sole navigation fallback.

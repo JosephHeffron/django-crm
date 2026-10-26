@@ -58,7 +58,6 @@ class SidebarStructureTests(NavTestCase):
             [label for _, label, _ in _sidebar_links(html)],
             [
                 "Dashboard",
-                "Inbox",
                 "Customers",
                 "Companies",
                 "Follow-ups",
@@ -84,7 +83,7 @@ class SidebarStructureTests(NavTestCase):
         self.login(Role.CLEANER)
         self.assertEqual(
             [label for _, label, _ in _sidebar_links(self.page())],
-            ["Dashboard", "Inbox", "Time clock", "Scheduling"],
+            ["Dashboard", "Time clock", "Scheduling"],
         )
         self.client.logout()
         self.login(None)
@@ -142,9 +141,10 @@ class NavigationMatchesAccessForEveryRoleTests(NavTestCase):
     def test_owner(self):
         # The count is a guard that _check is examining a real sidebar
         # rather than an empty set; it moves when an entry is genuinely
-        # added. 22 since the Change log got its own entry in Phase
-        # 18.5 unit 5, out of the gear menu.
-        self.assertEqual(len(self._check(Role.OWNER)), 22)
+        # added or removed. 21 since ADR 0014 retired the Inbox — it
+        # was 22 from Phase 18.5 unit 5, when the Change log got its
+        # own entry out of the gear menu.
+        self.assertEqual(len(self._check(Role.OWNER)), 21)
 
     def test_sales_rep(self):
         self._check(Role.SALES_REP)
@@ -195,7 +195,12 @@ class TopBarTests(NavTestCase):
         )
         self.client.logout()
         self.login(Role.CLEANER)
-        self.assertEqual(bar(self.page()), ["Dashboard", "Scheduling", "Inbox", "Profile", "Menu"])
+        # Time clock took the Inbox's slot when ADR 0014 retired the
+        # messaging pages: clocking in is what a cleaner does most on a
+        # phone, which is what this bar is for.
+        self.assertEqual(
+            bar(self.page()), ["Dashboard", "Scheduling", "Time clock", "Profile", "Menu"]
+        )
 
     def test_shortcuts_follow_roles(self):
         self.login(Role.CLEANER)

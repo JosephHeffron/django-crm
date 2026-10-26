@@ -39,7 +39,6 @@ from apps.jobs.access import jobs_for, quotes_for
 from apps.jobs.calendar import day_bounds
 from apps.jobs.models import Job, JobAssignment, Quote, ServiceType
 from apps.jobs.reports import completed_revenue, outstanding
-from apps.messaging.services import unread_count
 from apps.users.models import get_profile
 from apps.users.roles import (
     ALL_ROLES,
@@ -109,7 +108,6 @@ class DashboardView(LoginRequiredMixin, TemplateView):
             greeting=_greeting(now.hour),
             today=today,
             quick_actions=quick_actions(user),
-            unread_messages=unread_count(user),
         )
 
         jobs = jobs_for(user).exclude(status=Job.Status.CANCELLED)
@@ -150,13 +148,6 @@ class DashboardView(LoginRequiredMixin, TemplateView):
             _card("Jobs today", todays_count, "Assigned to you", url=reverse("jobs:calendar")),
             _card("Done this week", done, "Completed jobs", accent="green"),
             _card("Hours this week", hours, "Logged on completed jobs", accent="purple"),
-            _card(
-                "Unread messages",
-                context["unread_messages"],
-                "Team chat",
-                url=reverse("messaging:home"),
-                accent="orange",
-            ),
         ]
 
     def _sales(self, context, user, role, today, week_start, todays_count):
@@ -211,13 +202,6 @@ class DashboardView(LoginRequiredMixin, TemplateView):
                     accent="orange" if overdue else "green",
                 ),
                 _card("Jobs today", todays_count, "Whole team", url=reverse("jobs:calendar")),
-                _card(
-                    "Unread messages",
-                    context["unread_messages"],
-                    "Team chat",
-                    url=reverse("messaging:home"),
-                    accent="purple",
-                ),
             ]
             return
 
