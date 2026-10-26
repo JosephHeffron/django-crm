@@ -71,9 +71,9 @@ explicitly deferred until this scope is working reliably on the Raspberry Pi.
 The initial release scope above is done. The phases below pick up the
 functionality it deliberately deferred, plus hardening work identified
 along the way (`docs/PRODUCTION_READINESS.md`'s still-open findings).
-Phases 15-20 are complete. Phase 18.5, twelve items the
+Phases 15-21 are complete. Phase 18.5, twelve items the
 owner reported after testing the running app, is complete, as is
-Phase 19.5, three more reported the same way. Phase 21 is next.
+Phase 19.5, three more reported the same way. Phase 22 is next.
 From Phase 17 the roadmap pivots the CRM to
 the owner's exterior home-services business (service catalog, quotes,
 crew-scheduled jobs, invoicing, follow-up automation, team messaging,
@@ -296,10 +296,33 @@ insufficient.
 
       **Invoices are kept and demoted**, not deleted: they drive no
       figure, and remain for the customer who asks for one.
-- [ ] **Phase 21 — Messaging live delivery and PWA polish.** Short
-      polling for new messages (no Redis/WebSockets — see the Phase 17
-      plan), unread badges, job/contact references in the composer,
-      offline fallback and install experience.
+- [x] **Phase 21 — PWA polish. Messaging retired instead.** Complete,
+      and most of it was deleted rather than built.
+
+      The entry asked for short polling, unread badges, job/contact
+      references in the composer, offline fallback and install
+      experience. A verification pass measured each: the **badges**
+      were built and well asserted; the reference **display** was
+      built and asserted (a customer's timeline, a job link on a
+      message) but **nothing in the app could set a reference** — the
+      composer was one body field, so the Django admin was the only
+      way in; **polling** was never started, which the module
+      docstring said; and the **offline fallback and install
+      experience** were built, with three behaviours unasserted until
+      this pass (the offline page actually reaching the cache, the
+      cache name tracking the asset version, and old caches being
+      cleaned up — each could be removed with the whole suite green).
+
+      The owner then said the inbox and messaging pages were no longer
+      needed, so the first three items are moot and the feature is
+      retired **code-only, tables kept**
+      (`docs/decisions/0014-retire-team-messaging-code-only.md`), the
+      same shape ADR 0012 used for Lead and Deal. Every page gets one
+      query cheaper: the unread badge ran on every render for every
+      logged-in user.
+
+      Customer texting (Phase 24) still stands and still has the
+      models to build on.
 - [ ] **Phase 22 — Data portability and bulk operations.** CSV import/
       export, bulk actions on list views, saved filters, duplicate
       detection on Contact create. (Formerly Phase 17.)

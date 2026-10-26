@@ -364,7 +364,8 @@ class DashboardLayoutTests(DashboardTestCase):
         grant_role(f.user("crew"), Role.CLEANER)
         self.client.login(username="crew", password=PASSWORD)
         crew_tiles = {action["label"] for action in self.get().context["quick_actions"]}
-        self.assertEqual(crew_tiles, {"Schedule", "Time clock", "Inbox"})
+        # The Inbox tile went with the messaging pages (ADR 0014).
+        self.assertEqual(crew_tiles, {"Schedule", "Time clock"})
 
     def test_a_cleaner_gets_their_own_cards_and_no_money(self):
         grant_role(f.user("crew"), Role.CLEANER)
@@ -372,6 +373,6 @@ class DashboardLayoutTests(DashboardTestCase):
         response = self.get()
         self.assertEqual(
             [card["label"] for card in response.context["cards"]],
-            ["Jobs today", "Done this week", "Hours this week", "Unread messages"],
+            ["Jobs today", "Done this week", "Hours this week"],
         )
         self.assertNotContains(response, "Revenue")

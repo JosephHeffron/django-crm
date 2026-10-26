@@ -61,7 +61,6 @@ from apps.jobs.models import (
 )
 from apps.jobs.reports import completed_revenue
 from apps.messaging.models import Channel, ChannelMembership, Message
-from apps.messaging.services import direct_channel, visible_channels
 from apps.users.models import get_profile
 from apps.users.roles import Role
 
@@ -141,29 +140,6 @@ SERVICE_PROFILE = {
     "trimming": (30, (2, 5), None),
 }
 
-CREW_MESSAGES = [
-    "Heads up — the Maple Grove job has a locked side gate, code is in the job notes.",
-    "Running about 20 minutes behind, traffic on the parkway.",
-    "Need another bottle of window solution for tomorrow.",
-    "Finished early at the {job}, heading to the next one.",
-    "Ladder stabilizer on truck 2 is loose, don't use it until it's fixed.",
-    "Customer asked if we can come back for the back windows next week.",
-    "Rain in the forecast Thursday afternoon — might need to shuffle jobs.",
-]
-SALES_MESSAGES = [
-    "Sent the quote for {contact} — they want gutters and windows together.",
-    "{contact} accepted! Can we get them on the schedule next week?",
-    "Following up with {contact} tomorrow, they were comparing prices.",
-    "Referral came in from {contact}, adding them as a lead.",
-    "Anyone tried bundling pressure washing with siding? Two people asked this week.",
-]
-GENERAL_MESSAGES = [
-    "Great work this week everyone — highest number of jobs completed this month!",
-    "Reminder: team meeting Monday at 7:30 before we head out.",
-    "New uniforms are in the shop, grab your size.",
-    "Fall gutter season is coming — expect the schedule to fill up fast.",
-]
-
 
 class Command(BaseCommand):
     help = "Fill a development database with realistic demo data (DEBUG only)."
@@ -225,6 +201,10 @@ def remove_demo_data():
     Notification.objects.filter(recipient__in=demo_users).delete()
     # Goals aren't owned by a user, so they'd survive the user delete.
     Goal.objects.all().delete()
+    # The seed stopped creating team chat when ADR 0014 retired the
+    # messaging pages, but a database seeded before that still holds
+    # it — and `Message.author_user` is PROTECT, so leaving it behind
+    # would make the user delete below fail. Kept for exactly that.
     Message.objects.filter(author_user__in=demo_users).delete()
     # Direct messages with a demo user (including any a real user started
     # with one) go with the demo.
@@ -301,7 +281,6 @@ class DemoSeeder:
         self.tasks()
         self.plans_and_notes()
         self.expenses()
-        self.messages()
         goal_count = self.goals()
         clocked = self.time_entries()
         return {
@@ -311,7 +290,6 @@ class DemoSeeder:
             "quotes": Quote.objects.filter(prepared_by__in=self.all_users).count(),
             "invoices": Invoice.objects.filter(job__created_by__in=self.all_users).count(),
             "follow-ups": self.follow_up_count,
-            "messages": Message.objects.filter(author_user__in=self.all_users).count(),
             "notifications": Notification.objects.filter(recipient__in=self.all_users).count(),
             "goals": goal_count,
             "time entries": clocked,
@@ -871,63 +849,3 @@ class DemoSeeder:
                     description=description,
                     recorded_by=self.owner,
                 )
-
-    def messages(self):
-        """Team channels and a couple of DMs over the last ten days, with
-        read markers that leave each person a few unread."""
-        people = self.all_users + list(
-            User.objects.filter(is_active=True).exclude(username__startswith=DEMO_PREFIX)
-        )
-        jobs = list(Job.objects.filter(created_by=self.owner, status=Job.Status.SCHEDULED)[:10])
-        plan = {
-            "general": (GENERAL_MESSAGES, [self.owner] + self.reps),
-            "crew": (CREW_MESSAGES, self.crew + [self.owner]),
-            "sales": (SALES_MESSAGES, self.reps + [self.owner]),
-        }
-        for slug, (templates, authors) in plan.items():
-            channel = Channel.objects.get(slug=slug)
-            self.post_thread(channel, templates, authors, jobs, count=12)
-            # Only people who can read it (#sales is Owner and sales reps).
-            self.join(
-                channel, [p for p in people if visible_channels(p).filter(pk=channel.pk).exists()]
-            )
-        for a, b in ((self.owner, self.reps[0]), (self.crew[0], self.crew[1])):
-            # The app's own helper, so opening this DM in the app finds
-            # this channel rather than starting a second one.
-            channel = direct_channel(a, b)
-            self.post_thread(
-                channel,
-                ["Can you cover {contact} on Friday?", "Yep, I've got it.", "Thanks!"],
-                [a, b],
-                jobs,
-                count=5,
-            )
-            self.join(channel, [a, b])
-
-    def post_thread(self, channel, templates, authors, jobs, count):
-        # Oldest first, so posting order and timestamps agree.
-        hours_ago = sorted((self.rng.randint(1, 240) for _ in range(count)), reverse=True)
-        for index in range(count):
-            contact = self.rng.choice(self.customers)
-            job = self.rng.choice(jobs) if jobs else None
-            template = self.rng.choice(templates)
-            names_contact = "{contact}" in template
-            message = Message.objects.create(
-                channel=channel,
-                author_user=authors[index % len(authors)],
-                body=template.format(contact=contact, job=job.number if job else ""),
-                ref_contact=contact if names_contact or self.rng.random() < 0.2 else None,
-                ref_job=job if channel.slug == "crew" and self.rng.random() < 0.4 else None,
-            )
-            Message.objects.filter(pk=message.pk).update(
-                created_at=self.now - timedelta(hours=hours_ago[index])
-            )
-
-    def join(self, channel, users):
-        ordered = list(channel.messages.order_by("created_at", "pk"))
-        for user in users:
-            unread = self.rng.randint(0, 4)
-            last_read = ordered[-1 - unread] if len(ordered) > unread else None
-            ChannelMembership.objects.update_or_create(
-                channel=channel, user=user, defaults={"last_read_message": last_read}
-            )

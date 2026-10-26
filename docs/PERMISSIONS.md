@@ -23,8 +23,8 @@ Roles are Django Groups, created by
 | Role | Who | Can use |
 |---|---|---|
 | **Owner** | the business owner (any superuser is always Owner) | everything |
-| **Sales Rep** | sales staff | dashboard (own quotes and follow-ups, no money figures), calendar, jobs, quotes, contacts, companies, tasks, search (and, as they land: messaging, own profile — not Financials or the service catalog) |
-| **Cleaner** | field crew | dashboard (own schedule and hours), calendar and job pages for their own assignments only (no prices), and as they land: messaging, own profile |
+| **Sales Rep** | sales staff | dashboard (own quotes and follow-ups, no money figures), calendar, jobs, quotes, contacts, companies, tasks, search, own profile — not Financials or the service catalog |
+| **Cleaner** | field crew | dashboard (own schedule and hours), calendar and job pages for their own assignments only (no prices), time clock, own profile |
 | *(no role)* | an account nobody has assigned yet | the dashboard only, which says so — **fail closed** |
 
 Enforcement:
@@ -174,8 +174,6 @@ guards them:
 
 | Write | Where | What actually gates it |
 |---|---|---|
-| `ChannelMembership` created on first read of a channel | `messaging/services.py` (`mark_read`) | the channel's own audience rule |
-| `ChannelMembership` created for a direct message | `messaging/services.py` (`direct_channel`) | both parties being real users |
 | `JobAssignment` created by clocking **off** a job you were not assigned to | `jobs/crew.py` (`clock_out` → `_add_hours_to_assignment`) | `jobs_for` scoping on the time-clock view |
 | `JobAssignment` created/deleted by editing a job's crew | `jobs/views.py` (`JobFormMixin`) | `jobs.change_job` on the job view |
 
@@ -186,10 +184,12 @@ will not find one.
 
 The last row is the one to know about:
 
-- `crm.delete_businessplan`, `crm.delete_note`, `crm.delete_property`,
-  `messaging.change_message` — the app offers none of these. A plan, a
-  note and an address can be created and edited but not removed, and a
-  message is immutable.
+- `crm.delete_businessplan`, `crm.delete_note`, `crm.delete_property`
+  — the app offers none of these. A plan, a note and an address can be
+  created and edited but not removed.
+- Every `messaging.*` permission. ADR 0014 retired the team-messaging
+  pages, so nothing in the app reads or writes a message; the models
+  and tables stay for Phase 24 (customer texting).
 
   The first version of this said "nothing is hard-deleted through the
   UI except photos and checklist items", which review showed was
@@ -237,18 +237,16 @@ rather than left as a method.
 
 ## Field-service pages (Phase 17 unit 3)
 
-Messages: a public channel's `audience` decides who may read and post
-(everyone, or the Owner and sales reps); a direct channel is readable
-only by its two members — the Owner included. Every list, count, and
-page goes through `apps/messaging/services.visible_channels()`, so the
-unread badge, the channel list, a contact's timeline, and the channel
-URL agree. Posting also requires `messaging.add_message`. Editing your
-own profile needs only a role (self-service, like changing your
-password).
+Messaging was retired by ADR 0014 — the pages, the unread badge and
+the timeline entries are gone, and `apps/messaging/services.py` with
+them. The tables remain for Phase 24, so the rule it enforced is
+recorded here rather than only in git history: a public channel's
+`audience` decided who could read and post (everyone, or the Owner and
+sales reps), and a direct channel was readable only by its two members
+— the Owner included. Nothing in the app reads a message now.
 
-A contact's timeline includes team messages that mention them only from
-channels the viewer can read (public channels and ones they're a
-member of), so a direct message never leaks onto a contact page.
+Editing your own profile needs only a role (self-service, like
+changing your password).
 
 | Page | Owner | Sales Rep | Cleaner |
 |---|---|---|---|
@@ -257,7 +255,6 @@ member of), so a direct message never leaks onto a contact page.
 | Job (`/jobs/<id>/`) | yes, with prices and invoices | yes, with prices | only if assigned (else 404); customer name, phone, address, work — no prices |
 | Quote (`/quotes/<id>/`) | yes | yes | 403 |
 | Financials (`/financials/`) | yes | 403 | 403 |
-| Messages (`/messages/`) | #general, #crew, #sales, own DMs | #general, #crew, #sales, own DMs | #general, #crew, own DMs (#sales → 404) |
 | Profile (`/profile/`, edit) | own | own | own |
 | Team (`/team/`, a teammate's profile) | yes | 403 | 403 |
 | Services (`/settings/services/`) | view and edit | 403 | 403 |

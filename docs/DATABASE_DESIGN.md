@@ -551,6 +551,12 @@ Channel 1──* ChannelMembership *──1 User;  Channel 1──* Message
   are never stored: `apps/core/goals.py` aggregates the current calendar
   month and reuses `apps/jobs/reports.py`, so the dashboard and
   Financials can't disagree.
+- **Retired by ADR 0014, tables kept.** The messaging pages are gone
+  and nothing in the app reads these models; they stay for Phase 24
+  (customer texting), which is what `Message.transport`, `direction`,
+  `external_id` and `delivery_status` were added for.
+  `Message.ref_job` / `ref_contact` / `ref_quote` now have **no
+  reader at all** — a contact's timeline used to show them.
 - **Channel** (`apps.messaging`): name, slug (unique), kind
   (public/direct; `customer_sms` reserved), audience (everyone / sales —
   who may read a public channel; #sales is sales-only, messaging/0003),

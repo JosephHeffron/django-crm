@@ -123,6 +123,19 @@ for meaningful changes — not for every small fix or documentation tweak.
   job form at that time with two hours booked. A slot that already
   has a job says Busy and still works.
 
+### Removed
+- **Team messaging — the Inbox and Messages pages — is retired.** The
+  owner no longer needs it, and half of it was never finished (there
+  was no way to reference a job or customer from the composer, and new
+  messages only appeared on a page reload). The pages, the sidebar
+  entry, the unread badge, the dashboard cards and the entries on a
+  customer's timeline are all gone; the message tables and their
+  contents are **kept**, so nothing is lost and customer texting has
+  something to build on
+  (`docs/decisions/0014-retire-team-messaging-code-only.md`).
+  A cleaner's phone bottom bar now has **Time clock** where the Inbox
+  used to be.
+
 ### Changed
 - **Money follows the work, not a document.** A payment is recorded
   against a **job** — this business is paid before the work is

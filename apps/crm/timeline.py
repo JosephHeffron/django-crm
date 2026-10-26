@@ -1,12 +1,16 @@
 """A contact's history in one list (Phase 17 unit 3): activities, jobs,
-quotes, notes, and team messages that reference the contact — newest
-first.
+quotes and notes — newest first.
 
 Each source is capped at TIMELINE_LIMIT before merging, so the merged
 list's top TIMELINE_LIMIT is exact without loading unbounded history.
-Messages are limited to channels the viewer may read
-(apps/messaging/services.visible_channels): a direct message between
-two other people must not leak onto a contact page.
+
+Team messages referencing the contact used to appear here too, limited
+to channels the viewer could read so that a direct message between two
+other people could not leak onto a contact page. ADR 0014 retired the
+messaging pages and the owner chose to drop these entries with them:
+an entry that cannot be opened is a dead end, and keeping them meant
+keeping the channel-visibility rules alive to render them safely.
+`Message.ref_contact` still exists on the model and now has no reader.
 """
 
 from dataclasses import dataclass
@@ -16,8 +20,6 @@ from django.db.models import OuterRef, Subquery
 from django.utils import timezone
 
 from apps.jobs.models import Job
-from apps.messaging.models import Message
-from apps.messaging.services import visible_channels
 
 from .models import Activity
 
@@ -90,23 +92,6 @@ def contact_timeline(contact, viewer, limit=TIMELINE_LIMIT):
             by=_person(note.author),
         )
         for note in contact.note_set.select_related("author").order_by("-created_at")[:limit]
-    ]
-    messages = (
-        Message.objects.filter(
-            ref_contact=contact, channel_id__in=visible_channels(viewer).values("pk")
-        )
-        .select_related("channel", "author_user", "author_contact")
-        .order_by("-created_at", "-pk")[:limit]
-    )
-    entries += [
-        TimelineEntry(
-            when=message.created_at,
-            kind="message",
-            label=f"Message in {message.channel.name}",
-            title=message.body,
-            by=_person(message.author_user) or str(message.author_contact or ""),
-        )
-        for message in messages
     ]
     entries.sort(key=lambda entry: entry.when, reverse=True)
     return entries[:limit]
