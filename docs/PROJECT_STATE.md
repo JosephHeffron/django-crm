@@ -5,9 +5,10 @@ Close Procedure). Do not describe anything as complete unless it was
 actually verified.
 
 > **Last updated 2026-10-25.** Repo is clean: `main` up to date,
-> nothing uncommitted, 1,265 tests passing. **Phase 20 is complete**,
-> and it turned out to be a different phase from the one the roadmap
-> described — see "Post-release roadmap progress".
+> nothing uncommitted, 1,247 tests passing. **Phases 20 and 21 are
+> complete**, and neither was the phase the roadmap described: 20
+> changed the money model, and 21 **retired team messaging** instead
+> of finishing it. See "Post-release roadmap progress".
 > Eleven PRs landed in this stretch — #164, #165, #166 and the #167
 > close-out (Phase 19.5); #168 and #160 (two security upgrades); #159,
 > #161, #162 and #169 (tooling); and #158, the role-based stats sheet.
@@ -1317,7 +1318,29 @@ roadmap completed:
   by completion (#174); and the demo seed and documents brought into
   line. 1,265 tests (1,226 before). Browser-verified under production
   CSP across three roles, five money pages and three widths.
-- Phases 21-25: not yet started (re-sequenced in `docs/ROADMAP.md`).
+- **Phase 21 — PWA polish, messaging retired: DONE.** The entry asked
+  for short polling, unread badges, job/contact references in the
+  composer, offline fallback and install experience. The verification
+  pass found the badges built and asserted; the reference **display**
+  built and asserted but **nothing in the app able to set one** (the
+  composer was a single body field, so the admin was the only way in);
+  polling never started; and the PWA half built with **three
+  behaviours nothing was holding** — the offline page actually
+  reaching the cache, the cache name tracking the asset version, and
+  old caches being cleaned up. Each could be deleted with the whole
+  suite green, and each is guarded now.
+
+  The owner then said the inbox and messaging pages were no longer
+  needed, so the feature is retired **code-only, tables kept**
+  (ADR 0014, PR #176) — the shape ADR 0012 used for Lead and Deal.
+  `makemigrations --check` reports no changes and this install's 7
+  channels, 50 messages and 28 memberships are untouched. Every page
+  is one query cheaper: the unread badge ran on every render for every
+  logged-in user. A cleaner's phone bottom bar gained **Time clock**
+  where the Inbox was. Read
+  `logs/claude/phase-21-retire-messaging.md` for why the PWA tests
+  missed those three gaps, and for the ADR I contradicted on purpose.
+- Phases 22-25: not yet started (re-sequenced in `docs/ROADMAP.md`).
 
 ## Currently working on
 
@@ -1441,11 +1464,14 @@ for its own unit", below.
 
 ## Next
 
-**Phase 21 — messaging live delivery and PWA polish** is the next
-roadmap item. Before writing any of it, run the verification pass over
-its entry: four phases running now, the entry has described intent
-rather than delivery, and Phase 20's was wrong about the business
-model as well as the state of the code.
+**Phase 22 — data portability and bulk operations** is the next
+roadmap item. Run the verification pass over its entry first. That is
+now **five phases running** where the entry described intent rather
+than delivery: Phase 20's was wrong about the business model as well
+as the state of the code, and Phase 21's asked for three things that
+were then deleted. Note the CSV **export** half already exists
+(`apps/core/export.py`, eight datasets, reachable from Business
+Settings), so expect at least part of 22 to be built already.
 
 Worth knowing from Phase 20 before the next one: `--parallel` is
 unusable for mutation testing in this project (a failing test whose
@@ -1523,6 +1549,12 @@ permissions against views during Phase 19's close-out
 (`docs/PERMISSIONS.md`). Small and self-contained — a form, a view, a
 route — and a candidate for Phase 20, which already touches the
 catalogue.
+
+**The Inbox is gone and anyone who bookmarked it gets a 404.** No
+redirect was added, because there is nowhere to send them (ADR 0014).
+`Message.ref_job`, `ref_contact` and `ref_quote` now have no reader at
+all; they stay for Phase 24 and `docs/DATABASE_DESIGN.md` says so, so
+nobody mistakes them for live wiring.
 
 **A payment cannot be corrected and an expense cannot be removed.**
 Same measurement: `jobs.change_payment` and `jobs.delete_expense` are
