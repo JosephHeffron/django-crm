@@ -12,6 +12,27 @@
   <form id="contact-form" method="post" class="card">
     {% csrf_token %}
     {% if back %}<input type="hidden" name="next" value="{{ back }}">{% endif %}
+    {% comment %}
+      Possible duplicates, with a link to each and what matched
+      (Phase 22). Rendered here rather than inside the error message
+      because Django escapes a ValidationError, so a message cannot
+      carry a link — and the whole point is being able to go and look
+      at the person before deciding.
+    {% endcomment %}
+    {% if form.duplicates %}
+      <div class="message warning">
+        <strong>Already on the books?</strong>
+        <ul class="list-plain">
+          {% for contact, why in form.duplicates %}
+            <li>
+              <a href="{{ contact.get_absolute_url }}">{{ contact }}</a>
+              <span class="muted">— {{ why|join:", " }}</span>
+              {% if not contact.is_active %}<span class="muted">(deactivated)</span>{% endif %}
+            </li>
+          {% endfor %}
+        </ul>
+      </div>
+    {% endif %}
     {{ form.as_p }}
     <div class="cluster">
       <button type="submit">Save</button>

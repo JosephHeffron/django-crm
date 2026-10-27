@@ -4,6 +4,7 @@ from django.db.models import Q
 
 from apps.jobs.access import quotes_for
 
+from . import duplicates
 from .models import (
     Activity,
     BusinessPlan,
@@ -59,6 +60,20 @@ class CompanyForm(forms.ModelForm):
 
 
 class ContactForm(forms.ModelForm):
+    """Add or correct a customer.
+
+    On **create** it looks for somebody who is probably already on the
+    books and asks before saving a second record (Phase 22). It asks
+    once: tick the box and the same details go through. See
+    `apps/crm/duplicates.py` for why this warns instead of refusing.
+    """
+
+    confirm_duplicate = forms.BooleanField(
+        required=False,
+        label="Add them anyway",
+        help_text="Tick this if they really are a different person.",
+    )
+
     class Meta:
         model = Contact
         fields = [
@@ -88,6 +103,46 @@ class ContactForm(forms.ModelForm):
 
     def clean_status(self):
         return self.cleaned_data.get("status") or self.instance.status
+
+    def clean(self):
+        """Ask about a likely duplicate, once, when creating.
+
+        Only on create: editing an existing customer must never be
+        blocked by the record being edited, and `exclude_pk` would
+        make this almost-right in a way that is worse than not doing
+        it. The matches are stashed on the form so the template can
+        link to them — a message alone cannot, because Django escapes
+        it.
+        """
+        cleaned = super().clean()
+        self.duplicates = []
+        if self.instance.pk or cleaned.get("confirm_duplicate"):
+            return cleaned
+        found = duplicates.likely_duplicates(
+            first_name=cleaned.get("first_name", ""),
+            last_name=cleaned.get("last_name", ""),
+            email=cleaned.get("email", ""),
+            phone=cleaned.get("phone", ""),
+        )[:5]
+        self.duplicates = [
+            (
+                contact,
+                duplicates.reasons(
+                    contact,
+                    first_name=cleaned.get("first_name", ""),
+                    last_name=cleaned.get("last_name", ""),
+                    email=cleaned.get("email", ""),
+                    phone=cleaned.get("phone", ""),
+                ),
+            )
+            for contact in found
+        ]
+        if self.duplicates:
+            raise forms.ValidationError(
+                "This looks like somebody you already have. Check below, then "
+                "tick “Add them anyway” if it really is a different person."
+            )
+        return cleaned
 
 
 class ActivityForm(forms.ModelForm):
