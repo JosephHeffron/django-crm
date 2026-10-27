@@ -21,6 +21,11 @@ urlpatterns = [
     ),
     path("contacts/", views.ContactListView.as_view(), name="contact_list"),
     path("contacts/add/", views.ContactCreateView.as_view(), name="contact_create"),
+    path(
+        "contacts/bulk/",
+        views.ContactBulkActionView.as_view(),
+        name="contact_bulk",
+    ),
     path("contacts/<int:pk>/", views.ContactDetailView.as_view(), name="contact_detail"),
     path(
         "contacts/<int:pk>/edit/",
@@ -75,6 +80,7 @@ urlpatterns = [
     path("tasks/notes/<int:pk>/edit/", views.NoteUpdateView.as_view(), name="note_update"),
     path("addresses/add/", views.PropertyCreateView.as_view(), name="property_create"),
     path("addresses/<int:pk>/edit/", views.PropertyUpdateView.as_view(), name="property_update"),
+    path("tasks/bulk/", views.TaskBulkActionView.as_view(), name="task_bulk"),
     path("tasks/add/", views.TaskCreateView.as_view(), name="task_create"),
     path("tasks/<int:pk>/", views.TaskDetailView.as_view(), name="task_detail"),
     path("tasks/<int:pk>/edit/", views.TaskUpdateView.as_view(), name="task_update"),

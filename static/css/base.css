@@ -1513,6 +1513,28 @@ input[type="radio"] {
   font-weight: var(--weight-semibold);
 }
 
+/* The bulk action bar (Phase 22), above a list's rows. Same shape as
+   the filter form above it, so the two read as one band of controls. */
+.bulk-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0 0 var(--space-3);
+}
+
+.bulk-bar select {
+  width: auto;
+  flex: 0 1 auto;
+  background-color: var(--color-surface);
+}
+
+/* Narrow enough not to steal room from the name, wide enough to hit. */
+.col-select {
+  width: 2.5rem;
+  text-align: center;
+}
+
 /* A search box above a long dropdown (Phase 22). Rendered `hidden` and
    unhidden by static/js/picker.js, so it never appears without the
    script that makes it do something. */
@@ -2424,6 +2446,29 @@ dd {
   }
 
   .data-table.stack-mobile td:first-child::before {
+    content: none;
+  }
+
+  /* With a select column the first cell is a checkbox, so the rules
+     above would make the checkbox the card's heading and leave the
+     name as just another labelled row. Hand the heading to the cell
+     after the checkbox, and let the checkbox keep its own label. */
+  .data-table.stack-mobile td.col-select {
+    display: flex;
+    width: 100%;
+    text-align: left;
+  }
+
+  .data-table.stack-mobile td.col-select::before {
+    content: attr(data-label);
+  }
+
+  .data-table.stack-mobile td.col-select + td {
+    display: block;
+    font-size: var(--text-base);
+  }
+
+  .data-table.stack-mobile td.col-select + td::before {
     content: none;
   }
 }

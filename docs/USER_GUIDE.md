@@ -489,6 +489,18 @@ that's happened — jobs, quotes, notes, and logged calls and texts.
 **Edit** sets whether they're a lead or a
 customer, the lead source, and tags.
 
+**Changing several at once.** Every row has a tick box, and the bar
+above the list does one thing to everybody ticked: **Add tag**,
+**Remove tag**, **Deactivate** or **Reactivate**. Choose the action
+(and the tag, for the two tag ones) and press **Apply**; the box in the
+header takes the whole page. The message afterwards counts only what
+actually changed and says what it left alone — "Deactivated 2
+customers. 1 customer was already inactive" means one of the three
+needed nothing. Your filters survive, so you land back on the same
+list. Each change is written to that customer's own history exactly as
+if you had done it on their page, so a bulk deactivation can be undone
+from there, one customer at a time.
+
 Both use **Add** to create, **Edit** to update, and **Deactivate**
 instead of delete — deactivating just sets a record inactive (it stops
 showing in the default "active" list view but isn't destroyed, so
@@ -579,6 +591,13 @@ Useful list filters:
 - `?mine=1` — only tasks assigned to you.
 - `?overdue=1` — pending tasks past their due date.
 - Status and priority filters, same idea as elsewhere.
+
+**Changing several at once.** The task list has the same tick boxes
+and bar: **Mark complete** or **Cancel** everything ticked. Only
+*pending* tasks are touched — a cancelled or already-finished one in
+the selection is left exactly as it was, and the message says how many
+that was. Completing a follow-up this way restarts that customer's
+clock, the same as **Mark done** on the Follow-ups tab does.
 
 Use **Complete** on a task (a one-click action, separate from editing
 it) rather than editing its status by hand — it also stamps a
