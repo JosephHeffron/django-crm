@@ -280,6 +280,36 @@ class ExportTests(MediaTestCase):
                 if fmt == "json":
                     json.loads(body)
 
+    def test_json_with_several_rows_is_valid_json(self):
+        """One row needs no separator, which is why this exists.
+
+        `test_every_dataset_in_both_formats` parses the JSON, but its
+        fixture produces a single row per dataset — and
+        `[\n{...}\n]` is valid with or without the comma logic. So
+        dropping the separator between rows left every test green and
+        the download unparseable for any real export. Found by
+        mutation during Phase 22's verification pass.
+        """
+        for last in ("One", "Two", "Three"):
+            f.contact(self.owner, "Many", last)
+        body = b"".join(self.download("customers", "json").streaming_content).decode()
+        rows = json.loads(body)
+        self.assertGreaterEqual(len(rows), 3)
+        self.assertEqual(
+            sum(1 for row in rows if row["first_name"] == "Many"),
+            3,
+            "every row, not just the first",
+        )
+
+    def test_a_download_is_an_attachment_not_a_page(self):
+        """Served inline, a browser shows the file instead of saving
+        it — and nothing asserted the disposition for this view. The
+        reports CSV has its own test; this one had only the filename.
+        """
+        for dataset, fmt in (("customers", "csv"), ("customers", "json")):
+            disposition = self.download(dataset, fmt)["Content-Disposition"]
+            self.assertTrue(disposition.startswith("attachment;"), disposition)
+
     def test_formula_cells_are_neutralized(self):
         f.contact(self.owner, '=HYPERLINK("http://x")', "@SUM(A1)")
         body = b"".join(self.download("customers").streaming_content).decode()
