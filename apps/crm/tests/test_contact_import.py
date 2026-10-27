@@ -23,6 +23,7 @@ from django.test import TestCase
 from django.urls import reverse
 
 from apps.crm import importers
+from apps.crm.forms import ImportRowForm
 from apps.crm.models import AuditLogEntry, Company, Contact, Property, Tag
 from apps.crm.tests._helpers import grant_role
 from apps.jobs.tests import _factories as f
@@ -170,6 +171,49 @@ class ReadingTests(TestCase):
         rows, _ = read(HEADER + "'t Hooft,O'Homeowner,,\n")
         self.assertEqual(rows[0][1]["first_name"], "'t Hooft")
         self.assertEqual(rows[0][1]["last_name"], "O'Homeowner")
+
+
+class RowFormTests(TestCase):
+    def test_no_field_is_longer_than_the_column_it_is_written_to(self):
+        """Checked for every field rather than the one that bit, because
+        the failure is silent until it isn't: an over-long value passes
+        the form, fails at the write, and — inside the import's single
+        transaction — takes the whole file down with a 500 instead of
+        being reported as one bad row.
+
+        `email` was exactly that: the form had no limit and the column
+        is 254.
+        """
+        columns = {
+            "first_name": Contact,
+            "last_name": Contact,
+            "email": Contact,
+            "phone": Contact,
+            "title": Contact,
+            "notes": Contact,
+            "street": Property,
+            "city": Property,
+            "state": Property,
+            "postal_code": Property,
+        }
+        fields = ImportRowForm().fields
+        for name, model in columns.items():
+            self.assertEqual(
+                fields[name].max_length,
+                model._meta.get_field(name).max_length,
+                f"{name} on the form does not match {model.__name__}.{name}",
+            )
+
+    def test_an_over_long_email_is_one_bad_row_not_a_broken_import(self):
+        rows, _ = read(
+            "first_name,last_name,email\n"
+            f"Pat,Homeowner,{'a' * 250}@example.test\n"
+            "Sam,Renter,sam@example.test\n"
+        )
+        planned = importers.plan(rows)
+        self.assertFalse(planned[0].importing)
+        self.assertIn("email", planned[0].problems[0])
+        self.assertTrue(planned[1].importing, "the good row still goes in")
 
 
 class PlanningTests(TestCase):
@@ -385,6 +429,17 @@ class PageTests(TestCase):
         self.owner = grant_role(f.user("boss"), Role.OWNER)
         self.client.login(username="boss", password=PASSWORD)
 
+    def upload_form(self, **extra):
+        """A post carrying the ticket the page last handed out, which is
+        what a browser submitting the form would send."""
+        page = self.client.get(IMPORT)
+        data = {
+            "csv_file": upload(HEADER + "Pat,Homeowner,,585-555-0100\n"),
+            "import_ticket": page.context["import_ticket"],
+        }
+        data.update(extra)
+        return data
+
     def test_the_page_explains_what_the_file_needs(self):
         response = self.client.get(IMPORT)
         self.assertEqual(response.status_code, 200)
@@ -408,7 +463,7 @@ class PageTests(TestCase):
     def test_importing_for_real_creates_them_and_reports(self):
         response = self.client.post(
             IMPORT,
-            {"csv_file": upload(HEADER + "Pat,Homeowner,,\nSam,Renter,bad-email,\n")},
+            self.upload_form(csv_file=upload(HEADER + "Pat,Homeowner,,\nSam,Renter,bad-email,\n")),
             follow=True,
         )
         self.assertEqual(Contact.objects.count(), 1)
@@ -420,6 +475,66 @@ class PageTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "first_name")
         self.assertEqual(Contact.objects.count(), 0)
+
+    def test_sending_the_same_upload_twice_imports_it_once(self):
+        """Rendering the report on POST means refreshing re-sends the
+        upload. The duplicate check stops that on its own in the
+        ordinary case — but not with "import them anyway" ticked, which
+        is the case this ticket exists for. Measured before it was
+        written: a repeat post turned 1 customer into 2.
+        """
+        data = self.upload_form(include_duplicates="on")
+        self.client.post(IMPORT, data)
+        self.assertEqual(Contact.objects.filter(last_name="Homeowner").count(), 1)
+
+        again = dict(data)
+        again["csv_file"] = upload(HEADER + "Pat,Homeowner,,585-555-0100\n")
+        response = self.client.post(IMPORT, again, follow=True)
+        self.assertEqual(Contact.objects.filter(last_name="Homeowner").count(), 1, "imported twice")
+        self.assertContains(response, "already been imported")
+
+    def test_an_upload_with_no_ticket_at_all_says_the_page_went_stale(self):
+        """Not "already imported", which would be a lie: a page held open
+        past its session never imported anything."""
+        response = self.client.post(
+            IMPORT, {"csv_file": upload(HEADER + "Pat,Homeowner,,\n")}, follow=True
+        )
+        self.assertEqual(Contact.objects.count(), 0)
+        self.assertContains(response, "gone stale")
+        self.assertNotContains(response, "already been imported")
+
+    def test_a_fresh_upload_of_the_same_file_is_allowed(self):
+        """The ticket must not become a lock on the file itself: asking
+        for the page again and uploading deliberately has to work, or
+        importing the rest of a corrected file would be impossible."""
+        self.client.post(IMPORT, self.upload_form(include_duplicates="on"))
+        self.client.post(IMPORT, self.upload_form(include_duplicates="on"))
+        self.assertEqual(Contact.objects.filter(last_name="Homeowner").count(), 2)
+
+    def test_checking_a_file_does_not_spend_the_ticket(self):
+        """Check, then import, is the intended path — and it is one page
+        load, so the check must leave the ticket alone."""
+        page = self.client.get(IMPORT)
+        ticket = page.context["import_ticket"]
+        self.client.post(
+            IMPORT,
+            {
+                "csv_file": upload(HEADER + "Pat,Homeowner,,\n"),
+                "check_only": "on",
+                "import_ticket": ticket,
+            },
+        )
+        self.assertEqual(Contact.objects.count(), 0)
+        self.client.post(
+            IMPORT, {"csv_file": upload(HEADER + "Pat,Homeowner,,\n"), "import_ticket": ticket}
+        )
+        self.assertEqual(Contact.objects.count(), 1, "the check spent the ticket")
+
+    def test_business_settings_does_not_promise_more_than_it_does(self):
+        """It said the file is checked "before anything is saved",
+        which is only true while the box stays ticked."""
+        response = self.client.get(reverse("core:business_settings"))
+        self.assertContains(response, "Checking the file first is the default")
 
     def test_a_sales_rep_cannot_reach_it(self):
         """Owner-only, like the export it sits beside: this is the one

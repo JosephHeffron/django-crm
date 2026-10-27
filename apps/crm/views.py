@@ -1,3 +1,5 @@
+import secrets
+
 from django.contrib import messages
 from django.contrib.auth.mixins import PermissionRequiredMixin
 from django.contrib.contenttypes.models import ContentType
@@ -1181,7 +1183,25 @@ class ContactImportView(OwnerRequiredMixin, PermissionRequiredMixin, FormView):
     thirty lines of it. Nothing is stored between the check and the
     import: the file is read again, which costs one more upload and
     saves a half-finished import living in somebody's session.
+
+    **A real import spends a one-time ticket**, which is the price of
+    rendering on POST: refreshing the result page re-sends the upload.
+    Normally the duplicate check catches that on its own — the second
+    run finds everybody already on the books — but with "import them
+    anyway" ticked it would create the whole file a second time.
+    Measured, not assumed: a repeat post made 1 customer into 2.
+
+    The ticket is held in the session, which covers refreshing, going
+    back, and clicking Upload twice. Two genuinely simultaneous posts
+    could still both read it before either writes; closing that needs a
+    row in the database to lock, and this page is used once or twice a
+    year. The limit is written down rather than designed around.
     """
+
+    TICKETS = "contact_import_tickets"
+    # Enough that a second tab, or a reread of the page, still works;
+    # few enough that the session stays small.
+    KEEP_TICKETS = 5
 
     template_name = "crm/contact_import.html"
     form_class = ContactImportForm
@@ -1195,6 +1215,12 @@ class ContactImportView(OwnerRequiredMixin, PermissionRequiredMixin, FormView):
         except importers.Problem as problem:
             form.add_error("csv_file", str(problem))
             return self.form_invalid(form)
+
+        if not check_only:
+            refusal = self._spend_ticket()
+            if refusal:
+                messages.info(self.request, refusal)
+                return self.render_to_response(self.get_context_data(form=form))
 
         planned = importers.plan(rows, include_duplicates=form.cleaned_data["include_duplicates"])
         ready = [entry for entry in planned if entry.importing]
@@ -1220,8 +1246,43 @@ class ContactImportView(OwnerRequiredMixin, PermissionRequiredMixin, FormView):
             )
         )
 
+    def _spend_ticket(self):
+        """ "" if this upload may import, or why it may not.
+
+        The ticket is taken out of the session before anything is
+        written, so the same post arriving twice imports once.
+
+        Two refusals rather than one, because they are different
+        situations and the same sentence would be wrong for one of
+        them: a ticket that has been used means this upload already
+        happened, while no ticket at all means the page was stale or
+        the session had expired — nothing was imported either way, but
+        only the first has already been done.
+        """
+        offered = self.request.POST.get("import_ticket", "")
+        live = self.request.session.get(self.TICKETS, [])
+        if not offered:
+            return (
+                "That page had gone stale, so nothing was imported. "
+                "Choose the file and upload it again."
+            )
+        if offered not in live:
+            return (
+                "That upload has already been imported — nothing was imported again. "
+                "Choose the file again if you meant to import more."
+            )
+        self.request.session[self.TICKETS] = [one for one in live if one != offered]
+        return ""
+
+    def _issue_ticket(self):
+        ticket = secrets.token_urlsafe(16)
+        live = self.request.session.get(self.TICKETS, [])
+        self.request.session[self.TICKETS] = ([*live, ticket])[-self.KEEP_TICKETS :]
+        return ticket
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
+        context.setdefault("import_ticket", self._issue_ticket())
         context.setdefault("person_columns", importers.PERSON_COLUMNS)
         context.setdefault("address_columns", importers.ADDRESS_COLUMNS)
         context.setdefault("required_columns", importers.REQUIRED_COLUMNS)

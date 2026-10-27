@@ -495,7 +495,12 @@ class ImportRowForm(forms.Form):
 
     first_name = forms.CharField(max_length=100)
     last_name = forms.CharField(max_length=100)
-    email = forms.EmailField(required=False)
+    # 254 because that is the column. Without it a 300-character email
+    # passed this form and then failed at the write with a DataError,
+    # which — inside the import's single transaction — meant one bad
+    # row took down the whole file with a 500 instead of being
+    # reported as a bad row. CodeRabbit found it on #182.
+    email = forms.EmailField(required=False, max_length=254)
     phone = forms.CharField(max_length=30, required=False)
     stage = forms.ChoiceField(choices=[("", "")] + Contact.Status.choices, required=False)
     lead_source = forms.ChoiceField(choices=[("", "")] + Contact.LeadSource.choices, required=False)

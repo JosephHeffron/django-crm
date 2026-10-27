@@ -15,6 +15,9 @@
 
   <form method="post" enctype="multipart/form-data" class="card">
     {% csrf_token %}
+    {# Spent when the file is really imported, so refreshing this page
+       cannot import it a second time — see ContactImportView. #}
+    <input type="hidden" name="import_ticket" value="{{ import_ticket }}">
     {{ form.as_p }}
     <div class="cluster">
       <button type="submit">Upload</button>
