@@ -124,6 +124,17 @@ def _decode(raw):
     raise Problem("That file isn't text this can read. Save it as CSV and try again.")
 
 
+def _not_csv(reader, error):
+    """`csv.Error` as something the page can show.
+
+    Reachable well inside the size cap: `csv` refuses a single cell
+    over 128 KB, and a 2 MB file has room for one. Without this the
+    page answers a malformed file with a 500 rather than a sentence —
+    CodeRabbit found it on #182.
+    """
+    return Problem(f"That file isn't valid CSV, near line {reader.line_num}: {error}.")
+
+
 def read(upload):
     """Rows as dicts keyed by known column, plus the headers ignored.
 
@@ -141,6 +152,8 @@ def read(upload):
         raw_headers = next(reader)
     except StopIteration:
         raise Problem("That file is empty.") from None
+    except csv.Error as error:
+        raise _not_csv(reader, error) from None
 
     headers = [_header(name) for name in raw_headers]
     missing = [name for name in REQUIRED_COLUMNS if name not in headers]
@@ -155,18 +168,21 @@ def read(upload):
     unknown = sorted({name for name in headers if name and name not in KNOWN_COLUMNS})
 
     rows = []
-    for line, values in enumerate(reader, start=2):
-        if not any(value.strip() for value in values):
-            continue  # a blank line, which spreadsheets add freely
-        row = {}
-        for index, name in enumerate(headers):
-            if name in KNOWN_COLUMNS and index < len(values):
-                row[name] = _uncell(values[index].strip())
-        rows.append((line, row))
-        if len(rows) > MAX_ROWS:
-            raise Problem(
-                f"That file has more than {MAX_ROWS} rows. Split it and import the parts."
-            )
+    try:
+        for line, values in enumerate(reader, start=2):
+            if not any(value.strip() for value in values):
+                continue  # a blank line, which spreadsheets add freely
+            row = {}
+            for index, name in enumerate(headers):
+                if name in KNOWN_COLUMNS and index < len(values):
+                    row[name] = _uncell(values[index].strip())
+            rows.append((line, row))
+            if len(rows) > MAX_ROWS:
+                raise Problem(
+                    f"That file has more than {MAX_ROWS} rows. Split it and import the parts."
+                )
+    except csv.Error as error:
+        raise _not_csv(reader, error) from None
     if not rows:
         raise Problem("That file has a header row and nothing else.")
     return rows, unknown

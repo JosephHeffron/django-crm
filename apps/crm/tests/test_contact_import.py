@@ -135,6 +135,25 @@ class ReadingTests(TestCase):
             importers.read(fat)
         self.assertIn("limit", str(refused.exception))
 
+    def test_a_cell_too_big_for_the_csv_reader_is_a_message_not_a_crash(self):
+        """`csv` refuses a single cell over 128 KB, which fits easily
+        inside the 2 MB file cap — so this is reachable, and without
+        handling it the page answers with a 500."""
+        huge = "x" * 200_000
+        with self.assertRaises(importers.Problem) as refused:
+            read(HEADER + f"{huge},Homeowner,,\n")
+        self.assertIn("valid CSV", str(refused.exception))
+        self.assertIn("line 2", str(refused.exception))
+
+    def test_a_header_row_the_csv_reader_refuses_is_also_a_message(self):
+        """The header is read before the loop, so it needs its own
+        guard — a mutation pass showed the row-loop one was carrying
+        both tests on its own."""
+        huge = "x" * 200_000
+        with self.assertRaises(importers.Problem) as refused:
+            read(f"{huge},last_name\nPat,Homeowner\n")
+        self.assertIn("valid CSV", str(refused.exception))
+
     def test_the_exports_formula_guard_is_undone(self):
         """`apps/core/export.py` writes a leading apostrophe before a
         cell starting with "=" so a spreadsheet can't run it. A round
