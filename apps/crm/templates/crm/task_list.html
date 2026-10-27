@@ -1,6 +1,9 @@
 {% extends "base.html" %}
+{% load static %}
 
 {% block title %}Tasks{% endblock %}
+
+{% block extra_head %}<script src="{% static 'js/bulk.js' %}" defer></script>{% endblock %}
 
 {% block content %}
   {% include "crm/_hub_tabs.html" %}
@@ -46,10 +49,32 @@
   </form>
 
   {% if tasks %}
+    {# Same shape as the customer list's bar — see the comment there. #}
+    {% if can_bulk %}
+      <form method="post" action="{% url 'crm:task_bulk' %}">
+        {% csrf_token %}
+        <input type="hidden" name="next" value="{{ request.get_full_path }}">
+        <div class="bulk-bar">
+          <label for="id_bulk_action" class="sr-only">What to do with the ticked tasks</label>
+          <select id="id_bulk_action" name="action">
+            <option value="">With the ticked tasks…</option>
+            {% for value, label in bulk_actions %}
+              <option value="{{ value }}">{{ label }}</option>
+            {% endfor %}
+          </select>
+          <button type="submit">Apply</button>
+        </div>
+    {% endif %}
     <div class="table-responsive card card-flush">
     <table class="data-table stack-mobile">
       <thead>
         <tr>
+          {% if can_bulk %}
+            <th class="col-select">
+              <input type="checkbox" hidden data-check-all aria-label="Tick every task on this page">
+              <span class="sr-only">Select</span>
+            </th>
+          {% endif %}
           <th>Title</th>
           <th>Due</th>
           <th>Priority</th>
@@ -60,6 +85,12 @@
       <tbody>
         {% for task in tasks %}
           <tr>
+            {% if can_bulk %}
+              <td class="col-select" data-label="Select">
+                <input type="checkbox" name="selected" value="{{ task.pk }}"
+                       aria-label="Tick {{ task.title }}">
+              </td>
+            {% endif %}
             <td data-label="Title"><a href="{{ task.get_absolute_url }}">{{ task.title }}</a></td>
             <td data-label="Due">{{ task.due_date|date:"M j, Y"|default:"—" }}{% if task.is_overdue %} <span class="badge badge-danger">Overdue</span>{% endif %}</td>
             <td data-label="Priority">{{ task.get_priority_display }}</td>
@@ -70,6 +101,7 @@
       </tbody>
     </table>
     </div>
+    {% if can_bulk %}</form>{% endif %}
 
     {% include "partials/_pagination.html" %}
   {% else %}

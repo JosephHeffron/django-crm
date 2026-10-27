@@ -1,6 +1,9 @@
 {% extends "base.html" %}
+{% load static %}
 
 {% block title %}Contacts{% endblock %}
+
+{% block extra_head %}<script src="{% static 'js/bulk.js' %}" defer></script>{% endblock %}
 
 {% block content %}
   <div class="page-header">
@@ -63,10 +66,49 @@
   </form>
 
   {% if contacts %}
+    {% comment %}
+      The form has to wrap the table, because the row checkboxes are
+      its fields. The bar goes *above* the rows so it stays in view on
+      a full page — a control you have to scroll back down to after
+      ticking the last row is a control people stop using.
+
+      Gated on `can_bulk`, which is the same permission the POST target
+      requires, so nobody is shown an Apply button that would 403.
+    {% endcomment %}
+    {% if can_bulk %}
+      <form method="post" action="{% url 'crm:contact_bulk' %}">
+        {% csrf_token %}
+        {# Back to this page, filters and all. Checked against this host — apps/core/redirects.py. #}
+        <input type="hidden" name="next" value="{{ request.get_full_path }}">
+        <div class="bulk-bar">
+          <label for="id_bulk_action" class="sr-only">What to do with the ticked customers</label>
+          <select id="id_bulk_action" name="action">
+            <option value="">With the ticked customers…</option>
+            {% for value, label in bulk_actions %}
+              <option value="{{ value }}">{{ label }}</option>
+            {% endfor %}
+          </select>
+          <label for="id_bulk_tag" class="sr-only">Which tag</label>
+          <select id="id_bulk_tag" name="tag">
+            <option value="">Which tag?</option>
+            {% for tag in tags %}
+              <option value="{{ tag.pk }}">{{ tag.name }}</option>
+            {% endfor %}
+          </select>
+          <button type="submit">Apply</button>
+        </div>
+    {% endif %}
     <div class="table-responsive card card-flush">
     <table class="data-table stack-mobile">
       <thead>
         <tr>
+          {% if can_bulk %}
+            <th class="col-select">
+              {# Revealed by js/bulk.js. Without it every box is still tickable by hand. #}
+              <input type="checkbox" hidden data-check-all aria-label="Tick everyone on this page">
+              <span class="sr-only">Select</span>
+            </th>
+          {% endif %}
           <th>Name</th>
           <th>Phone</th>
           <th>Address</th>
@@ -78,6 +120,12 @@
       <tbody>
         {% for contact in contacts %}
           <tr>
+            {% if can_bulk %}
+              <td class="col-select" data-label="Select">
+                <input type="checkbox" name="selected" value="{{ contact.pk }}"
+                       aria-label="Tick {{ contact.first_name }} {{ contact.last_name }}">
+              </td>
+            {% endif %}
             <td data-label="Name">
               <a href="{{ contact.get_absolute_url }}">{{ contact.first_name }} {{ contact.last_name }}</a>
               {% if contact.status == "lead" %}<span class="badge badge-warning">Lead</span>{% endif %}
@@ -119,6 +167,7 @@
       </tbody>
     </table>
     </div>
+    {% if can_bulk %}</form>{% endif %}
     {% include "partials/_pagination.html" %}
   {% else %}
     <p>No contacts found.</p>

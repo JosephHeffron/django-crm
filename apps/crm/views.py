@@ -17,8 +17,7 @@ from apps.core.pagination import PerPageMixin
 from apps.jobs.models import Job, Quote
 from apps.users.roles import SalesRoleRequiredMixin
 
-from . import audit
-from .followups import record_completion
+from . import audit, bulk, completion
 from .forms import (
     ActivityForm,
     BusinessPlanForm,
@@ -59,35 +58,41 @@ def _log_activity_url(field, obj):
     return f"{reverse('crm:activity_create')}?{field}={obj.pk}"
 
 
-def _sync_task_completed_at(task):
-    """Keeps Task.completed_at in step with its status —
-    set when status becomes completed, cleared otherwise (reopened to
-    pending, or cancelled). Documented in docs/DATABASE_DESIGN.md's
-    Lifecycle behavior as an application-layer invariant.
-    """
-    if task.status == Task.Status.COMPLETED:
-        if task.completed_at is None:
-            task.completed_at = timezone.now()
-    else:
-        task.completed_at = None
-        task.completed_by = None
-
-
-def _apply_task_completion(task, user, was_completed):
-    """completed_at bookkeeping plus, on a transition *into* completed,
-    record_completion() — who did it, and for a follow-up the contact
-    touch that resets its clock (apps/crm/followups.py). Re-saving an
-    already-completed task must not log a second touch."""
-    _sync_task_completed_at(task)
-    if task.status == Task.Status.COMPLETED and not was_completed:
-        record_completion(task, user)
-
-
 # Moved to apps/crm/audit.py in Phase 18.5 unit 5, when the change log
 # widened past these four models. Aliased rather than rewritten at
 # every call site, so the extraction reads as a pure move.
 _record_audit_log = audit.record
 _diff_changed_fields = audit.diff
+
+# Moved to apps/crm/completion.py in Phase 22, so the bulk actions can
+# complete a task by the same rule without importing this module.
+# Aliased for the same reason as the two above: a pure move.
+_sync_task_completed_at = completion.sync_completed_at
+_apply_task_completion = completion.apply_task_completion
+
+
+def _selected_ids(request):
+    """The ticked records. Anything that isn't a plain number is
+    dropped: the field arrives in a form post, so it holds whatever the
+    sender put there, and `pk__in` with a stray value would raise."""
+    return [int(value) for value in request.POST.getlist("selected") if value.isdigit()]
+
+
+def _bulk_response(request, changed, note, error, fallback):
+    """One message and back to the list the action came from.
+
+    `fallback` rather than always the plain list, so the filters and
+    the page the person was looking at survive the round trip — the
+    `next` is checked against this host like every other
+    (apps/core/redirects.py).
+    """
+    if error:
+        messages.error(request, error)
+    elif changed:
+        messages.success(request, note)
+    else:
+        messages.info(request, note)
+    return redirect(redirects.safe_next(request, fallback))
 
 
 def _audit_log_for(obj):
@@ -338,6 +343,10 @@ class ContactListView(SalesRoleRequiredMixin, PerPageMixin, ListView):
         context["sort"] = params.get("sort") if params.get("sort") in CONTACT_SORTS else "name"
         context["companies"] = Company.objects.order_by("name")
         context["tags"] = Tag.objects.order_by("name")
+        context["bulk_actions"] = bulk.CONTACT_ACTIONS
+        # The action bar is gated on the permission the POST target
+        # requires, so nobody is shown a control that would 403.
+        context["can_bulk"] = self.request.user.has_perm("crm.change_contact")
         context["stage_choices"] = Contact.Status.choices
         context["sort_choices"] = [(key, label) for key, (label, _) in CONTACT_SORTS.items()]
         context["town"], context["postal"] = address_filters(params)
@@ -513,6 +522,33 @@ class ContactDeactivateView(SalesRoleRequiredMixin, PermissionRequiredMixin, Det
         return redirect(contact.get_absolute_url())
 
 
+class ContactBulkActionView(SalesRoleRequiredMixin, PermissionRequiredMixin, View):
+    """The action bar above the customer list (Phase 22).
+
+    POST only. Following a link must never change twenty records, and a
+    GET that did would be one crawler away from doing it unasked.
+
+    **Scoping, and why `apps.crm.bulk` takes a queryset.** This list is
+    not row-scoped: every sales role sees every customer (ADR 0008), so
+    the role gate plus `crm.change_contact` is the whole of the
+    permission story and narrowing by id is enough here. Passing the
+    queryset rather than the ids is what keeps that honest — if the
+    list ever starts hiding rows, this is the one line that has to
+    learn the same filter, instead of the rule living in `bulk` where
+    nothing can see what the page showed.
+    """
+
+    permission_required = "crm.change_contact"
+
+    def post(self, request):
+        selected = Contact.objects.filter(pk__in=_selected_ids(request))
+        tag = Tag.objects.filter(pk=_int_or_none(request.POST.get("tag"))).first()
+        changed, note, error = bulk.apply_to_contacts(
+            request.POST.get("action", ""), selected, request.user, tag=tag
+        )
+        return _bulk_response(request, changed, note, error, reverse("crm:contact_list"))
+
+
 class ActivityListView(SalesRoleRequiredMixin, PerPageMixin, ListView):
     model = Activity
     template_name = "crm/activity_list.html"
@@ -643,6 +679,8 @@ class TaskListView(TasksHubMixin, SalesRoleRequiredMixin, PerPageMixin, ListView
         # already chosen — see crm/_hub_tabs.html.
         context["contact_id"] = _int_or_none(self.request.GET.get("contact"))
         context["contacts"] = contact_choices()
+        context["bulk_actions"] = bulk.TASK_ACTIONS
+        context["can_bulk"] = self.request.user.has_perm("crm.change_task")
         return context
 
 
@@ -1102,3 +1140,23 @@ class TaskCompleteView(SalesRoleRequiredMixin, PermissionRequiredMixin, View):
         ):
             return redirect(next_url)
         return redirect(task.get_absolute_url())
+
+
+class TaskBulkActionView(SalesRoleRequiredMixin, PermissionRequiredMixin, View):
+    """The action bar above the task list (Phase 22). POST only, for the
+    reason `ContactBulkActionView` gives — and see its docstring for the
+    scoping, which is the same here: tasks are not row-scoped either.
+
+    Completing several goes through the same rule as the one-click
+    button on a single task, so a follow-up finished from the list
+    still resets that customer's repeat-service clock.
+    """
+
+    permission_required = "crm.change_task"
+
+    def post(self, request):
+        selected = Task.objects.filter(pk__in=_selected_ids(request))
+        changed, note, error = bulk.apply_to_tasks(
+            request.POST.get("action", ""), selected, request.user
+        )
+        return _bulk_response(request, changed, note, error, reverse("crm:task_list"))
