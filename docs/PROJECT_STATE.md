@@ -1513,20 +1513,35 @@ assigns that crew. Not a regression — the hero **New job** button has
 always dropped the filter the same way. Raised by Sourcery on PR #166
 and declined there as scope rather than built half-way.
 
-**Run the suite under a pinned clock in CI.** Now three
-time-dependent failures — the seed leaving Payroll empty before
-mid-morning, and the map's week window failing on a Sunday night — both
-passed locally and failed elsewhere. Each was fixed by pinning that
-test. The general fix is a CI job that runs the whole suite at a few
-simulated hours, or under a frozen clock, so "it depends what time it
-is" stops being a way for tests to be wrong. The sweep after the map
-flake checked 18 call sites by reasoning; reasoning is weaker evidence
-than a clock that cannot vary. The third case makes the argument
-better than the first two: `_factories.invoice`'s hard-coded date was
-not a flake at all. It passed every run until 2026-10-17 and failed
-every run after, on a branch that had changed nothing — a test that
-expires. A pinned clock catches the flakes; a *moving* clock in CI (a
-job that runs the suite a few months ahead) is what catches these.
+**Run the suite under a pinned clock in CI.** **Four** time-dependent
+failures now, and **three of the four were found by accident** — which
+is the argument:
+
+1. The seed left Payroll empty before mid-morning.
+2. The map's week window failed on a Sunday night: a job booked at
+   `now + 2 hours` landed in next week, so CI failed at 22:20 on a
+   Sunday and passed every other time.
+3. `_factories.invoice`'s hard-coded date. Not a flake at all — it
+   passed every run until 2026-10-17 and failed every run after, on a
+   branch that had changed nothing. A test that **expires**.
+4. `PayrollTests` (2026-10-26, PR #178): the fixture clocked hours
+   *ending now*, and payroll filters on `started_at` inside a week
+   that begins on Monday — so for the first four hours of every Monday
+   the hours began last week and three tests reported zero. Found by
+   accident, on `main`, at 00:31 on a Monday, while running the suite
+   for unrelated work. No fixture could fix it: in the first four
+   hours of a Monday there is no room for a four-hour entry inside the
+   week, so that class now pins its own clock.
+
+Each was fixed by pinning that one test. The general fix is a CI job
+that runs the whole suite at a few simulated hours, or under a frozen
+clock, so "it depends what time it is" stops being a way for tests to
+be wrong. The sweep after the map flake checked 18 call sites by
+reasoning; reasoning is weaker evidence than a clock that cannot vary —
+and case 4 was in those 18 call sites' neighbourhood and still got
+through. A pinned clock catches the flakes; a *moving* clock (a job
+that runs the suite a few months ahead) is what catches the ones that
+expire.
 
 ## Known issues
 
