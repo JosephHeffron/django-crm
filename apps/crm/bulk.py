@@ -37,7 +37,7 @@ from django.db import transaction
 from apps.core.pagination import PER_PAGE_CHOICES
 
 from . import audit, completion
-from .models import AuditLogEntry, Task
+from .models import AuditLogEntry, Contact, Task
 
 # The largest page any list view will show, so a selection can never be
 # bigger than something somebody could actually have ticked. The ids
@@ -71,8 +71,10 @@ def _was(number):
 def _outcome(changed, skipped, noun, done, already):
     """`(changed, note, "")` — the count and the sentence the page shows.
 
-    One of the two parts is always there: the caller has already
-    refused an empty selection, so `changed + skipped` is at least one.
+    `skipped` is counted from the records the write actually looked at,
+    not from the size of the selection: a record deleted between the
+    tick and the Apply should not be reported as having been left
+    alone.
     """
     parts = []
     if changed:
@@ -87,19 +89,25 @@ def _refuse(message):
 
 
 def _selection(queryset, noun):
-    """The records to act on, or the reason not to.
+    """The ids to act on, or the reason not to.
 
     Takes a **queryset**, never a list of ids, on purpose: the view has
     already narrowed it the way its own list page narrows it, so an id
     somebody posted by hand that they could not have seen is simply not
     in it.
+
+    Ids rather than model instances, and one page plus one rather than
+    everything matched: a posted selection is whatever was sent, so the
+    cap is reached before more than a page of rows — or any of their
+    tags — comes out of the database. The records themselves are read
+    again, and locked, inside the transaction that changes them.
     """
-    records = list(queryset)
-    if not records:
+    pks = list(queryset.values_list("pk", flat=True)[: MAX_RECORDS + 1])
+    if not pks:
         return None, f"Tick the {noun}s you want to change first."
-    if len(records) > MAX_RECORDS:
+    if len(pks) > MAX_RECORDS:
         return None, f"That is more than {MAX_RECORDS} at once. Use a smaller page."
-    return records, ""
+    return pks, ""
 
 
 def apply_to_contacts(action, contacts, user, tag=None):
@@ -113,36 +121,20 @@ def apply_to_contacts(action, contacts, user, tag=None):
     if action in ("tag", "untag") and tag is None:
         return _refuse("Choose a tag as well.")
 
-    # `tags` prefetched because the change log records the whole list
-    # before and after, which is the difference between a history that
-    # reads "tags: Spring 2027 → Spring 2027, Gutters" and one that
-    # reads "tags changed".
-    records, error = _selection(contacts.prefetch_related("tags"), "customer")
+    pks, error = _selection(contacts, "customer")
     if error:
         return _refuse(error)
 
-    if action == "tag":
-        changed = _retag(records, tag, user, adding=True)
-        return _outcome(
-            changed,
-            len(records) - changed,
-            "customer",
-            f"Added “{tag.name}” to {{n}}.",
-            "{n} already had it.",
-        )
-    if action == "untag":
-        changed = _retag(records, tag, user, adding=False)
-        return _outcome(
-            changed,
-            len(records) - changed,
-            "customer",
-            f"Removed “{tag.name}” from {{n}}.",
-            "{n} did not have it.",
-        )
+    if action in ("tag", "untag"):
+        adding = action == "tag"
+        changed, seen = _retag(pks, tag, user, adding=adding)
+        done = f"Added “{tag.name}” to {{n}}." if adding else f"Removed “{tag.name}” from {{n}}."
+        already = "{n} already had it." if adding else "{n} did not have it."
+        return _outcome(changed, seen - changed, "customer", done, already)
 
     active = action == "reactivate"
-    changed = _set_active(records, user, active=active)
-    skipped = len(records) - changed
+    changed, seen = _set_active(pks, user, active=active)
+    skipped = seen - changed
     if active:
         return _outcome(
             changed, skipped, "customer", "Reactivated {n}.", "{n} {was} already active."
@@ -150,28 +142,66 @@ def apply_to_contacts(action, contacts, user, tag=None):
     return _outcome(changed, skipped, "customer", "Deactivated {n}.", "{n} {was} already inactive.")
 
 
+def _locked(model, pks):
+    """The records to change, locked for this transaction, in a settled
+    order.
+
+    Everything decided about a record is decided from the row read
+    here, not from the copy the selection read a moment earlier. Two
+    Applies at once — the same person double-clicking is the likely one
+    — would otherwise both see a pending task and both complete it,
+    writing two log entries and, for a follow-up, two customer
+    touches. `apps/crm/undo.py` locks for the same reason, in the same
+    shape.
+
+    Ordered by primary key so that two overlapping requests take the
+    rows in the same order and queue instead of deadlocking.
+    """
+    return list(model.objects.select_for_update().filter(pk__in=pks).order_by("pk"))
+
+
 @transaction.atomic
-def _retag(contacts, tag, user, adding):
+def _retag(pks, tag, user, adding):
+    """Returns `(changed, seen)`."""
+    contacts = _locked(Contact, pks)
+    # Read **after** the rows are locked, so a tag another request has
+    # just added is seen rather than added again. One query for the lot
+    # rather than one per customer, because the log entry records the
+    # whole list before and after — the difference between a history
+    # that reads "tags: Spring 2027 → Spring 2027, Gutters" and one
+    # that reads "tags changed".
+    held = {}
+    links = Contact.tags.through.objects.filter(contact_id__in=pks).select_related("tag")
+    for link in links:
+        held.setdefault(link.contact_id, []).append((link.tag_id, link.tag.name))
+
     changed = 0
     for contact in contacts:
-        current = sorted(contact.tags.all(), key=lambda each: each.name)
-        has_it = any(each.pk == tag.pk for each in current)
+        current = sorted(held.get(contact.pk, []), key=lambda each: each[1])
+        has_it = any(tag_id == tag.pk for tag_id, _ in current)
         if has_it == adding:
             continue
-        before = ", ".join(each.name for each in current)
+        before = ", ".join(name for _, name in current)
         if adding:
             contact.tags.add(tag)
-            after = ", ".join(sorted([each.name for each in current] + [tag.name]))
+            after = ", ".join(sorted([name for _, name in current] + [tag.name]))
         else:
             contact.tags.remove(tag)
-            after = ", ".join(each.name for each in current if each.pk != tag.pk)
+            after = ", ".join(name for tag_id, name in current if tag_id != tag.pk)
+        # A tag change is a change to the customer as far as the edit
+        # form is concerned — it saves the tags and the row together —
+        # so the row's own timestamp moves here too, rather than
+        # depending on which route the change came in by.
+        contact.save(update_fields=["updated_at"])
         audit.record(user, contact, AuditLogEntry.Action.UPDATED, {"tags": [before, after]})
         changed += 1
-    return changed
+    return changed, len(contacts)
 
 
 @transaction.atomic
-def _set_active(contacts, user, active):
+def _set_active(pks, user, active):
+    """Returns `(changed, seen)`."""
+    contacts = _locked(Contact, pks)
     changed = 0
     for contact in contacts:
         if contact.is_active == active:
@@ -189,7 +219,7 @@ def _set_active(contacts, user, active):
             {"is_active": [str(was), str(active)]},
         )
         changed += 1
-    return changed
+    return changed, len(contacts)
 
 
 def apply_to_tasks(action, tasks, user):
@@ -204,16 +234,16 @@ def apply_to_tasks(action, tasks, user):
     if action not in dict(TASK_ACTIONS):
         return _refuse("Choose what to do with them first.")
 
-    records, error = _selection(tasks, "task")
+    pks, error = _selection(tasks, "task")
     if error:
         return _refuse(error)
 
     status = Task.Status.COMPLETED if action == "complete" else Task.Status.CANCELLED
-    changed = _set_task_status(records, user, status)
+    changed, seen = _set_task_status(pks, user, status)
     done = "Completed {n}." if action == "complete" else "Cancelled {n}."
     return _outcome(
         changed,
-        len(records) - changed,
+        seen - changed,
         "task",
         done,
         "{n} {was} not pending and {was} left alone.",
@@ -221,7 +251,9 @@ def apply_to_tasks(action, tasks, user):
 
 
 @transaction.atomic
-def _set_task_status(tasks, user, status):
+def _set_task_status(pks, user, status):
+    """Returns `(changed, seen)`."""
+    tasks = _locked(Task, pks)
     changed = 0
     for task in tasks:
         if task.status != Task.Status.PENDING:
@@ -239,4 +271,4 @@ def _set_task_status(tasks, user, status):
             {"status": [str(Task.Status.PENDING.label), str(Task.Status(status).label)]},
         )
         changed += 1
-    return changed
+    return changed, len(tasks)

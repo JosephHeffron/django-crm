@@ -74,8 +74,13 @@ _apply_task_completion = completion.apply_task_completion
 def _selected_ids(request):
     """The ticked records. Anything that isn't a plain number is
     dropped: the field arrives in a form post, so it holds whatever the
-    sender put there, and `pk__in` with a stray value would raise."""
-    return [int(value) for value in request.POST.getlist("selected") if value.isdigit()]
+    sender put there, and `pk__in` with a stray value would raise.
+
+    `isdecimal()`, not `isdigit()`: `"²".isdigit()` is True and
+    `int("²")` raises, so the first version of this turned a crafted
+    post into a 500. Sourcery found that on #181.
+    """
+    return [int(value) for value in request.POST.getlist("selected") if value.isdecimal()]
 
 
 def _bulk_response(request, changed, note, error, fallback):

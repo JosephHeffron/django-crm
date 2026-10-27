@@ -40,7 +40,18 @@ def apply_task_completion(task, user, was_completed):
     """completed_at bookkeeping plus, on a transition *into* completed,
     record_completion() — who did it, and for a follow-up the contact
     touch that resets its clock (apps/crm/followups.py). Re-saving an
-    already-completed task must not log a second touch."""
+    already-completed task must not log a second touch.
+
+    A task becoming completed is stamped with **this** moment, even if
+    the row already carried a date. `sync_completed_at` keeps a date it
+    finds, which is right when an already-completed task is saved again
+    and wrong here: a task that reached pending still holding an old
+    stamp (an admin edit, say) would otherwise be reported as finished
+    on that old date, by whoever just completed it. Sourcery found this
+    on #181.
+    """
+    if task.status == Task.Status.COMPLETED and not was_completed:
+        task.completed_at = None
     sync_completed_at(task)
     if task.status == Task.Status.COMPLETED and not was_completed:
         record_completion(task, user)

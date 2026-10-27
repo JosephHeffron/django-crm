@@ -105,6 +105,20 @@ class TaggingTests(BulkTestCase):
         self.assertEqual(entry.changes, {"tags": ["Gutters", "Gutters, Spring 2027"]})
         self.assertEqual(entry.user, self.rep)
 
+    def test_a_tag_change_touches_the_customers_own_timestamp(self):
+        """Saving tags through the edit form writes the row too, so the
+        bulk route has to as well — otherwise the same change leaves a
+        different record of itself depending on how it was made."""
+        before = Contact.objects.get(pk=self.sam.pk).updated_at
+        self.post(CONTACT_BULK, "tag", [self.sam, self.pat], tag=self.spring.pk)
+        self.assertGreater(Contact.objects.get(pk=self.sam.pk).updated_at, before)
+        # Pat already had the tag, so nothing about Pat changed.
+        self.assertEqual(
+            Contact.objects.get(pk=self.pat.pk).updated_at,
+            self.pat.updated_at,
+            "a customer who needed no change is not touched either",
+        )
+
     def test_a_tag_change_says_plainly_that_it_cannot_be_undone(self):
         """Contacts *are* undoable and `tags` is written into their log,
         so this is the case where undo has to refuse rather than guess
@@ -197,9 +211,12 @@ class RefusalTests(BulkTestCase):
         self.assertEqual(posted.filter(is_active=False).count(), 0)
 
     def test_an_id_that_is_not_a_number_is_dropped(self):
+        """ "²" is in here because `"²".isdigit()` is True while
+        `int("²")` raises — the first version of this view dropped
+        `not-an-id` and turned that one into a 500."""
         response = self.client.post(
             CONTACT_BULK,
-            {"action": "deactivate", "selected": ["not-an-id", str(self.pat.pk)]},
+            {"action": "deactivate", "selected": ["not-an-id", "²", "1.5", str(self.pat.pk)]},
             follow=True,
         )
         self.assertEqual(said(response), "Deactivated 1 customer.")
@@ -258,6 +275,16 @@ class TaskActionTests(BulkTestCase):
         done.refresh_from_db()
         self.assertEqual(done.completed_by, other)
         self.assertEqual(done.completed_at, then)
+
+    def test_completing_a_task_stamps_now_not_an_old_date(self):
+        """A pending task holding an old `completed_at` — an admin edit
+        is the way that happens — must be reported as finished today,
+        not on that old date by whoever just ticked it."""
+        stale = timezone.now() - timedelta(days=200)
+        Task.objects.filter(pk=self.first.pk).update(completed_at=stale)
+        self.post(TASK_BULK, "complete", [self.first])
+        self.first.refresh_from_db()
+        self.assertGreater(self.first.completed_at, timezone.now() - timedelta(minutes=5))
 
     def test_completing_a_follow_up_still_resets_the_customers_clock(self):
         """The whole reason this goes through `apps/crm/completion.py`.
@@ -340,6 +367,9 @@ class PageTests(BulkTestCase):
     def test_the_task_list_offers_the_bar_and_a_box_per_row(self):
         response = self.client.get(TASK_LIST)
         self.assertContains(response, 'name="selected"')
+        # The value, not just the field: a box carrying the wrong pk
+        # would tick one task and act on another.
+        self.assertContains(response, f'value="{self.task.pk}"')
         self.assertContains(response, TASK_BULK)
 
     def test_both_lists_offer_every_action_the_endpoint_accepts(self):
@@ -380,12 +410,20 @@ class PageTests(BulkTestCase):
         self.assertTrue(self.pat.is_active)
 
     def test_a_post_without_the_csrf_token_is_refused(self):
+        """Both endpoints: one of them being exempt is exactly the kind
+        of thing a test that only checks the other would miss."""
         strict = Client(enforce_csrf_checks=True)
         strict.login(username="rep", password=PASSWORD)
-        response = strict.post(CONTACT_BULK, {"action": "deactivate", "selected": [self.pat.pk]})
-        self.assertEqual(response.status_code, 403)
+        posts = (
+            (CONTACT_BULK, {"action": "deactivate", "selected": [self.pat.pk]}),
+            (TASK_BULK, {"action": "complete", "selected": [self.task.pk]}),
+        )
+        for url, data in posts:
+            self.assertEqual(strict.post(url, data).status_code, 403, url)
         self.pat.refresh_from_db()
+        self.task.refresh_from_db()
         self.assertTrue(self.pat.is_active)
+        self.assertEqual(self.task.status, Task.Status.PENDING)
 
     def test_a_cleaner_is_refused_both_endpoints(self):
         grant_role(f.user("crew"), Role.CLEANER)
