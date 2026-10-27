@@ -8,22 +8,23 @@ from django.urls import reverse
 from django.utils import timezone
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.views import View
-from django.views.generic import CreateView, DetailView, ListView, UpdateView
+from django.views.generic import CreateView, DetailView, FormView, ListView, UpdateView
 
 from apps.core import redirects
 from apps.core.models import Notification
 from apps.core.notifications import notify
 from apps.core.pagination import PerPageMixin
 from apps.jobs.models import Job, Quote
-from apps.users.roles import SalesRoleRequiredMixin
+from apps.users.roles import OwnerRequiredMixin, SalesRoleRequiredMixin
 
-from . import audit, bulk, completion
+from . import audit, bulk, completion, importers
 from .forms import (
     ActivityForm,
     BusinessPlanForm,
     ChecklistItemForm,
     CompanyForm,
     ContactForm,
+    ContactImportForm,
     NoteForm,
     PropertyForm,
     TaskForm,
@@ -1165,3 +1166,65 @@ class TaskBulkActionView(SalesRoleRequiredMixin, PermissionRequiredMixin, View):
             request.POST.get("action", ""), selected, request.user
         )
         return _bulk_response(request, changed, note, error, reverse("crm:task_list"))
+
+
+class ContactImportView(OwnerRequiredMixin, PermissionRequiredMixin, FormView):
+    """Bring a customer list in from a spreadsheet (Phase 22).
+
+    The other half of Business Settings → Export Data, and reachable
+    from beside it. Owner-only for the same reason the export is: this
+    is the one page that writes hundreds of records from one click.
+
+    The page is its own result. A POST re-renders it with the report
+    rather than redirecting, because the report *is* the useful thing —
+    which line was refused and why — and a message strip cannot hold
+    thirty lines of it. Nothing is stored between the check and the
+    import: the file is read again, which costs one more upload and
+    saves a half-finished import living in somebody's session.
+    """
+
+    template_name = "crm/contact_import.html"
+    form_class = ContactImportForm
+    permission_required = "crm.add_contact"
+
+    def form_valid(self, form):
+        upload = form.cleaned_data["csv_file"]
+        check_only = form.cleaned_data["check_only"]
+        try:
+            rows, unknown = importers.read(upload)
+        except importers.Problem as problem:
+            form.add_error("csv_file", str(problem))
+            return self.form_invalid(form)
+
+        planned = importers.plan(rows, include_duplicates=form.cleaned_data["include_duplicates"])
+        ready = [entry for entry in planned if entry.importing]
+        customers = addresses = 0
+        if not check_only and ready:
+            customers, addresses = importers.apply(planned, self.request.user)
+            messages.success(
+                self.request,
+                f"Imported {importers.counted(customers, 'customer', 'customers')} "
+                f"and {importers.counted(addresses, 'address', 'addresses')}.",
+            )
+
+        return self.render_to_response(
+            self.get_context_data(
+                form=form,
+                planned=planned,
+                unknown_columns=unknown,
+                ready=len(ready),
+                refused=len(planned) - len(ready),
+                checked_only=check_only,
+                imported=customers if not check_only else 0,
+                addresses=addresses,
+            )
+        )
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context.setdefault("person_columns", importers.PERSON_COLUMNS)
+        context.setdefault("address_columns", importers.ADDRESS_COLUMNS)
+        context.setdefault("required_columns", importers.REQUIRED_COLUMNS)
+        context.setdefault("ignored_columns", importers.IGNORED_COLUMNS)
+        context.setdefault("max_rows", importers.MAX_ROWS)
+        return context
