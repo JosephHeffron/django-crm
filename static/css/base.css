@@ -1535,6 +1535,17 @@ input[type="radio"] {
   text-align: center;
 }
 
+/* A search box above a long dropdown (Phase 22). Rendered `hidden` and
+   unhidden by static/js/picker.js, so it never appears without the
+   script that makes it do something. */
+.field-filter {
+  margin: 0 0 var(--space-2);
+}
+
+.field-filter input[type="search"] {
+  width: 100%;
+}
+
 .filter-form {
   display: flex;
   flex-wrap: wrap;
