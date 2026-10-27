@@ -451,3 +451,88 @@ class JobNoteForm(forms.ModelForm):
                 attrs={"rows": 3, "placeholder": "e.g. Gate code 4821, side entrance"}
             )
         }
+
+
+class ContactImportForm(forms.Form):
+    """The upload itself (Phase 22).
+
+    `check_only` is on by default. Importing 300 customers is not a
+    thing to do by accident, and the report it produces is the same one
+    the real import produces — so the safe path and the informative
+    path are the same click.
+    """
+
+    csv_file = forms.FileField(
+        label="CSV file",
+        help_text="A header row, then one customer per row.",
+    )
+    check_only = forms.BooleanField(
+        required=False,
+        initial=True,
+        label="Check the file first, without importing",
+        help_text="Shows exactly what would happen. Nothing is saved.",
+    )
+    include_duplicates = forms.BooleanField(
+        required=False,
+        label="Import people who look like they're already on the books",
+        help_text="Off by default: a match is usually the same person twice, not a second one.",
+    )
+
+
+class ImportRowForm(forms.Form):
+    """One line of an imported file (Phase 22).
+
+    A form rather than hand-written checks, so a bad email in a
+    spreadsheet gets Django's own message and the row limits match the
+    columns they are going into — `apps/crm/importers.py` turns these
+    errors into the report's "line 14: email: Enter a valid email
+    address."
+
+    Not a `ModelForm`: `company` and `tags` arrive as names rather than
+    ids, and the importer resolves them against what exists rather than
+    creating either.
+    """
+
+    first_name = forms.CharField(max_length=100)
+    last_name = forms.CharField(max_length=100)
+    # 254 because that is the column. Without it a 300-character email
+    # passed this form and then failed at the write with a DataError,
+    # which — inside the import's single transaction — meant one bad
+    # row took down the whole file with a 500 instead of being
+    # reported as a bad row. CodeRabbit found it on #182.
+    email = forms.EmailField(required=False, max_length=254)
+    phone = forms.CharField(max_length=30, required=False)
+    stage = forms.ChoiceField(choices=[("", "")] + Contact.Status.choices, required=False)
+    lead_source = forms.ChoiceField(choices=[("", "")] + Contact.LeadSource.choices, required=False)
+    preferred_contact_method = forms.ChoiceField(
+        choices=[("", "")] + Contact.ContactMethod.choices, required=False
+    )
+    title = forms.CharField(max_length=150, required=False)
+    company = forms.CharField(max_length=200, required=False)
+    tags = forms.CharField(max_length=500, required=False)
+    notes = forms.CharField(required=False)
+    street = forms.CharField(max_length=255, required=False)
+    city = forms.CharField(max_length=100, required=False)
+    state = forms.CharField(max_length=50, required=False)
+    postal_code = forms.CharField(max_length=20, required=False)
+
+    def clean(self):
+        """An address is all four columns or none of them.
+
+        `Property` requires street, town, state and postal code, and
+        nothing in this app supplies a default for any of them — so a
+        row with a street and no town cannot become an address, and
+        importing the customer while quietly dropping their street
+        would be worse than saying so.
+        """
+        cleaned = super().clean()
+        given = [name for name in ("street", "city", "state", "postal_code") if cleaned.get(name)]
+        if given and len(given) < 4:
+            missing = [
+                name for name in ("street", "city", "state", "postal_code") if not cleaned.get(name)
+            ]
+            raise forms.ValidationError(
+                "an address needs street, city, state and postal_code — missing "
+                + ", ".join(missing)
+            )
+        return cleaned

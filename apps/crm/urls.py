@@ -21,6 +21,7 @@ urlpatterns = [
     ),
     path("contacts/", views.ContactListView.as_view(), name="contact_list"),
     path("contacts/add/", views.ContactCreateView.as_view(), name="contact_create"),
+    path("contacts/import/", views.ContactImportView.as_view(), name="contact_import"),
     path(
         "contacts/bulk/",
         views.ContactBulkActionView.as_view(),

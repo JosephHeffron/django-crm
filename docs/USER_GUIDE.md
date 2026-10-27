@@ -214,6 +214,8 @@ Open the **gear → Business settings**:
 - **Export Data** — download customers, companies, jobs, estimates,
   invoices, payments, expenses, or the team list as CSV (opens in Excel)
   or JSON.
+- **Import Customers** — bring a customer list in from a spreadsheet;
+  see below.
 
 ## Settings
 
@@ -507,6 +509,44 @@ showing in the default "active" list view but isn't destroyed, so
 nothing referencing it breaks). There is no delete button anywhere in
 the UI for Companies or Contacts, deliberately.
 
+### Importing customers from a spreadsheet (Owner)
+
+**Business Settings → Import Customers** takes a CSV: a header row
+naming the columns, then one customer per row, up to 2,000. The column
+names are the ones **Export Data** writes, so a file exported from here
+can be edited in Excel and brought back.
+
+- **Always needed:** `first_name`, `last_name`.
+- **Understood:** `email`, `phone`, `stage` (lead or customer),
+  `lead_source`, `preferred_contact_method`, `title`, `company`, `tags`,
+  `notes`. A stage or source can be written the way a person writes it —
+  "Customer", "Yard sign" — not only the way the export spells it.
+- **An address:** `street`, `city`, `state`, `postal_code` — all four
+  together or none. An imported address still needs **placing** on the
+  Map before it shows there.
+- **Read and ignored:** `address`, `owner`, `active`, `created`. The
+  export writes them; coming back the other way the importer owns what
+  they brought in, the date is now, and a new customer is active.
+  Columns it doesn't recognise at all are listed in the report, so a
+  dropped column is never a surprise.
+
+**It checks the file first.** The box is ticked by default: you get the
+same report the real import gives — line by line, who would be
+imported, and the reason for every row left out — and nothing is saved.
+Clear the box, choose the file again and upload to import for real.
+
+Three things it will not do. It **never updates** an existing customer:
+a row matching somebody already on the books is left out and names
+them, with what matched, and you can tick **Import people who look like
+they're already on the books** if they really are different people. It
+**never invents** a company or a tag — an unfamiliar name is reported
+and the customer imported without it, so a typo can't become a tag
+forever. And it is **all or nothing**: if something goes wrong half way,
+nothing is left behind.
+
+Every imported customer appears in their own edit history as created by
+you, the same as if you had typed them in.
+
 ## Leads
 
 *Leads and Deals have moved:* every lead is now a Contact with the
@@ -643,6 +683,6 @@ are still set in the admin.
 ## What's not here yet
 
 Email/calendar integration, file attachments, reporting/forecasting
-views, CSV import/export, and an API are not part of this CRM's initial
+views and an API are not part of this CRM's initial
 release — see `docs/ROADMAP.md`'s "Post-release roadmap" for what's
 planned next and why each was deferred.

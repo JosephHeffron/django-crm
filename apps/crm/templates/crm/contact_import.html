@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+
+{% block title %}Import customers{% endblock %}
+
+{% block content %}
+  <div class="page-header">
+    <div>
+      <h1>Import customers</h1>
+      <p class="page-subtitle">A customer list from a spreadsheet, as CSV.</p>
+    </div>
+    <div class="page-actions">
+      <a class="btn btn-secondary" href="{% url 'core:business_settings' %}">Business Settings</a>
+    </div>
+  </div>
+
+  <form method="post" enctype="multipart/form-data" class="card">
+    {% csrf_token %}
+    {# Spent when the file is really imported, so refreshing this page
+       cannot import it a second time — see ContactImportView. #}
+    <input type="hidden" name="import_ticket" value="{{ import_ticket }}">
+    {{ form.as_p }}
+    <div class="cluster">
+      <button type="submit">Upload</button>
+      <a class="btn btn-secondary" href="{% url 'crm:contact_list' %}">Cancel</a>
+    </div>
+  </form>
+
+  {% if planned %}
+    <section class="card">
+      <h2 class="card-title">
+        {% if checked_only %}What this file would do{% else %}What this file did{% endif %}
+      </h2>
+      <p>
+        {% if checked_only %}
+          <strong>{{ ready }}</strong> {{ ready|pluralize:"customer,customers" }} would be
+          imported{% if refused %}, and <strong>{{ refused }}</strong> would be left out{% endif %}.
+          Nothing has been saved — upload the file again with the check box cleared to import it.
+        {% else %}
+          Imported <strong>{{ imported }}</strong> {{ imported|pluralize:"customer,customers" }}
+          and {{ addresses }} {{ addresses|pluralize:"address,addresses" }}{% if refused %},
+          and left out <strong>{{ refused }}</strong>{% endif %}.
+        {% endif %}
+      </p>
+      {% if unknown_columns %}
+        <p class="message warning">
+          Columns this doesn't understand, which were ignored:
+          {{ unknown_columns|join:", " }}.
+        </p>
+      {% endif %}
+
+      <div class="table-responsive">
+        <table class="data-table stack-mobile">
+          <thead>
+            <tr>
+              <th>Line</th>
+              <th>Who</th>
+              <th>What happened</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for entry in planned %}
+              <tr>
+                <td data-label="Line">{{ entry.line }}</td>
+                <td data-label="Who">{{ entry.name|default:"—" }}</td>
+                <td data-label="What happened">
+                  {% if entry.importing %}
+                    {% if checked_only %}Would be imported{% else %}Imported{% endif %}
+                  {% else %}
+                    <span class="badge badge-warning">Left out</span>
+                    {{ entry.problems|join:"; " }}
+                  {% endif %}
+                  {% if entry.notes %}<div class="muted">{{ entry.notes|join:"; " }}</div>{% endif %}
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  {% endif %}
+
+  <section class="card">
+    <h2 class="card-title">What the file needs</h2>
+    <p>
+      A header row naming its columns, in any order, then one customer per row —
+      up to {{ max_rows }}. The names are the ones
+      <a href="{% url 'core:business_settings' %}">Export Data</a> writes, so a file exported
+      from here can be edited and brought back.
+    </p>
+    <ul class="list-plain">
+      <li><strong>Always needed:</strong> {{ required_columns|join:", " }}</li>
+      <li><strong>Understood:</strong> {{ person_columns|join:", " }}</li>
+      <li>
+        <strong>An address:</strong> {{ address_columns|join:", " }} — all four together, or none.
+        Imported addresses still need placing on the map.
+      </li>
+      <li><strong>Read and ignored:</strong> {{ ignored_columns|join:", " }}</li>
+    </ul>
+    <p class="muted">
+      This only ever creates customers. A row that matches somebody already on the books is
+      left out and named, rather than merged into them.
+    </p>
+  </section>
+{% endblock %}
