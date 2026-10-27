@@ -1,0 +1,180 @@
+# yaml-language-server: $schema=https://www.coderabbit.ai/integrations/schema.v2.json
+
+# What CodeRabbit needs to know about this repository.
+#
+# Out of the box it reviews this as any Django app, and this one has
+# rules that look like omissions if you don't know them: PostgreSQL
+# everywhere, no build step, no new infrastructure, a strict CSP, and
+# pages that must work with JavaScript blocked. `CLAUDE.md` is the full
+# contract; the path instructions below are the parts a reviewer needs
+# in hand while reading a diff.
+#
+# Also tuned for a cost this repo really pays: `main` requires every
+# review conversation resolved before merge, so each comment is a
+# thread somebody has to answer. Checks that CI already gates on are
+# turned off here rather than reported twice.
+
+tone_instructions: >-
+  Verify every claim against the code in the diff before raising it, and say so
+  when unsure. Prefer Django built-ins and server-rendered pages. Never propose
+  new infrastructure. Skip style nits: CI gates on ruff.
+
+reviews:
+  # The default, set explicitly: "assertive" means more nitpicks, and
+  # every one becomes a thread to resolve before this repo can merge.
+  profile: chill
+  poem: false
+
+  auto_review:
+    enabled: true
+    drafts: false
+
+  path_filters:
+    # Session logs and phase write-ups are a record of work, not code
+    # under review.
+    - "!logs/**"
+    # Collected static files are build output of `collectstatic`.
+    - "!staticfiles/**"
+
+  path_instructions:
+    - path: "apps/**/*.py"
+      instructions: >-
+        Django monolith, PostgreSQL only in development, test and production —
+        never suggest SQLite or a different database (docs/decisions/0002).
+        Prefer Django's own features; do not propose Celery, Redis, RabbitMQ,
+        Elasticsearch, Kafka, a task queue, a cache server or a JavaScript
+        framework: every new dependency must be justified against the
+        architectural complexity rule in CLAUDE.md.
+
+        Every model change needs a migration. Every feature and bug fix needs
+        tests.
+
+        List pages must paginate and use select_related/prefetch_related. When
+        narrowing by a multi-valued relation, a `pk__in` subquery is correct and
+        a join is not: a join multiplies rows and corrupts `paginator.count`.
+        Do not suggest replacing such a subquery with a join.
+
+        Access control is role-based through the mixins in apps/users/roles.py.
+        A record outside the viewer's scope is answered with 404, not 403.
+
+        Changes made through the app's own views are written to the change log
+        by explicit calls (apps/crm/audit.py). Do not suggest signals for this:
+        leaving admin edits, shell sessions and data migrations out of the log
+        is a documented, deliberate scope limit.
+
+        `on_delete` is enforced by Django in Python, not by the database: every
+        foreign key here is NO ACTION in PostgreSQL. Flag any raw SQL or
+        cursor-based data migration that assumes CASCADE, SET NULL or PROTECT
+        will happen.
+
+        Secrets come from the environment. Never propose a literal credential or
+        a fallback default for one.
+
+    - path: "apps/**/tests/**/*.py"
+      instructions: >-
+        Judge whether each test could actually fail for the reason its name
+        gives. The most valuable finding here is a fixture where two different
+        behaviours would produce the same assertion — a count that is right for
+        two reasons, a date that sorts the same either way, a mechanism applied
+        twice so breaking one half changes nothing.
+
+        No test may depend on the real clock, the current day of the week, or
+        the machine's timezone; the clock is pinned where time matters.
+
+        Tests run against PostgreSQL. Prefer assertions about behaviour over
+        assertions about implementation.
+
+    - path: "apps/*/migrations/*.py"
+      instructions: >-
+        A migration must be reversible, or refuse loudly in reverse rather than
+        deleting data to make the reverse succeed. Never suggest editing an
+        already-applied migration. Data migrations that bypass the ORM do not
+        get Django's `on_delete` behaviour.
+
+    - path: "**/templates/**/*.html"
+      instructions: >-
+        Server-rendered Django templates. Production runs a strict
+        Content-Security-Policy — `default-src 'none'` with per-request nonces —
+        so no inline `<script>`, no inline `style` attribute, no `on*` handler
+        attributes, and no third-party CDN. Every page must work with JavaScript
+        blocked; scripts only enhance what the server already rendered.
+
+        A table marked `stack-mobile` becomes a card per row on a phone, so each
+        cell needs its `data-label`.
+
+    - path: "static/js/**/*.js"
+      instructions: >-
+        No build step, no bundler, no framework, no TypeScript. Plain
+        browser JavaScript in an IIFE with "use strict", loaded as an external
+        file with `defer`.
+
+        Writes go through server-rendered forms, not `fetch` or XHR:
+        CSRF_COOKIE_HTTPONLY is on, so no script here can read the CSRF token.
+
+        URLs and record ids come from `data-` attributes; never build a URL in
+        JavaScript. If the file fails to load the page must still work, so a
+        control that only functions with the script is rendered `hidden` and
+        unhidden by it.
+
+    - path: "config/settings/*.py"
+      instructions: >-
+        Development and production settings stay separate. Flag anything that
+        weakens DEBUG, ALLOWED_HOSTS, CSRF_TRUSTED_ORIGINS, secure cookies,
+        HSTS or the CSP, and anything that reads a secret with a default value.
+
+    - path: "docs/**/*.md"
+      instructions: >-
+        Prose for the owner of a small business, not reference material; do not
+        comment on wording, grammar or heading style. Worth raising:
+        documentation that contradicts the code in the same pull request, and a
+        significant architectural decision made without an ADR in
+        docs/decisions/ (Decision / Context / Alternatives considered /
+        Decision made / Reason / Consequences / Date).
+
+  tools:
+    # CI already fails the build on ruff, and pre-commit runs it before
+    # a commit exists. A third report of the same finding is a thread to
+    # resolve, not information.
+    ruff:
+      enabled: false
+    # This project's docs are deliberately written prose; style and
+    # grammar findings on them are noise.
+    languagetool:
+      enabled: false
+    markdownlint:
+      enabled: false
+    # Kept on deliberately, as defence in depth beside GitHub's secret
+    # scanning and push protection.
+    gitleaks:
+      enabled: true
+
+  # Nothing writes to a branch here except a human or an assistant a
+  # human is watching: commits happen only on explicit instruction
+  # (CLAUDE.md, Git policy), so the features that push code of their
+  # own are off.
+  finishing_touches:
+    docstrings:
+      enabled: false
+    unit_tests:
+      enabled: false
+    autofix:
+      enabled: false
+    fix_ci:
+      enabled: false
+
+  # A human approves every merge into `main`.
+  auto_approvals:
+    enabled: false
+
+  pre_merge_checks:
+    # Quoted: unquoted `off` is boolean false in YAML, and this field
+    # wants the string.
+    docstrings:
+      mode: "off"
+    issue_assessment:
+      mode: "off"
+
+knowledge_base:
+  learnings:
+    # What it learns from this repository stays with this repository.
+    scope: local
