@@ -4,11 +4,25 @@ Update this file at the end of every session (see `CLAUDE.md`'s Session
 Close Procedure). Do not describe anything as complete unless it was
 actually verified.
 
-> **Last updated 2026-10-25.** Repo is clean: `main` up to date,
-> nothing uncommitted, 1,247 tests passing. **Phases 20 and 21 are
+> **Last updated 2026-10-27.** Repo is clean: `main` up to date,
+> nothing uncommitted, 1,354 tests passing. **Phase 22 is
+> complete** — duplicate detection (#179), a search box for the job
+> form's customer dropdown (#180, the owner's own request), bulk
+> actions on the customer and task lists (#181), and CSV import
+> (#182). **Saved filters were declined by the owner** on 2026-10-27
+> before any code existed, so that item is closed rather than
+> deferred. **Phases 20 and 21 are
 > complete**, and neither was the phase the roadmap described: 20
 > changed the money model, and 21 **retired team messaging** instead
 > of finishing it. See "Post-release roadmap progress".
+>
+> **The code reviewer changed mid-phase.** Sourcery's weekly budget
+> (250,000 diff characters) ran out during #182, so CodeRabbit was
+> installed as a second reviewer and found four real issues on its
+> first PR, including a refresh that could import a customer list
+> twice. `.coderabbit.yaml` (#184) now carries this project's
+> constraints; Sourcery's budget resets weekly, and the two catch
+> different things, so both stay.
 > Eleven PRs landed in this stretch — #164, #165, #166 and the #167
 > close-out (Phase 19.5); #168 and #160 (two security upgrades); #159,
 > #161, #162 and #169 (tooling); and #158, the role-based stats sheet.
@@ -1340,11 +1354,58 @@ roadmap completed:
   where the Inbox was. Read
   `logs/claude/phase-21-retire-messaging.md` for why the PWA tests
   missed those three gaps, and for the ADR I contradicted on purpose.
-- Phases 22-25: not yet started (re-sequenced in `docs/ROADMAP.md`).
+- **Phase 22 — Data portability and bulk operations: DONE**, with one
+  item declined and one added. The verification pass found CSV
+  **export** already built and mutation-tested it anyway: 5 caught,
+  **2 real gaps** (its JSON writer and its attachment header could
+  both be broken with the suite green), fixed in #179. Then: duplicate
+  detection that **warns and never blocks** (#179), a search box above
+  the job form's customer dropdown (#180 — not on the entry; the owner
+  asked after hitting it in use), bulk actions on the customer and task
+  lists (#181), and CSV import of a customer list (#182).
+  **Saved filters were declined** by the owner before any code existed,
+  so the roadmap entry carries that decision and its date rather than
+  an ADR — nothing was built or removed.
+
+  Three things worth carrying forward. **Five of this phase's tests
+  could not fail for their stated reason**, every one mine and every
+  one found by mutation rather than reading — the shape is always a
+  fixture where two explanations give the same result (a pending task
+  that never had a completion date; a byte-order mark stripped twice; an
+  apostrophe tested in the middle of a name instead of the start; a
+  choice label that differs from its value only by case; and a guard
+  whose test was covered by the guard next to it). **The row lock in
+  `apps/crm/bulk.py` has no test** and is reasoned rather than
+  asserted: observing it needs two concurrent transactions, and a
+  threaded test that deadlocked would hang CI rather than fail it.
+  **`Contact.updated_at` has no reader in the app** — the bulk path
+  writes it for consistency with the edit form, but nothing displays
+  it. Full detail in
+  `logs/claude/phase-22-data-portability.md`.
+- Phases 23-25: not yet started (re-sequenced in `docs/ROADMAP.md`).
 
 ## Currently working on
 
 **Nothing in flight.** What follows is what most recently landed.
+
+**Phase 22 — data portability and bulk operations — is complete** (PRs
+#179, #180, #181, #182, #184 and this close-out). Four of its items
+were built, one was declined by the owner before any code existed
+(saved filters), and one was added that the entry never mentioned (a
+search box for the job form's customer dropdown, #180, asked for after
+the owner hit it in use).
+
+The phase's own lesson is about tests rather than features: **five of
+its tests could not fail for the reason their names gave**, every one
+mine, every one found by mutating the code rather than reading it. The
+shape never varies — a fixture where two explanations produce the same
+result. `logs/claude/phase-22-data-portability.md` names all five.
+
+It is also where the review tooling changed: Sourcery's weekly budget
+ran out mid-phase, CodeRabbit went on as a second reviewer, and it
+found four real issues on its first PR — one of them a refresh that
+imported a customer list twice, measured (1 customer became 2) before
+it was believed.
 
 **Phase 20 — money — is complete** (PRs #171, #172, #173, #174 and
 this close-out), and it is the clearest case yet of a roadmap entry
@@ -1464,14 +1525,25 @@ for its own unit", below.
 
 ## Next
 
-**Phase 22 — data portability and bulk operations** is the next
-roadmap item. Run the verification pass over its entry first. That is
-now **five phases running** where the entry described intent rather
-than delivery: Phase 20's was wrong about the business model as well
-as the state of the code, and Phase 21's asked for three things that
-were then deleted. Note the CSV **export** half already exists
-(`apps/core/export.py`, eight datasets, reachable from Business
-Settings), so expect at least part of 22 to be built already.
+**Phase 23 — authentication hardening** (two-factor authentication for
+login, e.g. `django-otp`) is the next roadmap item. Run the
+verification pass over its entry first. That is now **six phases
+running** where the entry described intent rather than delivery: Phase
+20's was wrong about the business model as well as the state of the
+code, Phase 21's asked for three things that were then deleted, and
+Phase 22's listed CSV import/export as one item when export was
+already built — and listed saved filters, which the owner then said
+were not wanted.
+
+For Phase 23 specifically, two things to establish before writing any
+code: whether `django-otp` (or whatever is chosen) earns its place
+under the architectural complexity rule — it is a real dependency on
+the login path, so the "why it is required, what it solves,
+maintenance cost, security implications, simpler alternative" case
+belongs in an ADR **before** implementing — and what happens to a
+locked-out owner, since this is a single-owner self-hosted install with
+no support desk behind it. A recovery path that only works from a
+second device is a recovery path this owner may not have.
 
 Worth knowing from Phase 20 before the next one: `--parallel` is
 unusable for mutation testing in this project (a failing test whose
@@ -1481,9 +1553,9 @@ five of nine mutation harnesses written during the phase had bugs of
 their own, so every harness now asserts its anchor matched exactly
 once before applying.
 
-The three owner-reported items are built, tested, browser-verified and
-merged; nothing about them is outstanding, and neither is anything
-else — there is no work in flight and no open PR.
+Phase 22's four built items are merged, tested and browser-verified;
+nothing about them is outstanding, and neither is anything else —
+there is no work in flight and no open PR.
 
 **How that prediction turned out, kept as a record.** Before Phase 20
 started, this section predicted it was "mostly done, mostly undone,

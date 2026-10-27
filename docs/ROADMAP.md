@@ -71,9 +71,10 @@ explicitly deferred until this scope is working reliably on the Raspberry Pi.
 The initial release scope above is done. The phases below pick up the
 functionality it deliberately deferred, plus hardening work identified
 along the way (`docs/PRODUCTION_READINESS.md`'s still-open findings).
-Phases 15-21 are complete. Phase 18.5, twelve items the
+Phases 15-22 are complete. Phase 18.5, twelve items the
 owner reported after testing the running app, is complete, as is
-Phase 19.5, three more reported the same way. Phase 22 is next.
+Phase 19.5, three more reported the same way. Phase 23
+(two-factor authentication) is next.
 From Phase 17 the roadmap pivots the CRM to
 the owner's exterior home-services business (service catalog, quotes,
 crew-scheduled jobs, invoicing, follow-up automation, team messaging,
@@ -323,9 +324,28 @@ insufficient.
 
       Customer texting (Phase 24) still stands and still has the
       models to build on.
-- [ ] **Phase 22 — Data portability and bulk operations.** CSV import/
+- [x] **Phase 22 — Data portability and bulk operations.** CSV import/
       export, bulk actions on list views, saved filters, duplicate
-      detection on Contact create. (Formerly Phase 17.)
+      detection on Contact create. (Formerly Phase 17.) Done, with one
+      item declined and one added:
+      - CSV **export** already existed (`apps/core/export.py`); the
+        verification pass mutation-tested it and found two real gaps,
+        fixed in PR #179.
+      - CSV **import** of a customer list, Owner-only beside the
+        export, reading the same column names it writes (PR #182).
+      - **Bulk actions** on the customer and task lists — tag,
+        deactivate, reactivate, complete, cancel (PR #181).
+      - **Duplicate detection** on Contact create: warns, never blocks
+        (PR #179).
+      - **Saved filters: declined by the owner on 2026-10-27**, before
+        any code existed — "skip save filters, this is not needed". No
+        ADR, because nothing was built or removed; this entry is the
+        record. The design is in that session's transcript if it is
+        ever wanted.
+      - **Added, not from this entry:** a search box above the job
+        form's customer dropdown (PR #180), asked for by the owner
+        after hitting it in use.
+      Full detail in `logs/claude/phase-22-data-portability.md`.
 - [ ] **Phase 23 — Authentication hardening.** Two-factor authentication
       for login (e.g. `django-otp`). (Formerly Phase 21.)
 - [ ] **Phase 24 — Customer communication (future).** Customer SMS via

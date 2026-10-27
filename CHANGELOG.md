@@ -302,3 +302,44 @@ for meaningful changes — not for every small fix or documentation tweak.
   them, and the note form says so: a note about a customer is readable
   by any crew member assigned to any of that customer's jobs, at any of
   their addresses.
+
+### Added
+- Money is recorded on the job it was paid for, and finished work is
+  what counts as revenue. This business is paid before the work is
+  done, so figures built from issued invoices counted almost nothing.
+  Invoices remain for the customers who ask for one.
+- A customer list can be brought in from a spreadsheet (Business
+  Settings → Import Customers, Owner only), using the same column names
+  the export writes — so a file exported from here can be edited in
+  Excel and brought back. It checks the file first and reports, line by
+  line, what it would do: nothing is saved until you say so. It only
+  ever creates customers; somebody who looks like they are already on
+  the books is named rather than merged into, and an unfamiliar company
+  or tag is reported rather than invented.
+- One action on a whole page of records. Tick customers to add or
+  remove a tag, deactivate or reactivate them; tick tasks to mark them
+  complete or cancel them. The message afterwards counts only what
+  actually changed and says what it left alone, and each change appears
+  in that record's own history exactly as if it had been made on its
+  own page.
+- Adding a customer who may already be on the books now asks first,
+  showing who they look like and what matched — the same name, the same
+  email, or the same phone number. It only ever asks: two people really
+  do share a name, so the second one can still be added.
+- The customer dropdown when booking a job has a search box, so finding
+  somebody in a long list no longer means scrolling it.
+
+### Changed
+- A job's page is where a payment is recorded, and the Financials and
+  dashboard figures follow completed work rather than sent invoices.
+  Outstanding money means finished work that has not been paid for,
+  aged from the day it was finished.
+
+### Removed
+- **Team messaging and the Inbox.** The owner did not use it and half
+  of it was never finished, so the pages, the links, the unread badge
+  and the dashboard cards are gone (ADR 0014). Past conversations are
+  still in the database, untouched, because customer texting is still
+  planned and builds on the same tables. A cleaner's phone now has
+  **Time clock** where the Inbox was, and every page is one database
+  query lighter for everyone.
