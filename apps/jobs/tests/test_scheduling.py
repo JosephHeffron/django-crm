@@ -203,6 +203,35 @@ class BookingTests(SchedulingTestCase):
         response = self.client.get(NEW, {"start": "2026-11-03T13:30+00:00"})
         self.assertContains(response, 'value="2026-11-03T08:30"')
 
+    def test_the_customer_dropdown_offers_a_search_box(self):
+        """The contract the script depends on, which is all a Django
+        test can see: the box exists, it is hidden until the script
+        unhides it, and `data-filter-for` names the select's real id.
+
+        The filtering itself is JavaScript and is verified in the
+        browser pass. What breaks silently without this test is the
+        wiring — a renamed field makes `auto_id` point at nothing, the
+        script finds no select and returns, and the box simply never
+        appears with no error anywhere.
+        """
+        page = self.client.get(NEW).content.decode()
+        self.assertIn('data-filter-for="id_contact"', page)
+        self.assertIn('id="customer-filter"', page)
+        self.assertIn('<p class="field-filter" hidden', page)
+        self.assertIn("js/picker.js", page)
+        # The select it points at has to be on the page under that id,
+        # or the box is wired to nothing.
+        self.assertIn('id="id_contact"', page)
+
+    def test_the_dropdown_still_lists_every_customer_without_the_script(self):
+        """The box is an enhancement. A Django test client runs no
+        JavaScript, so this is the no-JS case by construction: every
+        active customer is still in the select."""
+        others = [f.contact(self.owner, "Pat", "Second"), f.contact(self.owner, "Sam", "Third")]
+        page = self.client.get(NEW).content.decode()
+        for contact in [self.customer] + others:
+            self.assertIn(f'value="{contact.pk}"', page)
+
     def test_a_customer_can_be_prefilled_from_their_page(self):
         response = self.client.get(NEW, {"contact": str(self.customer.pk)})
         self.assertContains(response, f'<option value="{self.customer.pk}" selected>')

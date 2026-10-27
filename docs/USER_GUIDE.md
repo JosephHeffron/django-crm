@@ -158,6 +158,14 @@ when it starts and ends; the service, which sets its color on the
 schedule; and who's doing it. Ticking crew members puts the job on
 their own schedule.
 
+**Searching the customer list.** Above the customer dropdown is a
+search box: type part of a name and the list narrows as you type, and
+clearing the box puts everybody back. Whoever is already chosen stays
+in the list even while they don't match, so searching can't quietly
+change who the job is for. Pressing Enter in the box does nothing on
+purpose — it would otherwise save the job while you were still filling
+it in.
+
 **The work** is the list of what's being charged for. Picking a service
 fills in its usual price, which you can change. You can leave the list
 empty while you're only booking the time and price it later.
