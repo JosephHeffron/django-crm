@@ -23,6 +23,16 @@
     var options = Array.prototype.slice.call(select.options);
     box.hidden = false;
 
+    // Enter submits the form a field sits in, and this box sits inside
+    // the job form: pressing it while narrowing the list would save a
+    // half-written job. There is nothing here to submit, so Enter does
+    // nothing at all.
+    input.addEventListener("keydown", function (event) {
+      if (event.key === "Enter") {
+        event.preventDefault();
+      }
+    });
+
     input.addEventListener("input", function () {
       var needle = input.value.trim().toLowerCase();
       // Whatever is chosen stays choosable, always. Filtering a
