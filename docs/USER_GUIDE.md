@@ -32,6 +32,14 @@ On a phone, the app can be installed to your home screen (your
 browser's "Add to Home Screen" / "Install app" option) and opens like a
 native app.
 
+**Forgotten your password?** The link is on the sign-in page. Enter
+the email address on your account and a link to set a new one arrives
+by email; it expires after a few hours and works only once. The page
+says the same thing whether or not an account exists for that address —
+deliberately, so it can't be used to find out who has an account here.
+If nothing arrives, check the spam folder, then ask the owner to check
+the address on your account.
+
 ## Getting around
 
 **The sidebar** on the left lists everything you can open:
