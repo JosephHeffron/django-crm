@@ -16,6 +16,26 @@ CSRF_TRUSTED_ORIGINS = [
     if origin.strip()
 ]
 
+# Outbound email (ADR 0019): the business's own Gmail account over
+# SMTP, for password resets and, later, one notification when somebody
+# asks for a quote. Nothing customer-facing.
+#
+# Required rather than defaulted, read the same way DJANGO_SECRET_KEY
+# and DJANGO_ALLOWED_HOSTS are: a deployment missing any of the three
+# fails at startup. The alternative is a container that boots happily
+# and then cannot send the one email that matters, which nobody
+# discovers until somebody is locked out.
+EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
+EMAIL_HOST = os.environ["EMAIL_HOST"]
+EMAIL_HOST_USER = os.environ["EMAIL_HOST_USER"]
+EMAIL_HOST_PASSWORD = os.environ["EMAIL_HOST_PASSWORD"]
+EMAIL_PORT = int(os.environ.get("EMAIL_PORT", "587"))
+EMAIL_USE_TLS = os.environ.get("EMAIL_USE_TLS", "1") not in ("0", "false", "False")
+# Gmail will not send as an address the account does not own, so the
+# sending account is the only honest default here.
+DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", EMAIL_HOST_USER)
+SERVER_EMAIL = DEFAULT_FROM_EMAIL
+
 # Caddy terminates TLS and proxies to Django over the internal network, so
 # Django trusts the X-Forwarded-Proto header from that proxy only.
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
