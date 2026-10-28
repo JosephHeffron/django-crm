@@ -12,8 +12,12 @@ the website's hostname.
 """
 
 import re
+from datetime import datetime, timedelta
+from unittest import mock
 
+from django.conf import settings
 from django.contrib.auth import get_user_model
+from django.contrib.auth.tokens import PasswordResetTokenGenerator
 from django.core import mail
 from django.test import TestCase, override_settings
 from django.urls import reverse
@@ -47,6 +51,10 @@ class AskingForALinkTests(TestCase):
         sent = mail.outbox[0]
         self.assertEqual(sent.to, ["sam@example.test"])
         self.assertIn("password", sent.subject.lower())
+        # Not "testserver: set a new password". Without
+        # django.contrib.sites, Django names the site after the request
+        # host unless we say otherwise.
+        self.assertIn(settings.CRM_BRAND_NAME, sent.subject)
         self.assertEqual(self.client.get(link_in(sent)).status_code, 302)
 
     def test_an_unknown_address_says_exactly_the_same_thing(self):
@@ -88,6 +96,28 @@ class UsingTheLinkTests(TestCase):
         self.assertTrue(self.client.login(username="sam", password=NEW_PASSWORD))
         self.client.logout()
         self.assertFalse(self.client.login(username="sam", password=PASSWORD))
+
+    def test_the_link_dies_within_a_few_hours(self):
+        """The email, the "sent" page and docs/USER_GUIDE.md all
+        promise "a few hours". Django's own default is **three days**,
+        so this is what keeps PASSWORD_RESET_TIMEOUT from quietly
+        drifting back to it: four hours on, the link must be dead.
+        """
+        four_hours_on = datetime.now() + timedelta(hours=4)
+        with mock.patch.object(PasswordResetTokenGenerator, "_now", return_value=four_hours_on):
+            later = self.client.get(self.link, follow=True)
+        self.assertContains(later, "expired")
+        self.assertNotContains(later, "Save the new password")
+
+    def test_the_link_still_works_an_hour_on(self):
+        """The other side of it: "a few hours" has to mean a few, not
+        a few minutes. A timeout set too short would pass the test
+        above and still be useless to somebody reading email later.
+        """
+        an_hour_on = datetime.now() + timedelta(hours=1)
+        with mock.patch.object(PasswordResetTokenGenerator, "_now", return_value=an_hour_on):
+            self.set_password()
+        self.assertTrue(self.client.login(username="sam", password=NEW_PASSWORD))
 
     def test_the_link_only_works_once(self):
         """A reset link in an inbox is a key. It has to stop being one
@@ -163,8 +193,13 @@ class MailConfigurationTests(TestCase):
         for missing in ("EMAIL_HOST", "EMAIL_HOST_USER", "EMAIL_HOST_PASSWORD"):
             environment = {key: value for key, value in base.items() if key != missing}
             with mock.patch.dict(os.environ, environment, clear=True):
-                with self.assertRaises(KeyError, msg=f"{missing} was not required"):
+                with self.assertRaises(KeyError, msg=f"{missing} was not required") as raised:
                     importlib.reload(importlib.import_module("config.settings.production"))
+                # Named, not just any KeyError: every other required
+                # variable is present, so a KeyError from one of those
+                # would mean this fixture broke, not that the mail
+                # setting is required.
+                self.assertEqual(raised.exception.args[0], missing)
 
         # Reload once more with everything present, so a later test in
         # the same process does not see a half-imported module.

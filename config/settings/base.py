@@ -106,6 +106,13 @@ AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
 ]
 
+# How long an emailed password-reset link stays usable. Django's own
+# default is three days, which is a long time for a key sitting in an
+# inbox — and the email, the "sent" page and docs/USER_GUIDE.md all
+# promise "a few hours", so this is also what makes those true.
+# Lowering it costs nothing: asking for another link is one click.
+PASSWORD_RESET_TIMEOUT = 3 * 60 * 60
+
 # No JavaScript in this app ever reads the CSRF cookie — every
 # {% csrf_token %} is a server-rendered hidden form field — so there's
 # no reason for the cookie to be script-readable. See

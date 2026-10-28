@@ -15,6 +15,11 @@ the static site and never proxies to Django. A dead link, in the one
 email that has to work, discovered by somebody already locked out.
 
 `CRM_SITE_HOST` pins it. Left unset, nothing changes.
+
+`site_name` is set here too, always. Without `django.contrib.sites`
+installed, Django falls back to a `RequestSite`, whose name is the
+hostname — so the subject line would read "crm.example.com: set a new
+password" instead of the business's name.
 """
 
 from django.conf import settings
@@ -32,11 +37,12 @@ class PasswordResetView(auth_views.PasswordResetView):
         # kwarg — passing it as one raises TypeError, which is how the
         # first version of this was written and what the host test
         # caught.
+        context = {
+            **(self.extra_email_context or {}),
+            "site_name": settings.CRM_BRAND_NAME,
+        }
         host = (settings.CRM_SITE_HOST or "").strip()
         if host:
-            self.extra_email_context = {
-                **(self.extra_email_context or {}),
-                "domain": host,
-                "site_name": settings.CRM_BRAND_NAME,
-            }
+            context["domain"] = host
+        self.extra_email_context = context
         return super().form_valid(form)
