@@ -241,7 +241,9 @@ but it is a business judgement.
    no `CACHES` setting; `Containerfile:35`), so a naive limiter counts
    a third of the traffic. Use Django's built-in
    `django.core.cache.backends.db.DatabaseCache` with
-   `createcachetable` — a table, no new service.
+   `createcachetable` — a table, no new service. The cache itself
+   arrives in phase 1, with the login rate limit (§8). By phase 5 it
+   already exists, and `/book/` only adds its own limit on top.
 
 **CAPTCHA: not at launch.** Cloudflare Turnstile would be the pick if
 one is needed, but it means third-party JavaScript, and "zero
@@ -527,16 +529,19 @@ Nothing here touches a server; it all lands as ordinary PRs.
 | Step | Detail |
 |---|---|
 | ADR for the VPS target **[code]** | ADR 0015: x86-64 VPS replaces the Raspberry Pi 5. Records that nothing in the build was ARM-specific (audit F-VPS-7), what changes (the port sysctl, Ubuntu packages, the guide) and what does not (ADRs 0004, 0005, 0006 all stand) |
-| Email **[code]** | `EMAIL_BACKEND`/host/port/TLS/user/password and `DEFAULT_FROM_EMAIL` from the environment in `config/settings/production.py`; `.env.example` entries; console backend in development so nothing leaves a workstation. Tests: a sent message lands in `django.core.mail.outbox`; production refuses to start with the setting half-filled |
+| Email **[code] — done** | Merged in #188 with ADR 0019. `EMAIL_BACKEND`/host/port/TLS/user/password and `DEFAULT_FROM_EMAIL` from the environment in `config/settings/production.py`; `.env.example` entries; console backend in development so nothing leaves a workstation. Tests: a sent message lands in `django.core.mail.outbox`; production refuses to start with the setting half-filled |
 | In-app team member creation **[code]** | Owner-only, gated like the CSV import page (`OwnerRequiredMixin` + permission, `apps/crm/views.py` `ContactImportView` is the pattern). Create a user, set their role group, deactivate and reactivate. Matches the owner's rule: only Owner and admin accounts manage accounts |
-| Password reset **[code]** | Django's own `PasswordReset*` views (`apps/users/urls.py` currently has login/logout/password-change only — **Verified** `:6-21`), with the project's templates. Depends on email |
+| Password reset **[code] — done** | Merged in #188. Django's own `PasswordReset*` views (before #188, `apps/users/urls.py` had login/logout/password-change only), with the project's templates. Depends on email |
+| Login rate limit **[code]** | Moved here from phase 5 so it lands **before** phase 3 puts `crm.` on the internet. Without it, `/accounts/login/` and `/admin/login/` take unlimited password guesses (audit F-PUB-2, F-SEC-1) and there is no MFA until Phase 23. Add the `DatabaseCache` from D4 (ADR 0020), with `createcachetable` in the deploy path, and limit failed attempts per IP and per username on both login pages. Phase 5 then reuses the same cache for `/book/`. Tests: the limit trips after N failures; it holds across processes (assert against the database cache, since a locmem one would pass while being wrong across workers); a correct login after a few failures still works |
 | Ubuntu deployment guide **[code]** | Rewrite `docs/ADMIN_GUIDE.md`'s deployment section for Ubuntu 24.04 x86-64: `net.ipv4.ip_unprivileged_port_start` in `/etc/sysctl.d/`, `loginctl enable-linger`, subuid/subgid verification (`podman unshare cat /proc/self/uid_map`), apt package names, restic install |
 | Backup failure alerting **[code]** | Fix audit F-BAK-3. **Recommendation:** a dead-man's-switch ping — `scripts/backup.sh` calls a monitoring URL on success, and the service alerts when the ping does not arrive. Catches "the timer stopped running", which an `OnFailure=` handler cannot |
 | Check the real `.env` **[owner]** | The one live HIGH finding from `docs/PRODUCTION_READINESS.md`: confirm the real `.env` carries no `DJANGO_SETTINGS_MODULE` line. That exact line once booted a production container with `DEBUG=True` (`.env.example:6-15`) |
 
 **Verify:** full suite green; `makemigrations --check` clean; a
 password reset works end to end against a real mailbox on a
-workstation; the new account page refused to a Sales Rep.
+workstation; the new account page refused to a Sales Rep; repeated
+wrong passwords on `/accounts/login/` and `/admin/login/` are refused
+once the limit trips.
 
 **Rollback:** each step is its own PR; revert individually.
 
@@ -642,8 +647,8 @@ HTTPS; Lighthouse/axe pass on mobile and desktop widths.
   (`apps/crm/duplicates.py:50`) runs and **annotates** the lead rather
   than refusing it — a stranger must never be told "you are already in
   our system".
-- **[code]** Honeypot, minimum submit time, database-cache rate limit
-  (D4), `createcachetable` in the deploy path.
+- **[code]** Honeypot, minimum submit time, and a rate limit on
+  `/book/` (D4), using the database cache phase 1 already added.
 - **[code]** Email to the owner on each submission; a confirmation
   page for the customer (D9).
 - **[code]** Tests: the form creates exactly what D2 says; a bot
@@ -828,10 +833,13 @@ customer (D2); nothing on the apex but the one form route and static files (D7),
 the owner's rule; password reset by email; **no MFA yet** (audit
 F-SEC-2) — and the brute-force surface is real today: `/admin/login/`
 answers 200 to anyone (**Verified**, audit F-PUB-2) with no rate
-limiting (F-SEC-1). **Recommendation:** once the database cache exists
-for D4, apply a login rate limit to `/accounts/login/` **and**
-`/admin/login/` in the same phase. Cheap, and it closes the one
-genuinely exposed door.
+limiting (F-SEC-1). **Recommendation:** a login rate limit on
+`/accounts/login/` **and** `/admin/login/`, in **phase 1**, so it is
+in place before phase 3 puts `crm.` on the internet. It brings the
+database cache D4 needs forward with it. Cheap, and it closes the one
+genuinely exposed door. (Originally planned for phase 5, alongside
+the booking form. That would have left both login pages open to
+unlimited guessing through phases 3 and 4.)
 
 ---
 
@@ -1009,8 +1017,8 @@ free number is **0015** (**Verified**: `docs/decisions/` ends at 0014).
 | 0016 | Two sites behind one Caddy | 4 |
 | 0017 | **The public website lives in this repository** — `website/`, the shared partials read by both Caddy and Django, read-only mounts in both compose files, deploy and rollback through `scripts/deploy.sh`, the CI path filter that keeps required checks reporting, and the guard keeping private data out of a public repo (D6) | 4 |
 | 0018 | Website leads arrive through one same-origin Django route, `/book/`, not an API | 5 |
-| 0019 | Outbound email via the existing Gmail account, owner notifications only | 1 |
-| 0020 | Database-backed cache for rate limiting, in place of Redis | 5 |
+| 0019 | Outbound email via the existing Gmail account, owner notifications only. **Written**, merged with #188 | 1 |
+| 0020 | Database-backed cache for rate limiting, in place of Redis. Moved from phase 5 so the login rate limit lands before go-live | 1 |
 
 ADRs 0004 (Podman + Caddy), 0005 (rootless systemd), 0006 (off-host
 restic backups), 0007 (CSP) and 0011 (OpenStreetMap) all stand

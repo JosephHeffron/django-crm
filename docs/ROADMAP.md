@@ -369,10 +369,11 @@ insufficient.
 
       Seven units, in this order — the first three cannot affect the
       website or the domain, which is the point of the sequence:
-      1. **P0 repo fixes** — outbound email, in-app team member
-         creation (Owner-only), password reset, an Ubuntu x86-64
-         deployment guide, and alerting for a backup that stops
-         running.
+      1. **P0 repo fixes** — outbound email and password reset
+         (**done**, #188 and ADR 0019), in-app team member creation
+         (Owner-only), a rate limit on both login pages before the
+         CRM is exposed, an Ubuntu x86-64 deployment guide, and
+         alerting for a backup that stops running.
       2. **VPS provisioning** — the owner's own work, following that
          guide.
       3. **CRM live on `crm.`** — HTTPS, backups to B2, uptime
