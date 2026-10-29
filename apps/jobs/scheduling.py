@@ -17,7 +17,7 @@ would be odd, but it is not this function's business to decide, and
 it vanish from the figures.
 """
 
-from datetime import timedelta
+from datetime import UTC, timedelta
 
 from django.utils import timezone
 
@@ -44,6 +44,11 @@ def move_job(job, start):
         return None, "That isn't a date and time."
     if timezone.is_naive(start):
         start = timezone.make_aware(start)
+    # In UTC from here on, so the end below is the start plus the job's
+    # length in real hours. On a local time the same sum is wall-clock,
+    # and a three-hour job running across a clock change would end two
+    # or four hours later.
+    start = start.astimezone(UTC)
     length = job.scheduled_end - job.scheduled_start
     # Compared to the minute, which is the precision the control
     # offers. A stored start carries seconds, so an exact comparison
@@ -65,7 +70,12 @@ def nudge_job(job, key):
     delta = NUDGE_BY_KEY.get(key)
     if delta is None:
         return None, "That isn't a move this can make."
-    return move_job(job, job.scheduled_start + delta)
+    # Added in local time, not UTC. "On a day" means the same time on
+    # the next day, and across a clock change those are an hour apart:
+    # in UTC, a 12:35 job on the Saturday before the clocks go back
+    # landed at 11:35 on the Sunday. Python adds a timedelta to a
+    # zone-aware datetime in wall-clock terms, so this keeps 12:35.
+    return move_job(job, timezone.localtime(job.scheduled_start) + delta)
 
 
 def describe(job):
