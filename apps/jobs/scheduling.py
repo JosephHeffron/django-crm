@@ -65,7 +65,12 @@ def nudge_job(job, key):
     delta = NUDGE_BY_KEY.get(key)
     if delta is None:
         return None, "That isn't a move this can make."
-    return move_job(job, job.scheduled_start + delta)
+    # Added in local time, not UTC. "On a day" means the same time on
+    # the next day, and across a clock change those are an hour apart:
+    # in UTC, a 12:35 job on the Saturday before the clocks go back
+    # landed at 11:35 on the Sunday. Python adds a timedelta to a
+    # zone-aware datetime in wall-clock terms, so this keeps 12:35.
+    return move_job(job, timezone.localtime(job.scheduled_start) + delta)
 
 
 def describe(job):

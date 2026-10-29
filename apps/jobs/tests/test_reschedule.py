@@ -13,7 +13,7 @@ touched. The second matters because every count of finished work reads
 vanish from the figures.
 """
 
-from datetime import timedelta
+from datetime import date, datetime, time, timedelta
 from datetime import timezone as dt_timezone
 
 from django.test import TestCase
@@ -171,20 +171,27 @@ class NudgeTests(RescheduleTestCase):
         super().setUp()
         self.client.login(username="boss", password=PASSWORD)
 
+    # Expected values are worked out in local time, the way a person
+    # reads the calendar. Worked out in UTC they agreed with the bug
+    # below, so these three passed across a clock change while the job
+    # moved by an hour.
     def test_a_job_can_be_pushed_on_a_day(self):
         self.move(nudge="+1d")
         self.job.refresh_from_db()
-        self.assertEqual(local(self.job.scheduled_start), local(self.start + timedelta(days=1)))
+        expected = timezone.localtime(self.start) + timedelta(days=1)
+        self.assertEqual(local(self.job.scheduled_start), local(expected))
 
     def test_a_job_can_be_pulled_back_a_day(self):
         self.move(nudge="-1d")
         self.job.refresh_from_db()
-        self.assertEqual(local(self.job.scheduled_start), local(self.start - timedelta(days=1)))
+        expected = timezone.localtime(self.start) - timedelta(days=1)
+        self.assertEqual(local(self.job.scheduled_start), local(expected))
 
     def test_a_job_can_be_pushed_on_a_week(self):
         self.move(nudge="+7d")
         self.job.refresh_from_db()
-        self.assertEqual(local(self.job.scheduled_start), local(self.start + timedelta(days=7)))
+        expected = timezone.localtime(self.start) + timedelta(days=7)
+        self.assertEqual(local(self.job.scheduled_start), local(expected))
 
     def test_a_nudge_keeps_the_time_of_day(self):
         self.move(nudge="+1d")
@@ -193,6 +200,40 @@ class NudgeTests(RescheduleTestCase):
             timezone.localtime(self.job.scheduled_start).time(),
             timezone.localtime(self.start).time(),
         )
+
+    def nudge_from(self, start, key):
+        """A job at a fixed `start`, nudged once. Dates are fixed so a
+        clock change falls where the test says, not wherever "now"
+        happens to be when CI runs."""
+        job = f.job(self.customer, self.owner, start=start, hours=3, lines=[])
+        self.client.post(reverse("jobs:job_reschedule", args=[job.pk]), {"nudge": key})
+        job.refresh_from_db()
+        return timezone.localtime(job.scheduled_start), job
+
+    def test_a_nudge_across_the_clocks_going_back_keeps_the_time(self):
+        """Regression: US clocks go back at 2am on Sunday 1 Nov 2026.
+        The nudge added a day in UTC, so this job landed at 11:35."""
+        start = timezone.make_aware(datetime(2026, 10, 31, 12, 35))
+        moved, job = self.nudge_from(start, "+1d")
+        self.assertEqual((moved.date(), moved.time()), (date(2026, 11, 1), time(12, 35)))
+        # Its length is three real hours, so it ends at 15:35 local.
+        self.assertEqual(job.scheduled_end - job.scheduled_start, timedelta(hours=3))
+
+    def test_a_nudge_across_the_clocks_going_forward_keeps_the_time(self):
+        """The spring change, the other way: 2am on Sunday 14 Mar 2027."""
+        start = timezone.make_aware(datetime(2027, 3, 13, 9, 0))
+        moved, _ = self.nudge_from(start, "+1d")
+        self.assertEqual((moved.date(), moved.time()), (date(2027, 3, 14), time(9, 0)))
+
+    def test_a_nudge_back_across_a_clock_change_keeps_the_time(self):
+        start = timezone.make_aware(datetime(2026, 11, 1, 8, 0))
+        moved, _ = self.nudge_from(start, "-1d")
+        self.assertEqual((moved.date(), moved.time()), (date(2026, 10, 31), time(8, 0)))
+
+    def test_a_week_across_a_clock_change_keeps_the_time(self):
+        start = timezone.make_aware(datetime(2026, 10, 28, 7, 30))
+        moved, _ = self.nudge_from(start, "+7d")
+        self.assertEqual((moved.date(), moved.time()), (date(2026, 11, 4), time(7, 30)))
 
     def test_a_nudge_that_is_not_offered_is_refused(self):
         was = self.job.scheduled_start
