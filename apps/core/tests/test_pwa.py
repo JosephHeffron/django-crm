@@ -137,6 +137,12 @@ class ProductionCspAllowsThePwaTests(TestCase):
         env = {
             "DJANGO_ALLOWED_HOSTS": "crm.example.com",
             "DJANGO_SECRET_KEY": "x" * 60,
+            # Production requires outbound mail settings (ADR 0019) and
+            # refuses to import without them, deliberately — so a test
+            # that fakes a production environment has to fake those too.
+            "EMAIL_HOST": "smtp.example.test",
+            "EMAIL_HOST_USER": "crm@example.test",
+            "EMAIL_HOST_PASSWORD": "x",
         }
         with mock.patch.dict(os.environ, env):
             production = importlib.import_module("config.settings.production")

@@ -106,6 +106,13 @@ AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
 ]
 
+# How long an emailed password-reset link stays usable. Django's own
+# default is three days, which is a long time for a key sitting in an
+# inbox — and the email, the "sent" page and docs/USER_GUIDE.md all
+# promise "a few hours", so this is also what makes those true.
+# Lowering it costs nothing: asking for another link is one click.
+PASSWORD_RESET_TIMEOUT = 3 * 60 * 60
+
 # No JavaScript in this app ever reads the CSRF cookie — every
 # {% csrf_token %} is a server-rendered hidden form field — so there's
 # no reason for the cookie to be script-readable. See
@@ -117,6 +124,16 @@ LANGUAGE_CODE = "en-us"
 # follow-up due dates are all local-day concepts. Stored datetimes stay
 # UTC (USE_TZ below); this only governs display and date boundaries.
 TIME_ZONE = os.environ.get("CRM_TIME_ZONE", "America/New_York")
+
+# The hostname to use in links inside emails, when it must not be the
+# host the request arrived on (ADR 0019). Django builds a password
+# reset link from the request's own host; once the public website's
+# hostnames join ALLOWED_HOSTS for the booking form, a reset requested
+# through that origin would email a link to the website — a path Caddy
+# does not proxy to Django, so a dead link in the one email that has
+# to work. Left blank, the request's host is used, which is correct
+# today and correct in development.
+CRM_SITE_HOST = os.environ.get("CRM_SITE_HOST", "")
 
 # Shown in the app header, page titles, and the PWA manifest. The short
 # name is what a phone shows under the home-screen icon (~12 chars max).
