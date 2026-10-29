@@ -73,8 +73,11 @@ functionality it deliberately deferred, plus hardening work identified
 along the way (`docs/PRODUCTION_READINESS.md`'s still-open findings).
 Phases 15-22 are complete. Phase 18.5, twelve items the
 owner reported after testing the running app, is complete, as is
-Phase 19.5, three more reported the same way. Phase 23
-(two-factor authentication) is next.
+Phase 19.5, three more reported the same way. **Phase 22.5 — going
+live on a VPS, with a public website — is next**, and it changes the
+deployment target: the business is moving off RevDek and Wix onto one
+x86-64 VPS, so Phase 25's Raspberry Pi validation is superseded
+rather than merely deferred.
 From Phase 17 the roadmap pivots the CRM to
 the owner's exterior home-services business (service catalog, quotes,
 crew-scheduled jobs, invoicing, follow-up automation, team messaging,
@@ -346,13 +349,75 @@ insufficient.
         form's customer dropdown (PR #180), asked for by the owner
         after hitting it in use.
       Full detail in `logs/claude/phase-22-data-portability.md`.
+- [ ] **Phase 22.5 — Production on a VPS, and a public website.**
+      Not a feature phase: this is the business actually using the
+      thing. Heffron Exterior Services is cancelling RevDek ($85/month)
+      and replacing the Wix site, with both the CRM and a static
+      website on one x86-64 Ubuntu VPS —
+      `crm.heffronexteriorservices.com` for the CRM, the apex and
+      `www` for the website. Numbered 22.5 for the same reason as 18.5
+      and 19.5: it cuts across the phases rather than belonging to one.
+
+      Audited before planning, and the audit found the codebase
+      architecturally ready but the surroundings not
+      (`docs/VPS_AUDIT.md`): rootless Caddy cannot bind 80/443 without
+      a sysctl nothing in the repo sets, there is no in-app way to
+      create a user, no password reset, no outbound email of any kind,
+      and `scripts/restore.sh` has still never run end to end. The
+      plan is `docs/VPS_DEPLOYMENT_PLAN.md`, with
+      `docs/VPS_PLAN_SUMMARY.md` as the owner's one-pager.
+
+      Seven units, in this order — the first three cannot affect the
+      website or the domain, which is the point of the sequence:
+      1. **P0 repo fixes** — outbound email and password reset
+         (**done**, #188 and ADR 0019), in-app team member creation
+         (Owner-only), a rate limit on both login pages before the
+         CRM is exposed, an Ubuntu x86-64 deployment guide, and
+         alerting for a backup that stops running.
+      2. **VPS provisioning** — the owner's own work, following that
+         guide.
+      3. **CRM live on `crm.`** — HTTPS, backups to B2, uptime
+         monitoring, staff accounts, and **the restore drill before
+         any real data exists**.
+      4. **Website build** — static HTML/CSS/JS in a top-level
+         `website/` folder in this repository, mounted read-only into
+         Caddy and served by a second site block. The booking page
+         shares the site's stylesheet and header/footer partials
+         rather than duplicating them, CI keeps the required checks
+         reporting on website-only PRs, and a guard keeps private data
+         out of a folder that is published the moment it is committed.
+      5. **Website → CRM** — one public booking page, `/book/`, served
+         by Django on the website's own origin, creating a `Contact`
+         with `status=lead` and `lead_source=website`. No API, no DRF,
+         no CORS.
+      6. **DNS cutover** of the apex and `www`.
+      7. **Retirement** — export RevDek for records, cancel it, then
+         cancel Wix. In that order, and Wix last: it is both the
+         registrar and the DNS host, so cancelling it early takes the
+         domain down.
+
+      Six ADRs will be written as their units start: 0015 (x86-64 VPS
+      replaces the Pi), 0016 (two sites behind one Caddy), 0017 (the
+      website lives in this repository, with the mounts, deploy, CI
+      filter and private-data guard that implies), 0018 (same-origin
+      lead intake at `/book/`), 0019 (email via the existing Gmail
+      account), 0020 (database-backed cache for rate limiting instead
+      of Redis). ADRs 0004, 0005, 0006, 0007 and 0011 all stand
+      unchanged, and ADR 0014's retirement of team messaging is not
+      reopened by any of this.
 - [ ] **Phase 23 — Authentication hardening.** Two-factor authentication
       for login (e.g. `django-otp`). (Formerly Phase 21.)
 - [ ] **Phase 24 — Customer communication (future).** Customer SMS via
       Twilio on top of the messaging model (designed for it in Phase
       17), outbound email logged as an Activity, ICS calendar export.
       (Absorbs the earlier "communication integration" item.)
-- [ ] **Phase 25 — Real Raspberry Pi hardware validation.** Blocked —
+- [ ] **Phase 25 — Real Raspberry Pi hardware validation.**
+      **Superseded by Phase 22.5**, which moves the deployment target
+      to an x86-64 VPS; ADR 0015 will record that. Kept rather than
+      deleted because nothing about the Pi work was wrong, and because
+      the ARM64 compatibility it proved still holds — the plan's audit
+      confirmed nothing in the build is ARM-specific. Reopen only if a
+      Pi is ever actually deployed. Originally: blocked —
       no physical Raspberry Pi 5 acquired yet. Everything ARM64-related
       so far has only been verified under `qemu-user-static` emulation
       (`docs/ARM64_REVIEW.md`/`docs/ARM64_TESTING.md`), which proves
