@@ -73,17 +73,30 @@ functionality it deliberately deferred, plus hardening work identified
 along the way (`docs/PRODUCTION_READINESS.md`'s still-open findings).
 Phases 15-22 are complete. Phase 18.5, twelve items the
 owner reported after testing the running app, is complete, as is
-Phase 19.5, three more reported the same way. Phase 23
-(two-factor authentication) is next.
+Phase 19.5, three more reported the same way. **Phase 22.5 (VPS
+deployment) is next**, then Phase 23 (two-factor authentication) and
+Phase 23.5 (public website and booking requests).
+
+**Deployment target changed (2026-10).** The owner has dropped the
+Raspberry Pi 5 in favour of a DigitalOcean VPS (2 vCPU, 4 GB, Ubuntu
+24.04 LTS, x86-64), with DNS on Cloudflare and notifications from the
+business's existing free Gmail account. Phase 25 (Pi hardware
+validation) is withdrawn as a result, and Phases 22.5 and 23.5 are
+inserted. They are numbered like 17.5 and 18.5 so existing references
+to Phases 23 and 24 stay valid. The change of target is recorded here
+as intent only. Per `CLAUDE.md`, the ADR that makes it a decision is
+the first deliverable of Phase 22.5, and `CLAUDE.md`,
+`docs/ARCHITECTURE.md` and `docs/ADMIN_GUIDE.md` still describe the Pi
+until that ADR lands.
 From Phase 17 the roadmap pivots the CRM to
 the owner's exterior home-services business (service catalog, quotes,
 crew-scheduled jobs, invoicing, follow-up automation, team messaging,
 mobile-first PWA) — see `docs/decisions/0008-roles-and-row-level-scoping.md`
 and `docs/decisions/0009-field-service-domain-model.md`. The earlier
 Phase 17-22 items are folded into the new sequence (noted inline).
-Ordered so that Phase 25 (the one item genuinely blocked on hardware
-the user doesn't have yet — a physical Raspberry Pi 5) sits last and
-gates nothing before it. Per
+Phase 25 was originally placed last because it was blocked on hardware
+the user didn't have (a physical Raspberry Pi 5). It is now withdrawn;
+see its entry. Per
 `CLAUDE.md`'s architectural complexity rule, none of them justify a new
 infrastructure dependency (Celery, Redis, a JS framework, etc.) unless
 a phase's own work demonstrates the simpler approach is actually
@@ -346,20 +359,104 @@ insufficient.
         form's customer dropdown (PR #180), asked for by the owner
         after hitting it in use.
       Full detail in `logs/claude/phase-22-data-portability.md`.
+- [ ] **Phase 22.5 — VPS deployment.** Move the target from the
+      Raspberry Pi to a DigitalOcean VPS and take the CRM live at
+      `crm.heffronexteriorservices.com`. Before any code, run an audit:
+      read the existing audits (`docs/PRODUCTION_READINESS.md`,
+      `docs/SECURITY_REVIEW.md`, `docs/BACKUP_DR_AUDIT.md`,
+      `docs/PRODUCTION_CONFIG_REVIEW.md`, `docs/ARM64_REVIEW.md`) and
+      re-verify the claims that matter for an x86-64 Ubuntu host,
+      rather than redoing them. Expected units, to be confirmed by that
+      audit:
+      - **ADR first:** the change of target, superseding the Pi
+        assumptions in `CLAUDE.md`, `docs/ARCHITECTURE.md` and
+        `docs/ADMIN_GUIDE.md`.
+      - **A VPS setup guide:**
+        - deploy user and SSH keys only
+        - firewall allowing 22/80/443 only
+        - swap
+        - timezone, since the follow-up timer fires at 07:00 server
+          time
+        - `net.ipv4.ip_unprivileged_port_start=80`, so rootless Caddy
+          can bind 80/443; nothing in the repo sets it today
+      - **Pi-specific leftovers:** worker-count comments,
+        `scripts/test-arm64.sh`.
+      - **Staff onboarding without the Django admin:** an in-app "add
+        team member" page and email password reset. Today both need
+        `/admin/`.
+      - **Outbound email from the business's Gmail account.** Choose
+        between SMTP with an app password and the Gmail API. Check
+        first whether DigitalOcean blocks outbound SMTP ports on new
+        Droplets.
+      - **Go-live:**
+        - HTTPS
+        - restic backups to B2
+        - **the full `scripts/restore.sh` drill on the VPS before real
+          data goes in**, which closes the oldest open known issue
+        - uptime monitoring on `/health/`
 - [ ] **Phase 23 — Authentication hardening.** Two-factor authentication
-      for login (e.g. `django-otp`). (Formerly Phase 21.)
-- [ ] **Phase 24 — Customer communication (future).** Customer SMS via
-      Twilio on top of the messaging model (designed for it in Phase
-      17), outbound email logged as an Activity, ICS calendar export.
-      (Absorbs the earlier "communication integration" item.)
-- [ ] **Phase 25 — Real Raspberry Pi hardware validation.** Blocked —
-      no physical Raspberry Pi 5 acquired yet. Everything ARM64-related
-      so far has only been verified under `qemu-user-static` emulation
-      (`docs/ARM64_REVIEW.md`/`docs/ARM64_TESTING.md`), which proves
-      ABI compatibility but not real-world performance (SD card I/O,
-      thermal throttling, gunicorn worker tuning). Deliberately placed
-      last and not a prerequisite for anything above. (Formerly Phase
-      22.)
+      for login (e.g. `django-otp`). (Formerly Phase 21.) More urgent
+      once the CRM is on the public internet, so it runs straight after
+      Phase 22.5. The ADR must settle how a locked-out owner recovers
+      on a single-owner install with no support desk.
+- [ ] **Phase 23.5 — Public website and booking requests.** Replace the
+      Wix site with a static HTML/CSS/JS site in a top-level `website/`
+      folder of this repository, served by the existing Caddy on
+      `heffronexteriorservices.com` and `www.`. No framework, no CMS,
+      no second backend. Expected units:
+      - **ADR first:** the public website in this repo; the Caddyfile
+        moving from one `{$DJANGO_ALLOWED_HOSTS}` site address to
+        several, keeping the `/media/private/*` 404 and every existing
+        header.
+      - **The site itself,** rebuilt from the Wix content, mobile-first
+        and SEO-friendly.
+      - **A booking request form at `/book/` on the public domain:**
+        - rendered by Django, so normal CSRF protection applies, with
+          no REST API and no CORS
+        - no customer account and no photo uploads
+        - spam protection, and a rate limit shared across gunicorn
+          workers
+      - **What a request creates:** a `Contact` with `status = lead`
+        and `lead_source = website`, plus a pending appointment request
+        with a preferred date and an optional time window.
+        - It is never auto-confirmed: staff approve, decline or
+          reschedule it in the CRM.
+        - Approving opens a pre-filled job, the way an accepted
+          estimate does.
+        - The customer gets "received" and "confirmed" emails.
+      - **DNS:** move to Cloudflare with the Wix site still live, cut
+        over the apex and `www`, and keep a rollback path.
+      - **Retirement:** archive RevDek's data (for records, not
+        import), then cancel RevDek and Wix only after the above is
+        verified.
+
+      Not in this phase: the website marking time slots unavailable
+      automatically. That needs business hours, service durations and
+      a capacity rule, none of which the CRM has yet.
+- [ ] **Phase 24 — Customer communication (future).** Revised
+      2026-10:
+      - appointment reminder emails from the business Gmail account,
+        logged as an Activity (confirmation emails arrive in Phase
+        23.5)
+      - ICS calendar export
+      - customer SMS only if the owner decides it is worth a paid
+        provider (e.g. Twilio)
+
+      The messaging tables kept by ADR 0014 remain the place SMS would
+      build on. (Absorbs the earlier "communication integration" item.)
+- [ ] ~~**Phase 25 — Real Raspberry Pi hardware validation.**~~
+      **Withdrawn 2026-10:** the deployment target is now an x86-64
+      VPS (Phase 22.5), so there is no Pi to validate. The ARM64 work
+      (`docs/ARM64_REVIEW.md`/`docs/ARM64_TESTING.md`) stays as a
+      record, and stays relevant only if the app ever moves to ARM
+      hosting.
+
+**Not yet scheduled, worth their own units:**
+- **Booking from a crew-filtered schedule assigns that crew.**
+  `JobCreateView` ignores `?crew=` today; see `docs/PROJECT_STATE.md`.
+- **Run the suite under a pinned and a shifted clock in CI.** Four
+  time-dependent test failures so far; see `docs/PROJECT_STATE.md`.
+- **The website showing open slots automatically,** after Phase 23.5.
 
 **Deliberately not planned, and not a default even after the above:** a
 REST API (only justified by a concrete integration need — a mobile

@@ -1525,8 +1525,20 @@ for its own unit", below.
 
 ## Next
 
+**Re-ordered 2026-10-29: Phase 22.5 (VPS deployment) now comes first.**
+The owner dropped the Raspberry Pi for a DigitalOcean VPS, with
+Cloudflare DNS and the business's existing Gmail for outbound email,
+and wants the Wix site replaced by a static site in `website/` that
+feeds booking requests into the CRM. `docs/ROADMAP.md` now reads:
+Phase 22.5 (VPS deployment), then 23 (two-factor login, below), then
+23.5 (public website and booking requests), then 24 (revised). Phase
+25 (Pi) is withdrawn. Nothing about the new target is decided by ADR
+yet; Phase 22.5's first deliverable is that ADR, and until it lands
+`CLAUDE.md`, `docs/ARCHITECTURE.md` and `docs/ADMIN_GUIDE.md` still
+describe the Pi. Phase 22.5 starts with an audit, not code.
+
 **Phase 23 — authentication hardening** (two-factor authentication for
-login, e.g. `django-otp`) is the next roadmap item. Run the
+login, e.g. `django-otp`) follows Phase 22.5. Run the
 verification pass over its entry first. That is now **six phases
 running** where the entry described intent rather than delivery: Phase
 20's was wrong about the business model as well as the state of the
