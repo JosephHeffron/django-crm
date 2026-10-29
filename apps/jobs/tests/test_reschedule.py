@@ -16,7 +16,7 @@ vanish from the figures.
 from datetime import date, datetime, time, timedelta
 from datetime import timezone as dt_timezone
 
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 
@@ -201,6 +201,41 @@ class NudgeTests(RescheduleTestCase):
             timezone.localtime(self.start).time(),
         )
 
+    def test_a_nudge_that_is_not_offered_is_refused(self):
+        was = self.job.scheduled_start
+        response = self.client.post(self.url, {"nudge": "+99y"}, follow=True)
+        self.job.refresh_from_db()
+        self.assertEqual(self.job.scheduled_start, was)
+        self.assertIn("isn't a move", " ".join(str(m) for m in response.context["messages"]))
+
+    def test_every_nudge_offered_actually_works(self):
+        """The buttons and the accepted steps cannot drift apart."""
+        for key, _, _ in scheduling.NUDGES:
+            job = f.job(self.customer, self.owner, lines=[])
+            response = self.client.post(
+                reverse("jobs:job_reschedule", args=[job.pk]), {"nudge": key}
+            )
+            self.assertEqual(response.status_code, 302, key)
+            was, after = job.scheduled_start, None
+            job.refresh_from_db()
+            after = job.scheduled_start
+            self.assertNotEqual(was, after, key)
+
+
+@override_settings(TIME_ZONE="America/New_York")
+class NudgeAcrossAClockChangeTests(RescheduleTestCase):
+    """Nudges either side of a US clock change.
+
+    The zone is pinned along with the dates: `make_aware` reads
+    `TIME_ZONE`, which comes from `CRM_TIME_ZONE`, and under a zone
+    whose clocks change on other days these fixtures would cross no
+    change, so the bug would pass them.
+    """
+
+    def setUp(self):
+        super().setUp()
+        self.client.login(username="boss", password=PASSWORD)
+
     def nudge_from(self, start, key):
         """A job at a fixed `start`, nudged once. Dates are fixed so a
         clock change falls where the test says, not wherever "now"
@@ -235,25 +270,15 @@ class NudgeTests(RescheduleTestCase):
         moved, _ = self.nudge_from(start, "+7d")
         self.assertEqual((moved.date(), moved.time()), (date(2026, 11, 4), time(7, 30)))
 
-    def test_a_nudge_that_is_not_offered_is_refused(self):
-        was = self.job.scheduled_start
-        response = self.client.post(self.url, {"nudge": "+99y"}, follow=True)
-        self.job.refresh_from_db()
-        self.assertEqual(self.job.scheduled_start, was)
-        self.assertIn("isn't a move", " ".join(str(m) for m in response.context["messages"]))
-
-    def test_every_nudge_offered_actually_works(self):
-        """The buttons and the accepted steps cannot drift apart."""
-        for key, _, _ in scheduling.NUDGES:
-            job = f.job(self.customer, self.owner, lines=[])
-            response = self.client.post(
-                reverse("jobs:job_reschedule", args=[job.pk]), {"nudge": key}
-            )
-            self.assertEqual(response.status_code, 302, key)
-            was, after = job.scheduled_start, None
-            job.refresh_from_db()
-            after = job.scheduled_start
-            self.assertNotEqual(was, after, key)
+    def test_a_nudged_job_keeps_its_real_length_across_a_clock_change(self):
+        """A three-hour job nudged onto 00:30 on Sunday 1 Nov runs across
+        2am. Its end is three real hours after its start, 02:30 on the
+        clock, not 03:30, which would be four hours of work."""
+        start = timezone.make_aware(datetime(2026, 10, 31, 0, 30))
+        moved, job = self.nudge_from(start, "+1d")
+        self.assertEqual((moved.date(), moved.time()), (date(2026, 11, 1), time(0, 30)))
+        self.assertEqual(job.scheduled_end - job.scheduled_start, timedelta(hours=3))
+        self.assertEqual(timezone.localtime(job.scheduled_end).time(), time(2, 30))
 
 
 class AccessTests(RescheduleTestCase):
