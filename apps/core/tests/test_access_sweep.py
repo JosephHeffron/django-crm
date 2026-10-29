@@ -56,6 +56,17 @@ PUBLIC = {
     "core:business_logo": "the business logo, shown on the sign-in page",
     "crm:lead_list": "a permanent redirect to a page that enforces its own access",
     "crm:deal_list": "likewise",
+    # Forgotten passwords (ADR 0019). Every step has to work for
+    # somebody who cannot sign in — that is the whole point — so all
+    # four are public by design. What protects them is not a login:
+    # the "sent" page says the same thing whether or not the address
+    # exists, and the confirm step needs a signed, single-use,
+    # expiring token. `apps/users/tests/test_password_reset.py` holds
+    # both of those.
+    "users:password_reset": "asking for a reset link, by definition signed out",
+    "users:password_reset_done": "the same page whether or not that address has an account",
+    "users:password_reset_confirm": "reached from the emailed link; the token is the credential",
+    "users:password_reset_complete": "a confirmation page with nothing on it",
 }
 
 # Routes whose arguments this fixture cannot produce. Named so the gap
@@ -177,6 +188,11 @@ class RouteSweep(TestCase):
             "jobs:report_csv": ["revenue-by-service"],
             "people:member": [self.rep.username],
             "people:avatar": [self.rep.username],
+            # A deliberately invalid token: the view answers 200 with
+            # its "that link has expired" page, which is exactly the
+            # response a stranger guessing URLs should get, and is what
+            # this sweep needs to see.
+            "users:password_reset_confirm": ["MQ", "not-a-real-token"],
         }
         return by_route.get(name)
 
@@ -272,6 +288,15 @@ class NoRoleTests(RouteSweep):
             # Permanent redirects to pages that enforce their own access.
             "crm:lead_list",
             "crm:deal_list",
+            # Resetting a forgotten password is public (see PUBLIC
+            # above), so somebody signed in without a role reaches it
+            # too. Nothing there is a customer page — and a person
+            # with no role whose password works is exactly who might
+            # legitimately be resetting it.
+            "users:password_reset",
+            "users:password_reset_done",
+            "users:password_reset_confirm",
+            "users:password_reset_complete",
         }
         leaked = []
         for name, url in self.swept():
