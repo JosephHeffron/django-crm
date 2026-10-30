@@ -141,6 +141,20 @@
     </form>
   {% endif %}
 
+  {% if not is_self and password_form %}
+    <form method="post" class="section-card section-gap" novalidate>
+      {% csrf_token %}
+      <div class="section-card-head"><svg class="icon" aria-hidden="true"><use href="#icon-key"/></svg><h2>Set a new password</h2></div>
+      <p class="muted section-note">Nobody can reset their own password — this system sends no email. Set one here and tell them what it is; they can change it from their own profile. Saving it signs them out everywhere.</p>
+      {{ password_form.non_field_errors }}
+      {% include "partials/_field.html" with field=password_form.new_password1 %}
+      {% include "partials/_field.html" with field=password_form.new_password2 %}
+      <div class="section-card-actions">
+        <button type="submit"><svg class="icon" aria-hidden="true"><use href="#icon-key"/></svg>Set password</button>
+      </div>
+    </form>
+  {% endif %}
+
   {% if not is_self and pay_form %}
     <form method="post" class="section-card section-gap" novalidate>
       {% csrf_token %}

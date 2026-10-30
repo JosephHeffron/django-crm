@@ -12,6 +12,8 @@ urlpatterns = [
     path("profile/edit/", views.ProfileEditView.as_view(), name="profile_edit"),
     path("profile/theme/", views.ThemeView.as_view(), name="theme"),
     path("team/", views.TeamListView.as_view(), name="team"),
+    # Before the <username> route, or "new" would be read as a username.
+    path("team/new/", views.TeamMemberCreateView.as_view(), name="member_create"),
     path("team/<str:username>/", views.TeamMemberView.as_view(), name="member"),
     path("people/<str:username>/photo/", views.AvatarView.as_view(), name="avatar"),
 ]

@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+
+{% block title %}Add someone to the team{% endblock %}
+
+{% block content %}
+  <p><a href="{% url 'people:team' %}">← Team</a></p>
+  <div class="page-header">
+    <div>
+      <h1>Add someone to the team</h1>
+      <p class="page-subtitle">You set their first password here and tell them what it is — the app sends no email.</p>
+    </div>
+    <div class="page-actions">
+      {% include "partials/_save_button.html" with form_id="member-form" label="Add them" %}
+    </div>
+  </div>
+  <form id="member-form" method="post" class="card" novalidate>
+    {% csrf_token %}
+    {{ form.non_field_errors }}
+    {% include "partials/_field.html" with field=form.username %}
+    <div class="field-row">
+      {% include "partials/_field.html" with field=form.first_name %}
+      {% include "partials/_field.html" with field=form.last_name %}
+    </div>
+    {% include "partials/_field.html" with field=form.email %}
+    {% include "partials/_field.html" with field=form.role %}
+    {% include "partials/_field.html" with field=form.password1 %}
+    {% include "partials/_field.html" with field=form.password2 %}
+    <div class="cluster">
+      <button type="submit"><svg class="icon" aria-hidden="true"><use href="#icon-user-plus"/></svg>Add them</button>
+      <a class="btn btn-secondary" href="{% url 'people:team' %}">Cancel</a>
+    </div>
+  </form>
+{% endblock %}

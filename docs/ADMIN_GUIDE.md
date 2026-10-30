@@ -144,12 +144,31 @@ somehow left it in a bad state):
 systemctl --user restart crm.service
 ```
 
-**Give a user a role:** in the Django admin
-(`https://your-domain/admin/`), open the user and add them to exactly
-one of the groups **Owner**, **Sales Rep**, or **Cleaner** — see
-`docs/PERMISSIONS.md`. A new account with no group can log in but sees
-nothing beyond a "no role assigned" notice, by design. Superusers are
-always treated as Owner.
+**Team accounts** are managed in the app, by the Owner, at
+**Team** (from your own profile). No Django admin, and no shell: the
+Owner role deliberately does not grant admin access, so this page is
+the whole of it.
+
+- **Add someone:** Team → *Add someone*. You set their username, name,
+  role and first password in one step, then tell them the password —
+  the app sends no email (ADR 0021). They can change it themselves
+  afterwards from their profile.
+- **Give or change a role:** open the person → *What they can reach*.
+  Exactly one of **Owner**, **Sales Rep** or **Cleaner**, or none —
+  see `docs/PERMISSIONS.md`. Someone with no role can sign in but sees
+  nothing beyond a "no role assigned" notice, by design. Superusers are
+  always treated as Owner.
+- **Reset a forgotten password:** open the person → *Set a new
+  password*. This is the only recovery path, since nothing is emailed.
+  It signs that person out on every device, which is what you want if
+  the reason is a shared or stolen password.
+- **Stop someone signing in:** open the person → *What they can reach*
+  → turn off **Can sign in**. Use this rather than deleting an account.
+  Every job, quote and task they created still refers to them, and the
+  database refuses to delete a row other rows depend on, so
+  deactivating is both the reversible answer and the only one that
+  works. Their history stays intact and their name keeps appearing
+  where it should.
 
 **Branding:** set `CRM_BRAND_NAME` (and optionally
 `CRM_BRAND_SHORT_NAME`, shown under the home-screen icon, ~12

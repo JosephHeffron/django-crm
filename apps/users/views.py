@@ -9,11 +9,18 @@ from django.http import Http404, HttpResponse, HttpResponseBadRequest
 from django.shortcuts import get_object_or_404, redirect
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.views import View
-from django.views.generic import TemplateView
+from django.views.generic import FormView, TemplateView
 
 from apps.jobs.media import send_private_file
 
-from .forms import AccountForm, CrewPayForm, MemberAccessForm, ProfileForm
+from .forms import (
+    AccountForm,
+    CrewPayForm,
+    MemberAccessForm,
+    MemberPasswordForm,
+    NewMemberForm,
+    ProfileForm,
+)
 from .models import UserProfile, get_profile
 from .roles import (
     ALL_ROLES,
@@ -122,6 +129,27 @@ class TeamListView(OwnerRequiredMixin, TemplateView):
         return context
 
 
+class TeamMemberCreateView(OwnerRequiredMixin, FormView):
+    """Add somebody to the team (ADR 0021).
+
+    The role and the first password are set here, in one step: there is
+    no invite email on this system, so there is nothing for the new
+    person to wait for. The owner tells them what it is.
+    """
+
+    template_name = "users/member_form.html"
+    form_class = NewMemberForm
+
+    def form_valid(self, form):
+        person = form.save()
+        name = person.get_full_name() or person.get_username()
+        messages.success(
+            self.request,
+            f"Added {name}. Tell them their password — they can change it from their own profile.",
+        )
+        return redirect("people:member", username=person.get_username())
+
+
 class TeamMemberView(OwnerRequiredMixin, TemplateView):
     """A teammate's profile, and the two things only the Owner sets:
     their hourly rate and the days they normally work."""
@@ -145,11 +173,14 @@ class TeamMemberView(OwnerRequiredMixin, TemplateView):
         context.update(profile_context(person, self.request), is_self=False)
         context.setdefault("pay_form", CrewPayForm(instance=read_profile(person)))
         context.setdefault("access_form", MemberAccessForm(person=person))
+        context.setdefault("password_form", MemberPasswordForm(user=person))
         context["is_self_account"] = person == self.request.user
         return context
 
     def post(self, request, *args, **kwargs):
         person = self.person()
+        if "new_password1" in request.POST:
+            return self._set_password(request, person)
         if "role" in request.POST or "is_active" in request.POST:
             return self._save_access(request, person)
         form = CrewPayForm(request.POST, instance=get_profile(person))
@@ -158,6 +189,32 @@ class TeamMemberView(OwnerRequiredMixin, TemplateView):
         form.save()
         messages.success(
             request, f"Saved pay and working days for {person.get_full_name() or person}."
+        )
+        return redirect("people:member", username=person.get_username())
+
+    def _set_password(self, request, person):
+        """Set somebody else's password (ADR 0021). There is no reset
+        email on this system, so this is the only way back in for a
+        person who has forgotten theirs."""
+        if person == request.user:
+            # Same refusal as _save_access, for the same reason: your
+            # own password is changed from your own profile, where
+            # Django asks for the old one first.
+            messages.warning(request, "Change your own password from your profile.")
+            return redirect("users:password_change")
+        form = MemberPasswordForm(user=person, data=request.POST)
+        if not form.is_valid():
+            return self.render_to_response(self.get_context_data(password_form=form))
+        # Saving a new hash invalidates every session that person has,
+        # because the session auth hash is derived from it. That is the
+        # point: a password you reset because an account was shared or
+        # stolen has to end the sessions it was used for.
+        form.save()
+        name = person.get_full_name() or person.get_username()
+        messages.success(
+            request,
+            f"New password set for {name}. Tell them what it is — "
+            "they can change it from their own profile.",
         )
         return redirect("people:member", username=person.get_username())
 

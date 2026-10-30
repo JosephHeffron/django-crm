@@ -1,5 +1,6 @@
 from django import forms
 from django.contrib.auth import get_user_model
+from django.contrib.auth.forms import SetPasswordForm, UserCreationForm
 from django.contrib.auth.models import Group
 from django.db import transaction
 
@@ -69,6 +70,33 @@ class CrewPayForm(forms.ModelForm):
         return profile
 
 
+# The role field, shared by the two forms that set one. Declared once
+# so "No role" means the same thing on both.
+def _role_field(help_text):
+    return forms.ChoiceField(
+        choices=[("", "No role — can sign in but sees nothing")]
+        + [(role.value, role.value) for role in Role],
+        required=False,
+        label="Role",
+        help_text=help_text,
+    )
+
+
+def _set_role(person, role):
+    """Put `person` in exactly the one role group, or none.
+
+    Locked and atomic for the reason MemberAccessForm.save documents:
+    role is one decision, and two owners saving at once must not leave
+    somebody holding two.
+    """
+    with transaction.atomic():
+        person = get_user_model().objects.select_for_update().get(pk=person.pk)
+        person.groups.remove(*Group.objects.filter(name__in=[r.value for r in Role]))
+        if role:
+            person.groups.add(Group.objects.get(name=role))
+    return person
+
+
 class MemberAccessForm(forms.Form):
     """What the Owner decides about a teammate: what they can reach, and
     whether they can sign in at all (Phase 17.5 step 10).
@@ -77,12 +105,8 @@ class MemberAccessForm(forms.Form):
     matches how the rest of the app asks the question (ADR 0008).
     """
 
-    role = forms.ChoiceField(
-        choices=[("", "No role — can sign in but sees nothing")]
-        + [(role.value, role.value) for role in Role],
-        required=False,
-        label="Role",
-        help_text="What they can reach. Changing it takes effect the next time they load a page.",
+    role = _role_field(
+        "What they can reach. Changing it takes effect the next time they load a page."
     )
     is_active = forms.BooleanField(
         required=False,
@@ -105,14 +129,61 @@ class MemberAccessForm(forms.Form):
         """One transaction, with the row locked: the role and the
         sign-in flag are one decision, and two owners saving at once
         must not leave someone holding two roles or half a change."""
-        role = self.cleaned_data["role"]
         with transaction.atomic():
-            person = get_user_model().objects.select_for_update().get(pk=self.person.pk)
-            groups = Group.objects.filter(name__in=[r.value for r in Role])
-            person.groups.remove(*groups)
-            if role:
-                person.groups.add(Group.objects.get(name=role))
+            person = _set_role(self.person, self.cleaned_data["role"])
             person.is_active = self.cleaned_data["is_active"]
             person.save(update_fields=["is_active"])
         self.person = person
+        return person
+
+
+class MemberPasswordForm(SetPasswordForm):
+    """The Owner setting somebody else's password (ADR 0021).
+
+    Django's own form, so AUTH_PASSWORD_VALIDATORS applies exactly as
+    it does when somebody changes their own — a password the owner
+    types is held to the same 12-character minimum and common-password
+    list. `save()` also invalidates that person's sessions, because the
+    session auth hash is derived from the password hash.
+    """
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["new_password1"].label = "New password"
+        self.fields["new_password2"].label = "Type it again"
+
+
+class NewMemberForm(UserCreationForm):
+    """Adding somebody to the team (ADR 0021).
+
+    There is no invite email to send, so the role and the first
+    password are set in the same moment the account is created.
+    """
+
+    role = _role_field("What they can reach. Leave it unset and they see nothing.")
+
+    class Meta(UserCreationForm.Meta):
+        model = get_user_model()
+        fields = ("username", "first_name", "last_name", "email")
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields[
+            "username"
+        ].help_text = "What they type to sign in. Letters, digits and @/./+/-/_ only."
+        self.fields[
+            "email"
+        ].help_text = "Optional, and only for your records — the app sends no email."
+        # UserCreationForm names these password1/password2; the new_*
+        # names belong to SetPasswordForm.
+        self.fields["password1"].label = "First password"
+        self.fields["password2"].label = "Type it again"
+        self.fields[
+            "password1"
+        ].help_text = "Tell them what it is. They can change it from their profile."
+
+    def save(self, commit=True):
+        person = super().save(commit=commit)
+        if commit:
+            _set_role(person, self.cleaned_data["role"])
         return person
