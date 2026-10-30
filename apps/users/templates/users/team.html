@@ -8,7 +8,10 @@
   <div class="page-header">
     <div>
       <h1>Team</h1>
-      <p class="page-subtitle">Everyone with an active account. Roles are set in the admin; open someone to set their pay.</p>
+      <p class="page-subtitle">Everyone on the team, including anyone whose sign-in is off. Open someone to set their role, pay or password.</p>
+    </div>
+    <div class="page-actions">
+      <a class="btn" href="{% url 'people:member_create' %}"><svg class="icon" aria-hidden="true"><use href="#icon-user-plus"/></svg>Add someone</a>
     </div>
   </div>
   <div class="table-responsive card card-flush">
