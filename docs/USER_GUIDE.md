@@ -32,13 +32,15 @@ On a phone, the app can be installed to your home screen (your
 browser's "Add to Home Screen" / "Install app" option) and opens like a
 native app.
 
-**Forgotten your password?** The link is on the sign-in page. Enter
-the email address on your account and a link to set a new one arrives
-by email; it expires after a few hours and works only once. The page
-says the same thing whether or not an account exists for that address —
-deliberately, so it can't be used to find out who has an account here.
-If nothing arrives, check the spam folder, then ask the owner to check
-the address on your account.
+**Forgotten your password?** Ask the owner. They can set a new one
+for you from your page on the Team screen and tell you what it is; you
+can then change it to something only you know from **Profile → Change
+password**. This app sends no email, so there is no reset link to wait
+for and nothing to look for in a spam folder.
+
+Setting a new password signs you out on every device you were signed in
+on — so if you ask for one because somebody else knows your old
+password, that genuinely locks them out.
 
 ## Getting around
 
