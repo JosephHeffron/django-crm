@@ -12,10 +12,9 @@ A self-hosted CRM for an exterior home-services business: Django
 monolith, PostgreSQL, server-rendered templates, deployed to an x86-64
 Ubuntu VPS via Podman + Caddy + systemd (ADR 0015). The same host also
 serves the public website. See `docs/ARCHITECTURE.md` for the system
-design, `docs/VPS_AUDIT.md` for where the move stands, and
-`docs/ROADMAP.md` for the phased build-out plan.
-(`docs/VPS_DEPLOYMENT_PLAN.md`, which sequences the move and the
-website, is still an open pull request — not on `main` yet.) Current status:
+design, `docs/VPS_DEPLOYMENT_PLAN.md` for the move and the website,
+`docs/VPS_AUDIT.md` for where it stands, and `docs/ROADMAP.md` for the
+phased build-out plan. Current status:
 `docs/PROJECT_STATE.md`.
 
 ## TECHNOLOGY STACK
