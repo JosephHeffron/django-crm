@@ -358,8 +358,9 @@ insufficient.
       deployment target is now an x86-64 Ubuntu VPS, so there is no ARM
       hardware to validate. The equivalent work for the real target —
       a first deployment on the droplet, and the rootless-Ubuntu gaps
-      in `docs/VPS_AUDIT.md` — lives in
-      `docs/VPS_DEPLOYMENT_PLAN.md`, not here.
+      listed in `docs/VPS_AUDIT.md` — is sequenced in
+      `docs/VPS_DEPLOYMENT_PLAN.md` (an open pull request, not yet on
+      `main`), not here.
 
 **Deliberately not planned, and not a default even after the above:** a
 REST API (only justified by a concrete integration need — a mobile

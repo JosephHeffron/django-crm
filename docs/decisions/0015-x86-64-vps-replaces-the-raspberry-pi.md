@@ -1,7 +1,8 @@
 # 0015 — An x86-64 VPS replaces the Raspberry Pi 5 as the deployment target
 
-*(Number reserved for this decision by `docs/VPS_DEPLOYMENT_PLAN.md`'s
-ADR table.)*
+*(Number reserved for this decision by the ADR table in
+`docs/VPS_DEPLOYMENT_PLAN.md`, which is still an open pull request and
+not on `main` yet.)*
 
 ## Context
 
@@ -98,8 +99,9 @@ machine the software will actually run on.
 - **The Ubuntu x86-64 deployment work is now unblocked but not done.**
   The port sysctl, `loginctl enable-linger`, subuid/subgid ranges and
   the `podman-compose` path (audit F-VPS-1 through F-VPS-5) are
-  separate units in `docs/VPS_DEPLOYMENT_PLAN.md`; this ADR only
-  removes the wrong target, it does not write the right guide.
+  separate units, sequenced in `docs/VPS_DEPLOYMENT_PLAN.md` once that
+  lands; this ADR only removes the wrong target, it does not write the
+  right guide. `docs/VPS_AUDIT.md`, which is on `main`, lists them.
 - **If ARM ever returns** — an Apple Silicon workstation, an ARM
   droplet — nothing here prevents it. There is no architecture-specific
   code to undo, which is exactly what F-VPS-7 established.

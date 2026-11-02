@@ -4,8 +4,10 @@
 > production target was a Raspberry Pi 5. That target was dropped on
 > 2026-11-02 for an x86-64 Ubuntu VPS
 > ([ADR 0015](0015-x86-64-vps-replaces-the-raspberry-pi.md)). The
-> decision below stands — none of its reasoning depended on the
-> hardware or the architecture — so read "the Pi" as "the server".
+> decision below stands — Podman, Caddy, one host, no orchestrator —
+> so read "the Pi" as "the server". **One consequence does not:** the
+> `linux/arm64` image requirement and its `qemu-user-static`
+> verification are withdrawn, and are marked as such where they appear.
 
 ## Context
 
@@ -47,9 +49,13 @@ orchestration layer, no service mesh.
 
 ## Consequences
 
-- All three container images must support `linux/arm64`; this is verified
-  on the Fedora workstation via `qemu-user-static` before deployment
-  (ARM64 phase).
+- ~~All three container images must support `linux/arm64`; this is
+  verified on the Fedora workstation via `qemu-user-static` before
+  deployment (ARM64 phase).~~ **Withdrawn by
+  [ADR 0015](0015-x86-64-vps-replaces-the-raspberry-pi.md)
+  (2026-11-02):** there is no ARM target. The workstation and the
+  server are both x86-64, so no image needs an `arm64` manifest and
+  nothing is built under emulation.
 - Only Caddy terminates HTTPS; Django and PostgreSQL are only reachable on
   the internal Podman network — this is the security boundary documented
   in `docs/ARCHITECTURE.md`.
