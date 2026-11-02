@@ -68,9 +68,9 @@ answer sufficient.
 - Nobody can set their own password here: the page refuses it and sends
   the owner to the existing self-service change page, the same way the
   access section already refuses.
-- The email-based reset flow, its settings, and `CRM_SITE_HOST` are
-  removed (unit B). ADR 0019 stays in place as the record of a decision
-  the host choice invalidated.
+- The email-based reset flow, its settings, `CRM_SITE_HOST` and
+  `PASSWORD_RESET_TIMEOUT` are removed. ADR 0019 stays in place, marked
+  superseded, as the record of a decision the host choice invalidated.
 
 ## Reason
 
@@ -86,19 +86,30 @@ than first exercised in production.
 - **The owner is the single point of recovery.** If the owner is away,
   a locked-out employee waits. Accepted: the alternative was waiting on
   an email that cannot be sent.
+- **A sole Owner who forgets their own password has no in-app way
+  back.** The set-password page refuses to act on whoever is signed in,
+  and the self-service change page asks for the current password. This
+  was missed when the decision was first written and is the one real
+  regression against the email flow, which could at least have mailed
+  the owner. Two mitigations, both documented in
+  `docs/ADMIN_GUIDE.md`: keep **two** Owner accounts, so either can
+  reset the other entirely in the app; and failing that,
+  `manage.py changepassword` inside the container on the server. Losing
+  the password *and* server access means losing administrative control
+  — a real, accepted limit of this design, not an oversight in it.
 - **The owner briefly knows a password they set**, until the person
   changes it. The owner already has full access to every record in the
   system, so this grants no new reach — but the set-password note tells
   the person to change it, and the self-service change page exists.
 - **A password has to be communicated out of band** — spoken, or by
   text. Nothing in the app transmits it.
-- **`production.py` will stop requiring mail settings** when unit B
-  lands, so a deployment can no longer fail to start for a missing
-  `EMAIL_HOST`. Until then it still requires all three: the settings
-  and the reset routes are live on `main`, and removing them from a
-  `.env` before unit B merges would stop the container booting. The
-  development console backend stays either way, so if any future code
-  calls `send_mail` on a workstation it prints instead of sending.
+- **`production.py` configures no mail backend at all**, so a
+  deployment can no longer fail to start for a missing `EMAIL_HOST`,
+  and `EMAIL_HOST`, `EMAIL_HOST_USER` and `EMAIL_HOST_PASSWORD` can be
+  dropped from any `.env` that has them. Django's default backend would
+  try localhost:25 and raise, which is the right noise if code ever
+  tries to send. The development console backend stays as a guard, so
+  the same call on a workstation prints instead of reaching anybody.
 - **If email is wanted later** — a quote notification from the website,
   say — this ADR does not forbid it. It would need a provider on an
   unblocked port and its own ADR, and password recovery would not have
