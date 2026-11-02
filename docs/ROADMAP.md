@@ -39,9 +39,12 @@ begins. See `CLAUDE.md` for the workflow this repository follows.
       detail in `logs/claude/phase-07-*.md`.
 - [x] **Phase 8 — Caddy and HTTPS.** Reverse proxy, HTTPS termination, static
       / media file serving, security headers, production configuration review.
-- [x] **Phase 9 — ARM64 deployment.** ARM64 compatibility audit
-      (`docs/ARM64_REVIEW.md`), ARM64 image builds via `qemu-user-static`,
-      repeatable cross-architecture validation (`docs/ARM64_TESTING.md`).
+- [x] **Phase 9 — ARM64 deployment.** An ARM64 compatibility audit,
+      image builds under `qemu-user-static`, and repeatable
+      cross-architecture validation. Its documents and script were
+      removed when the Raspberry Pi target was dropped (ADR 0015); they
+      remain in git history. Recorded here as what was built at the
+      time.
 - [x] **Phase 10 — systemd on the Raspberry Pi.** Production systemd unit,
       safe non-destructive deployment script with rollback.
 - [x] **Phase 11 — Backups and disaster recovery.** Scheduled PostgreSQL
@@ -64,7 +67,7 @@ scope (see below).**
 Companies, Contacts, Leads, Deals, Activities, Tasks, Search, Dashboard,
 Users/Permissions, Notes. Email integration, calendar integration,
 reporting, file attachments, APIs, and mobile-specific functionality are
-explicitly deferred until this scope is working reliably on the Raspberry Pi.
+explicitly deferred until this scope is working reliably in production.
 
 ## Post-release roadmap (Phase 15+)
 
@@ -81,9 +84,7 @@ crew-scheduled jobs, invoicing, follow-up automation, team messaging,
 mobile-first PWA) — see `docs/decisions/0008-roles-and-row-level-scoping.md`
 and `docs/decisions/0009-field-service-domain-model.md`. The earlier
 Phase 17-22 items are folded into the new sequence (noted inline).
-Ordered so that Phase 25 (the one item genuinely blocked on hardware
-the user doesn't have yet — a physical Raspberry Pi 5) sits last and
-gates nothing before it. Per
+Per
 `CLAUDE.md`'s architectural complexity rule, none of them justify a new
 infrastructure dependency (Celery, Redis, a JS framework, etc.) unless
 a phase's own work demonstrates the simpler approach is actually
@@ -352,14 +353,13 @@ insufficient.
       Twilio on top of the messaging model (designed for it in Phase
       17), outbound email logged as an Activity, ICS calendar export.
       (Absorbs the earlier "communication integration" item.)
-- [ ] **Phase 25 — Real Raspberry Pi hardware validation.** Blocked —
-      no physical Raspberry Pi 5 acquired yet. Everything ARM64-related
-      so far has only been verified under `qemu-user-static` emulation
-      (`docs/ARM64_REVIEW.md`/`docs/ARM64_TESTING.md`), which proves
-      ABI compatibility but not real-world performance (SD card I/O,
-      thermal throttling, gunicorn worker tuning). Deliberately placed
-      last and not a prerequisite for anything above. (Formerly Phase
-      22.)
+- ~~**Phase 25 — Real Raspberry Pi hardware validation.**~~
+      **Dropped (ADR 0015, 2026-11-02).** No Pi was ever bought and the
+      deployment target is now an x86-64 Ubuntu VPS, so there is no ARM
+      hardware to validate. The equivalent work for the real target —
+      a first deployment on the droplet, and the rootless-Ubuntu gaps
+      in `docs/VPS_AUDIT.md` — lives in
+      `docs/VPS_DEPLOYMENT_PLAN.md`, not here.
 
 **Deliberately not planned, and not a default even after the above:** a
 REST API (only justified by a concrete integration need — a mobile

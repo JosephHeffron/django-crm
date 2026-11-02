@@ -7,16 +7,19 @@ put it in one place organized around what an operator actually needs
 to *do*, not to introduce anything new. Where a task needs more detail
 than fits here, it links to the document that has it.
 
-This assumes production deployment on a Raspberry Pi 5 running Podman
-+ Caddy + systemd, per `docs/ARCHITECTURE.md`. No physical Pi exists
-for this project yet (see "What's not yet proven on real hardware,"
-below) — everything here has been verified via `qemu-user-static`
-emulation on the development workstation instead.
+This assumes production deployment on an x86-64 Ubuntu 24.04 VPS
+running Podman + Caddy + systemd user units, per
+`docs/ARCHITECTURE.md` and ADR 0015. **Nothing has been deployed yet**
+(see "What's not yet proven on real hardware," below): the stack has
+been exercised on the development workstation, and
+`docs/VPS_AUDIT.md` lists what a rootless Ubuntu host needs that this
+guide does not yet cover — the unprivileged-port sysctl, `linger`,
+subuid/subgid ranges, and the `podman-compose` path.
 
 ## First-time deployment
 
-1. **Create a dedicated, non-root deployment account** on the Pi (not
-   the interactive login user, not root) — production runs rootless
+1. **Create a dedicated, non-root deployment account** on the server
+   (not the interactive login user, not root) — production runs rootless
    Podman under this account's own systemd user session, per
    `docs/decisions/0005-rootless-systemd-deployment.md`.
 2. **Clone the repository** into that account's home directory:
@@ -48,9 +51,9 @@ emulation on the development workstation instead.
    systemctl --user enable --now crm.service
    loginctl enable-linger "$(whoami)"
    ```
-   The first start builds the ARM64 image natively on the Pi and pulls
-   PostgreSQL/Caddy — expect this to take a while (`TimeoutStartSec=600`
-   in the unit accounts for this).
+   The first start builds the web image on the server and pulls
+   PostgreSQL/Caddy — expect this to take a while on 2 vCPU
+   (`TimeoutStartSec=600` in the unit accounts for this).
 5. **Verify**: `curl https://your-domain/health/` should return
    `{"status": "ok", "database": "ok"}`. Caddy requests a real Let's
    Encrypt certificate automatically the first time it starts, given a
@@ -292,16 +295,16 @@ by default (`BACKUP_RETENTION_COUNT` to change this).
 
 ### Off-host backup storage (recommended before trusting this with real data)
 
-By default, backups live on the same host/SD-card as the application
-data they protect — a disk failure (a real, common Raspberry Pi
-failure mode) would take out both at once. Set this up to close that
+By default, backups live on the same disk as the application data
+they protect — one failed volume, or one deleted droplet, takes out
+both at once. Set this up to close that
 gap (`docs/BACKUP_DR_AUDIT.md`'s formerly-open finding #1,
 `docs/decisions/0006-offhost-backups-restic.md`):
 
 1. Install `restic` on the host (not in any container):
    ```
    sudo dnf install restic      # Fedora
-   sudo apt install restic      # Debian/Raspberry Pi OS
+   sudo apt install restic      # Debian/Ubuntu
    ```
 2. Create a [Backblaze B2](https://www.backblaze.com/cloud-storage)
    account and bucket, then an **application key scoped to that one
@@ -335,8 +338,9 @@ exists for), recover it first:
 
 ## Disaster recovery
 
-If the Pi is genuinely lost (SD card failure, hardware death) and
-you're rebuilding from a backup copied elsewhere:
+If the server is genuinely lost (destroyed droplet, failed volume,
+unrecoverable host) and you're rebuilding from a backup held
+elsewhere:
 
 ```
 cd ~/django-crm   # a fresh clone, if starting from scratch
@@ -365,13 +369,14 @@ merge anything relevant yourself.
   until you've created a real Backblaze B2 account/bucket/key and set
   the `RESTIC_*`/`B2_*` variables in `.env` yourself. Until then, this
   deployment has local-only backups, same as before Phase 15.
-- **No physical Raspberry Pi hardware has been used yet.** Every
-  ARM64 build and disaster-recovery drill in this project's history
-  was verified via `qemu-user-static` emulation on a development
-  workstation — functionally correct, not performance-tested. See
-  `docs/ARM64_REVIEW.md`/`docs/ARM64_TESTING.md`.
-  `docs/CLEAN_ENVIRONMENT_TEST.md`'s full deployment walkthrough is
-  also emulation-based for the same reason.
+- **No server has been deployed to yet.** Every build and
+  disaster-recovery drill in this project's history ran on a
+  development workstation — functionally correct, not
+  performance-tested, and never on the host that will serve real
+  traffic. `docs/CLEAN_ENVIRONMENT_TEST.md`'s deployment walkthrough
+  is a workstation run for the same reason. `docs/VPS_AUDIT.md` lists
+  what the move still needs; the earlier ARM64 work was dropped with
+  the Raspberry Pi target (ADR 0015).
   `docs/PRODUCTION_READINESS.md` has the complete, current picture —
   read that document for the full list of what's still open and why,
   rather than this guide trying to keep its own separate copy in

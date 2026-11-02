@@ -8,17 +8,23 @@ permanent rules; that one holds the mechanics.
 
 ## PROJECT
 
-A self-hosted CRM: Django monolith, PostgreSQL, server-rendered templates,
-deployed to a Raspberry Pi 5 (ARM64) via Podman + Caddy + systemd. See
-`docs/ARCHITECTURE.md` for the system design and `docs/ROADMAP.md` for the
-phased build-out plan. Current status: `docs/PROJECT_STATE.md`.
+A self-hosted CRM for an exterior home-services business: Django
+monolith, PostgreSQL, server-rendered templates, deployed to an x86-64
+Ubuntu VPS via Podman + Caddy + systemd (ADR 0015). The same host also
+serves the public website. See `docs/ARCHITECTURE.md` for the system
+design, `docs/VPS_DEPLOYMENT_PLAN.md` for the move and the website, and
+`docs/ROADMAP.md` for the phased build-out plan. Current status:
+`docs/PROJECT_STATE.md`.
 
 ## TECHNOLOGY STACK
 
 Development workstation: Fedora Linux, Git, VS Code, Claude Code, pyenv,
-Python 3.12, Podman, qemu-user-static.
+Python 3.12, Podman.
 
-Production target: Raspberry Pi 5, ARM64 Linux, Podman, systemd.
+Production target: x86-64 Ubuntu 24.04 LTS VPS (2 vCPU, 4 GB), Podman,
+systemd user units. There is no ARM or Raspberry Pi target — ADR 0015
+records why it was dropped, and nothing in the build was ever
+architecture-specific.
 
 Runtime stack:
 - Django
@@ -123,7 +129,7 @@ Sudo may be used for legitimate, routine system administration: `dnf
 install/update` packages, `systemctl status/start/stop/restart` on
 project-related services, `journalctl` access, directory
 ownership/permissions for this project, installing required system
-dependencies (Podman, `qemu-user-static`), Podman configuration.
+dependencies (Podman, `podman-compose`), Podman configuration.
 
 Never use sudo to: delete unrelated system data, recursively change
 permissions across the filesystem, disable SELinux, disable the firewall,

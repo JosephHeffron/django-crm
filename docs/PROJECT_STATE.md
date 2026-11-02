@@ -4,6 +4,14 @@ Update this file at the end of every session (see `CLAUDE.md`'s Session
 Close Procedure). Do not describe anything as complete unless it was
 actually verified.
 
+> **The Raspberry Pi target was dropped on 2026-11-02**
+> ([ADR 0015](decisions/0015-x86-64-vps-replaces-the-raspberry-pi.md))
+> in favour of an x86-64 Ubuntu VPS. `docs/ARM64_REVIEW.md`,
+> `docs/ARM64_TESTING.md` and `scripts/test-arm64.sh` were removed and
+> remain in git history, so the Phase 9 and Phase 13 entries below cite
+> files that no longer exist. Those entries are kept as the record of
+> what was built at the time.
+
 > **Last updated 2026-10-27.** Repo is clean: `main` up to date,
 > nothing uncommitted, 1,354 tests passing. **Phase 22 is
 > complete** — duplicate detection (#179), a search box for the job

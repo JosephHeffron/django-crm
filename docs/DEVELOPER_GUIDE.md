@@ -17,7 +17,7 @@ duplicating any of it.
 - **Understand the system design**: `docs/ARCHITECTURE.md` — the
   overall shape (Django monolith, PostgreSQL, Caddy, no API layer, no
   background task queue), the project's file layout, and the
-  architectural boundaries (security, ARM64, backups) that later
+  architectural boundaries (security, deployment, backups) that later
   phases built on top of.
 - **Understand the domain model**: `docs/DATABASE_DESIGN.md` — every
   field, relationship, constraint, and lifecycle rule for Company,
@@ -47,8 +47,7 @@ apps/
 templates/        # project-level template overrides/base layout
 static/           # project-level CSS (no JS framework, no build step)
 scripts/          # entrypoint.sh (container), deploy/backup/restore.sh
-                  #   (production operations), test-arm64.sh (ARM64
-                  #   validation)
+                  #   (production operations)
 systemd/          # production systemd units (see docs/ADMIN_GUIDE.md)
 docs/             # architecture, design, and every phase's own
                   #   review/audit document

@@ -2,7 +2,7 @@
 
 QA audit. An N+1 query is invisible in development and invisible in a
 unit test: the page is correct, it is just slower for every record
-added. On a Raspberry Pi serving a real book of business that is the
+added. On a 2 vCPU VPS serving a real book of business that is the
 difference between a page and a wait.
 
 The method is deliberately not "assert this page runs N queries",
