@@ -165,6 +165,20 @@ the whole of it.
   email, by decision (ADR 0021), because the host blocks outbound SMTP.
   If you are unavailable, a locked-out person waits — that is the
   accepted cost.
+- **If *you* are the one locked out**, there is no in-app route — the
+  page refuses to set your own password, and *Change password* asks for
+  the one you have forgotten. Two answers, in order of preference:
+  - **Keep a second Owner account.** Either Owner can reset the other
+    from the Team page, so recovery stays in the app and needs no
+    server access. Do this before you need it.
+  - **Otherwise, on the server**, with shell access:
+    ```
+    podman exec -it django-crm_web_1 python manage.py changepassword <username>
+    ```
+    It prompts twice and applies the same password rules. This is the
+    only path if you are the sole Owner, so losing both your password
+    and your server access means losing administrative control of the
+    CRM — the database would have to be edited directly.
 - **Stop someone signing in:** open the person → *What they can reach*
   → turn off **Can sign in**. Use this rather than deleting an account.
   Every job, quote and task they created still refers to them, and the

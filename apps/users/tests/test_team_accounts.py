@@ -190,6 +190,22 @@ class SettingSomebodysPasswordTests(TestCase):
         self.assertEqual(user_role(self.crew), Role.CLEANER)
         self.assertTrue(self.crew.is_active)
 
+    def test_one_owner_can_reset_another_owner(self):
+        """The documented recovery path for a locked-out owner
+        (docs/ADMIN_GUIDE.md, ADR 0021): with two Owner accounts, either
+        can reset the other entirely in the app, so losing a password
+        does not need server access. The refusal is only ever about
+        acting on *yourself*.
+        """
+        other_owner = grant_role(f.user("co-boss"), Role.OWNER)
+        response = self.client.post(
+            reverse("people:member", args=["co-boss"]),
+            {"new_password1": NEW_PASSWORD, "new_password2": NEW_PASSWORD},
+        )
+        self.assertRedirects(response, reverse("people:member", args=["co-boss"]))
+        self.assertTrue(self.client_class().login(username="co-boss", password=NEW_PASSWORD))
+        self.assertEqual(user_role(other_owner), Role.OWNER)
+
     def test_the_owner_cannot_set_their_own_from_here(self):
         """Django asks for the old password when you change your own.
         This page doesn't, so it must not become a way around that for

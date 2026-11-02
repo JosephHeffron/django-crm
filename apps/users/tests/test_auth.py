@@ -1,8 +1,25 @@
 from django.contrib.auth import get_user_model
 from django.test import TestCase
-from django.urls import NoReverseMatch, reverse
+from django.urls import get_resolver, reverse
 
 User = get_user_model()
+
+
+def route_names(resolver=None, prefix=""):
+    """Every named route in the project, namespace included.
+
+    Walks the real resolver rather than one app's urlpatterns, so a
+    route mounted in any URLconf under any namespace is seen.
+    """
+    resolver = resolver or get_resolver()
+    found = set()
+    for pattern in resolver.url_patterns:
+        if hasattr(pattern, "url_patterns"):
+            namespace = getattr(pattern, "namespace", None)
+            found |= route_names(pattern, f"{prefix}{namespace}:" if namespace else prefix)
+        elif pattern.name:
+            found.add(f"{prefix}{pattern.name}")
+    return found
 
 
 class LoginTests(TestCase):
@@ -90,15 +107,22 @@ class TheAuthSurfaceIsClosedTests(TestCase):
     up again without reading ADR 0021, this fails and points at it.
     """
 
-    def test_there_is_no_password_reset_route(self):
-        for name in (
-            "password_reset",
-            "password_reset_done",
-            "password_reset_confirm",
-            "password_reset_complete",
-        ):
-            with self.assertRaises(NoReverseMatch, msg=f"users:{name} exists again"):
-                reverse(f"users:{name}")
+    def test_no_password_reset_route_exists_anywhere(self):
+        """Every URLconf in the project, not just this app's.
+
+        Two earlier versions of this test were weaker than they looked.
+        One reversed `users:password_reset_confirm` with no arguments —
+        which raises NoReverseMatch whether or not the route exists,
+        because that route took uidb64 and token, so it could not fail
+        for the reason its name gave. The other only looked in the
+        `users` namespace, so a reset flow mounted in another URLconf
+        would have been reachable with the test still green. Walking
+        the resolver has neither weakness.
+        """
+        offenders = sorted(
+            name for name in route_names() if "password_reset" in name.split(":")[-1]
+        )
+        self.assertEqual(offenders, [], "a password-reset route is registered again")
 
     def test_the_sign_in_page_offers_no_reset_link(self):
         """The route being gone is not enough — a link to it would be a
@@ -113,9 +137,12 @@ class TheAuthSurfaceIsClosedTests(TestCase):
         claim false for four days without anybody noticing, so it is
         asserted here rather than only written down.
         """
-        from apps.users import urls
-
         self.assertEqual(
-            sorted(pattern.name for pattern in urls.urlpatterns),
-            ["login", "logout", "password_change", "password_change_done"],
+            sorted(name for name in route_names() if name.startswith("users:")),
+            [
+                "users:login",
+                "users:logout",
+                "users:password_change",
+                "users:password_change_done",
+            ],
         )

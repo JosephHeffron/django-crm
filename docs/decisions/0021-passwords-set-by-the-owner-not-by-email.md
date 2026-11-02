@@ -86,6 +86,17 @@ than first exercised in production.
 - **The owner is the single point of recovery.** If the owner is away,
   a locked-out employee waits. Accepted: the alternative was waiting on
   an email that cannot be sent.
+- **A sole Owner who forgets their own password has no in-app way
+  back.** The set-password page refuses to act on whoever is signed in,
+  and the self-service change page asks for the current password. This
+  was missed when the decision was first written and is the one real
+  regression against the email flow, which could at least have mailed
+  the owner. Two mitigations, both documented in
+  `docs/ADMIN_GUIDE.md`: keep **two** Owner accounts, so either can
+  reset the other entirely in the app; and failing that,
+  `manage.py changepassword` inside the container on the server. Losing
+  the password *and* server access means losing administrative control
+  — a real, accepted limit of this design, not an oversight in it.
 - **The owner briefly knows a password they set**, until the person
   changes it. The owner already has full access to every record in the
   system, so this grants no new reach — but the set-password note tells
