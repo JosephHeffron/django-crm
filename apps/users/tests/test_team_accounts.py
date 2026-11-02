@@ -89,6 +89,16 @@ class AddingSomebodyTests(TestCase):
                 self.post(username="halfway")
         self.assertFalse(User.objects.filter(username="halfway").exists())
 
+    def test_a_username_differing_only_in_case_is_refused(self):
+        """Django's UserCreationForm is the whole of this check — the
+        username column is exact-match, so without it "boss" and "Boss"
+        would both exist, and which one a sign-in reached would depend
+        on exactly what was typed.
+        """
+        response = self.post(username="Boss")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(User.objects.filter(username__iexact="boss").count(), 1)
+
     def test_a_name_a_page_already_answers_to_is_refused(self):
         for name in sorted(RESERVED_USERNAMES):
             response = self.post(username=name)

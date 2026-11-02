@@ -190,8 +190,14 @@ class NewMemberForm(UserCreationForm):
         ].help_text = "Tell them what it is. They can change it from their profile."
 
     def clean_username(self):
-        username = self.cleaned_data["username"]
-        if username.lower() in RESERVED_USERNAMES:
+        # super() first: UserCreationForm.clean_username is the whole of
+        # the case-insensitive check, because the column is exact-match.
+        # Overriding without it would let "boss" and "Boss" both exist.
+        # It returns None when it has added that error.
+        username = super().clean_username()
+        # Compared lowercased, so a name differing from a page only by
+        # case is refused too — it would work, but it is a trap.
+        if username and username.lower() in RESERVED_USERNAMES:
             raise forms.ValidationError(
                 "A page in the app already answers to that name, so their own "
                 "page could never be opened. Pick another."
