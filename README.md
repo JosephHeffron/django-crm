@@ -35,7 +35,8 @@ build-out plan. `docs/PROJECT_STATE.md` has the current status snapshot.
 - **Production-ready self-hosted deployment** — rootless Podman
   containers, a Caddy reverse proxy with automatic HTTPS, systemd
   service management, scheduled PostgreSQL backups with a tested
-  disaster-recovery procedure, and off-host encrypted backups.
+  disaster-recovery procedure, and encrypted off-host backups once a
+  `restic` repository is configured (local-only until then).
 
 ## Documentation
 

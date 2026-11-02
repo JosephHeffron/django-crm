@@ -1711,9 +1711,16 @@ see that document for details.
 
 ## Production
 
-Not deployed. No Raspberry Pi hardware acquired yet.
+Not deployed. The target is an x86-64 Ubuntu 24.04 VPS (ADR 0015) and
+the server does not exist yet. `docs/VPS_AUDIT.md` lists what a
+rootless Ubuntu host still needs — the unprivileged-port sysctl,
+`linger`, subuid/subgid ranges, the `podman-compose` path.
 
-## ARM64
+## Architecture
 
-Not yet attempted — planned for a later phase, once Podman containers
-exist to test.
+One architecture, x86-64, on both the workstation and the server, so
+there is no emulation step and no `--platform` anywhere in the build.
+The earlier ARM64/Raspberry Pi target was dropped (ADR 0015) after
+Phase 9 had verified it under emulation; that work is in git history.
+(This section previously read "ARM64: not yet attempted", which was
+already stale — Phase 9 completed it in PR #58.)

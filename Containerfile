@@ -30,9 +30,10 @@ ENTRYPOINT ["scripts/entrypoint.sh"]
 # 3 workers, stated rather than computed from CPU count: there is one
 # known deployment target (a 2 vCPU, 4 GB x86-64 VPS — ADR 0015) and
 # deriving it would be needless complexity. docs/VPS_AUDIT.md F-VPS-8
-# records this as untested on that size of host, with memory the
-# constraint to watch rather than CPU; it stays at 3 until there is a
-# measurement to change it on.
+# records the figure as untested alongside PostgreSQL and Caddy, with
+# memory the constraint to watch rather than CPU — it assumed a 2 GB
+# host, and the chosen droplet has 4 GB, so its concern is softer than
+# written but not retired. Stays at 3 until there is a measurement.
 #
 # Logs to stdout/stderr rather than a file, since the container runtime
 # is what owns log capture here.
