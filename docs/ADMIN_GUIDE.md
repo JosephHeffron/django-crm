@@ -161,9 +161,10 @@ the whole of it.
 - **Reset a forgotten password:** open the person → *Set a new
   password*, then tell them what it is. It signs that person out on
   every device, which is what you want if the reason is a shared or
-  stolen password. (The older email-based reset on the sign-in page is
-  being removed — see ADR 0021: the host blocks outbound SMTP, so it
-  could never deliver in production.)
+  stolen password. This is the only recovery path: the app sends no
+  email, by decision (ADR 0021), because the host blocks outbound SMTP.
+  If you are unavailable, a locked-out person waits — that is the
+  accepted cost.
 - **Stop someone signing in:** open the person → *What they can reach*
   → turn off **Can sign in**. Use this rather than deleting an account.
   Every job, quote and task they created still refers to them, and the

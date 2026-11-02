@@ -4,8 +4,9 @@ DEBUG = True
 
 ALLOWED_HOSTS = ["localhost", "127.0.0.1"]
 
-# Mail is printed here, never sent (ADR 0019). No credential is needed
-# to develop a flow that sends email, and nothing run on a workstation
-# — a test, a seed, a shell session — can reach a real person.
+# Nothing in this app sends mail (ADR 0021), and production configures
+# no backend at all. This stays as a guard rather than a feature: if any
+# future code calls send_mail on a workstation, it prints instead of
+# reaching a real person — a test, a seed or a shell session included.
 EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
 DEFAULT_FROM_EMAIL = "crm@localhost"
