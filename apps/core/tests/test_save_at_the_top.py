@@ -44,6 +44,7 @@ FORM_TEMPLATES = {
     "apps/jobs/templates/jobs/expense_form.html": "expense-form",
     "apps/jobs/templates/jobs/service_form.html": "service-form",
     "apps/users/templates/users/profile_form.html": "profile-form",
+    "apps/users/templates/users/member_form.html": "member-form",
 }
 
 # Deliberately left out: each hosts several independent forms, so one
@@ -175,6 +176,7 @@ class RenderedPageTests(TestCase):
                 "service-form",
             ),
             (reverse("people:profile_edit"), "profile-form"),
+            (reverse("people:member_create"), "member-form"),
         ]
 
     def test_there_are_pages_to_check(self):

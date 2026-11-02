@@ -1,5 +1,16 @@
 # 0019 — Outbound email via the business's own Gmail account
 
+> **Superseded by [ADR 0021](0021-passwords-set-by-the-owner-not-by-email.md)
+> on 2026-11-02.** The mechanism below cannot work on the host this
+> project targets: DigitalOcean blocks outbound SMTP on ports 25, 465
+> and 587 by default on Droplets, Gmail included, and lifting it is a
+> discretionary support request. Everything described here — the
+> settings, the four reset routes, the templates, `CRM_SITE_HOST` and
+> `PASSWORD_RESET_TIMEOUT` — has been removed. Passwords are now set by
+> the owner in the app. This ADR stays as the record of a decision that
+> was sound for the Raspberry Pi target and was invalidated by the move,
+> not as a description of how anything works.
+
 *(Numbered per `docs/VPS_DEPLOYMENT_PLAN.md`'s ADR table rather than
 creation order, so the plan's references stay true. 0015-0018 and 0020
 arrive with their own units.)*

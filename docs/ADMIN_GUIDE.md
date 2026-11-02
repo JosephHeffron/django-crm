@@ -144,12 +144,48 @@ somehow left it in a bad state):
 systemctl --user restart crm.service
 ```
 
-**Give a user a role:** in the Django admin
-(`https://your-domain/admin/`), open the user and add them to exactly
-one of the groups **Owner**, **Sales Rep**, or **Cleaner** — see
-`docs/PERMISSIONS.md`. A new account with no group can log in but sees
-nothing beyond a "no role assigned" notice, by design. Superusers are
-always treated as Owner.
+**Team accounts** are managed in the app, by the Owner, at
+**Team** (from your own profile). No Django admin, and no shell: the
+Owner role deliberately does not grant admin access, so this page is
+the whole of it.
+
+- **Add someone:** Team → *Add someone*. You set their username, name,
+  role and first password in one step, then tell them the password —
+  the app sends no email (ADR 0021). They can change it themselves
+  afterwards from their profile.
+- **Give or change a role:** open the person → *What they can reach*.
+  Exactly one of **Owner**, **Sales Rep** or **Cleaner**, or none —
+  see `docs/PERMISSIONS.md`. Someone with no role can sign in but sees
+  nothing beyond a "no role assigned" notice, by design. Superusers are
+  always treated as Owner.
+- **Reset a forgotten password:** open the person → *Set a new
+  password*, then tell them what it is. It signs that person out on
+  every device, which is what you want if the reason is a shared or
+  stolen password. This is the only recovery path: the app sends no
+  email, by decision (ADR 0021), because the host blocks outbound SMTP.
+  If you are unavailable, a locked-out person waits — that is the
+  accepted cost.
+- **If *you* are the one locked out**, there is no in-app route — the
+  page refuses to set your own password, and *Change password* asks for
+  the one you have forgotten. Two answers, in order of preference:
+  - **Keep a second Owner account.** Either Owner can reset the other
+    from the Team page, so recovery stays in the app and needs no
+    server access. Do this before you need it.
+  - **Otherwise, on the server**, with shell access:
+    ```
+    podman exec -it django-crm_web_1 python manage.py changepassword <username>
+    ```
+    It prompts twice and applies the same password rules. This is the
+    only path if you are the sole Owner, so losing both your password
+    and your server access means losing administrative control of the
+    CRM — the database would have to be edited directly.
+- **Stop someone signing in:** open the person → *What they can reach*
+  → turn off **Can sign in**. Use this rather than deleting an account.
+  Every job, quote and task they created still refers to them, and the
+  database refuses to delete a row other rows depend on, so
+  deactivating is both the reversible answer and the only one that
+  works. Their history stays intact and their name keeps appearing
+  where it should.
 
 **Branding:** set `CRM_BRAND_NAME` (and optionally
 `CRM_BRAND_SHORT_NAME`, shown under the home-screen icon, ~12
