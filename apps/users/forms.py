@@ -153,6 +153,15 @@ class MemberPasswordForm(SetPasswordForm):
         self.fields["new_password2"].label = "Type it again"
 
 
+# Usernames that a page under team/ already answers to. Django matches
+# team/new/ before team/<username>/, so somebody called "new" could
+# never have their own page opened — no role change, no password reset.
+# Refused at creation rather than left silently broken.
+# test_a_reserved_name_is_one_the_routes_would_swallow proves each entry
+# is still justified by the URL conf.
+RESERVED_USERNAMES = {"new"}
+
+
 class NewMemberForm(UserCreationForm):
     """Adding somebody to the team (ADR 0021).
 
@@ -171,9 +180,7 @@ class NewMemberForm(UserCreationForm):
         self.fields[
             "username"
         ].help_text = "What they type to sign in. Letters, digits and @/./+/-/_ only."
-        self.fields[
-            "email"
-        ].help_text = "Optional, and only for your records — the app sends no email."
+        self.fields["email"].help_text = "Optional, and only for your records."
         # UserCreationForm names these password1/password2; the new_*
         # names belong to SetPasswordForm.
         self.fields["password1"].label = "First password"
@@ -182,8 +189,26 @@ class NewMemberForm(UserCreationForm):
             "password1"
         ].help_text = "Tell them what it is. They can change it from their profile."
 
+    def clean_username(self):
+        username = self.cleaned_data["username"]
+        if username.lower() in RESERVED_USERNAMES:
+            raise forms.ValidationError(
+                "A page in the app already answers to that name, so their own "
+                "page could never be opened. Pick another."
+            )
+        return username
+
     def save(self, commit=True):
-        person = super().save(commit=commit)
-        if commit:
+        """The account and its role, or neither.
+
+        Django's own save() commits the user before returning, so
+        without this a failure while assigning the group would leave
+        somebody with the username taken, no role, and no way for the
+        owner to retry under the same name.
+        """
+        if not commit:
+            return super().save(commit=False)
+        with transaction.atomic():
+            person = super().save(commit=True)
             _set_role(person, self.cleaned_data["role"])
         return person

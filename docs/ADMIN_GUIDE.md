@@ -159,9 +159,11 @@ the whole of it.
   nothing beyond a "no role assigned" notice, by design. Superusers are
   always treated as Owner.
 - **Reset a forgotten password:** open the person → *Set a new
-  password*. This is the only recovery path, since nothing is emailed.
-  It signs that person out on every device, which is what you want if
-  the reason is a shared or stolen password.
+  password*, then tell them what it is. It signs that person out on
+  every device, which is what you want if the reason is a shared or
+  stolen password. (The older email-based reset on the sign-in page is
+  being removed — see ADR 0021: the host blocks outbound SMTP, so it
+  could never deliver in production.)
 - **Stop someone signing in:** open the person → *What they can reach*
   → turn off **Can sign in**. Use this rather than deleting an account.
   Every job, quote and task they created still refers to them, and the

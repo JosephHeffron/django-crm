@@ -7,12 +7,15 @@ leave somebody unable to work, or let somebody reach what they
 shouldn't.
 """
 
+from unittest import mock
+
 from django.contrib.auth import get_user_model
 from django.test import TestCase
-from django.urls import reverse
+from django.urls import resolve, reverse
 
 from apps.crm.tests._helpers import grant_role
 from apps.jobs.tests import _factories as f
+from apps.users.forms import RESERVED_USERNAMES
 from apps.users.roles import Role, user_role
 
 User = get_user_model()
@@ -74,6 +77,36 @@ class AddingSomebodyTests(TestCase):
         response = self.post(username="boss")
         self.assertEqual(response.status_code, 200)
         self.assertEqual(User.objects.filter(username="boss").count(), 1)
+
+    def test_the_account_and_the_role_arrive_together_or_not_at_all(self):
+        """Django's creation form commits the user before returning, so
+        a failure while assigning the group would leave the username
+        taken, the person role-less, and the owner unable to retry under
+        the same name.
+        """
+        with mock.patch("apps.users.forms._set_role", side_effect=RuntimeError("no groups")):
+            with self.assertRaises(RuntimeError):
+                self.post(username="halfway")
+        self.assertFalse(User.objects.filter(username="halfway").exists())
+
+    def test_a_name_a_page_already_answers_to_is_refused(self):
+        for name in sorted(RESERVED_USERNAMES):
+            response = self.post(username=name)
+            self.assertEqual(response.status_code, 200)
+            self.assertFalse(User.objects.filter(username=name).exists(), name)
+
+    def test_a_reserved_name_is_one_the_routes_would_swallow(self):
+        """Keeps the reservation list honest. Each entry has to be a
+        name whose member page really does resolve elsewhere — so the
+        list cannot grow by habit, and a route rename makes this fail
+        instead of leaving a needless restriction behind.
+        """
+        for name in sorted(RESERVED_USERNAMES):
+            self.assertEqual(
+                resolve(reverse("people:member", args=[name])).view_name,
+                "people:member_create",
+                f"{name} is reserved but its page resolves to itself",
+            )
 
     def test_only_the_owner_can_add_anybody(self):
         for user, expected in (
