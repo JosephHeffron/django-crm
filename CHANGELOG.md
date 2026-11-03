@@ -122,6 +122,22 @@ for meaningful changes — not for every small fix or documentation tweak.
   day's schedule offers half-hour slots from 6am to 8pm that open the
   job form at that time with two hours booked. A slot that already
   has a job says Busy and still works.
+- **The owner manages team accounts in the app.** Team → *Add someone*
+  creates an account with a name, a role and a first password in one
+  step, and each person's page gained *Set a new password*. Both are
+  Owner-only, both apply the same password rules as a self-service
+  change, and setting a password signs that person out everywhere —
+  which is the point when the reason is a shared or stolen password.
+  Neither acts on whoever is signed in: your own password is changed
+  from your own profile, where Django asks for the old one first.
+  Previously this needed a superuser account — the Django admin, or
+  `createsuperuser`/`changepassword` on the server — because the Owner
+  role grants no Django admin access
+  (`docs/decisions/0021-passwords-set-by-the-owner-not-by-email.md`).
+
+  **Keep two Owner accounts.** Either can reset the other, so a
+  forgotten owner password stays a two-click fix instead of needing
+  server access — see `docs/ADMIN_GUIDE.md`.
 
 ### Removed
 - **Team messaging — the Inbox and Messages pages — is retired.** The
@@ -135,6 +151,24 @@ for meaningful changes — not for every small fix or documentation tweak.
   (`docs/decisions/0014-retire-team-messaging-code-only.md`).
   A cleaner's phone bottom bar now has **Time clock** where the Inbox
   used to be.
+- **Email password reset, five days after it was added.** It was
+  built, reviewed and merged, and it could not be relied on under the
+  default Droplet configuration: DigitalOcean blocks outbound SMTP on
+  ports 25, 465 and 587 by default, and lifting the block is a
+  discretionary support request — not something the whole team's way
+  back into their accounts should rest on. The sign-in
+  page no longer offers a reset link, the app sends no email at all,
+  and `EMAIL_HOST`, `EMAIL_HOST_USER` and `EMAIL_HOST_PASSWORD` are no
+  longer required — they can be removed from `.env`. Passwords are set
+  by the owner instead (above). ADR 0019 remains, marked superseded by
+  ADR 0021.
+- **The Raspberry Pi 5 deployment target.** No Pi was ever bought and
+  the target is now an x86-64 Ubuntu VPS, so the ARM64 review and
+  testing documents, `scripts/test-arm64.sh`, the `make arm64` target
+  and the blocked roadmap phase are gone, and every deployment
+  instruction now describes the real host. Nothing in the build was
+  ever architecture-specific, so no capability was removed
+  (`docs/decisions/0015-x86-64-vps-replaces-the-raspberry-pi.md`).
 
 ### Changed
 - **Money follows the work, not a document.** A payment is recorded

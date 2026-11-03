@@ -76,9 +76,13 @@ Three things shape the whole sequence:
    Wix cannot be cancelled until at least the DNS, and ideally the
    registration, has moved. This is the longest-lead item and the one
    that can take the business offline if done in the wrong order.
-3. **Three of the audit's five P0 blockers are one piece of work.**
+3. ~~**Three of the audit's five P0 blockers are one piece of work.**
    User creation, password reset and outbound email are a single
-   feature with email underneath it, not three separate tasks.
+   feature with email underneath it, not three separate tasks.~~
+   **Wrong, as it turned out** (2026-11-02): the host blocks outbound
+   SMTP, so email is not underneath anything. User creation and
+   password setting became one small feature with no email at all
+   (#193, ADR 0021), and the third task disappeared.
 
 Estimated **35-60 hours of code time** and **8-16 hours of owner
 time**, spread over as many weeks as suits. Running cost lands around
@@ -484,6 +488,19 @@ already baked into the systemd units (`systemd/crm.service:34`).
 
 ### D9 — Email
 
+> **Superseded on 2026-11-02 by
+> [ADR 0021](decisions/0021-passwords-set-by-the-owner-not-by-email.md).**
+> The recommendation below cannot be relied on: DigitalOcean blocks
+> outbound SMTP on ports 25, 465 and 587 by default on Droplets, and
+> lifting it is a discretionary support request. **The app sends no
+> email at all.** Passwords are set by the owner from the Team page
+> (#193), and the email reset built in #188 was removed in #194. Where
+> this plan later says the owner is emailed — phase 5's booking
+> notification — read "the lead appears in the CRM", which is where
+> the owner looks anyway. If email is ever genuinely needed, it needs a
+> provider on an unblocked port (2525 is the usual one) and its own
+> ADR; ADR 0021 does not forbid that.
+
 **Recommendation for launch: Gmail SMTP on the existing free account**
 (`heffronexteriorservices@gmail.com`), with an app password, and
 **owner notifications only** — the customer sees a confirmation page,
@@ -529,9 +546,9 @@ Nothing here touches a server; it all lands as ordinary PRs.
 | Step | Detail |
 |---|---|
 | ADR for the VPS target **[code]** | ADR 0015: x86-64 VPS replaces the Raspberry Pi 5. Records that nothing in the build was ARM-specific (audit F-VPS-7), what changes (the port sysctl, Ubuntu packages, the guide) and what does not (ADRs 0004, 0005, 0006 all stand) |
-| Email **[code] — done** | Merged in #188 with ADR 0019. `EMAIL_BACKEND`/host/port/TLS/user/password and `DEFAULT_FROM_EMAIL` from the environment in `config/settings/production.py`; `.env.example` entries; console backend in development so nothing leaves a workstation. Tests: a sent message lands in `django.core.mail.outbox`; production refuses to start with the setting half-filled |
+| ~~Email~~ **[code] — removed** | Built in #188 with ADR 0019, removed in #194: the host blocks outbound SMTP by default (see D9). Nothing configures a mail backend in production now, and `EMAIL_HOST`/`EMAIL_HOST_USER`/`EMAIL_HOST_PASSWORD` are no longer required. The development console backend stays as a guard so nothing on a workstation can reach a real person |
 | In-app team member creation **[code]** | Owner-only, gated like the CSV import page (`OwnerRequiredMixin` + permission, `apps/crm/views.py` `ContactImportView` is the pattern). Create a user, set their role group, deactivate and reactivate. Matches the owner's rule: only Owner and admin accounts manage accounts |
-| Password reset **[code] — done** | Merged in #188. Django's own `PasswordReset*` views (before #188, `apps/users/urls.py` had login/logout/password-change only), with the project's templates. Depends on email |
+| ~~Password reset by email~~ → **owner-set passwords [code] — done** | #188 added Django's `PasswordReset*` views; #194 removed them, because they depend on email. #193 replaced them: Team → *Add someone* creates an account with a role and a first password, and each person's page has *Set a new password*, which also ends that person's sessions. ADR 0021. **Keep two Owner accounts** — either can reset the other, which is the only in-app recovery if an owner forgets their own |
 | Login rate limit **[code]** | Moved here from phase 5 so it lands **before** phase 3 puts `crm.` on the internet. Without it, `/accounts/login/` and `/admin/login/` take unlimited password guesses (audit F-PUB-2, F-SEC-1) and there is no MFA until Phase 23. Add the `DatabaseCache` from D4 (ADR 0020), with `createcachetable` in the deploy path, and limit failed attempts per IP and per username on both login pages. Phase 5 then reuses the same cache for `/book/`. Tests: the limit trips after N failures; it holds across processes (assert against the database cache, since a locmem one would pass while being wrong across workers); a correct login after a few failures still works |
 | Ubuntu deployment guide **[code]** | Rewrite `docs/ADMIN_GUIDE.md`'s deployment section for Ubuntu 24.04 x86-64: `net.ipv4.ip_unprivileged_port_start` in `/etc/sysctl.d/`, `loginctl enable-linger`, subuid/subgid verification (`podman unshare cat /proc/self/uid_map`), apt package names, restic install |
 | Backup failure alerting **[code]** | Fix audit F-BAK-3. **Recommendation:** a dead-man's-switch ping — `scripts/backup.sh` calls a monitoring URL on success, and the service alerts when the ping does not arrive. Catches "the timer stopped running", which an `OnFailure=` handler cannot |
@@ -649,8 +666,11 @@ HTTPS; Lighthouse/axe pass on mobile and desktop widths.
   our system".
 - **[code]** Honeypot, minimum submit time, and a rate limit on
   `/book/` (D4), using the database cache phase 1 already added.
-- **[code]** Email to the owner on each submission; a confirmation
-  page for the customer (D9).
+- **[code]** A confirmation page for the customer. **No email to the
+  owner** — the app sends none (D9, ADR 0021); the submission appears
+  in the CRM as a lead, which is where the owner already looks. If a
+  notification is wanted later it needs a provider on an unblocked
+  port and its own ADR.
 - **[code]** Tests: the form creates exactly what D2 says; a bot
   filling the honeypot creates nothing; the rate limit holds across
   workers (assert against the shared cache, not a per-process one); a
@@ -658,8 +678,8 @@ HTTPS; Lighthouse/axe pass on mobile and desktop widths.
   exposes no CRM page other than `/book/`**.
 
 **Verify:** submit from a phone on mobile data; the lead appears with
-`lead_source=website`; the owner gets the email; a second submission
-inside the limit window is refused politely.
+`lead_source=website`; a second submission inside the limit window is
+refused politely.
 
 ### Phase 6 — DNS cutover of apex and www · P1 · code 1-2 h, owner 1-2 h plus waiting
 
