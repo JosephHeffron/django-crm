@@ -99,6 +99,17 @@ actually deployed and reachable from outside a trusted network.
 
 ### 5. No login-attempt rate limiting / account lockout
 
+> **Fixed on 2026-11-03**
+> ([ADR 0020](decisions/0020-database-cache-and-login-rate-limiting.md)).
+> Both `/accounts/login/` and `/admin/login/` now refuse after ten
+> failed attempts in fifteen minutes, counted per IP **and** per
+> username in a database-backed cache shared by all three gunicorn
+> workers. No new dependency: the two things that were actually wrong
+> were the per-process default cache and `REMOTE_ADDR` being Caddy's
+> address, both configuration. The reasoning below stood until unit 3
+> of Phase 22.5 made this app internet-facing, which is the condition
+> it set for revisiting.
+
 Django ships no built-in brute-force throttling on `LoginView`.
 **Deferred, not fixed**: adding this means either a new dependency
 (`django-axes` or similar) or custom middleware — a real cost for an

@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+
+{% block title %}Too many attempts{% endblock %}
+
+{% block content %}
+  <h1>Too many sign-in attempts</h1>
+  {% comment %}
+    Deliberately says nothing about whether that username exists or
+    whether the password was right (ADR 0020). A page that
+    distinguished those would answer the question the limit exists to
+    stop being asked.
+  {% endcomment %}
+  <p>
+    Too many sign-in attempts from here. Wait about {{ minutes }} minutes and try
+    again.
+  </p>
+  <p>
+    If you have forgotten your password, ask the owner — they can set a new one
+    for you. This app sends no email, so there is no reset link to wait for.
+  </p>
+  <p><a href="{% url 'users:login' %}">Back to sign in</a></p>
+{% endblock %}

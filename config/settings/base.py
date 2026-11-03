@@ -93,6 +93,20 @@ DATABASES = {
     }
 }
 
+# A database cache, not Redis and not the per-process default (ADR
+# 0020). The login rate limit counts failures here, and gunicorn runs
+# three workers: on Django's fallback LocMemCache each worker would keep
+# its own count and let three times the guesses through — while passing
+# a test suite, which runs in one process. The table is created by
+# apps/core/migrations/0004_cache_table.py, so `migrate` is the whole
+# deploy path.
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.db.DatabaseCache",
+        "LOCATION": "crm_cache",
+    }
+}
+
 AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
     {

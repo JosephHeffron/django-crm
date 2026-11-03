@@ -380,8 +380,11 @@ insufficient.
          - In-app team member creation, Owner-only — **done**, #193,
            with set-password on each person's page. Role changes and
            the sign-in toggle already existed (Phase 17.5).
-         - A rate limit on both login pages before the CRM is exposed
-           — **not started**, and it gates unit 3.
+         - A rate limit on both login pages before the CRM is
+           exposed — **done**, ADR 0020. Ten failed attempts per
+           fifteen minutes, per IP and per username, on
+           `/accounts/login/` and `/admin/login/`, counted in a
+           database cache the three gunicorn workers share.
          - An Ubuntu x86-64 deployment guide — **not started**; the
            audit's F-VPS-1 to F-VPS-5 are its content.
          - Alerting for a backup that stops running — **not started**.
