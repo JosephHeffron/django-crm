@@ -18,7 +18,7 @@ from apps.crm.models import AuditLogEntry
 from apps.crm.tests._helpers import grant_role
 from apps.jobs.tests import _factories as f
 from apps.users.forms import RESERVED_USERNAMES
-from apps.users.models import get_profile
+from apps.users.models import UserProfile, get_profile
 from apps.users.roles import Role, user_role
 
 User = get_user_model()
@@ -291,6 +291,44 @@ class WhatTheLogRecordsTests(TestCase):
         self.client.post(reverse("people:member", args=["crew"]), same)
         self.client.post(reverse("people:member", args=["crew"]), same)
         self.assertEqual(self.entries().count(), 1)
+
+    def test_saving_pay_does_not_revert_a_concurrent_profile_edit(self):
+        """The hazard: the pay form holds the profile row as it was when
+        the owner opened the page, so a full save writes every column
+        back — reverting whatever the person changed about themselves in
+        between.
+
+        Simulated by writing the phone directly while the request is
+        mid-flight: `_pay_state` runs inside the same transaction,
+        immediately after the row is locked and before the pay fields
+        are written, so a side effect there lands in exactly the window
+        a real concurrent edit would.
+        """
+        import apps.users.views as views
+
+        real_state = views._pay_state
+        # Once, on the first call only. Firing on both calls wrote the
+        # phone again *after* the save, so the harness repaired the very
+        # clobbering it was meant to catch and the test passed against
+        # the bug.
+        edited_yet = []
+
+        def edit_their_profile(profile):
+            if not edited_yet:
+                edited_yet.append(True)
+                UserProfile.objects.filter(pk=profile.pk).update(phone="555-0000")
+            return real_state(profile)
+
+        with mock.patch.object(views, "_pay_state", side_effect=edit_their_profile):
+            self.client.post(
+                reverse("people:member", args=["crew"]),
+                {"hourly_rate": "31.00", "working_days": ["2"]},
+            )
+
+        profile = get_profile(self.crew)
+        self.assertEqual(profile.phone, "555-0000", "their own edit was reverted")
+        self.assertEqual(str(profile.hourly_rate), "31.00")
+        self.assertEqual(profile.working_days_display, "Wed")
 
     def test_a_failed_entry_takes_the_pay_change_with_it(self):
         with mock.patch("apps.users.views.record", side_effect=RuntimeError("no log")):

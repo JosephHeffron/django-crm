@@ -235,8 +235,16 @@ class TeamMemberView(OwnerRequiredMixin, TemplateView):
         with transaction.atomic():
             locked = UserProfile.objects.select_for_update().get(pk=form.instance.pk)
             before = _pay_state(locked)
-            form.save()
-            locked.refresh_from_db()
+            # Write **only** the two fields this form owns, onto the row
+            # as it is now. `form.save()` would write every column of
+            # the instance loaded when the page was built, so anything
+            # the person changed on their own profile in between — their
+            # phone, title, colour, theme — would be silently reverted
+            # to what it was when the owner opened the page (#199).
+            edited = form.save(commit=False)
+            locked.hourly_rate = edited.hourly_rate
+            locked.working_days = edited.working_days
+            locked.save(update_fields=["hourly_rate", "working_days"])
             after = _pay_state(locked)
             changes = {
                 field: [before[field], after[field]]
