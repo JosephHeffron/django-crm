@@ -5,7 +5,7 @@
 # runs automatically — always requires an explicit human invocation
 # naming a specific git revision.
 #
-# Runs ON the production host (the Raspberry Pi), inside the
+# Runs ON the production host (the VPS — ADR 0015), inside the
 # deployment user's checkout (~/django-crm, matching
 # systemd/crm.service's WorkingDirectory=%h/django-crm) — not on the
 # dev workstation. Drives podman-compose directly rather than through

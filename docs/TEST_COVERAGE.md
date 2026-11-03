@@ -135,8 +135,6 @@ not a mock.
   `docs/TESTING_INSTRUCTIONS.md` has the manual procedure.
 - **`backup.sh` and `restore_offhost.sh` end to end**, including
   `restic` and the off-host push.
-- **ARM64.** `scripts/test-arm64.sh` exists and was not run; it needs
-  `qemu-user-static` and builds the whole image.
 - **The Containerfile build** and the deployed stack under Podman.
 - **`deploy.sh`.** Never run by this audit, by policy.
 - **systemd units.** Inspected, not started.

@@ -1,5 +1,14 @@
 # QA report — independent audit
 
+> **Hardware target changed since this was written.** The Raspberry Pi 5
+> was dropped on 2026-11-02 for an x86-64 Ubuntu VPS
+> ([ADR 0015](decisions/0015-x86-64-vps-replaces-the-raspberry-pi.md)),
+> and `docs/ARM64_REVIEW.md`, `docs/ARM64_TESTING.md` and
+> `scripts/test-arm64.sh` were removed with it — they remain in git
+> history. Findings below that concern ARM, emulation or Pi hardware are
+> kept as the record of what was true at the time; everything else
+> stands. `docs/VPS_AUDIT.md` is the current audit of the real target.
+
 **Date:** 2026-10-11
 **Scope:** the whole repository at `663ca85` (Phase 18 complete)
 **Verdict:** **PASS WITH WARNINGS**

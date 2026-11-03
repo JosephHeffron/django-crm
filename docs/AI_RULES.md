@@ -173,8 +173,8 @@ flush/disable, SELinux disable.
 Routine (allowed): `dnf install/update` packages, `systemctl
 status/start/stop/restart` on this project's services, `journalctl`
 access, firewall configuration for this project, directory
-ownership/permissions for this project, installing Podman/`qemu-user-static`,
-Podman configuration.
+ownership/permissions for this project, installing
+Podman/`podman-compose`, Podman configuration.
 
 Never: delete unrelated system data, recursive permission/ownership changes
 across the filesystem, disable SELinux, disable the firewall, modify

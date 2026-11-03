@@ -1,4 +1,4 @@
-.PHONY: setup dev test lint security migrate shell check build arm64 backup
+.PHONY: setup dev test lint security migrate shell check build backup
 
 VENV := .venv/bin
 
@@ -33,13 +33,6 @@ check:
 
 build:
 	podman build -t django-crm -f Containerfile .
-
-# Validates ARM64 compatibility under qemu-user-static emulation — see
-# docs/ARM64_REVIEW.md/docs/ARM64_TESTING.md. Not a substitute for
-# testing on real Raspberry Pi hardware, which this project doesn't
-# have yet.
-arm64:
-	./scripts/test-arm64.sh
 
 # Runs against the real production stack (compose.prod.yml) by
 # default — see docs/ADMIN_GUIDE.md's "Backups" section, and

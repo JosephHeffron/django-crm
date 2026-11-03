@@ -260,15 +260,6 @@ scripts/restore.sh <timestamp> --yes
 Needs a real `RESTIC_REPOSITORY` and credentials. See
 `scripts/restore_offhost.sh` and `docs/ADMIN_GUIDE.md`.
 
-### ARM64
-
-```sh
-sudo dnf install qemu-user-static
-scripts/test-arm64.sh
-```
-
-Builds the whole image under emulation. Slow.
-
 ### Deployment
 
 `scripts/deploy.sh`, by a human, with explicit authorization. Never

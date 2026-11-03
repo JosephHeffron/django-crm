@@ -4,6 +4,14 @@ Update this file at the end of every session (see `CLAUDE.md`'s Session
 Close Procedure). Do not describe anything as complete unless it was
 actually verified.
 
+> **The Raspberry Pi target was dropped on 2026-11-02**
+> ([ADR 0015](decisions/0015-x86-64-vps-replaces-the-raspberry-pi.md))
+> in favour of an x86-64 Ubuntu VPS. `docs/ARM64_REVIEW.md`,
+> `docs/ARM64_TESTING.md` and `scripts/test-arm64.sh` were removed and
+> remain in git history, so the Phase 9 and Phase 13 entries below cite
+> files that no longer exist. Those entries are kept as the record of
+> what was built at the time.
+
 > **Last updated 2026-10-27.** Repo is clean: `main` up to date,
 > nothing uncommitted, 1,354 tests passing. **Phase 22 is
 > complete** — duplicate detection (#179), a search box for the job
@@ -1703,9 +1711,16 @@ see that document for details.
 
 ## Production
 
-Not deployed. No Raspberry Pi hardware acquired yet.
+Not deployed. The target is an x86-64 Ubuntu 24.04 VPS (ADR 0015) and
+the server does not exist yet. `docs/VPS_AUDIT.md` lists what a
+rootless Ubuntu host still needs — the unprivileged-port sysctl,
+`linger`, subuid/subgid ranges, the `podman-compose` path.
 
-## ARM64
+## Architecture
 
-Not yet attempted — planned for a later phase, once Podman containers
-exist to test.
+One architecture, x86-64, on both the workstation and the server, so
+there is no emulation step and no `--platform` anywhere in the build.
+The earlier ARM64/Raspberry Pi target was dropped (ADR 0015) after
+Phase 9 had verified it under emulation; that work is in git history.
+(This section previously read "ARM64: not yet attempted", which was
+already stale — Phase 9 completed it in PR #58.)
