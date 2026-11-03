@@ -83,16 +83,18 @@
       var shown = 0;
       select.textContent = "";
       options.forEach(function (option, index) {
+        var hit = option.value !== "" && matches(flattened[index], needles);
         var keep =
-          !needles.length ||
-          option.value === "" ||
-          option.value === chosen ||
-          matches(flattened[index], needles);
+          !needles.length || option.value === "" || option.value === chosen || hit;
         if (keep) {
           select.appendChild(option);
-          if (option.value !== "") {
-            shown += 1;
-          }
+        }
+        // Counted only when it genuinely matches. The chosen option is
+        // kept in the list whatever happens, so counting it made a
+        // search that found nothing report "1 of 72 shown." on any
+        // edit or prefilled form (#201).
+        if (hit) {
+          shown += 1;
         }
       });
       select.value = chosen;

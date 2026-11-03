@@ -168,9 +168,12 @@ when it starts and ends; the service, which sets its color on the
 schedule; and who's doing it. Ticking crew members puts the job on
 their own schedule.
 
-**Searching the customer list.** Above the customer dropdown is a
-search box: type part of a name and the list narrows as you type, and
-clearing the box puts everybody back. Whoever is already chosen stays
+**Searching the customer list.** Above the customer dropdown — on
+this page and on **New estimate** — is a search box: type part of a
+name and the list opens up narrowed as you type, in either order, so
+"Pat Homeowner" and "Homeowner Pat" both find the same person. It says
+how many matched, and says so when none do. Clearing the box puts
+everybody back. Whoever is already chosen stays
 in the list even while they don't match, so searching can't quietly
 change who the job is for. Pressing Enter in the box does nothing on
 purpose — it would otherwise save the job while you were still filling
@@ -191,7 +194,9 @@ Cleaner sees their schedule but doesn't set it.
 **Estimates** lists what you've quoted and where each one stands, with
 filters for status and for your own. **New estimate** writes one: the
 customer, the lines of work and their prices, and when you're going to
-go and look at it. A booked site visit shows on the schedule.
+go and look at it. A booked site visit shows on the schedule. The
+customer dropdown has the same search box the job form has, described
+under **New job** above.
 
 **Status** is how you move it along. Taking it past Draft records today
 as the day it went out, and marking it Accepted records today as the day
