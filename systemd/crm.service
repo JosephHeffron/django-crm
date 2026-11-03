@@ -35,8 +35,7 @@ WorkingDirectory=%h/django-crm
 ExecStart=/usr/bin/podman-compose -f compose.prod.yml up -d
 ExecStop=/usr/bin/podman-compose -f compose.prod.yml down
 # podman-compose builds the web image and pulls db/caddy on first
-# start, which is slow, especially under the Raspberry Pi's own
-# (non-emulated, native ARM64) build — generous enough to not
+# start, which is slow on a 2 vCPU host — generous enough to not
 # spuriously time out a legitimate first boot.
 TimeoutStartSec=600
 

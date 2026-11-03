@@ -3,10 +3,10 @@
 A free, open-source, self-hosted CRM (customer relationship management)
 system built as a Django monolith with server-rendered templates and
 PostgreSQL — no SPA framework, no SaaS subscription, no vendor lock-in.
-Designed to run on your own hardware (built for and deployed to a
-Raspberry Pi 5 via Podman and Caddy) as a lightweight, privacy-friendly
-alternative to commercial CRM software for a small business, freelancer,
-or homelab.
+Designed to run on a host you control — an x86-64 Linux VPS, or your
+own hardware — under Podman with Caddy for HTTPS, as a lightweight,
+privacy-friendly alternative to commercial CRM software for a small
+business, freelancer, or homelab.
 
 See `CLAUDE.md` for the development contract (including AI
 operating rules — `docs/AI_RULES.md` has the detailed procedures), and
@@ -35,8 +35,8 @@ build-out plan. `docs/PROJECT_STATE.md` has the current status snapshot.
 - **Production-ready self-hosted deployment** — rootless Podman
   containers, a Caddy reverse proxy with automatic HTTPS, systemd
   service management, scheduled PostgreSQL backups with a tested
-  disaster-recovery procedure, and verified ARM64/Raspberry Pi
-  compatibility.
+  disaster-recovery procedure, and encrypted off-host backups once a
+  `restic` repository is configured (local-only until then).
 
 ## Documentation
 

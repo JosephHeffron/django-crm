@@ -11,9 +11,9 @@ implemented it. Re-encoding without passing `exif=` through drops the
 lot: coordinates, timestamps, device and serial number.
 
 It also keeps the files small. A modern phone photo is 3–12 MB and
-several thousand pixels wide; a Raspberry Pi serving these off an SD
-card does not want the originals, and nobody needs more than 2000px to
-see whether the gutters are clean.
+several thousand pixels wide; a small VPS serving these over a crew's
+mobile connection does not want the originals, and nobody needs more
+than 2000px to see whether the gutters are clean.
 
 Orientation is applied before the metadata goes, or portrait photos
 would all come out sideways — the rotation lives in the EXIF that is

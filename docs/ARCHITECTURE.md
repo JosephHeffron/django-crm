@@ -48,7 +48,7 @@ django-crm/
 ├── systemd/
 │   ├── crm.service                        # the app stack
 │   └── crm-backup.service, crm-backup.timer  # scheduled backups
-├── scripts/{entrypoint,deploy,backup,restore,test-arm64}.sh
+├── scripts/{entrypoint,deploy,backup,restore}.sh
 ├── docs/                      # architecture, design, and every phase's own
 │                               #   review/audit document
 └── logs/claude/                # phase-by-phase build log
@@ -111,12 +111,13 @@ checks, restart policies).
 
 ## Production deployment architecture
 
-Production runs on a Raspberry Pi 5 (ARM64) under Podman, started and
-supervised by a systemd unit (`systemd/crm.service`) so the stack survives
-reboots and crashes without manual intervention. Deployment is a scripted,
-non-destructive procedure (`scripts/deploy.sh`): pull the intended git
-revision, build/pull ARM64 images, run migrations, restart, verify health,
-and support rollback.
+Production runs on an x86-64 Ubuntu VPS (ADR 0015) under rootless
+Podman, started and supervised by a systemd user unit
+(`systemd/crm.service`) so the stack survives reboots and crashes
+without manual intervention. Deployment is a scripted, non-destructive
+procedure (`scripts/deploy.sh`): pull the intended git revision,
+build/pull images, run migrations, restart, verify health, and support
+rollback.
 
 ## Security boundaries
 
@@ -153,10 +154,10 @@ see `docs/decisions/0006-offhost-backups-restic.md` and
 requirement: a deployment with no off-host destination configured yet
 still gets the local backup/restore behavior above, unchanged.
 
-## ARM64 deployment strategy
+## One architecture
 
-All base images (Python, PostgreSQL, Caddy) must support `linux/arm64`.
-Container builds are tested on the Fedora workstation using
-`qemu-user-static` before ever being deployed to the physical Raspberry Pi,
-so architecture-specific breakage is caught in development rather than in
-production.
+The deployment target and the development workstation are both x86-64
+Linux, so an image built on one runs on the other and there is no
+emulation step and no `--platform` flag anywhere in the build. ADR 0015
+records dropping the earlier ARM64/Raspberry Pi target; nothing in the
+build was ever architecture-specific, so nothing had to be undone.
