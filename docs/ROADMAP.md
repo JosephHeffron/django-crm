@@ -370,11 +370,20 @@ insufficient.
 
       Seven units, in this order — the first three cannot affect the
       website or the domain, which is the point of the sequence:
-      1. **P0 repo fixes** — outbound email and password reset
-         (**done**, #188 and ADR 0019), in-app team member creation
-         (Owner-only), a rate limit on both login pages before the
-         CRM is exposed, an Ubuntu x86-64 deployment guide, and
-         alerting for a backup that stops running.
+      1. **P0 repo fixes** — *partly done.*
+         - ~~Outbound email and password reset~~ **reversed.** Built in
+           #188 (ADR 0019), removed in #194: DigitalOcean blocks
+           outbound SMTP on 25, 465 and 587 by default on Droplets, so
+           it could never have delivered. **ADR 0021** supersedes it —
+           the owner sets passwords in the app, no email anywhere.
+         - In-app team member creation, Owner-only — **done**, #193,
+           with set-password on each person's page. Role changes and
+           the sign-in toggle already existed (Phase 17.5).
+         - A rate limit on both login pages before the CRM is exposed
+           — **not started**, and it gates unit 3.
+         - An Ubuntu x86-64 deployment guide — **not started**; the
+           audit's F-VPS-1 to F-VPS-5 are its content.
+         - Alerting for a backup that stops running — **not started**.
       2. **VPS provisioning** — the owner's own work, following that
          guide.
       3. **CRM live on `crm.`** — HTTPS, backups to B2, uptime
@@ -397,14 +406,22 @@ insufficient.
          registrar and the DNS host, so cancelling it early takes the
          domain down.
 
-      Six ADRs will be written as their units start: 0015 (x86-64 VPS
-      replaces the Pi), 0016 (two sites behind one Caddy), 0017 (the
-      website lives in this repository, with the mounts, deploy, CI
-      filter and private-data guard that implies), 0018 (same-origin
-      lead intake at `/book/`), 0019 (email via the existing Gmail
-      account), 0020 (database-backed cache for rate limiting instead
-      of Redis). ADRs 0004, 0005, 0006, 0007 and 0011 all stand
-      unchanged, and ADR 0014's retirement of team messaging is not
+      ADRs, as their units start — three written so far:
+      **0015** (x86-64 VPS replaces the Pi — *written*, #195),
+      0016 (two sites behind one Caddy),
+      0017 (the website lives in this repository, with the mounts,
+      deploy, CI filter and private-data guard that implies),
+      0018 (same-origin lead intake at `/book/`),
+      **0019** (email via the existing Gmail account — *written then
+      superseded*, #188 and #194),
+      0020 (database-backed cache for rate limiting instead of Redis),
+      **0021** (passwords set by the owner, not reset by email —
+      *written*, #193; it replaces 0019 and was not in the original
+      list).
+      ADRs 0006, 0007 and 0011 stand unchanged. ADRs 0004 and 0005
+      stand too, with a note added by #195 that the host changed —
+      and 0004's requirement that every image support `linux/arm64`
+      is withdrawn. ADR 0014's retirement of team messaging is not
       reopened by any of this.
 - [ ] **Phase 23 — Authentication hardening.** Two-factor authentication
       for login (e.g. `django-otp`). (Formerly Phase 21.)

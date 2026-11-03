@@ -12,9 +12,54 @@ actually verified.
 > files that no longer exist. Those entries are kept as the record of
 > what was built at the time.
 
-> **Last updated 2026-10-27.** Repo is clean: `main` up to date,
-> nothing uncommitted, 1,354 tests passing. **Phase 22 is
-> complete** — duplicate detection (#179), a search box for the job
+> **Last updated 2026-11-02.** Repo is clean: `main` at `fdade7f`,
+> nothing uncommitted, no open pull requests, **1,383 tests passing**.
+>
+> **Phase 22.5 unit 1 is partly done, and one of its items was
+> reversed.** Nine PRs landed in this stretch: #186 (the VPS audit),
+> #188 (email + password reset), #187 (the VPS plan), #193 (the owner
+> adds team members and sets their passwords), #194 (the email path
+> removed again), #195 (the Raspberry Pi target dropped), #191 and
+> #192 (ruff 0.17.3), plus this close-out. Full detail in
+> `logs/claude/phase-22.5-unit-1-accounts.md`.
+>
+> **Email password reset was built on 2026-10-28 and removed on
+> 2026-11-02.** It worked and was reviewed; it could never have
+> delivered, because **DigitalOcean blocks outbound SMTP on ports 25,
+> 465 and 587 by default on Droplets**. ADR 0019 rested on an
+> untested assumption about the host and never labelled it as one.
+> **Passwords are now set by the owner in the app** (ADR 0021,
+> superseding 0019's mechanism): Team → *Add someone* creates an
+> account with a role and a first password, and each person's page has
+> *Set a new password*, which also ends that person's sessions. Role
+> changes and the sign-in toggle already existed from Phase 17.5.
+>
+> **A sole Owner who forgets their own password has no in-app way
+> back** — the one real regression against the email flow, missed when
+> ADR 0021 was written and found in review. `docs/ADMIN_GUIDE.md`
+> documents both answers: keep **two** Owner accounts (either can
+> reset the other, and a test proves it), or `manage.py changepassword`
+> inside the container. **Creating a second Owner account on the real
+> deployment is an owner action still outstanding.**
+>
+> **There is no ARM or Raspberry Pi target** (ADR 0015). Nothing in the
+> build was ever architecture-specific — audit finding F-VPS-7 — so
+> dropping it removed no capability. `--workers 3` keeps its value and
+> now states the real target; F-VPS-8 records it as untested at that
+> size with memory, not CPU, the constraint.
+>
+> **Still not started in unit 1:** the login rate limit (needed before
+> unit 3 exposes the CRM, and there is no MFA until Phase 23), the
+> Ubuntu x86-64 deployment guide (the audit's F-VPS-1 to F-VPS-5), and
+> backup-failure alerting. **Nothing is deployed yet** — the droplet
+> does not exist.
+>
+> **Also outstanding for the owner:** `EMAIL_HOST`, `EMAIL_HOST_USER`
+> and `EMAIL_HOST_PASSWORD` can be removed from the real `.env` and the
+> Google app password revoked, since nothing reads them now.
+
+> **Previously, 2026-10-27.** Repo clean, 1,354 tests passing.
+> **Phase 22 is complete** — duplicate detection (#179), a search box for the job
 > form's customer dropdown (#180, the owner's own request), bulk
 > actions on the customer and task lists (#181), and CSV import
 > (#182). **Saved filters were declined by the owner** on 2026-10-27
