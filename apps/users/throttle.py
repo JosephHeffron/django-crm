@@ -17,6 +17,7 @@ one passing the limit refuses the attempt.
 """
 
 import time
+import unicodedata
 
 from django.conf import settings
 from django.core.cache import cache
@@ -56,13 +57,28 @@ MAX_USERNAME_KEY = 150
 
 
 def username_key(username):
-    # Lower-cased: Django's own username check is case-insensitive at
-    # creation (apps/users/forms.py), so "Boss" and "boss" are guesses
-    # at the same account and belong in one bucket. The cost — two
-    # accounts differing only in case, which only a shell or the admin
-    # could create, would share a lockout — is smaller than letting a
-    # guesser get three times the attempts by varying capitals.
-    return f"login-fail-user:{username.strip().lower()[:MAX_USERNAME_KEY]}"
+    """One bucket per account, however the attempt spelled it.
+
+    **NFKC first, because Django does.** `UsernameField.to_python`
+    normalizes the posted value before authenticating, so the fullwidth
+    `ｓａｍ` signs in as `sam` — while keying on the raw text gave each
+    spelling its own ten-failure budget. A four-letter name with
+    fullwidth forms has sixteen variants, so the per-account limit was
+    really 160 (#200).
+
+    Then lower-cased: `NewMemberForm` refuses a username differing from
+    an existing one only in case, so "Boss" and "boss" are guesses at
+    one account. `lower()` rather than `casefold()` deliberately —
+    casefold would also fold "ß" into "ss", which Django's
+    authentication treats as two different accounts.
+
+    Truncated last, to keep the key inside the cache table's 255-char
+    column. Django skips its own normalization above 150 characters, so
+    a value that long cannot match an account anyway; this only has to
+    count it somewhere.
+    """
+    normalized = unicodedata.normalize("NFKC", username).strip().lower()
+    return f"login-fail-user:{normalized[:MAX_USERNAME_KEY]}"
 
 
 def _keys(request, username):

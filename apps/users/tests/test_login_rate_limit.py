@@ -183,6 +183,7 @@ class ThingsFoundInReviewTests(TestCase):
         Clock-pinned: the deadline stored with the first failure must
         survive later ones.
         """
+        baseline = timezone.now()
         start = time.time()
         throttle.note_failure(_a_request(), "sam", now=start)
 
@@ -202,7 +203,10 @@ class ThingsFoundInReviewTests(TestCase):
         # and the limit lifted early.
         # Five simulated minutes in, so about ten should be left — and
         # crucially not the 300 seconds the bug produced.
-        left = _row_expiry("login-fail-user:sam") - timezone.now()
+        # Measured from a baseline taken before the writes rather
+        # than a fresh now(), so the assertion does not depend on how
+        # long the test itself took.
+        left = _row_expiry("login-fail-user:sam") - baseline
         self.assertGreater(
             left, timedelta(minutes=9), "the cache entry expires before the window does"
         )
@@ -238,13 +242,60 @@ class ThingsFoundInReviewTests(TestCase):
         # not punishing a few mistypes.
         self.assertEqual(throttle._count("login-fail-user:sam"), 0)
 
-    def test_an_enormous_username_does_not_break_the_page(self):
+    def test_an_enormous_username_is_still_counted(self):
         """The POST is not validated before counting, so an unbounded
         username went straight into a cache key — past the table's
         255-character column, turning a wrong password into a 500.
+
+        Asserting a 200 was not enough, and that is the interesting
+        part: `DatabaseCache` swallows the `DatabaseError` from an
+        over-long key and returns False, so the page answers 200 while
+        **nothing is counted**. This has to show the counting still
+        happens — ten attempts from ten addresses, so only the username
+        counter can be what trips the eleventh.
         """
-        response = self.client.post(LOGIN, {"username": "x" * 5000, "password": "wrong-password"})
-        self.assertEqual(response.status_code, 200)
+        enormous = "x" * 5000
+        for attempt in range(throttle.MAX_FAILURES):
+            response = self.client.post(
+                LOGIN,
+                {"username": enormous, "password": "wrong-password"},
+                HTTP_X_FORWARDED_FOR=f"10.1.0.{attempt + 1}",
+            )
+            self.assertEqual(response.status_code, 200, f"attempt {attempt + 1}")
+
+        refused = self.client.post(
+            LOGIN,
+            {"username": enormous, "password": "wrong-password"},
+            HTTP_X_FORWARDED_FOR="10.1.0.99",
+        )
+        self.assertEqual(refused.status_code, 429)
+
+    def test_spelling_the_username_differently_shares_one_bucket(self):
+        """Django normalizes the posted username with NFKC before it
+        authenticates, so the fullwidth "ｓａｍ" signs in as "sam".
+        Keying on the raw text gave every spelling its own ten-failure
+        budget — a four-letter name with fullwidth forms has sixteen
+        variants, so the per-account limit was really about 160 (#200).
+        """
+        spellings = ["sam", "ｓａｍ", "SAM", "Ｓａｍ", "sＡm"]
+        for attempt in range(throttle.MAX_FAILURES):
+            self.client.post(
+                LOGIN,
+                {
+                    "username": spellings[attempt % len(spellings)],
+                    "password": "wrong-password",
+                },
+                HTTP_X_FORWARDED_FOR=f"10.2.0.{attempt + 1}",
+            )
+
+        # Eleventh attempt: a fresh address, and the plain spelling.
+        refused = self.client.post(
+            LOGIN,
+            {"username": "sam", "password": "wrong-password"},
+            HTTP_X_FORWARDED_FOR="10.2.0.99",
+        )
+        self.assertEqual(refused.status_code, 429)
+        self.assertEqual(throttle._count("login-fail-user:sam"), throttle.MAX_FAILURES)
 
     def test_setting_a_password_clears_that_persons_lockout(self):
         """The owner setting a password is the recovery path (ADR
