@@ -236,7 +236,13 @@ Change log page's "everything that changed, newest first".
   `form_valid` call `record()` directly.
 - **User accounts are audited from 2026-11-03**, at the owner's
   request: creating an account, changing a role, turning sign-in on or
-  off, and setting somebody's password. The entry names the actor, the
+  off, setting somebody's password, and changing their hourly rate or
+  working days. Pay is included because the rate is money and the log
+  is the only place its history exists; the entry hangs off the
+  **user**, not the profile row, because "Updated Sam" is what a reader
+  is looking for. Values are stored as the page shows them — the days
+  as `Mon, Tue` rather than the stored `01` — since a log nobody can
+  read is not an audit trail. The entry names the actor, the
   account and the field; for a password it records
   `{"password": [null, "changed"]}` and **never the password or its
   hash** — the log is Owner-only, but it is still a page, and an entry

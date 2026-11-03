@@ -18,6 +18,7 @@ from apps.crm.models import AuditLogEntry
 from apps.crm.tests._helpers import grant_role
 from apps.jobs.tests import _factories as f
 from apps.users.forms import RESERVED_USERNAMES
+from apps.users.models import get_profile
 from apps.users.roles import Role, user_role
 
 User = get_user_model()
@@ -264,6 +265,41 @@ class WhatTheLogRecordsTests(TestCase):
         same = {"role": Role.CLEANER.value, "is_active": "on"}
         self.client.post(reverse("people:member", args=["crew"]), same)
         self.assertEqual(self.entries().count(), 0)
+
+    def test_a_pay_change_is_recorded_readably(self):
+        """The hourly rate is money, so a change to it belongs in the
+        log for the same reason a role change does. Stored as the words
+        the page shows: "01" would be a true record of the column and
+        useless to a reader.
+        """
+        self.client.post(
+            reverse("people:member", args=["crew"]),
+            {"hourly_rate": "24.50", "working_days": ["0", "1"]},
+        )
+        entry = self.entries().get()
+        self.assertEqual(entry.record, self.crew)
+        self.assertEqual(
+            entry.changes,
+            {
+                "hourly_rate": ["", "24.50"],
+                "working_days": ["varies", "Mon, Tue"],
+            },
+        )
+
+    def test_saving_the_same_pay_again_records_nothing(self):
+        same = {"hourly_rate": "24.50", "working_days": ["0", "1"]}
+        self.client.post(reverse("people:member", args=["crew"]), same)
+        self.client.post(reverse("people:member", args=["crew"]), same)
+        self.assertEqual(self.entries().count(), 1)
+
+    def test_a_failed_entry_takes_the_pay_change_with_it(self):
+        with mock.patch("apps.users.views.record", side_effect=RuntimeError("no log")):
+            with self.assertRaises(RuntimeError):
+                self.client.post(
+                    reverse("people:member", args=["crew"]),
+                    {"hourly_rate": "99.00", "working_days": []},
+                )
+        self.assertIsNone(get_profile(self.crew).hourly_rate)
 
     def test_the_change_log_page_links_to_the_person(self):
         """auth.User has no get_absolute_url, and the template's

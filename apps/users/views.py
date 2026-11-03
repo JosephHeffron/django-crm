@@ -131,6 +131,19 @@ class TeamListView(OwnerRequiredMixin, TemplateView):
         return context
 
 
+def _pay_state(profile):
+    """The two fields the pay form owns, as the log should show them.
+
+    Money as a string so a Decimal does not reach JSON, and the days as
+    the words the page shows ("Mon, Tue") rather than the stored "01",
+    because a log is only useful if a person can read it.
+    """
+    return {
+        "hourly_rate": "" if profile.hourly_rate is None else str(profile.hourly_rate),
+        "working_days": profile.working_days_display or "varies",
+    }
+
+
 def _access_state(person):
     """What the access form can change, as the log should show it.
 
@@ -213,7 +226,25 @@ class TeamMemberView(OwnerRequiredMixin, TemplateView):
         form = CrewPayForm(request.POST, instance=get_profile(person))
         if not form.is_valid():
             return self.render_to_response(self.get_context_data(pay_form=form))
-        form.save()
+        # Same shape as the other three: lock the row, read both states
+        # inside the lock, and write the entry before it drops, so a
+        # failed insert takes the change with it. The entry hangs off
+        # the person rather than their profile row — "Updated Sam" is
+        # what the owner is looking for in the log, not "Updated
+        # Profile for Sam".
+        with transaction.atomic():
+            locked = UserProfile.objects.select_for_update().get(pk=form.instance.pk)
+            before = _pay_state(locked)
+            form.save()
+            locked.refresh_from_db()
+            after = _pay_state(locked)
+            changes = {
+                field: [before[field], after[field]]
+                for field in before
+                if before[field] != after[field]
+            }
+            if changes:
+                record(request.user, person, AuditLogEntry.Action.UPDATED, changes)
         messages.success(
             request, f"Saved pay and working days for {person.get_full_name() or person}."
         )
