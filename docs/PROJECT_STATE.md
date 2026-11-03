@@ -12,8 +12,14 @@ actually verified.
 > files that no longer exist. Those entries are kept as the record of
 > what was built at the time.
 
-> **Last updated 2026-11-02.** Repo is clean: `main` at `fdade7f`,
-> nothing uncommitted, no open pull requests, **1,383 tests passing**.
+> **Last updated 2026-11-02.** Nothing uncommitted, no open pull
+> requests, **1,383 tests passing** on `main` at that date.
+> (Deliberately no commit hash and no claim that a checkout is current:
+> the close-out that writes this line cannot name its own merge commit,
+> and a local branch can be clean while behind its remote, so both
+> claims rot. `git status -sb` and `git log` answer those questions
+> properly. Hashes of *individual* commits stay where they are below —
+> those record history and cannot go stale.)
 >
 > **Phase 22.5 unit 1 is partly done, and one of its items was
 > reversed.** Nine PRs landed in this stretch: #186 (the VPS audit),
