@@ -222,6 +222,11 @@ class BookingTests(SchedulingTestCase):
         # The select it points at has to be on the page under that id,
         # or the box is wired to nothing.
         self.assertIn('id="id_contact"', page)
+        # Where the script writes "3 of 42 shown". Without this element
+        # the filtering still works but says nothing, which is half of
+        # what made it look broken.
+        self.assertIn("data-filter-count", page)
+        self.assertIn('aria-live="polite"', page)
 
     def test_the_dropdown_still_lists_every_customer_without_the_script(self):
         """The box is an enhancement. A Django test client runs no
