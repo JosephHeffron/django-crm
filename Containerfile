@@ -27,9 +27,14 @@ USER django
 EXPOSE 8000
 
 ENTRYPOINT ["scripts/entrypoint.sh"]
-# 3 workers is a modest, explicit starting point for a Raspberry Pi 5
-# (4 cores) — not computed from CPU count, which would be needless
-# complexity for a single, known deployment target. Logs to
-# stdout/stderr rather than a file, since the container runtime is
-# what owns log capture here.
+# 3 workers, stated rather than computed from CPU count: there is one
+# known deployment target (a 2 vCPU, 4 GB x86-64 VPS — ADR 0015) and
+# deriving it would be needless complexity. docs/VPS_AUDIT.md F-VPS-8
+# records the figure as untested alongside PostgreSQL and Caddy, with
+# memory the constraint to watch rather than CPU — it assumed a 2 GB
+# host, and the chosen droplet has 4 GB, so its concern is softer than
+# written but not retired. Stays at 3 until there is a measurement.
+#
+# Logs to stdout/stderr rather than a file, since the container runtime
+# is what owns log capture here.
 CMD ["gunicorn", "config.wsgi:application", "--bind", "0.0.0.0:8000", "--workers", "3", "--access-logfile", "-", "--error-logfile", "-"]

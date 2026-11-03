@@ -1,5 +1,12 @@
 # 0005 — Rootless Podman under a systemd user unit for production
 
+> **Still current, but the host changed.** This ADR was written when the
+> production target was a Raspberry Pi 5. That target was dropped on
+> 2026-11-02 for an x86-64 Ubuntu VPS
+> ([ADR 0015](0015-x86-64-vps-replaces-the-raspberry-pi.md)). The
+> decision below stands — none of its reasoning depended on the
+> hardware or the architecture — so read "the Pi" as "the server".
+
 ## Context
 
 ADR 0004 already decided the production stack runs as three Podman

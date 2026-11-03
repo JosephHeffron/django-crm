@@ -1,5 +1,12 @@
 # VPS deployment audit
 
+> **Acted on since.** F-VPS-7's finding — that nothing in the build was
+> ARM-specific — is what made it safe to drop the Raspberry Pi target
+> ([ADR 0015](decisions/0015-x86-64-vps-replaces-the-raspberry-pi.md),
+> 2026-11-02). `scripts/test-arm64.sh`, cited below as evidence, was
+> removed with it and remains in git history. Every other finding here
+> still stands as written.
+
 **Audit only.** No code, configuration, infrastructure or DNS was
 changed in producing this document. Dated 2026-10-27, against
 `main` at commit `38e9e31`.
