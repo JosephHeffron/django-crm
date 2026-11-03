@@ -182,6 +182,17 @@ the whole of it.
     only path if you are the sole Owner, so losing both your password
     and your server access means losing administrative control of the
     CRM — the database would have to be edited directly.
+- **Account changes are recorded.** Adding an account, changing a
+  role, turning sign-in off and setting somebody's password appear in
+  **Settings → Change log** (Owner-only) with who did it and when. The
+  password itself is never recorded — only that it changed. Nothing
+  emails the person, so this log is the only trace.
+  **Pay and working days are not in that log**, so do not read it as a
+  history of somebody's rate; the current values are on their page.
+  A password change made in the Django admin instead is recorded by
+  the admin's own history, at
+  `/admin/auth/user/<id>/history/`, not here — the app's log covers
+  changes made through the app, as it always has.
 - **Stop someone signing in:** open the person → *What they can reach*
   → turn off **Can sign in**. Use this rather than deleting an account.
   Every job, quote and task they created still refers to them, and the

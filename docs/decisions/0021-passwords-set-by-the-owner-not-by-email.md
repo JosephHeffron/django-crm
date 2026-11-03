@@ -103,6 +103,12 @@ than first exercised in production.
   the person to change it, and the self-service change page exists.
 - **A password has to be communicated out of band** — spoken, or by
   text. Nothing in the app transmits it.
+- **Nothing notifies the person, so the change log is the only trace.**
+  Added 2026-11-03 at the owner's request: adding an account, changing
+  a role, turning sign-in off and setting a password are all recorded
+  with who did it and when, and a password change records only that it
+  changed. Without this, an owner-set password was invisible after the
+  fact — the email flow at least put a message in somebody's inbox.
 - **`production.py` configures no mail backend at all**, so a
   deployment can no longer fail to start for a missing `EMAIL_HOST`,
   and `EMAIL_HOST`, `EMAIL_HOST_USER` and `EMAIL_HOST_PASSWORD` can be
