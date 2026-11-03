@@ -60,7 +60,7 @@
           <div class="notice-body">
             <p class="notice-title">
               {{ row.entry.get_action_display }}
-              {% if row.entry.record %}<a href="{{ row.entry.record.get_absolute_url }}">{{ row.entry.record }}</a>{% else %}a record that's since been removed{% endif %}
+              {% if row.url %}<a href="{{ row.url }}">{{ row.entry.record }}</a>{% elif row.entry.record %}{{ row.entry.record }}{% else %}a record that's since been removed{% endif %}
             </p>
             {% if row.entry.changes %}
               <ul class="change-list">

@@ -816,6 +816,24 @@ def _logged_kinds():
     return sorted(kinds, key=lambda pair: pair[1])
 
 
+def _record_url(record):
+    """Where to open the thing an entry refers to.
+
+    Every audited CRM model carries `get_absolute_url`. A **user
+    account** does not: `auth.User` is Django's model, not this
+    project's, and its page here is the Team member page. Naming that
+    once is better than adding a method to a model we do not own, and
+    better than the template's silent fallback — a missing attribute
+    renders as an empty string, so the link was there and went nowhere.
+    """
+    if record is None:
+        return ""
+    if isinstance(record, User):
+        return reverse("people:member", args=[record.get_username()])
+    to_url = getattr(record, "get_absolute_url", None)
+    return to_url() if to_url else ""
+
+
 class ActivityLogView(OwnerRequiredMixin, PerPageMixin, ListView):
     """Every change made through the app, newest first, with a way to
     put some of them back (apps/crm/undo.py).
@@ -872,7 +890,13 @@ class ActivityLogView(OwnerRequiredMixin, PerPageMixin, ListView):
         context = super().get_context_data(**kwargs)
         rows = []
         for entry in context["entries"]:
-            rows.append({"entry": entry, "blocked": undo_service.why_not(entry)})
+            rows.append(
+                {
+                    "entry": entry,
+                    "blocked": undo_service.why_not(entry),
+                    "url": _record_url(entry.record),
+                }
+            )
         context["rows"] = rows
         params = self.request.GET
         context.update(

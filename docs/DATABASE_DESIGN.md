@@ -234,10 +234,25 @@ Change log page's "everything that changed, newest first".
   them as somebody's edits. `apps/crm/audit.py` holds the helpers and a
   mixin that adds one line to a view; two views that own their
   `form_valid` call `record()` directly.
+- **User accounts are audited from 2026-11-03**, at the owner's
+  request: creating an account, changing a role, turning sign-in on or
+  off, and setting somebody's password. The entry names the actor, the
+  account and the field; for a password it records
+  `{"password": [null, "changed"]}` and **never the password or its
+  hash** — the log is Owner-only, but it is still a page, and an entry
+  quoting either would make reading it a way to sign in as somebody.
+  `auth.User` carries no `get_absolute_url`, so the change-log view
+  names the Team member page for these entries
+  (`apps/core/views.py:_record_url`); they are recorded but not
+  undoable, since `undo.UNDOABLE_MODELS` does not list them and a
+  password cannot be put back.
 - Only changes made through the application's own Create/Update views are
   recorded. **Not audited:** Django admin edits, `manage.py shell`/
   management-command changes, and any direct database writes. This is a
   deliberate scope limit, not an oversight — see Decisions below.
+  Note that Django's admin keeps **its own** history for what happens
+  there, including password changes (`user_change_password` calls
+  `log_change`), reachable at `/admin/auth/user/<id>/history/`.
 - Deactivation (`is_active=False` on Company/Contact) goes through the
   same `UpdateView`-adjacent code path as other field changes and *is*
   captured — it shows up as an `updated` entry with `is_active` in

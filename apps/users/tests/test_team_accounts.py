@@ -7,12 +7,14 @@ leave somebody unable to work, or let somebody reach what they
 shouldn't.
 """
 
+import json
 from unittest import mock
 
 from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.urls import resolve, reverse
 
+from apps.crm.models import AuditLogEntry
 from apps.crm.tests._helpers import grant_role
 from apps.jobs.tests import _factories as f
 from apps.users.forms import RESERVED_USERNAMES
@@ -134,6 +136,118 @@ class AddingSomebodyTests(TestCase):
         response = self.client.get(ADD)
         self.assertEqual(response.status_code, 302)
         self.assertIn(reverse("users:login"), response["Location"])
+
+
+class WhatTheLogRecordsTests(TestCase):
+    """Account administration appears in the change log (owner's ask,
+    2026-11-03).
+
+    Nothing notifies the person — there is no email on this system — so
+    the log is the only record that somebody's access or password was
+    changed, and by whom. What it must **not** hold is anything that
+    would let a reader sign in as them.
+    """
+
+    def setUp(self):
+        self.owner = grant_role(f.user("boss"), Role.OWNER)
+        self.crew = grant_role(f.user("crew"), Role.CLEANER)
+        self.client.force_login(self.owner)
+
+    def entries(self):
+        return AuditLogEntry.objects.order_by("pk")
+
+    def test_setting_a_password_is_recorded_against_the_person(self):
+        self.client.post(
+            reverse("people:member", args=["crew"]),
+            {"new_password1": NEW_PASSWORD, "new_password2": NEW_PASSWORD},
+        )
+        entry = self.entries().get()
+        self.assertEqual(entry.user, self.owner)
+        self.assertEqual(entry.record, self.crew)
+        self.assertEqual(entry.action, AuditLogEntry.Action.UPDATED)
+        self.assertEqual(entry.changes, {"password": [None, "changed"]})
+
+    def test_the_entry_carries_no_password_and_no_hash(self):
+        """The log is Owner-only, but it is still a page: an entry that
+        quoted the password, or the hash it was stored as, would turn
+        reading the log into a way to sign in as somebody.
+        """
+        self.client.post(
+            reverse("people:member", args=["crew"]),
+            {"new_password1": NEW_PASSWORD, "new_password2": NEW_PASSWORD},
+        )
+        self.crew.refresh_from_db()
+        written = json.dumps(self.entries().get().changes)
+        self.assertNotIn(NEW_PASSWORD, written)
+        self.assertNotIn(self.crew.password, written)
+        self.assertNotIn("pbkdf2", written)
+
+    def test_a_refused_password_records_nothing(self):
+        """Too short to be accepted, so nothing happened, so there is
+        nothing to record."""
+        self.client.post(
+            reverse("people:member", args=["crew"]),
+            {"new_password1": "short1", "new_password2": "short1"},
+        )
+        self.assertEqual(self.entries().count(), 0)
+
+    def test_adding_somebody_is_recorded(self):
+        self.client.post(
+            ADD,
+            {
+                "username": "newhire",
+                "first_name": "Sam",
+                "last_name": "Fielder",
+                "email": "sam@example.test",
+                "role": Role.CLEANER.value,
+                "password1": NEW_PASSWORD,
+                "password2": NEW_PASSWORD,
+            },
+        )
+        entry = self.entries().get()
+        self.assertEqual(entry.action, AuditLogEntry.Action.CREATED)
+        self.assertEqual(entry.record, User.objects.get(username="newhire"))
+        self.assertEqual(entry.user, self.owner)
+
+    def test_a_role_change_and_a_deactivation_are_recorded(self):
+        """A demotion that left no trace, on a page whose password
+        change does, would be an odd place to stop."""
+        self.client.post(
+            reverse("people:member", args=["crew"]),
+            {"role": Role.SALES_REP.value, "is_active": "on"},
+        )
+        self.assertEqual(self.entries().get().changes, {"role": ["Cleaner", "Sales Rep"]})
+
+        self.client.post(reverse("people:member", args=["crew"]), {"role": Role.SALES_REP.value})
+        self.assertEqual(self.entries().last().changes, {"is_active": [True, False]})
+
+    def test_saving_the_same_access_again_records_nothing(self):
+        """A log whose job is to be readable should not fill with
+        entries saying nothing moved."""
+        same = {"role": Role.CLEANER.value, "is_active": "on"}
+        self.client.post(reverse("people:member", args=["crew"]), same)
+        self.assertEqual(self.entries().count(), 0)
+
+    def test_the_change_log_page_links_to_the_person(self):
+        """auth.User has no get_absolute_url, and the template's
+        fallback renders a missing attribute as an empty string — so
+        without the view naming this URL the entry had a link that went
+        nowhere.
+        """
+        self.client.post(
+            reverse("people:member", args=["crew"]),
+            {"new_password1": NEW_PASSWORD, "new_password2": NEW_PASSWORD},
+        )
+        page = self.client.get(reverse("core:activity_log"))
+        self.assertContains(page, reverse("people:member", args=["crew"]))
+        self.assertNotContains(page, 'href=""')
+
+    def test_only_the_owner_can_read_it(self):
+        """The log now names who changed whose access. That is not for
+        everybody."""
+        for user in (grant_role(f.user("rep"), Role.SALES_REP), f.user("nobody")):
+            self.client.force_login(user)
+            self.assertEqual(self.client.get(reverse("core:activity_log")).status_code, 403)
 
 
 class SettingSomebodysPasswordTests(TestCase):

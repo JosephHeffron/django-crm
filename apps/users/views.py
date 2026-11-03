@@ -11,6 +11,8 @@ from django.utils.http import url_has_allowed_host_and_scheme
 from django.views import View
 from django.views.generic import FormView, TemplateView
 
+from apps.crm.audit import record
+from apps.crm.models import AuditLogEntry
 from apps.jobs.media import send_private_file
 
 from .forms import (
@@ -28,6 +30,7 @@ from .roles import (
     OwnerRequiredMixin,
     Role,
     RoleRequiredMixin,
+    clear_role_cache,
     roles_for,
     user_role,
 )
@@ -142,6 +145,7 @@ class TeamMemberCreateView(OwnerRequiredMixin, FormView):
 
     def form_valid(self, form):
         person = form.save()
+        record(self.request.user, person, AuditLogEntry.Action.CREATED)
         name = person.get_full_name() or person.get_username()
         messages.success(
             self.request,
@@ -210,6 +214,17 @@ class TeamMemberView(OwnerRequiredMixin, TemplateView):
         # point: a password you reset because an account was shared or
         # stolen has to end the sessions it was used for.
         form.save()
+        # The owner asked for these to be recorded (2026-11-03): who
+        # changed whose password, and when. Never the password itself,
+        # and never the hash — an entry that carried either would turn
+        # an Owner-only page into a way to read credentials back out of
+        # the log.
+        record(
+            request.user,
+            person,
+            AuditLogEntry.Action.UPDATED,
+            {"password": [None, "changed"]},
+        )
         name = person.get_full_name() or person.get_username()
         messages.success(
             request,
@@ -228,7 +243,18 @@ class TeamMemberView(OwnerRequiredMixin, TemplateView):
         form = MemberAccessForm(request.POST, person=person)
         if not form.is_valid():
             return self.render_to_response(self.get_context_data(access_form=form))
+        before = {"role": str(user_role(person) or ""), "is_active": person.is_active}
         form.save()
+        person.refresh_from_db()
+        clear_role_cache(person)
+        after = {"role": str(user_role(person) or ""), "is_active": person.is_active}
+        changes = {
+            field: [before[field], after[field]]
+            for field in before
+            if before[field] != after[field]
+        }
+        if changes:
+            record(request.user, person, AuditLogEntry.Action.UPDATED, changes)
         name = person.get_full_name() or person.get_username()
         messages.success(request, f"Saved what {name} can reach.")
         return redirect("people:member", username=person.get_username())
