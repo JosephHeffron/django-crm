@@ -131,6 +131,19 @@ class TeamListView(OwnerRequiredMixin, TemplateView):
         return context
 
 
+def _pay_state(profile):
+    """The two fields the pay form owns, as the log should show them.
+
+    Money as a string so a Decimal does not reach JSON, and the days as
+    the words the page shows ("Mon, Tue") rather than the stored "01",
+    because a log is only useful if a person can read it.
+    """
+    return {
+        "hourly_rate": "" if profile.hourly_rate is None else str(profile.hourly_rate),
+        "working_days": profile.working_days_display or "varies",
+    }
+
+
 def _access_state(person):
     """What the access form can change, as the log should show it.
 
@@ -213,7 +226,33 @@ class TeamMemberView(OwnerRequiredMixin, TemplateView):
         form = CrewPayForm(request.POST, instance=get_profile(person))
         if not form.is_valid():
             return self.render_to_response(self.get_context_data(pay_form=form))
-        form.save()
+        # Same shape as the other three: lock the row, read both states
+        # inside the lock, and write the entry before it drops, so a
+        # failed insert takes the change with it. The entry hangs off
+        # the person rather than their profile row — "Updated Sam" is
+        # what the owner is looking for in the log, not "Updated
+        # Profile for Sam".
+        with transaction.atomic():
+            locked = UserProfile.objects.select_for_update().get(pk=form.instance.pk)
+            before = _pay_state(locked)
+            # Write **only** the two fields this form owns, onto the row
+            # as it is now. `form.save()` would write every column of
+            # the instance loaded when the page was built, so anything
+            # the person changed on their own profile in between — their
+            # phone, title, colour, theme — would be silently reverted
+            # to what it was when the owner opened the page (#199).
+            edited = form.save(commit=False)
+            locked.hourly_rate = edited.hourly_rate
+            locked.working_days = edited.working_days
+            locked.save(update_fields=["hourly_rate", "working_days"])
+            after = _pay_state(locked)
+            changes = {
+                field: [before[field], after[field]]
+                for field in before
+                if before[field] != after[field]
+            }
+            if changes:
+                record(request.user, person, AuditLogEntry.Action.UPDATED, changes)
         messages.success(
             request, f"Saved pay and working days for {person.get_full_name() or person}."
         )
