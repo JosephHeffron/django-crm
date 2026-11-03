@@ -30,7 +30,6 @@ from .roles import (
     OwnerRequiredMixin,
     Role,
     RoleRequiredMixin,
-    clear_role_cache,
     roles_for,
     user_role,
 )
@@ -132,6 +131,26 @@ class TeamListView(OwnerRequiredMixin, TemplateView):
         return context
 
 
+def _access_state(person):
+    """What the access form can change, as the log should show it.
+
+    Two traps, both found in review (#198):
+
+    - The **group** role, not `user_role()`. A superuser reads as Owner
+      whatever groups they hold, so comparing effective roles would show
+      no change while the saved group really moved — and the change
+      would go unrecorded.
+    - Booleans as words. The change-log template passes each value
+      through `default`, and `False` is falsy, so turning sign-in off
+      rendered as `is_active: True → —`.
+    """
+    names = set(person.groups.values_list("name", flat=True))
+    return {
+        "role": next((role.value for role in Role if role.value in names), ""),
+        "is_active": "yes" if person.is_active else "no",
+    }
+
+
 class TeamMemberCreateView(OwnerRequiredMixin, FormView):
     """Add somebody to the team (ADR 0021).
 
@@ -144,8 +163,12 @@ class TeamMemberCreateView(OwnerRequiredMixin, FormView):
     form_class = NewMemberForm
 
     def form_valid(self, form):
-        person = form.save()
-        record(self.request.user, person, AuditLogEntry.Action.CREATED)
+        # The entry belongs to the same transaction as the account. A
+        # failed insert has to take the account with it, or the log
+        # quietly stops being the record this feature promises.
+        with transaction.atomic():
+            person = form.save()
+            record(self.request.user, person, AuditLogEntry.Action.CREATED)
         name = person.get_full_name() or person.get_username()
         messages.success(
             self.request,
@@ -213,18 +236,20 @@ class TeamMemberView(OwnerRequiredMixin, TemplateView):
         # because the session auth hash is derived from it. That is the
         # point: a password you reset because an account was shared or
         # stolen has to end the sessions it was used for.
-        form.save()
         # The owner asked for these to be recorded (2026-11-03): who
         # changed whose password, and when. Never the password itself,
         # and never the hash — an entry that carried either would turn
         # an Owner-only page into a way to read credentials back out of
-        # the log.
-        record(
-            request.user,
-            person,
-            AuditLogEntry.Action.UPDATED,
-            {"password": [None, "changed"]},
-        )
+        # the log. In one transaction, so a failed insert rolls the new
+        # password back rather than leaving it unlogged.
+        with transaction.atomic():
+            form.save()
+            record(
+                request.user,
+                person,
+                AuditLogEntry.Action.UPDATED,
+                {"password": [None, "changed"]},
+            )
         name = person.get_full_name() or person.get_username()
         messages.success(
             request,
@@ -243,18 +268,24 @@ class TeamMemberView(OwnerRequiredMixin, TemplateView):
         form = MemberAccessForm(request.POST, person=person)
         if not form.is_valid():
             return self.render_to_response(self.get_context_data(access_form=form))
-        before = {"role": str(user_role(person) or ""), "is_active": person.is_active}
-        form.save()
-        person.refresh_from_db()
-        clear_role_cache(person)
-        after = {"role": str(user_role(person) or ""), "is_active": person.is_active}
-        changes = {
-            field: [before[field], after[field]]
-            for field in before
-            if before[field] != after[field]
-        }
-        if changes:
-            record(request.user, person, AuditLogEntry.Action.UPDATED, changes)
+        # Lock the row first and read both states inside that lock.
+        # `MemberAccessForm.save` takes the same lock, so every writer
+        # serialises on this row — read `before` outside it and two
+        # owners saving at once can produce an entry describing a
+        # transition that never happened, or none at all (#198).
+        with transaction.atomic():
+            locked = User.objects.select_for_update().get(pk=person.pk)
+            before = _access_state(locked)
+            form.save()
+            locked.refresh_from_db()
+            after = _access_state(locked)
+            changes = {
+                field: [before[field], after[field]]
+                for field in before
+                if before[field] != after[field]
+            }
+            if changes:
+                record(request.user, locked, AuditLogEntry.Action.UPDATED, changes)
         name = person.get_full_name() or person.get_username()
         messages.success(request, f"Saved what {name} can reach.")
         return redirect("people:member", username=person.get_username())

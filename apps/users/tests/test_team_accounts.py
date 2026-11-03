@@ -219,7 +219,44 @@ class WhatTheLogRecordsTests(TestCase):
         self.assertEqual(self.entries().get().changes, {"role": ["Cleaner", "Sales Rep"]})
 
         self.client.post(reverse("people:member", args=["crew"]), {"role": Role.SALES_REP.value})
-        self.assertEqual(self.entries().last().changes, {"is_active": [True, False]})
+        self.assertEqual(self.entries().last().changes, {"is_active": ["yes", "no"]})
+
+    def test_turning_sign_in_off_reads_as_no_not_a_dash(self):
+        """The change-log template runs every value through `default`,
+        and `False` is falsy — so storing the boolean showed the owner
+        `is_active: True → —`, which says nothing.
+        """
+        self.client.post(reverse("people:member", args=["crew"]), {"role": Role.CLEANER.value})
+        page = self.client.get(reverse("core:activity_log"))
+        # The rendered pair, not a bare "no" that could come from
+        # anywhere else on the page.
+        self.assertContains(page, '<span class="muted">yes</span> \u2192 no', html=False)
+
+    def test_a_superusers_role_change_is_recorded(self):
+        """`user_role()` answers Owner for any superuser, whatever
+        groups they hold, so comparing effective roles would call this
+        no change while the saved group really moved.
+        """
+        admin = grant_role(f.user("admin", is_superuser=True), Role.CLEANER)
+        self.client.post(
+            reverse("people:member", args=["admin"]),
+            {"role": Role.SALES_REP.value, "is_active": "on"},
+        )
+        self.assertEqual(self.entries().get().changes, {"role": ["Cleaner", "Sales Rep"]})
+        self.assertEqual(set(admin.groups.values_list("name", flat=True)), {Role.SALES_REP.value})
+
+    def test_a_failed_entry_takes_the_password_change_with_it(self):
+        """The log is the only record that a password changed, so a
+        change that could not be recorded must not stand.
+        """
+        with mock.patch("apps.users.views.record", side_effect=RuntimeError("no log")):
+            with self.assertRaises(RuntimeError):
+                self.client.post(
+                    reverse("people:member", args=["crew"]),
+                    {"new_password1": NEW_PASSWORD, "new_password2": NEW_PASSWORD},
+                )
+        self.assertEqual(self.entries().count(), 0)
+        self.assertTrue(self.client_class().login(username="crew", password=PASSWORD))
 
     def test_saving_the_same_access_again_records_nothing(self):
         """A log whose job is to be readable should not fill with
