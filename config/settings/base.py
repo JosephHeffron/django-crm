@@ -104,6 +104,14 @@ CACHES = {
     "default": {
         "BACKEND": "django.core.cache.backends.db.DatabaseCache",
         "LOCATION": "crm_cache",
+        "OPTIONS": {
+            # DatabaseCache defaults to 300 entries and culls a third
+            # of them once full, so a guesser generating a few hundred
+            # distinct addresses or usernames could evict the live
+            # counters and walk straight through the limit (#200).
+            # 10,000 rows of counters is nothing to this database.
+            "MAX_ENTRIES": 10000,
+        },
     }
 }
 

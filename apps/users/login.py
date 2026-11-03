@@ -40,9 +40,13 @@ def admin_login(request, *args, **kwargs):
     `reverse("admin:login")` still resolves to this path, so nothing in
     the admin notices.
 
-    A success here is detectable without touching Django's view: the
-    admin login redirects, and an authenticated request means the
-    password was accepted.
+    Success is read from the **response**: the admin login redirects on
+    success and re-renders the form with 200 on a wrong password.
+    Reading `request.user` instead miscounted — somebody already signed
+    in (a Cleaner, say) still has their own authenticated user attached
+    while POSTing guesses at another account, so every failure looked
+    like a success and cleared the counters instead of filling them
+    (#200).
     """
     username = throttle.posted_username(request)
     if request.method == "POST" and throttle.refuse(request, username):
@@ -51,8 +55,8 @@ def admin_login(request, *args, **kwargs):
     response = admin.site.login(request, *args, **kwargs)
 
     if request.method == "POST":
-        if request.user.is_authenticated:
-            throttle.forget(request, request.user.get_username())
+        if response.status_code in (301, 302):
+            throttle.forget(request, username)
         else:
             throttle.note_failure(request, username)
     return response

@@ -110,8 +110,12 @@ actually deployed and reachable from outside a trusted network.
 > of Phase 22.5 made this app internet-facing, which is the condition
 > it set for revisiting.
 
+*The assessment below is the original one, kept as the record of why
+it was deferred at the time. It is no longer the current status — see
+the note above.*
+
 Django ships no built-in brute-force throttling on `LoginView`.
-**Deferred, not fixed**: adding this means either a new dependency
+**Deferred, not fixed** (as of this review): adding this means either a new dependency
 (`django-axes` or similar) or custom middleware — a real cost for an
 app not yet deployed anywhere reachable from the open internet, and
 exactly the kind of addition CLAUDE.md's "do not overengineer" rule

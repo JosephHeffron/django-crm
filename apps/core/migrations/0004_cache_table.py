@@ -29,14 +29,17 @@ def create_cache_table(apps, schema_editor):
     )
 
 
-def drop_cache_table(apps, schema_editor):
-    # `DROP TABLE IF EXISTS`, not an unguarded drop: a database that
-    # never reached this migration's forward step still has to be able
-    # to reverse past it.
-    schema_editor.execute(f"DROP TABLE IF EXISTS {schema_editor.quote_name(TABLE)}")
-
-
 class Migration(migrations.Migration):
+    """Reversible, but the reverse leaves the table standing.
+
+    `CLAUDE.md`'s database-safety rule is "never DROP TABLE" in
+    production, and rolling a deployment back is exactly when that rule
+    is being leaned on. An empty cache table left behind costs nothing —
+    the data in it is counters — while dropping it would be a
+    destructive operation performed automatically, which is the thing
+    the rule forbids. Dropping it by hand is always available.
+    """
+
     dependencies = [("core", "0003_revenue_goal_label")]
 
-    operations = [migrations.RunPython(create_cache_table, drop_cache_table)]
+    operations = [migrations.RunPython(create_cache_table, migrations.RunPython.noop)]

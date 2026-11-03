@@ -16,6 +16,8 @@ botnet spreading guesses across addresses still trips something. Either
 one passing the limit refuses the attempt.
 """
 
+import time
+
 from django.conf import settings
 from django.core.cache import cache
 
@@ -46,43 +48,96 @@ def client_ip(request):
     return request.META.get("REMOTE_ADDR", "")
 
 
+# Longer than any username this app will create (Django's field is 150)
+# and short enough that the key stays inside the cache table's 255-char
+# column. A login POST can carry a megabyte of "username": without this
+# the insert fails and a wrong password becomes a 500 (#200).
+MAX_USERNAME_KEY = 150
+
+
+def username_key(username):
+    # Lower-cased: Django's own username check is case-insensitive at
+    # creation (apps/users/forms.py), so "Boss" and "boss" are guesses
+    # at the same account and belong in one bucket. The cost — two
+    # accounts differing only in case, which only a shell or the admin
+    # could create, would share a lockout — is smaller than letting a
+    # guesser get three times the attempts by varying capitals.
+    return f"login-fail-user:{username.strip().lower()[:MAX_USERNAME_KEY]}"
+
+
 def _keys(request, username):
     keys = [f"login-fail-ip:{client_ip(request)}"]
     if username:
-        # Lower-cased: Django's own username check is case-insensitive
-        # at creation (apps/users/forms.py), so "Boss" and "boss" are
-        # guesses at the same account and belong in one bucket.
-        keys.append(f"login-fail-user:{username.strip().lower()}")
+        keys.append(username_key(username))
     return keys
+
+
+def _count(key):
+    stored = cache.get(key)
+    return stored[0] if stored else 0
 
 
 def refuse(request, username):
     """Has either counter passed the limit?"""
-    return any((cache.get(key) or 0) >= MAX_FAILURES for key in _keys(request, username))
+    return any(_count(key) >= MAX_FAILURES for key in _keys(request, username))
 
 
-def note_failure(request, username):
-    """Count one wrong password against both keys."""
+def note_failure(request, username, now=None):
+    """Count one wrong password against both keys.
+
+    Each entry carries its own **deadline**, and later failures are
+    written with only the time left until it. Two reasons, and the
+    second one is a bug this had:
+
+    - The window starts at the first failure and is never extended, so
+      a steady trickle of guesses cannot keep renewing its own window.
+    - `cache.incr()` could not do this. It is a get-then-`set()` with
+      no timeout, so every increment rewrote the entry with the cache's
+      **default** 300 seconds — the promised fifteen-minute window
+      quietly became five after the second failure (#200).
+    """
+    now = now or time.time()
     for key in _keys(request, username):
-        # `add` then `incr`: add() only writes when the key is absent,
-        # so the window starts at the first failure and is not extended
-        # by later ones — otherwise a steady trickle of guesses would
-        # keep renewing its own window and never expire.
-        if not cache.add(key, 1, WINDOW_SECONDS):
-            try:
-                cache.incr(key)
-            except ValueError:
-                # Expired between the add and the incr. Start again.
-                cache.add(key, 1, WINDOW_SECONDS)
+        stored = cache.get(key)
+        if stored is None:
+            cache.set(key, (1, now + WINDOW_SECONDS), WINDOW_SECONDS)
+            continue
+        count, deadline = stored
+        remaining = int(deadline - now)
+        if remaining <= 0:
+            cache.set(key, (1, now + WINDOW_SECONDS), WINDOW_SECONDS)
+        else:
+            cache.set(key, (count + 1, deadline), remaining)
 
 
 def forget(request, username):
-    """Clear both counters after a successful sign-in.
+    """Clear the **username** counter after a successful sign-in.
 
-    Somebody who mistyped four times and then got it right should not
-    be left most of the way to a lockout.
+    Not the IP counter, deliberately. Clearing that let somebody with
+    one valid account interleave real sign-ins between guesses at other
+    names, resetting the shared per-address count each time and working
+    through a list without ever reaching ten on any single username
+    (#200). The address counter expires on its own within the window.
+
+    The username counter does clear, so somebody who mistyped four
+    times and then got it right is not left most of the way to a
+    lockout.
     """
-    cache.delete_many(_keys(request, username))
+    if username:
+        cache.delete(username_key(username))
+
+
+def forget_username(username):
+    """Clear one account's counter without a request.
+
+    The owner setting somebody's password is the recovery path when
+    they are locked out (ADR 0021), and a 429 is returned before any
+    password is checked — so without this, a new password would not let
+    them in until the window expired, which is not what
+    `docs/ADMIN_GUIDE.md` promises.
+    """
+    if username:
+        cache.delete(username_key(username))
 
 
 def posted_username(request):
