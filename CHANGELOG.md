@@ -130,7 +130,8 @@ for meaningful changes — not for every small fix or documentation tweak.
   which is the point when the reason is a shared or stolen password.
   Neither acts on whoever is signed in: your own password is changed
   from your own profile, where Django asks for the old one first.
-  Previously this needed a superuser and a shell, because the Owner
+  Previously this needed a superuser account — the Django admin, or
+  `createsuperuser`/`changepassword` on the server — because the Owner
   role grants no Django admin access
   (`docs/decisions/0021-passwords-set-by-the-owner-not-by-email.md`).
 
@@ -150,10 +151,12 @@ for meaningful changes — not for every small fix or documentation tweak.
   (`docs/decisions/0014-retire-team-messaging-code-only.md`).
   A cleaner's phone bottom bar now has **Time clock** where the Inbox
   used to be.
-- **Email password reset, four days after it was added.** It was built,
-  reviewed and merged, and it could never have delivered: DigitalOcean
-  blocks outbound SMTP on ports 25, 465 and 587 by default on
-  Droplets, which is the host this project is moving to. The sign-in
+- **Email password reset, five days after it was added.** It was
+  built, reviewed and merged, and it could not be relied on under the
+  default Droplet configuration: DigitalOcean blocks outbound SMTP on
+  ports 25, 465 and 587 by default, and lifting the block is a
+  discretionary support request — not something the whole team's way
+  back into their accounts should rest on. The sign-in
   page no longer offers a reset link, the app sends no email at all,
   and `EMAIL_HOST`, `EMAIL_HOST_USER` and `EMAIL_HOST_PASSWORD` are no
   longer required — they can be removed from `.env`. Passwords are set

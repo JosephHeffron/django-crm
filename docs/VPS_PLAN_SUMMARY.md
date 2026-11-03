@@ -15,7 +15,7 @@ and Wix is cancelled last.
 
 | | Phase | Who does the work | Touches the public site? |
 |---|---|---|---|
-| 1 | Fixes the CRM needs first: email and password reset (done), staff accounts, a limit on login attempts | Me | No |
+| 1 | Fixes the CRM needs first: staff accounts and password setting (done — you do both from the Team page; the app sends no email, because the host blocks it), a limit on login attempts, a deployment guide, backup alerts | Me | No |
 | 2 | Set up the server | You (I write the guide) | No |
 | 3 | **CRM live on `crm.` + backups + a real restore test** | Both | No |
 | 4 | Build the website | Me (you supply content) | No |

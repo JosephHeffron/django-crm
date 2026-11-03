@@ -24,10 +24,12 @@ actually verified.
 > `logs/claude/phase-22.5-unit-1-accounts.md`.
 >
 > **Email password reset was built on 2026-10-28 and removed on
-> 2026-11-02.** It worked and was reviewed; it could never have
-> delivered, because **DigitalOcean blocks outbound SMTP on ports 25,
-> 465 and 587 by default on Droplets**. ADR 0019 rested on an
-> untested assumption about the host and never labelled it as one.
+> 2026-11-02.** It worked and was reviewed, but it could not be relied
+> on: **DigitalOcean blocks outbound SMTP on ports 25, 465 and 587 by
+> default on Droplets**, and lifting the block is a discretionary
+> support request. The owner established that on **2026-10-29**, one
+> day after it merged. ADR 0019 rested on an untested assumption about
+> the host and never labelled it as one.
 > **Passwords are now set by the owner in the app** (ADR 0021,
 > superseding 0019's mechanism): Team → *Add someone* creates an
 > account with a role and a first password, and each person's page has

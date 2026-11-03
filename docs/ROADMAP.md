@@ -373,8 +373,9 @@ insufficient.
       1. **P0 repo fixes** — *partly done.*
          - ~~Outbound email and password reset~~ **reversed.** Built in
            #188 (ADR 0019), removed in #194: DigitalOcean blocks
-           outbound SMTP on 25, 465 and 587 by default on Droplets, so
-           it could never have delivered. **ADR 0021** supersedes it —
+           outbound SMTP on 25, 465 and 587 by default on Droplets, and
+           lifting it is a discretionary support request, so a reset
+           flow could not be relied on. **ADR 0021** supersedes it —
            the owner sets passwords in the app, no email anywhere.
          - In-app team member creation, Owner-only — **done**, #193,
            with set-password on each person's page. Role changes and

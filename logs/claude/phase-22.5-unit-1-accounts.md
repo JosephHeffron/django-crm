@@ -13,18 +13,27 @@ the Pi).
 Unit 1 of the roadmap entry is *"outbound email and password reset,
 in-app team member creation (Owner-only), a rate limit on both login
 pages, an Ubuntu x86-64 deployment guide, and alerting for a backup
-that stops running."* Two of those five are done. The rate limit, the
-deployment guide and the backup alerting are not started.
+that stops running."* **One of those five is done** — team member
+creation, with password setting alongside it. One was built and then
+reversed. The rate limit, the deployment guide and the backup alerting
+are not started.
 
 ## The thing worth reading
 
-**A feature was built, merged, and removed four days later.** Email
-password reset shipped in #188 on 2026-10-28 — four routes, six
+**A feature was built, merged, and known to be dead the next day.**
+Email password reset shipped in #188 on 2026-10-28 — four routes, six
 templates, a three-hour link lifetime, 12 tests, all green, all
-reviewed. On 2026-11-02 the owner established that **DigitalOcean
-blocks outbound SMTP on ports 25, 465 and 587 by default on Droplets**,
-Gmail included. The feature could never have delivered a single email
-on the host this project is moving to.
+reviewed. On **2026-10-29**, one day later, the owner established that
+**DigitalOcean blocks outbound SMTP on ports 25, 465 and 587 by
+default on Droplets**, Gmail included. It came out on 2026-11-02, in
+#194, once the replacement existed.
+
+Precisely: the flow could not be *relied on* under the default Droplet
+configuration. DigitalOcean will sometimes lift the block on request,
+which their own community threads describe as granted sometimes and
+refused sometimes — so it is not something a deployment can depend on,
+and the password-recovery path for the whole team is not the place to
+find out.
 
 Nothing was wrong with the code. ADR 0019 rested on an assumption
 nobody had tested — that the application could open an SMTP connection
@@ -39,7 +48,7 @@ behavioural, so deleting the feature deleted its tests cleanly; and the
 ADR existed, so the reversal had something to supersede rather than a
 silent rewrite.
 
-**The cost was not zero.** For four days `main` carried a sign-in page
+**The cost was not zero.** For five days `main` carried a sign-in page
 telling a locked-out person to check their inbox for mail that could
 not arrive, and `docs/SECURITY_REVIEW.md:168` — which states the auth
 surface is login, logout and an authenticated password change —
@@ -66,8 +75,11 @@ F-CRM-2 is the one that made #193 necessary.
 
 Also established, and narrower than the audit first said: **the Owner
 role grants no Django admin access.** `demo_owner` is `is_staff=False`,
-`is_superuser=False`. So "the owner can use the admin" was never true —
-account management was superuser-and-a-shell only.
+`is_superuser=False`. So "the owner can use the admin" was never true.
+A **superuser** could manage accounts perfectly well through the admin
+site — that path existed and still does — but the business owner does
+not hold one, so in practice account management meant somebody with
+server access running `createsuperuser` or `changepassword`.
 
 ### #188 — email and password reset (2026-10-28, since removed)
 
@@ -137,9 +149,14 @@ measurement is the speculative optimisation `CLAUDE.md` forbids.
 | `Containerfile` attributed F-VPS-8 to a 4 GB host; the finding assumed 2 GB | CodeRabbit (#195) |
 | ADR 0004's note said "the decision stands" while its Consequences list still required `linux/arm64` images | CodeRabbit (#195, re-review) |
 
-Two of those were introduced **while fixing an earlier finding** — the
-shadowed username check, and the premature claims in ADR 0021. Both
-came from overriding framework behaviour rather than extending it.
+**One** of those was introduced while fixing an earlier finding: the
+shadowed username check, written in #193's fix commit (`27fb2f0`) while
+addressing the three findings before it. The transaction gap and the
+premature ADR claims were both in the original commit (`1f67fa4`) and
+found on the first pass — an earlier version of this log, and a comment
+on #193, called them "two bugs introduced while fixing", which was
+wrong. The shadowed check and the transaction gap do share a cause:
+both overrode framework behaviour instead of extending it.
 
 CodeRabbit raised 16 findings across the five code PRs. Fourteen were
 fixed; two were about its own stored knowledge of the repository being
