@@ -929,7 +929,7 @@ installs Caddy so those assertions are not skipped.
 
 | Phase | Tests |
 |---|---|
-| 1 | **Done** (#193, #194, #198, #200): the account page is Owner-only and a Sales Rep is refused; a new account can sign in and a deactivated one cannot; setting a password ends that person's sessions and is logged; the login limit trips and holds across processes. No mail tests, because nothing sends mail (ADR 0021) |
+| 1 | **Done** (#193, #194, #198, #200): the account page is Owner-only and a Sales Rep is refused; a new account can sign in; turning sign-in off marks the account inactive, which Django's own authentication backend then refuses (no test signs in as a deactivated account, so that last step rests on Django, not on a test here); setting a password ends that person's sessions and is logged; the login limit trips and holds across processes. No mail tests, because nothing sends mail (ADR 0021) |
 | 3 | None in code — this phase's verification is the **restore drill**, written up with what actually happened, plus the monitor's first alert tested by deliberately failing a backup |
 | 4 | `caddy validate` with the new variables; the existing private-media ordering assertions still pass; **new**: the apex block serves static files and cannot reach a CRM path; HTML validity and an accessibility pass |
 | 5 | The form creates exactly `Contact` + `Property` + `Task` + log entry; honeypot and timing rejections create nothing; the rate limit is shared (assert the database cache, since a locmem one would pass while being wrong across workers); a duplicate lead still saves and tells the visitor nothing; no CRM data on any public response |
