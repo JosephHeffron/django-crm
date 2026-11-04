@@ -12,6 +12,21 @@ actually verified.
 > files that no longer exist. Those entries are kept as the record of
 > what was built at the time.
 
+> **Update, 2026-11-04 (documentation only).** Since the close-out
+> below, seven more PRs landed: #196 and #197 (that close-out and a
+> correction to it), **#200, the login rate limit (ADR 0020)**, so it is
+> now done rather than "not started", #198 and #199 (account
+> administration and pay changes recorded in the change log), #201 (the
+> customer search visibly searches) and #202 (a chosen customer's
+> address fills in). #203 (whole-number quantities on documents) was
+> open on this date. **Phase 22.5 unit 1 now has two items left:** the
+> Ubuntu x86-64 deployment guide and backup-failure alerting. Nothing
+> is deployed. This update also brought `docs/VPS_DEPLOYMENT_PLAN.md`,
+> `docs/VPS_PLAN_SUMMARY.md` and `docs/ROADMAP.md` in line with ADR
+> 0021 (no email anywhere) and with ADRs 0015, 0020 and 0021 being
+> written. No code changed and the suite was not re-run for it, so the
+> test count below is the 2026-11-02 one.
+
 > **Last updated 2026-11-02.** Nothing uncommitted, no open pull
 > requests, **1,383 tests passing** on `main` at that date.
 > (Deliberately no commit hash and no claim that a checkout is current:
@@ -57,8 +72,8 @@ actually verified.
 > size with memory, not CPU, the constraint.
 >
 > **Still not started in unit 1:** the login rate limit (needed before
-> unit 3 exposes the CRM, and there is no MFA until Phase 23), the
-> Ubuntu x86-64 deployment guide (the audit's F-VPS-1 to F-VPS-5), and
+> unit 3 exposes the CRM, and there is no MFA until Phase 23; *done
+> since, #200*), the Ubuntu x86-64 deployment guide (the audit's F-VPS-1 to F-VPS-5), and
 > backup-failure alerting. **Nothing is deployed yet** — the droplet
 > does not exist.
 >
@@ -1447,7 +1462,15 @@ roadmap completed:
 
 ## Currently working on
 
-**Nothing in flight.** What follows is what most recently landed.
+**Phase 22.5 (VPS deployment and public website)**, unit 1 of seven.
+Done: owner-set passwords and in-app accounts (#193, ADR 0021), email
+reset removed (#194), the Pi target dropped (#195, ADR 0015), the login
+rate limit (#200, ADR 0020), and account and pay changes logged (#198,
+#199). Left in unit 1: the Ubuntu deployment guide and backup-failure
+alerting. The plan is `docs/VPS_DEPLOYMENT_PLAN.md`; the unit log is
+`logs/claude/phase-22.5-unit-1-accounts.md`.
+
+The Phase 22 summary below is kept as the record of the phase before.
 
 **Phase 22 — data portability and bulk operations — is complete** (PRs
 #179, #180, #181, #182, #184 and this close-out). Four of its items
@@ -1586,8 +1609,14 @@ for its own unit", below.
 
 ## Next
 
+**Finish Phase 22.5 unit 1** — the Ubuntu x86-64 deployment guide
+(`docs/VPS_AUDIT.md` F-VPS-1 to F-VPS-5) and backup-failure alerting —
+then unit 2, which is the owner provisioning the droplet from that
+guide. `docs/ROADMAP.md` puts Phase 22.5 ahead of Phase 23; the
+two-factor notes below apply when Phase 23 is reached.
+
 **Phase 23 — authentication hardening** (two-factor authentication for
-login, e.g. `django-otp`) is the next roadmap item. Run the
+login, e.g. `django-otp`) follows Phase 22.5. Run the
 verification pass over its entry first. That is now **six phases
 running** where the entry described intent rather than delivery: Phase
 20's was wrong about the business model as well as the state of the

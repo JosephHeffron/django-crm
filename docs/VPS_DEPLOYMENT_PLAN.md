@@ -34,7 +34,7 @@ session can see what was weighed rather than only what was chosen.
 | D6 | The website lives in `website/` in this repository — structure, shared partials, mounts, deploy, CI filter and the private-data guard are all in D6 |
 | D7 | Two Caddy site blocks, new `CRM_HOST` and `WEBSITE_HOSTS` variables, a shared header snippet, `templates` for the partials, website images under `/assets/` |
 | D8 | No change to the layout: `~/django-crm`, per ADR 0005 |
-| D9 | Gmail SMTP on the existing free account, owner notifications only, no new DNS records |
+| D9 | ~~Gmail SMTP on the existing free account, owner notifications only~~ **Superseded by ADR 0021: the app sends no email** (see D9) |
 | D10 | Booking availability stays in phase 8, behind business hours, service durations and a capacity rule |
 
 **Nothing in this plan depends on retired or unfinished work.**
@@ -56,9 +56,10 @@ a full address is required on the form (D3). Neither blocks phase 1.
 
 The CRM is architecturally ready for a DigitalOcean droplet. What is
 not ready is the handful of things a real business needs around it:
-accounts it can create itself, a way back in when somebody forgets a
-password, mail of any kind, a restore that has actually been run, and
-a web server configured for more than one site.
+accounts it can create itself and a way back in when somebody forgets
+a password (both now done, #193, with no email: ADR 0021), a restore
+that has actually been run, and a web server configured for more than
+one site.
 
 The plan is eight phases. The first three get the **CRM** live on
 `crm.heffronexteriorservices.com` with real data, backups and a proven
@@ -112,13 +113,13 @@ graph TB
     end
 
     B -->|"restic, encrypted client-side"| B2[("Backblaze B2")]
-    W -->|"SMTP"| G[["Gmail<br/>(owner notifications,<br/>password resets)"]]
     M[["Uptime monitor"]] -->|"GET /health/"| C
 ```
 
 Unchanged from today: three containers, rootless Podman, systemd user
 units, `~/django-crm`, restic to B2. New: a second Caddy site, a
-`website/` directory, SMTP, and a monitor.
+`website/` directory, and a monitor. No mail: the app sends none
+(ADR 0021).
 
 ---
 
@@ -547,16 +548,17 @@ Nothing here touches a server; it all lands as ordinary PRs.
 |---|---|
 | ADR for the VPS target **[code]** | ADR 0015: x86-64 VPS replaces the Raspberry Pi 5. Records that nothing in the build was ARM-specific (audit F-VPS-7), what changes (the port sysctl, Ubuntu packages, the guide) and what does not (ADRs 0004, 0005, 0006 all stand) |
 | ~~Email~~ **[code] — removed** | Built in #188 with ADR 0019, removed in #194: the host blocks outbound SMTP by default (see D9). Nothing configures a mail backend in production now, and `EMAIL_HOST`/`EMAIL_HOST_USER`/`EMAIL_HOST_PASSWORD` are no longer required. The development console backend stays as a guard so nothing on a workstation can reach a real person |
-| In-app team member creation **[code]** | Owner-only, gated like the CSV import page (`OwnerRequiredMixin` + permission, `apps/crm/views.py` `ContactImportView` is the pattern). Create a user, set their role group, deactivate and reactivate. Matches the owner's rule: only Owner and admin accounts manage accounts |
+| In-app team member creation **[code] — done** | Done in #193: Team → *Add someone* creates the account with its role and a first password, and every change is in the change log (#198). Planned as: Owner-only, gated like the CSV import page (`OwnerRequiredMixin` + permission, `apps/crm/views.py` `ContactImportView` is the pattern). Create a user, set their role group, deactivate and reactivate. Matches the owner's rule: only Owner and admin accounts manage accounts |
 | ~~Password reset by email~~ → **owner-set passwords [code] — done** | #188 added Django's `PasswordReset*` views; #194 removed them, because they depend on email. #193 replaced them: Team → *Add someone* creates an account with a role and a first password, and each person's page has *Set a new password*, which also ends that person's sessions. ADR 0021. **Keep two Owner accounts** — either can reset the other, which is the only in-app recovery if an owner forgets their own |
 | Login rate limit **[code] — done** | Merged with ADR 0020: a `DatabaseCache` table created by migration (so `migrate` is the whole deploy path), ten failed attempts per fifteen minutes counted per IP and per username, on both login pages, refusing with 429. Phase 5 reuses the same cache for `/book/`. Originally: moved here from phase 5 so it lands **before** phase 3 puts `crm.` on the internet. Without it, `/accounts/login/` and `/admin/login/` take unlimited password guesses (audit F-PUB-2, F-SEC-1) and there is no MFA until Phase 23. Add the `DatabaseCache` from D4 (ADR 0020), with `createcachetable` in the deploy path, and limit failed attempts per IP and per username on both login pages. Phase 5 then reuses the same cache for `/book/`. Tests: the limit trips after N failures; it holds across processes (assert against the database cache, since a locmem one would pass while being wrong across workers); a correct login after a few failures still works |
 | Ubuntu deployment guide **[code]** | Rewrite `docs/ADMIN_GUIDE.md`'s deployment section for Ubuntu 24.04 x86-64: `net.ipv4.ip_unprivileged_port_start` in `/etc/sysctl.d/`, `loginctl enable-linger`, subuid/subgid verification (`podman unshare cat /proc/self/uid_map`), apt package names, restic install |
 | Backup failure alerting **[code]** | Fix audit F-BAK-3. **Recommendation:** a dead-man's-switch ping — `scripts/backup.sh` calls a monitoring URL on success, and the service alerts when the ping does not arrive. Catches "the timer stopped running", which an `OnFailure=` handler cannot |
 | Check the real `.env` **[owner]** | The one live HIGH finding from `docs/PRODUCTION_READINESS.md`: confirm the real `.env` carries no `DJANGO_SETTINGS_MODULE` line. That exact line once booted a production container with `DEBUG=True` (`.env.example:6-15`) |
 
-**Verify:** full suite green; `makemigrations --check` clean; a
-password reset works end to end against a real mailbox on a
-workstation; the new account page refused to a Sales Rep; repeated
+**Verify:** full suite green; `makemigrations --check` clean; the
+owner can add someone with a role and a first password, and setting a
+new one signs that person out; the new account page refused to a
+Sales Rep; repeated
 wrong passwords on `/accounts/login/` and `/admin/login/` are refused
 once the limit trips.
 
@@ -709,7 +711,8 @@ Sequenced in §7, including the Wix branch point and rollback.
 - **Booking availability** — P3, and it needs D10's three missing
   pieces before any of it is possible.
 - **Customer-facing confirmation email**, and with it the
-  transactional-provider decision — P2.
+  transactional-provider decision — P2. It needs a provider on a port
+  the host does not block, and its own ADR (ADR 0021).
 - **Review requests / customer portal**, if §3's open rows turn out to
   matter.
 
@@ -762,8 +765,8 @@ simpler — and it means nothing about mail can be broken by it.
 | `www` | A or CNAME | droplet IP, or `@` | Phase 6 (replaces the Wix CNAME) |
 | AAAA | — | only if the droplet gets IPv6 and it has been tested | Optional |
 
-No SPF, DKIM or DMARC records are needed for the Gmail-SMTP approach in
-D9. **Recommendation** worth noting: once the domain's DNS is
+No SPF, DKIM or DMARC records are needed: the app sends no mail
+(ADR 0021). **Recommendation** worth noting: once the domain's DNS is
 somewhere you control, publishing an SPF record that authorises nothing
 and a `p=reject` DMARC record would stop others spoofing a domain that
 sends no mail. P2, after the cutover, and it is a genuine
@@ -836,8 +839,9 @@ to the owner's own address if it is static, and consider moving SSH off
 preload, secure cookies, `CSRF_COOKIE_HTTPONLY`
 (`config/settings/base.py:113`), a strict CSP with one external origin
 (`production.py:66-84`), and 404-not-403 for out-of-scope records. What
-phase 1 adds: email credentials in `.env` only, and a password-reset
-flow whose tokens are Django's own. **The audit's live HIGH finding
+phase 1 added: no mail credentials at all (ADR 0021), owner-set
+passwords that also end that person's sessions (#193), and the login
+rate limit (ADR 0020). **The audit's live HIGH finding
 belongs here too** — the real `.env` must carry no
 `DJANGO_SETTINGS_MODULE` line.
 
@@ -850,7 +854,8 @@ rate limit (D4); no reflection of whether a person is already a
 customer (D2); nothing on the apex but the one form route and static files (D7), asserted by a test.
 
 **Staff accounts.** Created and deactivated only by Owner/admin, per
-the owner's rule; password reset by email; **no MFA yet** (audit
+the owner's rule; passwords set by the owner, not reset by email
+(ADR 0021), so keep **two** Owner accounts; **no MFA yet** (audit
 F-SEC-2) — and the brute-force surface is real today: `/admin/login/`
 answers 200 to anyone (**Verified**, audit F-PUB-2) with no rate
 limiting (F-SEC-1). **Recommendation:** a login rate limit on
@@ -859,7 +864,8 @@ in place before phase 3 puts `crm.` on the internet. It brings the
 database cache D4 needs forward with it. Cheap, and it closes the one
 genuinely exposed door. (Originally planned for phase 5, alongside
 the booking form. That would have left both login pages open to
-unlimited guessing through phases 3 and 4.)
+unlimited guessing through phases 3 and 4.) **Done** in #200
+(ADR 0020).
 
 ---
 
@@ -901,7 +907,8 @@ DigitalOcean weekly droplet backups as a second, independent layer
 4. **Bad deploy** — `git revert`, redeploy. The image rebuilds from
    the repo, so there is no separate artefact to roll back.
 5. **Leaked credentials** — rotate in `.env`, restart; rotate the B2
-   key and the Gmail app password; **the restic password cannot be
+   key, and set new passwords for any staff account involved from the
+   Team page (ADR 0021); **the restic password cannot be
    rotated without re-initialising the repository**, so treat it as
    the one secret to protect hardest.
 6. **Deleted customer photos** — restore `media_files.tar` from the
@@ -922,7 +929,7 @@ installs Caddy so those assertions are not skipped.
 
 | Phase | Tests |
 |---|---|
-| 1 | Mail is sent on password reset (via `outbox`); production refuses a half-configured mail setup; the account page is Owner-only and a Sales Rep gets refused; the new account can sign in and a deactivated one cannot |
+| 1 | **Done** (#193, #194, #198, #200): the account page is Owner-only and a Sales Rep is refused; a new account can sign in and a deactivated one cannot; setting a password ends that person's sessions and is logged; the login limit trips and holds across processes. No mail tests, because nothing sends mail (ADR 0021) |
 | 3 | None in code — this phase's verification is the **restore drill**, written up with what actually happened, plus the monitor's first alert tested by deliberately failing a backup |
 | 4 | `caddy validate` with the new variables; the existing private-media ordering assertions still pass; **new**: the apex block serves static files and cannot reach a CRM path; HTML validity and an accessibility pass |
 | 5 | The form creates exactly `Contact` + `Property` + `Task` + log entry; honeypot and timing rejections create nothing; the rate limit is shared (assert the database cache, since a locmem one would pass while being wrong across workers); a duplicate lead still saves and tells the visitor nothing; no CRM data on any public response |
@@ -942,7 +949,7 @@ the Ubuntu guide with explicit verification commands.
 | DigitalOcean droplet, 2 vCPU / 4 GB / 80 GB | $24.00 | $288 | **Owner-supplied** (their chosen plan) |
 | DO weekly droplet backups (20% of droplet) | $4.80 | $57.60 | **Verified rate** — digitalocean.com/pricing/droplets, 2026-10-27 — computed from the plan price |
 | Backblaze B2 for restic | ~$0-1 | ~$0-12 | **Estimate.** First 10 GB free; this backup set is a database dump plus media, so realistically inside or near the free tier. Third-party sources put the paid rate around $6-7/TB/month and conflict on transaction fees; Backblaze's own page was not fetched |
-| Email (existing free Gmail) | $0 | $0 | **Verified** by the owner's own account |
+| Email | $0 | $0 | **None needed**: the app sends no email (ADR 0021). The business keeps its free Gmail for its own mail |
 | Uptime + backup-ping monitoring | $0 | $0 | **Recommendation**: a free tier is sufficient for one endpoint and one daily ping. Provider **Open** |
 | Domain renewal | ? | ? | **Open** — registered via Wix; the price is on the owner's invoice. Check before transferring, since transfer usually adds a year |
 | **Total** | **~$29-34** | **~$346-370** | plus the domain |
@@ -980,7 +987,8 @@ $7.20/month (30% — same **Verified** source).
 
 **Before real CRM data (end of phase 3):** sysctl, linger and subuid
 verified · HTTPS on `crm.` · Owner and staff accounts created in-app ·
-password reset tried end to end · daily backup ran, pushed to B2, and
+a password set for somebody by the owner, and that person signed in
+with it · daily backup ran, pushed to B2, and
 the monitor saw it · **restore drill completed and written up** · a
 private photo 404s from `/media/private/` · `/health/` monitored ·
 the real `.env` checked for the stale settings line.
@@ -988,7 +996,7 @@ the real `.env` checked for the stale settings line.
 **Before the website launches (end of phase 5):** preview reviewed on
 a phone · `caddy validate` and the full suite green · the apex exposes
 no CRM page but `/book/` · a real submission arrives as a lead
-and emails the owner · honeypot and rate limit proven · TTL lowered ·
+in the CRM (no email, ADR 0021) · honeypot and rate limit proven · TTL lowered ·
 the three Wix IPs and the `www` CNAME recorded somewhere outside the
 droplet.
 
@@ -1016,11 +1024,12 @@ form routes can be removed from the Caddyfile, leaving a static page ·
 3. **Are review requests or a customer portal in use in RevDek?**
    §3's two Open rows, and the only gap-analysis items unanswered.
 4. **Who does a website lead's follow-up task get assigned to** if
-   there is ever more than one Owner-role user? (D2)
+   there is ever more than one Owner-role user? (D2) Now likely rather
+   than hypothetical: ADR 0021 recommends keeping two Owner accounts.
 5. **Must a website visitor give a full service address** to ask for a
    quote, or is a town enough at that stage? (D3)
-6. **Are Google app passwords still available on that account?** (D9)
-   If not, email needs a provider sooner and §11 gains a line.
+6. ~~**Are Google app passwords still available on that account?**~~
+   **Moot:** the app sends no email (ADR 0021).
 7. **What happens to a locked-out sole owner** once MFA exists? The
    audit raised it; it blocks roadmap Phase 23, not this plan.
 
@@ -1028,17 +1037,18 @@ form routes can be removed from the Caddyfile, leaving a static page ·
 
 ## 14. ADRs this plan will need
 
-Per `CLAUDE.md`, each is written when its phase starts, not now. Next
-free number is **0015** (**Verified**: `docs/decisions/` ends at 0014).
+Per `CLAUDE.md`, each is written when its phase starts, not now.
+(When this plan was written the next free number was 0015.)
 
 | ADR | Decision | Phase |
 |---|---|---|
-| 0015 | x86-64 VPS replaces the Raspberry Pi 5 as the deployment target | 1 |
+| 0015 | x86-64 VPS replaces the Raspberry Pi 5 as the deployment target. **Written**, #195 | 1 |
 | 0016 | Two sites behind one Caddy | 4 |
 | 0017 | **The public website lives in this repository** — `website/`, the shared partials read by both Caddy and Django, read-only mounts in both compose files, deploy and rollback through `scripts/deploy.sh`, the CI path filter that keeps required checks reporting, and the guard keeping private data out of a public repo (D6) | 4 |
 | 0018 | Website leads arrive through one same-origin Django route, `/book/`, not an API | 5 |
-| 0019 | Outbound email via the existing Gmail account, owner notifications only. **Written**, merged with #188 | 1 |
-| 0020 | Database-backed cache for rate limiting, in place of Redis. Moved from phase 5 so the login rate limit lands before go-live | 1 |
+| 0019 | Outbound email via the existing Gmail account, owner notifications only. **Written, then superseded** by 0021 (#188, #194) | 1 |
+| 0020 | Database-backed cache for rate limiting, in place of Redis. Moved from phase 5 so the login rate limit lands before go-live. **Written**, #200 | 1 |
+| 0021 | Passwords are set by the owner in the app, not reset by email. Not in the original list; replaces 0019. **Written**, #193 | 1 |
 
 ADRs 0004 (Podman + Caddy), 0005 (rootless systemd), 0006 (off-host
 restic backups), 0007 (CSP) and 0011 (OpenStreetMap) all stand

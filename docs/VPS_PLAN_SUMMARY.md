@@ -35,8 +35,9 @@ whatever pace suits.
 | Wix | ? (your invoice) | — |
 | Server + backups | — | ~$29-34/month |
 
-**At least $50/month saved**, before whatever Wix costs. The email
-stays on your free Gmail account — no new subscription.
+**At least $50/month saved**, before whatever Wix costs. Your own
+email stays on your free Gmail account, and the CRM sends no email at
+all, so there is no new subscription.
 
 ## What I need from you
 
@@ -87,7 +88,7 @@ that cannot be fixed after the fact, so phase 3 proves it first.
 ## What you get at the end
 
 The CRM you already have, on your own server, with staff accounts you
-can create yourself and a password reset that works; a website you
-own; quote requests landing in the CRM as leads instead of an email
-you have to retype; nightly encrypted backups off the server, with an
+can create yourself and whose passwords you set from the Team page;
+a website you own; quote requests landing in the CRM as leads instead
+of an email you have to retype; nightly encrypted backups off the server, with an
 alert if one stops running; and no monthly fee to RevDek or Wix.

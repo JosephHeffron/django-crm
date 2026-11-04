@@ -4,8 +4,20 @@
 > ARM-specific — is what made it safe to drop the Raspberry Pi target
 > ([ADR 0015](decisions/0015-x86-64-vps-replaces-the-raspberry-pi.md),
 > 2026-11-02). `scripts/test-arm64.sh`, cited below as evidence, was
-> removed with it and remains in git history. Every other finding here
-> still stands as written.
+> removed with it and remains in git history.
+>
+> Also resolved since, so read them as the state on 2026-10-27:
+> - **Blocker 2 / F-CRM-1, F-CRM-2** (no in-app accounts, no password
+>   reset): the owner now creates accounts and sets passwords from the
+>   Team page (#193, [ADR 0021](decisions/0021-passwords-set-by-the-owner-not-by-email.md)).
+> - **Blocker 3 / F-CRM-3** (no outbound email): resolved by deciding
+>   there is none. Email reset was built in #188 and removed in #194,
+>   because DigitalOcean blocks outbound SMTP by default (ADR 0021).
+> - **F-SEC-1** (no rate limiting anywhere): a login rate limit on both
+>   login pages, on a database cache the workers share (#200,
+>   [ADR 0020](decisions/0020-database-cache-and-login-rate-limiting.md)).
+>
+> The other findings still stand as written.
 
 **Audit only.** No code, configuration, infrastructure or DNS was
 changed in producing this document. Dated 2026-10-27, against
