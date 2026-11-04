@@ -15,6 +15,7 @@ from apps.crm.audit import record
 from apps.crm.models import AuditLogEntry
 from apps.jobs.media import send_private_file
 
+from . import throttle
 from .forms import (
     AccountForm,
     CrewPayForm,
@@ -289,6 +290,11 @@ class TeamMemberView(OwnerRequiredMixin, TemplateView):
                 AuditLogEntry.Action.UPDATED,
                 {"password": [None, "changed"]},
             )
+        # Being locked out by the rate limit is one reason the owner is
+        # setting this password, and a 429 is returned before any
+        # password is checked — so without clearing the count, the new
+        # password would not work until the window expired (ADR 0020).
+        throttle.forget_username(person.get_username())
         name = person.get_full_name() or person.get_username()
         messages.success(
             request,

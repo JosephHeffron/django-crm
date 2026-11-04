@@ -182,6 +182,14 @@ the whole of it.
     only path if you are the sole Owner, so losing both your password
     and your server access means losing administrative control of the
     CRM — the database would have to be edited directly.
+- **Ten wrong passwords locks a sign-in attempt out for fifteen
+  minutes**, counted per address and per username on both the app's
+  sign-in page and `/admin/login/` (ADR 0020). It clears itself; there
+  is nothing to unlock. If somebody is stuck and cannot wait, **set
+  them a new password** — doing that clears their count as well, so
+  they can sign in straight away. (Their *address* may still be
+  counting if the failures came from one machine; that expires on its
+  own within the window.)
 - **Everything on this page is recorded.** Adding an account,
   changing a role, turning sign-in off, setting somebody's password,
   and changing their hourly rate or working days all appear in
