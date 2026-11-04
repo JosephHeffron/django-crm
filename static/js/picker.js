@@ -118,7 +118,10 @@
         } else if (shown === 0) {
           status.textContent = "No customers match.";
         } else {
-          status.textContent = shown + " of " + total + " shown.";
+          // "matched", not "shown": the chosen customer stays in the
+          // list without being counted, so on a prefilled form the
+          // list can hold one more than this number (#201).
+          status.textContent = shown + " of " + total + " matched.";
         }
       }
     });
