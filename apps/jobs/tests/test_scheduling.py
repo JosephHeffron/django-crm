@@ -1,3 +1,4 @@
+import re
 from datetime import datetime, time, timedelta
 from decimal import Decimal
 
@@ -16,6 +17,21 @@ from . import _factories as f
 
 PASSWORD = "correct-horse-battery"
 NEW = reverse("jobs:job_create")
+
+
+def _selected_address(response):
+    """The pk selected in the **address** field, or None.
+
+    Reads that select's own markup. Asserting on `<option value="N"
+    selected>` anywhere in the page matched whichever field happened to
+    share a primary key — Contact and Property are separate sequences,
+    so in a fresh test database they routinely collide (#202).
+    """
+    page = response.content.decode()
+    start = page.index('id="id_service_property"')
+    block = page[start : page.index("</select>", start)]
+    found = re.search(r'value="(\d+)"\s+selected', block)
+    return int(found.group(1)) if found else None
 
 
 def local(value):
@@ -555,8 +571,42 @@ class AddressFollowsCustomerTests(SchedulingTestCase):
         self.assertIn("data-address-customer=", page)
 
     def test_a_customer_with_no_addresses_at_all_is_fine(self):
-        """An address is optional, and a new customer has none."""
+        """An address is optional, and a new customer has none.
+
+        The first version of this asserted that an option with the
+        customer's pk was selected — which matched the *customer*
+        select, so an address chosen wrongly would still have passed
+        (#202). It reads the address field's own markup now.
+        """
         fresh = f.contact(self.owner, "New", "Customer")
         response = self.client.get(NEW, {"contact": str(fresh.pk)})
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, f'<option value="{fresh.pk}" selected>')
+        self.assertEqual(_selected_address(response), None)
+
+    def test_a_quick_added_address_beats_the_one_from_the_quote(self):
+        """Scheduling an accepted estimate carries its address across.
+        If somebody then adds a new address, that is the later and more
+        deliberate choice — and it used to be discarded, because the
+        quote's value was set first and `setdefault` kept it (#202).
+        """
+        quote = f.quote(self.customer, self.owner)
+        quote.service_property = self.home
+        quote.status = Quote.Status.ACCEPTED
+        quote.save(update_fields=["service_property", "status"])
+        response = self.client.get(
+            NEW, {"quote": str(quote.pk), "service_property": str(self.rental.pk)}
+        )
+        self.assertEqual(_selected_address(response), self.rental.pk)
+
+    def test_editing_a_job_honours_a_quick_added_address(self):
+        """The quick-add buttons are on the edit form too. Before this,
+        coming back from them showed the saved address and the new one
+        was simply lost."""
+        job = f.job(self.customer, self.owner)
+        job.service_property = self.home
+        job.save(update_fields=["service_property"])
+        response = self.client.get(
+            reverse("jobs:job_update", args=[job.pk]),
+            {"service_property": str(self.rental.pk)},
+        )
+        self.assertEqual(_selected_address(response), self.rental.pk)

@@ -1,3 +1,4 @@
+import re
 from datetime import date
 from decimal import Decimal
 
@@ -14,6 +15,19 @@ from . import _factories as f
 
 PASSWORD = "correct-horse-battery"
 NEW = reverse("jobs:quote_create")
+
+
+def _selected_address(response):
+    """The pk selected in the **address** field, or None. See the twin
+    in test_scheduling.py for why this reads one select's markup rather
+    than searching the page."""
+    page = response.content.decode()
+    start = page.index('id="id_service_property"')
+    block = page[start : page.index("</select>", start)]
+    found = re.search(r'value="(\d+)"\s+selected', block)
+    return int(found.group(1)) if found else None
+
+
 LIST = reverse("jobs:quote_list")
 
 
@@ -300,11 +314,37 @@ class AddressFollowsCustomerTests(EstimateTestCase):
 
     def test_a_customer_with_no_primary_address_gets_none_chosen(self):
         """Addresses with no primary among them: better blank than a
-        guess at which house."""
+        guess at which house.
+
+        The first version looked for `selected>Pat Homeowner — 12 Oak
+        Ave`, which a selected option never renders — `data-contact`
+        comes between — so it passed whatever happened (#202).
+        """
         self.home.is_primary = False
         self.home.save(update_fields=["is_primary"])
         response = self.client.get(NEW, {"contact": str(self.customer.pk)})
-        self.assertNotContains(response, "selected>Pat Homeowner — 12 Oak Ave")
+        self.assertEqual(_selected_address(response), None)
+
+    def test_editing_an_estimate_honours_a_quick_added_address(self):
+        """The quick-add buttons are on the edit form too, and the
+        update view ignored what they handed back (#202)."""
+        quote = f.quote(self.customer, self.rep)
+        quote.service_property = self.home
+        quote.save(update_fields=["service_property"])
+        response = self.client.get(
+            reverse("jobs:quote_update", args=[quote.pk]),
+            {"service_property": str(self.rental.pk)},
+        )
+        self.assertEqual(_selected_address(response), self.rental.pk)
+
+    def test_editing_an_estimate_does_not_invent_an_address(self):
+        """An estimate saved without one keeps it blank when reopened.
+        The server must not default it, and the script must not either
+        — saving an unrelated field would otherwise persist an address
+        nobody chose."""
+        quote = f.quote(self.customer, self.rep)
+        response = self.client.get(reverse("jobs:quote_update", args=[quote.pk]))
+        self.assertEqual(_selected_address(response), None)
 
     def test_each_address_says_whose_it_is(self):
         """What the script reads to narrow the list. Without these

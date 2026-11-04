@@ -343,16 +343,13 @@ class JobCreateView(AuditedFormMixin, JobFormMixin, CreateView):
             first_line = quote.line_items.first()
             if first_line is not None:
                 initial.setdefault("primary_service_type", first_line.service_type_id)
-        contact = self.request.GET.get("contact", "")
-        if contact.isdigit():
-            initial.setdefault("contact", int(contact))
-        # Handed back by the quick-add pages (apps/core/redirects.py).
-        address = self.request.GET.get("service_property", "")
-        if address.isdigit():
-            initial.setdefault("service_property", int(address))
+        # After the quote block, and by plain assignment: an address
+        # created on the way here is the later and more deliberate
+        # choice, so it overwrites the one the quote carried (#202).
+        # One mechanism, so a test can tell if it breaks.
+        _quick_add_initial(self.request, initial)
         # Nothing has named an address, but we know the customer: offer
-        # their main one. `setdefault` means an address carried over
-        # from a quote or handed back by the quick-add page still wins.
+        # their main one. `setdefault`, so it only fills a gap.
         initial.setdefault("service_property", _primary_address_of(initial.get("contact")))
         # Arriving from a slot on the day schedule: that exact time.
         # Set before `?date=` so a request carrying both takes the
@@ -368,6 +365,29 @@ class JobCreateView(AuditedFormMixin, JobFormMixin, CreateView):
             initial.setdefault("scheduled_start", begins)
             initial.setdefault("scheduled_end", begins + timedelta(hours=2))
         return initial
+
+
+def _quick_add_initial(request, initial):
+    """Apply whatever the quick-add pages handed back.
+
+    `apps/crm/views.py` returns `?contact=` and `?service_property=`
+    after creating one, and those are explicit choices: they beat
+    anything derived, including an address carried over from a quote
+    (#202). Plain assignment, not `setdefault`, for that reason.
+
+    Used by the update views too. The buttons sit on the same template
+    as the create form, so editing a job and adding an address came
+    back to a page that ignored it — the saved value won and the new
+    address was simply lost.
+    """
+    for field in ("contact", "service_property"):
+        value = request.GET.get(field, "")
+        if value.isdigit():
+            # Assignment, not setdefault: this is the whole mechanism.
+            # Called after anything that derives a default, it has to be
+            # able to overwrite one.
+            initial[field] = int(value)
+    return initial
 
 
 def _primary_address_of(contact_id):
@@ -392,6 +412,13 @@ def _primary_address_of(contact_id):
 class JobUpdateView(AuditedFormMixin, JobFormMixin, UpdateView):
     permission_required = "jobs.change_job"
     success_message = "Updated %(number)s."
+
+    def get_initial(self):
+        # The quick-add buttons are on this template too, so a customer
+        # or address created while editing has to land (#202). `initial`
+        # beats the instance in a ModelForm, which is what makes this
+        # work without touching the saved row.
+        return _quick_add_initial(self.request, super().get_initial())
 
     def get_queryset(self):
         # Scoped like the detail page: out of scope is a 404, not a 403.
@@ -471,6 +498,18 @@ class QuoteFormMixin(SalesRoleRequiredMixin, PermissionRequiredMixin):
     form_class = QuoteForm
     template_name = "jobs/quote_form.html"
 
+    def get_initial(self):
+        """Whatever the quick-add pages handed back, then the
+        customer's main address if nothing named one.
+
+        On the mixin rather than the create view, so editing an
+        estimate and adding an address lands as well (#202).
+        """
+        initial = _quick_add_initial(self.request, super().get_initial())
+        if self.object is None:
+            initial.setdefault("service_property", _primary_address_of(initial.get("contact")))
+        return initial
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         if "lines" not in context:
@@ -521,17 +560,6 @@ def _stamp_status(quote):
 class QuoteCreateView(AuditedFormMixin, QuoteFormMixin, CreateView):
     permission_required = "jobs.add_quote"
     success_message = "Created %(number)s."
-
-    def get_initial(self):
-        initial = super().get_initial()
-        contact = self.request.GET.get("contact", "")
-        if contact.isdigit():
-            initial.setdefault("contact", int(contact))
-        address = self.request.GET.get("service_property", "")
-        if address.isdigit():
-            initial.setdefault("service_property", int(address))
-        initial.setdefault("service_property", _primary_address_of(initial.get("contact")))
-        return initial
 
 
 class QuoteUpdateView(AuditedFormMixin, QuoteFormMixin, UpdateView):

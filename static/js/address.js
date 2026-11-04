@@ -30,10 +30,42 @@
       return option.dataset.contact === contactId;
     }
 
+    // "New address" opens its own page with the customer pre-filled,
+    // via `?contact=` — but the server could only know whoever was
+    // chosen when the page was built. Picking somebody else and then
+    // clicking it opened the address form for the wrong customer, or
+    // for nobody (#202).
+    function pointNewAddressAt(contactId) {
+      var link = holder.parentElement
+        ? holder.parentElement.querySelector("[data-new-address]")
+        : null;
+      if (!link) {
+        return;
+      }
+      var url = new URL(link.href, window.location.origin);
+      if (contactId) {
+        url.searchParams.set("contact", contactId);
+      } else {
+        url.searchParams.delete("contact");
+      }
+      link.href = url.pathname + "?" + url.searchParams.toString();
+    }
+
     function narrow(pickPrimary) {
       var contactId = customers.value;
       var chosen = addresses.value;
       var theirs = [];
+      // No customer chosen means no address, and the list goes back
+      // to everything the server sent. Two bugs lived here (#202):
+      // treating an empty id as "matches everybody" let the primary
+      // search below pick the first primary in the list — somebody
+      // else's house — and keeping the previous selection left an
+      // address attached to nobody, which only the server's own check
+      // would have caught, on submit.
+      if (!contactId) {
+        pickPrimary = false;
+        chosen = "";
+      }
 
       addresses.textContent = "";
       options.forEach(function (option) {
@@ -82,11 +114,22 @@
     }
 
     customers.addEventListener("change", function () {
+      // Changing the customer is an explicit act, so this is the one
+      // moment it is right to choose an address for somebody.
       narrow(true);
+      pointNewAddressAt(customers.value);
     });
-    // On load: narrow to whoever is already chosen, but do not move an
-    // address the form arrived with — an edit form and a `?contact=`
-    // round trip both land here with a deliberate pair.
-    narrow(!addresses.value);
+
+    // On load, **never** choose. A job or estimate saved with no
+    // address renders an empty field, and filling in the primary here
+    // meant saving an unrelated field later persisted an address
+    // nobody picked (#202). The same applies after a validation error
+    // re-renders a form where the address was deliberately cleared.
+    //
+    // The `?contact=` round trip is already handled: the server picks
+    // the primary in get_initial, so the field arrives filled and this
+    // only has to narrow the list around it.
+    narrow(false);
+    pointNewAddressAt(customers.value);
   });
 })();

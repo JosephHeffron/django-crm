@@ -50,7 +50,7 @@
           <a class="btn btn-secondary btn-sm" href="{% url 'crm:contact_create' %}?next={{ return_to|urlencode }}">
             <svg class="icon" aria-hidden="true"><use href="#icon-user-plus"/></svg>New customer
           </a>
-          <a class="btn btn-secondary btn-sm" href="{% url 'crm:property_create' %}?next={{ return_to|urlencode }}{% if chosen_contact %}&amp;contact={{ chosen_contact }}{% endif %}">
+          <a class="btn btn-secondary btn-sm" data-new-address href="{% url 'crm:property_create' %}?next={{ return_to|urlencode }}{% if chosen_contact %}&amp;contact={{ chosen_contact }}{% endif %}">
             <svg class="icon" aria-hidden="true"><use href="#icon-map-pin"/></svg>New address
           </a>
         </p>
