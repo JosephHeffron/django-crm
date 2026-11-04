@@ -164,6 +164,25 @@ class WritingTests(EstimateTestCase):
         response = self.client.get(NEW, {"contact": str(self.customer.pk)})
         self.assertContains(response, f'<option value="{self.customer.pk}" selected>')
 
+    def test_the_customer_dropdown_offers_a_search_box(self):
+        """The job form has had one since Phase 22; this form had none,
+        and both pick a customer from the same list. Same contract: the
+        box is hidden until the script unhides it, and
+        `data-filter-for` names the select's real id.
+        """
+        page = self.client.get(NEW).content.decode()
+        self.assertIn("js/picker.js", page)
+        self.assertIn('data-filter-for="id_contact"', page)
+        self.assertIn('<p class="field-filter" hidden', page)
+        self.assertIn('id="id_contact"', page)
+        self.assertIn("data-filter-count", page)
+        # The input itself, inside the box. Without it picker.js finds
+        # nothing to listen to and returns, leaving a box that never
+        # appears — and every assertion above would still pass (#201).
+        box = page.split('class="field-filter"', 1)[1].split("</p>", 1)[0]
+        self.assertIn('type="search"', box)
+        self.assertIn('id="customer-filter"', box)
+
 
 class EditingTests(EstimateTestCase):
     def setUp(self):

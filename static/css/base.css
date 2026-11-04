@@ -1546,6 +1546,14 @@ input[type="radio"] {
   width: 100%;
 }
 
+/* How many matched, announced as well as drawn. Empty until something
+   is typed, so it takes no room on a form nobody has searched. */
+.field-filter .filter-count {
+  display: block;
+  font-size: var(--text-sm);
+  margin-top: var(--space-1);
+}
+
 .filter-form {
   display: flex;
   flex-wrap: wrap;

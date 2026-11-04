@@ -46,6 +46,7 @@
           <label for="customer-filter" class="sr-only">Search customers</label>
           <input type="search" id="customer-filter" placeholder="Search customers…"
                  autocomplete="off" aria-controls="{{ form.contact.auto_id }}">
+          <span class="filter-count muted" data-filter-count aria-live="polite"></span>
         </p>
         <div class="field-row">
           {% include "partials/_field.html" with field=form.contact %}

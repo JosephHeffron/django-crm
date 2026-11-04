@@ -3,7 +3,7 @@
 
 {% block title %}{% if object %}Edit {{ object.number }}{% else %}New estimate{% endif %}{% endblock %}
 
-{% block extra_head %}<script src="{% static 'js/lines.js' %}" defer></script>{% endblock %}
+{% block extra_head %}<script src="{% static 'js/lines.js' %}" defer></script><script src="{% static 'js/picker.js' %}" defer></script>{% endblock %}
 
 {% block content %}
   <div class="settings-shell">
@@ -23,6 +23,17 @@
 
       <section class="section-card">
         <div class="section-card-head"><svg class="icon" aria-hidden="true"><use href="#icon-user"/></svg><h2>Customer and address</h2></div>
+        {% comment %}
+          The same search box the job form has. Rendered hidden and
+          unhidden by static/js/picker.js, so with no JavaScript there
+          is no box that does nothing.
+        {% endcomment %}
+        <p class="field-filter" hidden data-filter-for="{{ form.contact.auto_id }}">
+          <label for="customer-filter" class="sr-only">Search customers</label>
+          <input type="search" id="customer-filter" placeholder="Search customers…"
+                 autocomplete="off" aria-controls="{{ form.contact.auto_id }}">
+          <span class="filter-count muted" data-filter-count aria-live="polite"></span>
+        </p>
         <div class="field-row">
           {% include "partials/_field.html" with field=form.contact %}
           {% include "partials/_field.html" with field=form.service_property %}
