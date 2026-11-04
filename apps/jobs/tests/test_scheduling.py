@@ -610,3 +610,90 @@ class AddressFollowsCustomerTests(SchedulingTestCase):
             {"service_property": str(self.rental.pk)},
         )
         self.assertEqual(_selected_address(response), self.rental.pk)
+
+
+class WholeNumberQuantityTests(SchedulingTestCase):
+    """A quantity is a count of things, not a fraction (owner request,
+    2026-11-03).
+
+    Enforced on the shared line formset, so jobs, estimates and
+    invoices agree — the tests for the other two live in their own
+    modules.
+    """
+
+    def test_a_fraction_is_refused_and_nothing_is_saved(self):
+        response = self.client.post(
+            NEW,
+            self.with_lines(
+                [{"service_type": self.service.pk, "quantity": "2.5", "unit_price": "150.00"}]
+            ),
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(Job.objects.exists())
+        self.assertContains(response, "whole number")
+
+    def test_a_whole_number_is_accepted(self):
+        self.client.post(
+            NEW,
+            self.with_lines(
+                [{"service_type": self.service.pk, "quantity": "3", "unit_price": "150.00"}]
+            ),
+        )
+        line = Job.objects.get().line_items.get()
+        self.assertEqual(line.quantity, Decimal("3"))
+        self.assertEqual(line.line_total, Decimal("450.00"))
+
+    def test_zero_is_refused(self):
+        """The database already refuses it — `job_line_quantity_positive`
+        — so without a form-level minimum this was an IntegrityError
+        rather than a field error."""
+        response = self.client.post(
+            NEW,
+            self.with_lines(
+                [{"service_type": self.service.pk, "quantity": "0", "unit_price": "150.00"}]
+            ),
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(Job.objects.exists())
+
+    def test_the_input_asks_for_whole_numbers(self):
+        """`step="1"` is what stops a phone keyboard offering a decimal
+        point, and what makes the stepper move by one."""
+        page = self.client.get(NEW).content.decode()
+        start = page.index('name="lines-0-quantity"')
+        field = page[page.rindex("<input", 0, start) : page.index(">", start)]
+        self.assertIn('step="1"', field)
+        self.assertIn('min="1"', field)
+
+    def test_the_blank_row_the_page_offers_is_still_ignored(self):
+        """The regression this change caused once: the quantity field
+        lost the model's default of 1, so the untouched blank row read
+        as an edit, the formset demanded a service for it, and no job
+        could be booked at all.
+        """
+        self.client.post(
+            NEW,
+            self.with_lines(
+                [
+                    {"service_type": self.service.pk, "quantity": "2", "unit_price": "150.00"},
+                    {"service_type": "", "quantity": "1", "unit_price": ""},
+                ]
+            ),
+        )
+        self.assertEqual(Job.objects.get().line_items.count(), 1)
+
+    def test_a_row_saved_with_a_fraction_before_this_still_loads(self):
+        """`LineItem.quantity` is still a DecimalField on purpose: rows
+        written before this rule exist, and opening one must not 500.
+        Re-saving rounds it, which is the point."""
+        job = f.job(self.customer, self.owner, lines=[])
+        JobLineItem.objects.create(
+            job=job,
+            service_type=self.service,
+            quantity=Decimal("2.50"),
+            unit_price=Decimal("100.00"),
+            position=0,
+        )
+        response = self.client.get(reverse("jobs:job_update", args=[job.pk]))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'value="2.50"')

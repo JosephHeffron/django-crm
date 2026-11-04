@@ -259,6 +259,30 @@ class BaseLineFormSet(forms.BaseInlineFormSet):
         chosen = getattr(form.instance, "service_type_id", None)
         condition = Q(is_active=True) | Q(pk=chosen) if chosen else Q(is_active=True)
         form.fields["service_type"].queryset = ServiceType.objects.filter(condition)
+        # Whole numbers only, on jobs, estimates and invoices alike
+        # (owner request, 2026-11-03). Two windows, not two and a half.
+        #
+        # **At the form, not the model.** `LineItem.quantity` stays a
+        # DecimalField: rows written before this exist and must still
+        # load and save, and the money maths is deliberately unrounded
+        # — `test_money_and_hours_invariants` pins a line total of
+        # 46.5767 from 2.66 × 17.51. A migration to an integer column
+        # would either break that invariant or quietly round live data.
+        #
+        # Services priced per square foot, linear foot or hour now need
+        # rounding: 1,250.5 sq ft becomes 1,251. That is the trade the
+        # owner chose.
+        #
+        # `initial=1` matters more than it looks: it is the model's own
+        # default, and the page always offers one blank row. Without it
+        # that row's "1" counts as an edit, the formset then validates
+        # it, demands a service, and refuses to save the job at all.
+        form.fields["quantity"] = forms.IntegerField(
+            min_value=1,
+            initial=1,
+            label="Qty",
+            widget=forms.NumberInput(attrs={"step": "1", "min": "1", "inputmode": "numeric"}),
+        )
 
     def clean(self):
         super().clean()

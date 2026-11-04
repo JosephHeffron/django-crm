@@ -448,3 +448,28 @@ class DateTests(FinanceTestCase):
             },
         )
         self.assertEqual(Expense.objects.get().date, given)
+
+
+class WholeNumberQuantityTests(FinanceTestCase):
+    """An invoice line counts whole things too — the third document
+    sharing the formset (owner request, 2026-11-03)."""
+
+    def test_a_fraction_is_refused_on_an_invoice(self):
+        response = self.client.post(
+            NEW_INVOICE,
+            self.with_lines(
+                [{"service_type": self.service.pk, "quantity": "2.25", "unit_price": "80.00"}]
+            ),
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(Invoice.objects.exists())
+        self.assertFalse(InvoiceLineItem.objects.exists())
+
+    def test_a_whole_number_is_accepted_on_an_invoice(self):
+        self.client.post(
+            NEW_INVOICE,
+            self.with_lines(
+                [{"service_type": self.service.pk, "quantity": "2", "unit_price": "80.00"}]
+            ),
+        )
+        self.assertEqual(Invoice.objects.get().total, Decimal("160.00"))

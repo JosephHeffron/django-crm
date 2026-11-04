@@ -192,7 +192,10 @@ and clearing the customer clears the address, rather than leaving one
 attached to nobody.
 
 **The work** is the list of what's being charged for. Picking a service
-fills in its usual price, which you can change. You can leave the list
+fills in its usual price, which you can change. **Quantities are whole
+numbers** — two windows, not two and a half — on jobs, estimates and
+invoices alike. Work measured by area or length has to be rounded: 1,250
+and a half square feet becomes 1,251. You can leave the list
 empty while you're only booking the time and price it later.
 
 Opening a job and choosing **Edit** does the same thing again, so that's
