@@ -3,7 +3,7 @@
 
 {% block title %}{% if object %}Edit {{ object.number }}{% else %}New estimate{% endif %}{% endblock %}
 
-{% block extra_head %}<script src="{% static 'js/lines.js' %}" defer></script><script src="{% static 'js/picker.js' %}" defer></script>{% endblock %}
+{% block extra_head %}<script src="{% static 'js/lines.js' %}" defer></script><script src="{% static 'js/picker.js' %}" defer></script><script src="{% static 'js/address.js' %}" defer></script>{% endblock %}
 
 {% block content %}
   <div class="settings-shell">
@@ -34,10 +34,27 @@
                  autocomplete="off" aria-controls="{{ form.contact.auto_id }}">
           <span class="filter-count muted" data-filter-count aria-live="polite"></span>
         </p>
-        <div class="field-row">
+        <div class="field-row" data-address-for="{{ form.service_property.auto_id }}"
+             data-address-customer="{{ form.contact.auto_id }}">
           {% include "partials/_field.html" with field=form.contact %}
           {% include "partials/_field.html" with field=form.service_property %}
+          <span class="address-note muted" data-address-note aria-live="polite"></span>
         </div>
+        {% comment %}
+          A new customer or address without abandoning the estimate.
+          The same round trip the job form uses: these open their own
+          page and come back with the new one chosen, which needs no
+          JavaScript.
+        {% endcomment %}
+        <p class="cluster">
+          <a class="btn btn-secondary btn-sm" href="{% url 'crm:contact_create' %}?next={{ return_to|urlencode }}">
+            <svg class="icon" aria-hidden="true"><use href="#icon-user-plus"/></svg>New customer
+          </a>
+          <a class="btn btn-secondary btn-sm" href="{% url 'crm:property_create' %}?next={{ return_to|urlencode }}{% if chosen_contact %}&amp;contact={{ chosen_contact }}{% endif %}">
+            <svg class="icon" aria-hidden="true"><use href="#icon-map-pin"/></svg>New address
+          </a>
+        </p>
+        <p class="helptext">These open a new page and come back here. Anything else you've typed above isn't kept yet.</p>
       </section>
 
       <section class="section-card">

@@ -350,6 +350,10 @@ class JobCreateView(AuditedFormMixin, JobFormMixin, CreateView):
         address = self.request.GET.get("service_property", "")
         if address.isdigit():
             initial.setdefault("service_property", int(address))
+        # Nothing has named an address, but we know the customer: offer
+        # their main one. `setdefault` means an address carried over
+        # from a quote or handed back by the quick-add page still wins.
+        initial.setdefault("service_property", _primary_address_of(initial.get("contact")))
         # Arriving from a slot on the day schedule: that exact time.
         # Set before `?date=` so a request carrying both takes the
         # more precise one — `setdefault` keeps the first value set.
@@ -364,6 +368,25 @@ class JobCreateView(AuditedFormMixin, JobFormMixin, CreateView):
             initial.setdefault("scheduled_start", begins)
             initial.setdefault("scheduled_end", begins + timedelta(hours=2))
         return initial
+
+
+def _primary_address_of(contact_id):
+    """That customer's main address, or None.
+
+    `static/js/address.js` does this in the page when somebody picks a
+    customer. This is the same answer for the paths the script never
+    sees: a form arriving with `?contact=` from the quick-add round
+    trip, and a browser with JavaScript off.
+
+    `Property.Meta.ordering` is `["-is_primary", "street"]`, so the
+    first row is the primary one when there is one — but ask for the
+    flag rather than trusting the order, since a customer may have
+    addresses and no primary among them.
+    """
+    if not contact_id:
+        return None
+    primary = Property.objects.filter(contact_id=contact_id, is_primary=True).first()
+    return primary.pk if primary else None
 
 
 class JobUpdateView(AuditedFormMixin, JobFormMixin, UpdateView):
@@ -454,6 +477,14 @@ class QuoteFormMixin(SalesRoleRequiredMixin, PermissionRequiredMixin):
             context["lines"] = QuoteLineFormSet(
                 self.request.POST or None, instance=self.object, prefix="lines"
             )
+        # Same two values the job form's quick-add buttons need, for the
+        # same round trip: where to come back to, and which customer the
+        # new-address page should start with.
+        context["return_to"] = self.request.get_full_path()
+        chosen = _int_or_none_str(self.request.GET.get("contact"))
+        if chosen is None and self.object is not None:
+            chosen = self.object.contact_id
+        context["chosen_contact"] = chosen
         return context
 
     def form_valid(self, form):
@@ -496,6 +527,10 @@ class QuoteCreateView(AuditedFormMixin, QuoteFormMixin, CreateView):
         contact = self.request.GET.get("contact", "")
         if contact.isdigit():
             initial.setdefault("contact", int(contact))
+        address = self.request.GET.get("service_property", "")
+        if address.isdigit():
+            initial.setdefault("service_property", int(address))
+        initial.setdefault("service_property", _primary_address_of(initial.get("contact")))
         return initial
 
 

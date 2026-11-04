@@ -3,7 +3,7 @@
 
 {% block title %}{% if object %}Edit {{ object.number }}{% else %}New job{% endif %}{% endblock %}
 
-{% block extra_head %}<script src="{% static 'js/lines.js' %}" defer></script><script src="{% static 'js/picker.js' %}" defer></script>{% endblock %}
+{% block extra_head %}<script src="{% static 'js/lines.js' %}" defer></script><script src="{% static 'js/picker.js' %}" defer></script><script src="{% static 'js/address.js' %}" defer></script>{% endblock %}
 
 {% block content %}
   <div class="settings-shell">
@@ -48,11 +48,13 @@
                  autocomplete="off" aria-controls="{{ form.contact.auto_id }}">
           <span class="filter-count muted" data-filter-count aria-live="polite"></span>
         </p>
-        <div class="field-row">
+        <div class="field-row" data-address-for="{{ form.service_property.auto_id }}"
+             data-address-customer="{{ form.contact.auto_id }}">
           {% include "partials/_field.html" with field=form.contact %}
           {% include "partials/_field.html" with field=form.service_property %}
+          <span class="address-note muted" data-address-note aria-live="polite"></span>
         </div>
-        <p class="muted section-note">Leave the address blank if the customer has only one, or if you'll fill it in later.</p>
+        <p class="muted section-note">Choosing a customer fills in their main address; pick another of theirs, or add one. Leave it blank to fill in later.</p>
         {% comment %}
           A new customer or address without abandoning the booking.
           These open their own page and come straight back with the new
