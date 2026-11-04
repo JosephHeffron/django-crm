@@ -18,7 +18,13 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import include, path
 
+from apps.users.login import admin_login
+
 urlpatterns = [
+    # Before admin/, so this serves /admin/login/ and counts failed
+    # attempts there too (ADR 0020). The path is unchanged, so
+    # reverse("admin:login") still points here.
+    path("admin/login/", admin_login),
     path("admin/", admin.site.urls),
     path("accounts/", include("apps.users.urls")),
     path("", include("apps.crm.urls")),
