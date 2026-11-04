@@ -131,9 +131,33 @@ class PeopleMultipleChoiceField(forms.ModelMultipleChoiceField):
         return person(obj)
 
 
+class PropertySelect(forms.Select):
+    """An address picker that says whose each address is, on the option
+    itself, so the page script can narrow the list to the chosen
+    customer and pick their main address — without a second request and
+    without an inline script, which the CSP forbids.
+
+    The same shape as `ServiceSelect` above. `data-primary` marks the
+    address to prefer: `Property.Meta.ordering` already puts the
+    primary first, but the script must not depend on list order to
+    decide which one it is.
+    """
+
+    def create_option(self, name, value, *args, **kwargs):
+        option = super().create_option(name, value, *args, **kwargs)
+        address = getattr(value, "instance", None)
+        if address is not None:
+            option["attrs"]["data-contact"] = f"{address.contact_id}"
+            if address.is_primary:
+                option["attrs"]["data-primary"] = "1"
+        return option
+
+
 class PropertyChoiceField(forms.ModelChoiceField):
     """Addresses carry the customer's name: the list holds every
     customer's addresses, and "12 Oak Ave" alone doesn't say whose."""
+
+    widget = PropertySelect
 
     def label_from_instance(self, obj):
         return f"{obj.contact} — {obj}"

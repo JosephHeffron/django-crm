@@ -1,3 +1,4 @@
+import re
 from datetime import date
 from decimal import Decimal
 
@@ -14,6 +15,19 @@ from . import _factories as f
 
 PASSWORD = "correct-horse-battery"
 NEW = reverse("jobs:quote_create")
+
+
+def _selected_address(response):
+    """The pk selected in the **address** field, or None. See the twin
+    in test_scheduling.py for why this reads one select's markup rather
+    than searching the page."""
+    page = response.content.decode()
+    start = page.index('id="id_service_property"')
+    block = page[start : page.index("</select>", start)]
+    found = re.search(r'value="(\d+)"\s+selected', block)
+    return int(found.group(1)) if found else None
+
+
 LIST = reverse("jobs:quote_list")
 
 
@@ -247,3 +261,122 @@ class ListPageTests(EstimateTestCase):
     def test_each_row_can_be_edited(self):
         quote = f.quote(self.customer, self.rep)
         self.assertContains(self.client.get(LIST), reverse("jobs:quote_update", args=[quote.pk]))
+
+
+class AddressFollowsCustomerTests(EstimateTestCase):
+    """Choosing a customer offers their address (owner request,
+    2026-11-03).
+
+    The script does this in the page; these cover the halves it never
+    sees — a form arriving with `?contact=` from the quick-add round
+    trip, and a browser with JavaScript off, where the server has to
+    have made the same choice already.
+    """
+
+    def setUp(self):
+        super().setUp()
+        self.home = Property.objects.create(
+            contact=self.customer,
+            label="Home",
+            street="12 Oak Ave",
+            city="Penfield",
+            state="NY",
+            postal_code="14526",
+            is_primary=True,
+        )
+        self.rental = Property.objects.create(
+            contact=self.customer,
+            label="Rental",
+            street="400 Elm St",
+            city="Webster",
+            state="NY",
+            postal_code="14580",
+        )
+
+    def test_arriving_with_a_customer_offers_their_main_address(self):
+        response = self.client.get(NEW, {"contact": str(self.customer.pk)})
+        self.assertContains(
+            response, f'value="{self.home.pk}" selected data-contact="{self.customer.pk}"'
+        )
+        self.assertNotContains(
+            response, f'value="{self.rental.pk}" selected data-contact="{self.customer.pk}"'
+        )
+
+    def test_an_address_handed_back_by_the_quick_add_page_wins(self):
+        """The round trip is somebody saying "this one, the new one".
+        It must beat the primary-address default."""
+        response = self.client.get(
+            NEW, {"contact": str(self.customer.pk), "service_property": str(self.rental.pk)}
+        )
+        self.assertContains(
+            response, f'value="{self.rental.pk}" selected data-contact="{self.customer.pk}"'
+        )
+
+    def test_a_customer_with_no_primary_address_gets_none_chosen(self):
+        """Addresses with no primary among them: better blank than a
+        guess at which house.
+
+        The first version looked for `selected>Pat Homeowner — 12 Oak
+        Ave`, which a selected option never renders — `data-contact`
+        comes between — so it passed whatever happened (#202).
+        """
+        self.home.is_primary = False
+        self.home.save(update_fields=["is_primary"])
+        response = self.client.get(NEW, {"contact": str(self.customer.pk)})
+        self.assertEqual(_selected_address(response), None)
+
+    def test_editing_an_estimate_honours_a_quick_added_address(self):
+        """The quick-add buttons are on the edit form too, and the
+        update view ignored what they handed back (#202)."""
+        quote = f.quote(self.customer, self.rep)
+        quote.service_property = self.home
+        quote.save(update_fields=["service_property"])
+        response = self.client.get(
+            reverse("jobs:quote_update", args=[quote.pk]),
+            {"service_property": str(self.rental.pk)},
+        )
+        self.assertEqual(_selected_address(response), self.rental.pk)
+
+    def test_editing_an_estimate_does_not_invent_an_address(self):
+        """An estimate saved without one keeps it blank when reopened.
+        The server must not default it, and the script must not either
+        — saving an unrelated field would otherwise persist an address
+        nobody chose."""
+        quote = f.quote(self.customer, self.rep)
+        response = self.client.get(reverse("jobs:quote_update", args=[quote.pk]))
+        self.assertEqual(_selected_address(response), None)
+
+    def test_each_address_says_whose_it_is(self):
+        """What the script reads to narrow the list. Without these
+        attributes it cannot tell one customer's addresses from
+        another's, and silently does nothing."""
+        page = self.client.get(NEW).content.decode()
+        self.assertIn(f'data-contact="{self.customer.pk}"', page)
+        self.assertIn('data-primary="1"', page)
+        self.assertIn("js/address.js", page)
+        self.assertIn("data-address-for=", page)
+        self.assertIn("data-address-customer=", page)
+
+    def test_the_estimate_form_offers_both_quick_add_buttons(self):
+        """Parity with the job form: a customer or address can be added
+        without abandoning the estimate."""
+        page = self.client.get(NEW, {"contact": str(self.customer.pk)}).content.decode()
+        self.assertIn(reverse("crm:contact_create"), page)
+        self.assertIn(reverse("crm:property_create"), page)
+        self.assertIn(f"contact={self.customer.pk}", page)
+
+    def test_an_address_belonging_to_somebody_else_is_still_refused(self):
+        """The server-side check stays the backstop. The script narrows
+        the list; a hand-made POST ignores it."""
+        other = f.contact(self.rep, "Sam", "Elsewhere")
+        theirs = Property.objects.create(
+            contact=other,
+            label="Home",
+            street="9 Pine Rd",
+            city="Fairport",
+            state="NY",
+            postal_code="14450",
+        )
+        response = self.client.post(NEW, self.form(service_property=theirs.pk))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "belongs to a different customer")

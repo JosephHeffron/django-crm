@@ -179,6 +179,18 @@ change who the job is for. Pressing Enter in the box does nothing on
 purpose — it would otherwise save the job while you were still filling
 it in.
 
+**The address fills itself in.** Choosing a customer narrows the
+address list to theirs and picks their main one, and says how many they
+have. If the job is at a different one of their addresses, choose it; if
+it's somewhere new, **New address** opens its own page and comes back
+with the new one chosen. A customer with no address on file leaves it
+blank and says so.
+
+Two things it deliberately will *not* do. It never fills in an address
+when you open an existing job — that pairing was somebody's decision —
+and clearing the customer clears the address, rather than leaving one
+attached to nobody.
+
 **The work** is the list of what's being charged for. Picking a service
 fills in its usual price, which you can change. You can leave the list
 empty while you're only booking the time and price it later.
@@ -195,8 +207,9 @@ Cleaner sees their schedule but doesn't set it.
 filters for status and for your own. **New estimate** writes one: the
 customer, the lines of work and their prices, and when you're going to
 go and look at it. A booked site visit shows on the schedule. The
-customer dropdown has the same search box the job form has, described
-under **New job** above.
+customer dropdown has the same search box the job form has, and the
+same address behaviour and **New customer** / **New address** buttons,
+all described under **New job** above.
 
 **Status** is how you move it along. Taking it past Draft records today
 as the day it went out, and marking it Accepted records today as the day

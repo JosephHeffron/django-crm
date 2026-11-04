@@ -1,3 +1,4 @@
+import re
 from datetime import datetime, time, timedelta
 from decimal import Decimal
 
@@ -8,7 +9,7 @@ from django.utils.html import escape
 
 from apps.crm.models import Property
 from apps.crm.tests._helpers import grant_role
-from apps.jobs.models import Job, JobAssignment, JobLineItem
+from apps.jobs.models import Job, JobAssignment, JobLineItem, Quote
 from apps.jobs.reports import Period, summary
 from apps.users.roles import Role
 
@@ -16,6 +17,21 @@ from . import _factories as f
 
 PASSWORD = "correct-horse-battery"
 NEW = reverse("jobs:job_create")
+
+
+def _selected_address(response):
+    """The pk selected in the **address** field, or None.
+
+    Reads that select's own markup. Asserting on `<option value="N"
+    selected>` anywhere in the page matched whichever field happened to
+    share a primary key — Contact and Property are separate sequences,
+    so in a fresh test database they routinely collide (#202).
+    """
+    page = response.content.decode()
+    start = page.index('id="id_service_property"')
+    block = page[start : page.index("</select>", start)]
+    found = re.search(r'value="(\d+)"\s+selected', block)
+    return int(found.group(1)) if found else None
 
 
 def local(value):
@@ -487,3 +503,110 @@ class CustomerListTests(SchedulingTestCase):
         self.customer.save(update_fields=["is_active"])
         form = self.client.get(reverse("jobs:job_update", args=[job.pk])).context["form"]
         self.assertIn(self.customer, form.fields["contact"].queryset)
+
+
+class AddressFollowsCustomerTests(SchedulingTestCase):
+    """Booking a job offers the customer's address (owner request,
+    2026-11-03).
+
+    `static/js/address.js` does this in the page when somebody picks a
+    customer. These cover the paths the script never sees: the
+    quick-add round trip, and JavaScript off.
+    """
+
+    def setUp(self):
+        super().setUp()
+        self.home = Property.objects.create(
+            contact=self.customer,
+            label="Home",
+            street="12 Oak Ave",
+            city="Penfield",
+            state="NY",
+            postal_code="14526",
+            is_primary=True,
+        )
+        self.rental = Property.objects.create(
+            contact=self.customer,
+            label="Rental",
+            street="400 Elm St",
+            city="Webster",
+            state="NY",
+            postal_code="14580",
+        )
+
+    def test_arriving_with_a_customer_offers_their_main_address(self):
+        response = self.client.get(NEW, {"contact": str(self.customer.pk)})
+        self.assertContains(
+            response, f'value="{self.home.pk}" selected data-contact="{self.customer.pk}"'
+        )
+
+    def test_an_address_handed_back_by_the_quick_add_page_wins(self):
+        response = self.client.get(
+            NEW,
+            {"contact": str(self.customer.pk), "service_property": str(self.rental.pk)},
+        )
+        self.assertContains(
+            response, f'value="{self.rental.pk}" selected data-contact="{self.customer.pk}"'
+        )
+
+    def test_an_address_carried_from_a_quote_wins(self):
+        """Scheduling an accepted estimate already brings its address
+        across. That is a decision somebody made; the default must not
+        overwrite it."""
+        quote = f.quote(self.customer, self.owner)
+        quote.service_property = self.rental
+        quote.status = Quote.Status.ACCEPTED
+        quote.save(update_fields=["service_property", "status"])
+        response = self.client.get(NEW, {"quote": str(quote.pk)})
+        self.assertContains(
+            response, f'value="{self.rental.pk}" selected data-contact="{self.customer.pk}"'
+        )
+
+    def test_each_address_says_whose_it_is(self):
+        page = self.client.get(NEW).content.decode()
+        self.assertIn(f'data-contact="{self.customer.pk}"', page)
+        self.assertIn('data-primary="1"', page)
+        self.assertIn("js/address.js", page)
+        self.assertIn("data-address-for=", page)
+        self.assertIn("data-address-customer=", page)
+
+    def test_a_customer_with_no_addresses_at_all_is_fine(self):
+        """An address is optional, and a new customer has none.
+
+        The first version of this asserted that an option with the
+        customer's pk was selected — which matched the *customer*
+        select, so an address chosen wrongly would still have passed
+        (#202). It reads the address field's own markup now.
+        """
+        fresh = f.contact(self.owner, "New", "Customer")
+        response = self.client.get(NEW, {"contact": str(fresh.pk)})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(_selected_address(response), None)
+
+    def test_a_quick_added_address_beats_the_one_from_the_quote(self):
+        """Scheduling an accepted estimate carries its address across.
+        If somebody then adds a new address, that is the later and more
+        deliberate choice — and it used to be discarded, because the
+        quote's value was set first and `setdefault` kept it (#202).
+        """
+        quote = f.quote(self.customer, self.owner)
+        quote.service_property = self.home
+        quote.status = Quote.Status.ACCEPTED
+        quote.save(update_fields=["service_property", "status"])
+        response = self.client.get(
+            NEW, {"quote": str(quote.pk), "service_property": str(self.rental.pk)}
+        )
+        self.assertEqual(_selected_address(response), self.rental.pk)
+
+    def test_editing_a_job_honours_a_quick_added_address(self):
+        """The quick-add buttons are on the edit form too. Before this,
+        coming back from them showed the saved address and the new one
+        was simply lost."""
+        job = f.job(self.customer, self.owner)
+        job.service_property = self.home
+        job.save(update_fields=["service_property"])
+        response = self.client.get(
+            reverse("jobs:job_update", args=[job.pk]),
+            {"service_property": str(self.rental.pk)},
+        )
+        self.assertEqual(_selected_address(response), self.rental.pk)

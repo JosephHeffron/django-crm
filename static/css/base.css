@@ -1546,6 +1546,16 @@ input[type="radio"] {
   width: 100%;
 }
 
+/* Whose addresses are listed, announced as well as drawn. Empty until
+   a customer is chosen, so it takes no room on a blank form. */
+.address-note {
+  /* `.field-row` is a grid (auto-fit columns above 768px), so the note
+     spans every column rather than becoming a column of its own and
+     squeezing the two fields. */
+  grid-column: 1 / -1;
+  font-size: var(--text-sm);
+}
+
 /* How many matched, announced as well as drawn. Empty until something
    is typed, so it takes no room on a form nobody has searched. */
 .field-filter .filter-count {
