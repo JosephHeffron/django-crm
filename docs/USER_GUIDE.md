@@ -256,10 +256,11 @@ only what your role can open. From there:
 - **Your profile** and **Account settings** — your name, email, phone,
   title and calendar color, and your password.
 - **Business settings**, **Monthly goals**, **Company management**,
-  **Customize**, **Activity log** — the Owner's.
-- **What's new** — what's changed in the app itself, newest release
+  **Customize**, **Activity log**, **What's new** — the Owner's.
+- **What's new** is what's changed in the app itself, newest release
   first, read from the project's own changelog so there's one place it
-  gets written.
+  gets written. Owner-only: release notes say what broke and what was
+  reversed.
 
 ### Company management (Owner)
 

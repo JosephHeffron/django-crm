@@ -37,9 +37,11 @@ class HubTests(TestCase):
         self.client.login(username="rep", password=PASSWORD)
         shown = self.titles()
         self.assertIn("Account settings", shown)
-        self.assertIn("What's new", shown)
         self.assertNotIn("Business settings", shown)
         self.assertNotIn("Activity log", shown)
+        # Owner-only from 2026-11-03, at the owner's request. This test
+        # asserted the opposite until then.
+        self.assertNotIn("What's new", shown)
 
     def test_every_card_opens_for_whoever_is_shown_it(self):
         people = (("boss2", Role.OWNER), ("rep2", Role.SALES_REP), ("crew", Role.CLEANER))
@@ -74,13 +76,36 @@ class CustomizeTests(TestCase):
 
 class WhatsNewTests(TestCase):
     def setUp(self):
-        grant_role(f.user("rep"), Role.SALES_REP)
-        self.client.login(username="rep", password=PASSWORD)
+        # Owner, because the page is Owner-only from 2026-11-03. The
+        # parser tests below need no request at all; only the first one
+        # fetches the page.
+        grant_role(f.user("boss"), Role.OWNER)
+        self.client.login(username="boss", password=PASSWORD)
 
     def test_it_reads_the_changelog(self):
         response = self.client.get(WHATS_NEW)
         self.assertEqual(response.status_code, 200)
         self.assertTrue(response.context["releases"])
+
+    def test_nobody_else_can_read_it(self):
+        """Release notes say what broke and what was reversed. The
+        owner asked for that to be theirs (2026-11-03), and the nav
+        entry and hub card have to agree or test_navigation fails.
+        """
+        for username, role in (("rep", Role.SALES_REP), ("crew", Role.CLEANER)):
+            grant_role(f.user(username), role)
+            self.client.login(username=username, password=PASSWORD)
+            self.assertEqual(self.client.get(WHATS_NEW).status_code, 403, username)
+
+    def test_somebody_with_no_role_cannot_read_it_either(self):
+        self.client.login(username=f.user("nobody").username, password=PASSWORD)
+        self.assertEqual(self.client.get(WHATS_NEW).status_code, 403)
+
+    def test_signed_out_goes_to_the_sign_in_page(self):
+        self.client.logout()
+        response = self.client.get(WHATS_NEW)
+        self.assertEqual(response.status_code, 302)
+        self.assertIn(reverse("users:login"), response["Location"])
 
     def test_the_parser_reads_keep_a_changelog_shape(self):
         releases = changelog._parse(

@@ -263,7 +263,6 @@ class NoRoleTests(RouteSweep):
             "core:notifications_read_all",
             "core:onboarding_dismiss",
             "core:customize",
-            "core:whats_new",
             "core:styleguide",
             # The dashboard loads, deliberately, and shows nothing —
             # `DashboardView.get_context_data` returns early when the
