@@ -1,3 +1,5 @@
+from decimal import ROUND_HALF_UP, Decimal
+
 from django import forms
 from django.contrib.auth import get_user_model
 from django.db.models import Q
@@ -250,6 +252,53 @@ class JobForm(forms.ModelForm):
         return cleaned
 
 
+class WholeQuantityField(forms.IntegerField):
+    """A count of things, shown and saved whole (owner request).
+
+    `forms.IntegerField` alone is not enough, for two reasons found in
+    review (#203):
+
+    - **A legacy fractional row blocked its whole document.**
+      `LineItem.quantity` is a DecimalField, so a line saved as 2.50
+      before this rule renders as "2.50" — which IntegerField refuses.
+      Opening such a job and pressing Save failed on that line, and the
+      only way out was retyping it. `prepare_value` rounds for display,
+      so the box shows a whole number and an untouched save goes
+      through. (A whole value stored as "1.00" was always fine: Django
+      strips the trailing zeros.)
+    - **A big number reached the database.** `max_digits=8,
+      decimal_places=2` means six integer digits, so 1,000,000 passed
+      validation and then raised a numeric-overflow DataError — a 500
+      where a field error belonged.
+    """
+
+    MAX = 999_999
+
+    def __init__(self, **kwargs):
+        kwargs.setdefault("min_value", 1)
+        kwargs.setdefault("max_value", self.MAX)
+        kwargs.setdefault("initial", 1)
+        super().__init__(**kwargs)
+
+    def prepare_value(self, value):
+        """Round a stored Decimal for display, then keep it in range.
+
+        Half up, because half a window is a window to clean.
+
+        **Clamped, and that is the point of the second line.** The
+        column allows values this field does not: 0.25 is a legal
+        stored quantity and rounds to 0, below the minimum, and
+        999999.50 rounds to 1,000,000, above the maximum. Either would
+        put a legacy row outside the limits added here — so an
+        untouched edit would be refused again, just at the edges
+        (#203).
+        """
+        if isinstance(value, Decimal):
+            rounded = int(value.to_integral_value(rounding=ROUND_HALF_UP))
+            return min(max(rounded, 1), self.MAX)
+        return value
+
+
 class BaseLineFormSet(forms.BaseInlineFormSet):
     def add_fields(self, form, index):
         super().add_fields(form, index)
@@ -259,6 +308,35 @@ class BaseLineFormSet(forms.BaseInlineFormSet):
         chosen = getattr(form.instance, "service_type_id", None)
         condition = Q(is_active=True) | Q(pk=chosen) if chosen else Q(is_active=True)
         form.fields["service_type"].queryset = ServiceType.objects.filter(condition)
+        # Whole numbers only, on jobs, estimates and invoices alike
+        # (owner request, 2026-11-03). Two windows, not two and a half.
+        #
+        # **At the form, not the model.** `LineItem.quantity` stays a
+        # DecimalField: rows written before this exist and must still
+        # load and save, and the money maths is deliberately unrounded
+        # — `test_money_and_hours_invariants` pins a line total of
+        # 46.5767 from 2.66 × 17.51. A migration to an integer column
+        # would either break that invariant or quietly round live data.
+        #
+        # Services priced per square foot, linear foot or hour now need
+        # rounding: 1,250.5 sq ft becomes 1,251. That is the trade the
+        # owner chose.
+        #
+        # `initial=1` matters more than it looks: it is the model's own
+        # default, and the page always offers one blank row. Without it
+        # that row's "1" counts as an edit, the formset then validates
+        # it, demands a service, and refuses to save the job at all.
+        form.fields["quantity"] = WholeQuantityField(
+            label="Qty",
+            widget=forms.NumberInput(
+                attrs={
+                    "step": "1",
+                    "min": "1",
+                    "max": str(WholeQuantityField.MAX),
+                    "inputmode": "numeric",
+                }
+            ),
+        )
 
     def clean(self):
         super().clean()

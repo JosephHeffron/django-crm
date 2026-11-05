@@ -380,3 +380,28 @@ class AddressFollowsCustomerTests(EstimateTestCase):
         response = self.client.post(NEW, self.form(service_property=theirs.pk))
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "belongs to a different customer")
+
+
+class WholeNumberQuantityTests(EstimateTestCase):
+    """The same rule as the job form, because they share one formset
+    (owner request, 2026-11-03). Proved here rather than inferred."""
+
+    def test_a_fraction_is_refused_and_nothing_is_saved(self):
+        response = self.client.post(
+            NEW,
+            self.with_lines(
+                [{"service_type": self.service.pk, "quantity": "1.5", "unit_price": "100.00"}]
+            ),
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(Quote.objects.exists())
+        self.assertFalse(QuoteLineItem.objects.exists())
+
+    def test_a_whole_number_is_accepted(self):
+        self.client.post(
+            NEW,
+            self.with_lines(
+                [{"service_type": self.service.pk, "quantity": "4", "unit_price": "100.00"}]
+            ),
+        )
+        self.assertEqual(Quote.objects.get().line_items.get().quantity, Decimal("4"))
