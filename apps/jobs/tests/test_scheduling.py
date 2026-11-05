@@ -682,18 +682,117 @@ class WholeNumberQuantityTests(SchedulingTestCase):
         )
         self.assertEqual(Job.objects.get().line_items.count(), 1)
 
-    def test_a_row_saved_with_a_fraction_before_this_still_loads(self):
-        """`LineItem.quantity` is still a DecimalField on purpose: rows
-        written before this rule exist, and opening one must not 500.
-        Re-saving rounds it, which is the point."""
+    def legacy_job(self, quantity):
+        """A job with a line saved before this rule existed."""
         job = f.job(self.customer, self.owner, lines=[])
-        JobLineItem.objects.create(
+        line = JobLineItem.objects.create(
             job=job,
             service_type=self.service,
-            quantity=Decimal("2.50"),
+            quantity=quantity,
             unit_price=Decimal("100.00"),
             position=0,
         )
-        response = self.client.get(reverse("jobs:job_update", args=[job.pk]))
+        return job, line
+
+    def test_a_fractional_row_is_shown_rounded_so_it_can_be_resaved(self):
+        """The bug this change first had (#203): a line stored as 2.50
+        rendered as "2.50", which the field then refused — so opening
+        that job and pressing Save failed on that line, and the only
+        way out was retyping it. It renders as a whole number now.
+        """
+        job, _ = self.legacy_job(Decimal("2.50"))
+        page = self.client.get(reverse("jobs:job_update", args=[job.pk])).content.decode()
+        start = page.index('name="lines-0-quantity"')
+        field = page[page.rindex("<input", 0, start) : page.index(">", start)]
+        self.assertIn('value="3"', field)
+        self.assertNotIn("2.50", field)
+
+    def test_resaving_an_untouched_legacy_line_works_and_rounds_it(self):
+        """What the person actually does: open an old job, change
+        something else, save. That must not be refused."""
+        job, line = self.legacy_job(Decimal("2.50"))
+        response = self.client.post(
+            reverse("jobs:job_update", args=[job.pk]),
+            self.with_lines(
+                [
+                    {
+                        "id": line.pk,
+                        "service_type": self.service.pk,
+                        "quantity": "3",
+                        "unit_price": "100.00",
+                    }
+                ],
+                initial=1,
+            ),
+        )
+        self.assertEqual(response.status_code, 302)
+        line.refresh_from_db()
+        self.assertEqual(line.quantity, Decimal("3"))
+
+    def test_a_whole_quantity_stored_with_decimals_resaves_unchanged(self):
+        """Every line written before this rule reads like "1.00".
+        Django's IntegerField strips the trailing zeros, so these were
+        never the problem — asserted so a future change cannot make
+        them one.
+        """
+        job, line = self.legacy_job(Decimal("1.00"))
+        response = self.client.post(
+            reverse("jobs:job_update", args=[job.pk]),
+            self.with_lines(
+                [
+                    {
+                        "id": line.pk,
+                        "service_type": self.service.pk,
+                        "quantity": "1.00",
+                        "unit_price": "100.00",
+                    }
+                ],
+                initial=1,
+            ),
+        )
+        self.assertEqual(response.status_code, 302)
+        line.refresh_from_db()
+        self.assertEqual(line.quantity, Decimal("1"))
+
+    def test_a_quantity_too_big_for_the_column_says_so_clearly(self):
+        """`max_digits=8, decimal_places=2` leaves six integer digits.
+
+        Review suggested this reached the database as an overflow; it
+        did not — `_post_clean` runs the model's own DecimalValidator,
+        so 1,000,000 was already a field error reading "no more than 6
+        digits before the decimal point" (#203). The form's own cap is
+        for the message and the `max` attribute, so this asserts the
+        message rather than merely that something was refused.
+        """
+        response = self.client.post(
+            NEW,
+            self.with_lines(
+                [
+                    {
+                        "service_type": self.service.pk,
+                        "quantity": "1000000",
+                        "unit_price": "1.00",
+                    }
+                ]
+            ),
+        )
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, 'value="2.50"')
+        self.assertFalse(Job.objects.exists())
+        errors = response.context["lines"].forms[0].errors["quantity"]
+        self.assertEqual(errors, ["Ensure this value is less than or equal to 999999."])
+
+    def test_the_largest_the_column_holds_is_accepted(self):
+        """The boundary itself, so the cap cannot drift off by one."""
+        self.client.post(
+            NEW,
+            self.with_lines(
+                [
+                    {
+                        "service_type": self.service.pk,
+                        "quantity": "999999",
+                        "unit_price": "1.00",
+                    }
+                ]
+            ),
+        )
+        self.assertEqual(Job.objects.get().line_items.get().quantity, Decimal("999999"))
