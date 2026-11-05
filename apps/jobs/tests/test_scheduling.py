@@ -754,6 +754,46 @@ class WholeNumberQuantityTests(SchedulingTestCase):
         line.refresh_from_db()
         self.assertEqual(line.quantity, Decimal("1"))
 
+    def test_a_legacy_row_below_the_minimum_is_shown_at_the_minimum(self):
+        """The column allows what this field does not: 0.25 is a legal
+        stored quantity and rounds to 0, which the new minimum refuses.
+        Rounding without clamping put a legacy row outside the limits
+        this unit added, so an untouched edit was refused again — just
+        at the edge (#203).
+        """
+        job, line = self.legacy_job(Decimal("0.25"))
+        page = self.client.get(reverse("jobs:job_update", args=[job.pk])).content.decode()
+        start = page.index('name="lines-0-quantity"')
+        field = page[page.rindex("<input", 0, start) : page.index(">", start)]
+        self.assertIn('value="1"', field)
+
+        response = self.client.post(
+            reverse("jobs:job_update", args=[job.pk]),
+            self.with_lines(
+                [
+                    {
+                        "id": line.pk,
+                        "service_type": self.service.pk,
+                        "quantity": "1",
+                        "unit_price": "100.00",
+                    }
+                ],
+                initial=1,
+            ),
+        )
+        self.assertEqual(response.status_code, 302)
+        line.refresh_from_db()
+        self.assertEqual(line.quantity, Decimal("1"))
+
+    def test_a_legacy_row_above_the_maximum_is_shown_at_the_maximum(self):
+        """And the other edge: 999999.50 fits the column and rounds to
+        1,000,000, which the new maximum refuses."""
+        job, _ = self.legacy_job(Decimal("999999.50"))
+        page = self.client.get(reverse("jobs:job_update", args=[job.pk])).content.decode()
+        start = page.index('name="lines-0-quantity"')
+        field = page[page.rindex("<input", 0, start) : page.index(">", start)]
+        self.assertIn('value="999999"', field)
+
     def test_a_quantity_too_big_for_the_column_says_so_clearly(self):
         """`max_digits=8, decimal_places=2` leaves six integer digits.
 

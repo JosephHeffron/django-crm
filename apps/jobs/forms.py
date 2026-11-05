@@ -281,10 +281,21 @@ class WholeQuantityField(forms.IntegerField):
         super().__init__(**kwargs)
 
     def prepare_value(self, value):
-        """Round a stored Decimal for display. Half up, because half a
-        window is a window to clean."""
+        """Round a stored Decimal for display, then keep it in range.
+
+        Half up, because half a window is a window to clean.
+
+        **Clamped, and that is the point of the second line.** The
+        column allows values this field does not: 0.25 is a legal
+        stored quantity and rounds to 0, below the minimum, and
+        999999.50 rounds to 1,000,000, above the maximum. Either would
+        put a legacy row outside the limits added here — so an
+        untouched edit would be refused again, just at the edges
+        (#203).
+        """
         if isinstance(value, Decimal):
-            return int(value.to_integral_value(rounding=ROUND_HALF_UP))
+            rounded = int(value.to_integral_value(rounding=ROUND_HALF_UP))
+            return min(max(rounded, 1), self.MAX)
         return value
 
 
