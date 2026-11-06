@@ -6,7 +6,13 @@
 > Under rootless Podman with Caddy on the compose network, it was not:
 > Podman's port forwarder rewrote every source address, so all
 > visitors shared one bucket. Production Caddy now runs on the host
-> network. The limiter's code is unchanged.
+> network.
+>
+> **Also amended in the review of #208:** each counter update now runs
+> under a PostgreSQL advisory lock on its key
+> (`apps/users/throttle.py`'s `_serialize`). Two failures in two
+> workers could otherwise both read N and both write N + 1, so a burst
+> of guesses was undercounted.
 
 *(Number reserved for this decision by `docs/VPS_DEPLOYMENT_PLAN.md`'s
 ADR table; the recommendation is its D4.)*

@@ -26,7 +26,7 @@ from unittest import skipIf
 from django.conf import settings
 from django.test import SimpleTestCase
 
-from apps.core.tests._caddy import CADDY, adapt, strip_comments
+from apps.core.tests._caddy import CADDY, CADDY_ENV, adapt, answer_for, first_answer, strip_comments
 
 ROOT = Path(settings.BASE_DIR)
 
@@ -49,12 +49,27 @@ def service(compose, name):
     return "\n".join(body)
 
 
-def published_ports(body):
-    """The entries of a service's `ports:` list."""
-    match = re.search(r"^ {4}ports:\n((?: {6}- .*\n?)+)", body, re.MULTILINE)
-    if not match:
-        return []
-    return [line.strip()[2:].strip().strip("\"'") for line in match.group(1).splitlines()]
+def ports_setting(body):
+    """A service's `ports` setting as written, or [] when it has none.
+
+    The key line and every line under it, stripped. Compose accepts
+    several spellings (a block list, an inline list, the long form
+    with `target:` and `published:`), and a reader that understood
+    only one would see nothing in the others and pass a public port
+    (review of #208). Reading the raw lines means any spelling is seen,
+    and the tests below accept exactly one.
+    """
+    lines = body.splitlines()
+    for i, line in enumerate(lines):
+        if re.match(r"^ {4}ports\s*:", line):
+            setting = [line.strip()]
+            for following in lines[i + 1 :]:
+                if following.strip() and not following.startswith(" " * 5):
+                    break
+                if following.strip():
+                    setting.append(following.strip())
+            return setting
+    return []
 
 
 def handlers_of(config, kind):
@@ -84,21 +99,38 @@ class ProductionNetworkTests(SimpleTestCase):
         self.assertRegex(caddy, r"(?m)^ {4}network_mode: host$")
         # Ports do not apply on the host network; one left here would
         # suggest Caddy is still behind the port forwarder.
-        self.assertEqual(published_ports(caddy), [])
+        self.assertEqual(ports_setting(caddy), [])
 
     def test_django_is_published_on_loopback_and_nowhere_else(self):
-        self.assertEqual(published_ports(service(self.compose, "web")), ["127.0.0.1:8000:8000"])
+        # Exactly this spelling. Anything else, including a correct
+        # binding written another way, fails and gets looked at.
+        self.assertEqual(
+            ports_setting(service(self.compose, "web")), ["ports:", '- "127.0.0.1:8000:8000"']
+        )
 
     def test_the_database_is_not_published_at_all(self):
-        self.assertEqual(published_ports(service(self.compose, "db")), [])
+        self.assertEqual(ports_setting(service(self.compose, "db")), [])
 
-    def test_the_port_reader_sees_a_public_binding(self):
-        # The guard above is only as good as this.
-        body = '    ports:\n      - "8000:8000"\n      - "127.0.0.1:9000:9000"\n'
-        self.assertEqual(published_ports(body), ["8000:8000", "127.0.0.1:9000:9000"])
-        self.assertEqual(published_ports("    image: x\n"), [])
+    def test_only_caddy_is_on_the_host_network(self):
+        # On the host network gunicorn would listen on every interface,
+        # and PostgreSQL likewise, with no port mapping to stop them.
+        for name in ("web", "db"):
+            self.assertNotIn("network_mode", service(self.compose, name), name)
+
+    def test_the_port_reader_sees_every_spelling(self):
+        # The guards above are only as good as this.
+        block = '    ports:\n      - "8000:8000"\n    image: x\n'
+        inline = '    ports: ["5432:5432"]\n    image: x\n'
+        long_form = "    ports:\n      - target: 8000\n        published: 8000\n    image: x\n"
+        self.assertEqual(ports_setting(block), ["ports:", '- "8000:8000"'])
+        self.assertEqual(ports_setting(inline), ['ports: ["5432:5432"]'])
+        self.assertEqual(ports_setting(long_form), ["ports:", "- target: 8000", "published: 8000"])
+        self.assertEqual(ports_setting("    image: x\n"), [])
 
     def test_the_crm_proxies_to_the_loopback_port(self):
+        # A quick text check. The real one is
+        # `test_crm_pages_are_answered_by_the_loopback_proxy`, which asks
+        # the adapted config what actually answers a CRM page.
         live = strip_comments((ROOT / "Caddyfile").read_text())
         self.assertIn("reverse_proxy 127.0.0.1:8000", live)
         self.assertNotIn("web:8000", live, "web:8000 is only reachable on the compose network")
@@ -109,6 +141,50 @@ class ProductionNetworkTests(SimpleTestCase):
         self.assertTrue(live.startswith("{"), "the global options block is not first")
         first_block = live[: live.index("}") + 1]
         self.assertRegex(first_block, r"\badmin\s+off\b")
+
+
+class AnswerReaderTests(SimpleTestCase):
+    """`first_answer`, on hand-built routes, so it is proven able to see
+    the failure the adapted-config tests look for."""
+
+    PROXY = {"handler": "reverse_proxy", "upstreams": [{"dial": "127.0.0.1:8000"}]}
+
+    def site(self, *catch_all):
+        return [
+            {
+                "match": [{"host": ["crm.example.test"]}],
+                "terminal": True,
+                "handle": [
+                    {
+                        "handler": "subroute",
+                        "routes": [
+                            {"handle": [{"handler": "encode"}]},
+                            {
+                                "match": [{"path": ["/static/*"]}],
+                                "handle": [{"handler": "file_server"}],
+                            },
+                            {"handle": [{"handler": "subroute", "routes": list(catch_all)}]},
+                        ],
+                    }
+                ],
+            }
+        ]
+
+    def test_a_page_reaches_the_proxy(self):
+        routes = self.site({"handle": [self.PROXY]})
+        self.assertIs(first_answer(routes, "crm.example.test", "/contacts/"), self.PROXY)
+        self.assertEqual(
+            first_answer(routes, "crm.example.test", "/static/x.css")["handler"], "file_server"
+        )
+
+    def test_an_answer_before_the_proxy_is_seen(self):
+        respond = {"handler": "static_response", "status_code": 503}
+        routes = self.site({"handle": [respond]}, {"handle": [self.PROXY]})
+        self.assertIs(first_answer(routes, "crm.example.test", "/contacts/"), respond)
+
+    def test_another_host_gets_nothing(self):
+        routes = self.site({"handle": [self.PROXY]})
+        self.assertIsNone(first_answer(routes, "elsewhere.test", "/contacts/"))
 
 
 @skipIf(not CADDY, "needs the caddy binary; CI installs it")
@@ -124,6 +200,24 @@ class AdaptedProductionConfigTests(SimpleTestCase):
         for proxy in proxies:
             dials = [upstream.get("dial") for upstream in proxy.get("upstreams", [])]
             self.assertEqual(dials, ["127.0.0.1:8000"])
+
+    def test_crm_pages_are_answered_by_the_loopback_proxy(self):
+        # What actually answers, in the order Caddy runs things, so an
+        # earlier `respond` or a misplaced handler fails here even when
+        # a reverse_proxy with the right upstream exists somewhere.
+        config = adapt(ROOT / "Caddyfile")
+        for path in ("/", "/contacts/", "/accounts/login/", "/admin/login/"):
+            with self.subTest(path=path):
+                answer = answer_for(config, CADDY_ENV["CRM_HOST"], path)
+                self.assertIsNotNone(answer, "nothing answers")
+                self.assertEqual(answer.get("handler"), "reverse_proxy")
+                self.assertEqual([u.get("dial") for u in answer["upstreams"]], ["127.0.0.1:8000"])
+
+    def test_the_website_is_answered_from_files_not_django(self):
+        config = adapt(ROOT / "Caddyfile")
+        for host in (CADDY_ENV["WEBSITE_HOST"], CADDY_ENV["WEBSITE_WWW_HOST"]):
+            with self.subTest(host=host):
+                self.assertEqual(answer_for(config, host, "/").get("handler"), "file_server")
 
     def test_the_dev_stack_keeps_the_compose_network(self):
         # The deliberate difference recorded in Caddyfile.dev.

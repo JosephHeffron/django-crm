@@ -68,9 +68,12 @@ proxies to `127.0.0.1:8000`.**
   connection on 80 and 443, so the address it appends to
   `X-Forwarded-For` is the visitor's own. `apps/users/throttle.py`
   needs no change.
-- Caddy is still rootless. Binding 80 and 443 still relies on the
-  `net.ipv4.ip_unprivileged_port_start=80` sysctl the deployment guide
-  already sets. `ports:` no longer applies to it and is removed.
+- Caddy is still rootless. Binding 80 and 443 needs the
+  `net.ipv4.ip_unprivileged_port_start=80` sysctl (audit F-VPS-1).
+  Ubuntu's default is 1024, so without it Caddy cannot start at all.
+  The Ubuntu deployment guide (`docs/ADMIN_GUIDE.md` step 2, PR #209)
+  sets it and checks it. `ports:` no longer applies to Caddy and is
+  removed.
 - The rewrite moves to the hop between Caddy and Django, where it does
   no harm: Django's `REMOTE_ADDR` was always the proxy, and the client
   address travels in the header.
@@ -104,12 +107,22 @@ closed explicitly and each held by a test.
   which is what it is for, and nothing else: PostgreSQL publishes no
   port. A future service that listens on the host's loopback should be
   added with this in mind.
+- **A process on the server can bypass Caddy.** Anything running on
+  the host can connect to `127.0.0.1:8000` directly and send its own
+  `X-Forwarded-For`, choosing its own address bucket (review of #208).
+  The per-username counter still applies. Django cannot tell Caddy
+  from such a process, because `rootlessport` gives both the same
+  source address. Accepted: running code on the server already means a
+  shell holding `.env`, the database password and the data itself, so
+  this does not widen what a local attacker can reach. Before this ADR,
+  Django was not reachable from the host at all; this is the one thing
+  the change gives up.
 - **The firewall still decides what is public.** DigitalOcean's cloud
   firewall allows 22, 80 and 443 only. Django's port is on loopback,
   so it is not reachable from outside even if a firewall rule is wrong.
-- **Proof is on the droplet, not here.** The guide's check is
-  `ss -tlnp` showing the process that owns ports 80 and 443 is `caddy`,
-  not `rootlessport`. A rootless Caddy behind a port forwarder would
+- **Proof is on the droplet, not here.** The guide's check
+  (`docs/ADMIN_GUIDE.md` step 7, PR #209) is `ss -tlnp` showing the
+  process that owns ports 80 and 443 is `caddy`, not `rootlessport`. A rootless Caddy behind a port forwarder would
   show the forwarder.
 - **ADR 0016's site blocks are unchanged.** Only the upstream address
   changes, from `web:8000` to `127.0.0.1:8000`, and the `/book/*` route
