@@ -86,6 +86,9 @@ services:
       # exact denial with the mount unlabeled. Named volumes below don't
       # need this — Podman labels those itself.
       - ./Caddyfile.dev:/etc/caddy/Caddyfile:ro,Z
+      # The public website, served at https://www.localhost:8443/ — see
+      # compose.prod.yml's matching mount.
+      - ./website:/srv/website:ro,Z
       - static_files_dev:/srv/static:ro
       - media_files_dev:/srv/media:ro
       - caddy_data_dev:/data

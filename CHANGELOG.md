@@ -138,6 +138,22 @@ for meaningful changes — not for every small fix or documentation tweak.
   **Keep two Owner accounts.** Either can reset the other, so a
   forgotten owner password stays a two-click fix instead of needing
   server access — see `docs/ADMIN_GUIDE.md`.
+- **The public website's scaffold**, in `website/`: home, services,
+  our work, about, contact and a 404 page, one shared header and
+  footer, and one stylesheet, served by the same Caddy as the CRM on
+  its own hostname with no route into the CRM. Everything the owner
+  still has to supply shows as a dashed "To supply" box, so nothing
+  unfinished can go live unnoticed. A test refuses anything in that
+  folder that is not a web asset, any photo still carrying its GPS
+  position, and any file over 1 MiB, because this repository is
+  public. See `docs/WEBSITE.md`
+  (`docs/decisions/0016-two-sites-behind-one-caddy.md`,
+  `docs/decisions/0017-the-website-lives-in-this-repository.md`).
+
+  **New `.env` settings:** `CRM_HOST` and `WEBSITE_HOST` (required),
+  and `WEBSITE_WWW_HOST` (optional). Caddy no longer takes its address
+  from `DJANGO_ALLOWED_HOSTS`. One hostname per setting: a
+  space-separated list in `.env` stops the nightly backup.
 
 ### Removed
 - **Team messaging — the Inbox and Messages pages — is retired.** The

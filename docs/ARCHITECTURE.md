@@ -103,6 +103,10 @@ Three containers, run under Podman:
 3. **Caddy** — terminates HTTPS, reverse-proxies to the Django container over
    the internal Podman network, serves static files efficiently, and is the
    only container that should ever be reachable from outside the host.
+   It serves two sites: the CRM on `{$CRM_HOST}`, and the public website
+   on `{$WEBSITE_HOST}` (plus `{$WEBSITE_WWW_HOST}`), whose static files
+   come from `website/` in this repository and which reaches no part of
+   Django (ADRs 0016 and 0017, `docs/WEBSITE.md`).
 
 `podman-compose` wires these together for both local/staging use
 (`compose.dev.yml`) and production (`compose.prod.yml`), with the production

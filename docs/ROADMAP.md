@@ -400,6 +400,27 @@ insufficient.
          rather than duplicating them, CI keeps the required checks
          reporting on website-only PRs, and a guard keeps private data
          out of a folder that is published the moment it is committed.
+         — *scaffold done, content outstanding.* Started ahead of
+         units 1-3 deliberately: none of it reaches the domain until
+         unit 6, and a website hostname is needed from unit 3's first
+         Caddy start anyway.
+         - Done (2026-11-06): `website/` with six pages, shared
+           partials, one stylesheet; the two-site Caddyfile
+           (`CRM_HOST`, `WEBSITE_HOST`, `WEBSITE_WWW_HOST`) and the
+           website mount in both compose files; the private-data guard
+           and page checks in `apps/core/tests/test_website.py`;
+           `caddy adapt` tests that the website hostnames reach no part
+           of Django; `docs/WEBSITE.md`. ADRs 0016 and 0017.
+         - **Found while building:** the plan's single space-separated
+           `WEBSITE_HOSTS` would have stopped every nightly backup —
+           `scripts/backup.sh` sources `.env` under `set -e`, and the
+           second hostname runs as a command (exit 127, reproduced).
+           One hostname per variable instead, with a test.
+         - Outstanding: the owner's content (`grep -rn data-placeholder
+           website/`), the CI fast path for website-only PRs (D6.5),
+           `deploy.sh --website-only` (D6.4), `LocalBusiness`
+           structured data once real values exist, and the decisions
+           listed in `docs/WEBSITE.md`.
       5. **Website → CRM** — one public booking page, `/book/`, served
          by Django on the website's own origin, creating a `Contact`
          with `status=lead` and `lead_source=website`. No API, no DRF,
@@ -410,15 +431,17 @@ insufficient.
          registrar and the DNS host, so cancelling it early takes the
          domain down.
 
-      ADRs, as their units start — three written so far:
+      ADRs, as their units start — six written so far:
       **0015** (x86-64 VPS replaces the Pi — *written*, #195),
-      0016 (two sites behind one Caddy),
-      0017 (the website lives in this repository, with the mounts,
-      deploy, CI filter and private-data guard that implies),
+      **0016** (two sites behind one Caddy — *written*, unit 4),
+      **0017** (the website lives in this repository, with the mounts,
+      deploy, CI filter and private-data guard that implies —
+      *written*, unit 4),
       0018 (same-origin lead intake at `/book/`),
       **0019** (email via the existing Gmail account — *written then
       superseded*, #188 and #194),
-      0020 (database-backed cache for rate limiting instead of Redis),
+      **0020** (database-backed cache for rate limiting instead of
+      Redis — *written*, unit 1),
       **0021** (passwords set by the owner, not reset by email —
       *written*, #193; it replaces 0019 and was not in the original
       list).

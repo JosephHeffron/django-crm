@@ -12,6 +12,31 @@ actually verified.
 > files that no longer exist. Those entries are kept as the record of
 > what was built at the time.
 
+> **Update 2026-11-06 — Phase 22.5 unit 4 (website scaffold), on
+> branch `feature/website-scaffold`, not yet merged.** Built from
+> `main` at `55650a3` (#203). `website/` holds six pages, the shared
+> header/footer partials and one stylesheet, with every piece of
+> owner content still missing marked `data-placeholder`. The production
+> Caddyfile now serves two sites, the CRM on `CRM_HOST` and the website
+> on `WEBSITE_HOST`/`WEBSITE_WWW_HOST`, with no route from the website
+> hostnames to Django (ADRs 0016, 0017; `docs/WEBSITE.md`).
+> **Not verified here:** neither Django nor Caddy could be installed in
+> the session that wrote it, so the full suite and the `caddy adapt`
+> tests (the website-routing class and the existing private-media
+> guards, whose environment changed) run for the first time in CI. The
+> 23 website tests that need neither were run under plain `unittest`
+> with a two-line Django stub, and each guard was shown to fail on a
+> planted bad input (11 mutations). Full detail in
+> `logs/claude/phase-22.5-unit-4-website.md`.
+> **Found on the way:** the plan's space-separated `WEBSITE_HOSTS`
+> would have stopped the nightly backup (`scripts/backup.sh` sources
+> `.env` under `set -e`; exit 127, reproduced). One hostname per
+> variable, and a test that sources `.env.example` the same way.
+> **Correction to the block below:** the login rate limit it lists as
+> not started has since landed (`apps/users/throttle.py`, ADR 0020),
+> as `docs/ROADMAP.md` records. The deployment guide and backup-failure
+> alerting are still not started, and nothing is deployed.
+
 > **Last updated 2026-11-02.** Nothing uncommitted, no open pull
 > requests, **1,383 tests passing** on `main` at that date.
 > (Deliberately no commit hash and no claim that a checkout is current:
