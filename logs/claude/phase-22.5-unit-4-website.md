@@ -250,12 +250,104 @@ and `git log` answers it properly.
   while two layouts were visibly wrong. The screenshot step is cheap
   enough to keep.
 
+## CI on #206 (the scaffold)
+
+The first real run of what this session could not run locally.
+**1,479 tests, OK, none skipped.** That includes the website-routing
+class and the existing private-media guards against Caddy v2.11.7, so
+the walkers' assumed `caddy adapt` shape held on the first attempt.
+`ruff` 0.17.3: all checks passed, 341 files formatted. CodeQL and the
+dependency audit passed too. Sourcery had spent its weekly budget, and
+CodeRabbit skipped the PR without reviewing it.
+
+## Second PR: the website-only shortcuts (D6.4, D6.5)
+
+Branch `feature/website-fast-paths`, stacked on #206.
+
+- **`scripts/change-scope.sh`** is the one rule. It reads `git diff
+  --name-only --no-renames` output and prints `website` only if every
+  path is under `website/` and none is under `website/partials/`. It
+  prints `full` otherwise, including for an empty list. It reads all
+  of its input before answering, because an early exit would SIGPIPE
+  the writer, and under Actions' `pipefail` that fails the step.
+- **`ci.yml`** checks out with `fetch-depth: 2`; on a pull request,
+  HEAD is GitHub's test merge commit and `HEAD^1` the base tip, so
+  `git diff HEAD^1 HEAD` is exactly the PR. Migration check, migrate
+  and the full suite run `if: scope != 'website'` — not `== 'full'`,
+  so an empty answer still runs everything. A website-only PR instead
+  runs `manage.py test apps.core.tests.test_website` under the same
+  `test` job. Caddy install, the Django check and lint always run. The
+  trigger has no `paths` filter, so the required check always reports.
+- **`deploy.sh --website-only <ref>`** resolves the ref, refuses
+  unless the diff from what is deployed is `website`, checks out
+  without touching podman, then fetches `https://$WEBSITE_HOST/`
+  through Caddy with `--resolve …:443:127.0.0.1` and the certificate
+  checked. It expects the shared header and no raw `{{include`. On
+  failure it checks out the previous ref and checks again, so it can
+  say whether the content or Caddy is at fault. The rollback target is
+  recorded only on success.
+
+**Why `--no-renames` matters, with a test:** without it, `git mv
+apps/app.py website/app.js` lists only `website/app.js`, the code
+removal goes unseen, and a website-only deploy would leave the image
+and the checkout disagreeing. `test_code_moved_into_website_is_refused`
+fails when the flag is removed (mutation C below).
+
+### Tests
+
+`apps/core/tests/test_website_fast_paths.py`, 26 tests:
+- 7 on the classification.
+- 5 on `ci.yml` read as text: no path filters, the shared rule with
+  `--no-renames`, the full steps gated `!= 'website'`, the website step
+  gated `== 'website'`, and lint and Caddy always on.
+- 14 running the real `deploy.sh` in throwaway repositories (an
+  origin, a server checkout, a developer clone), with `curl`,
+  `podman` and `podman-compose` stubbed to record their calls.
+  Covered: a website change goes live with no container command; the
+  check uses `--resolve` and never `-k`; a SHA works; a code change, a
+  partials change, a rename into `website/`, a no-op, a dirty tree, an
+  unknown ref and a missing ref are refused; a page without the
+  header, a raw include and an unreachable site are reverted; a
+  missing `WEBSITE_HOST` fails closed.
+
+$ PYTHONPATH=/tmp/djstub:. python3 -m unittest apps.core.tests.test_website_fast_paths apps.core.tests.test_website
+Result: 55 tests, OK, 6 skipped (the Caddy class, as before). The
+first run had one error: the long-input test passed 50,000 paths as a
+single argument, which is over the OS limit. It now generates them
+inside the pipeline.
+
+Mutations, each applied to a copy and the suite rerun:
+
+| | Broken | Caught by |
+|---|---|---|
+| A | scope script exits at the first non-website path | `test_a_long_list_is_read_to_the_end` |
+| B | partials treated as website | the classification test and the deploy refusal test |
+| C | deploy's `git diff` without `--no-renames` | `test_code_moved_into_website_is_refused` |
+| D | deploy's scope check disabled | four refusal tests |
+| E | `paths-ignore` added to the trigger | `test_the_trigger_has_no_path_filters` |
+
+`sh -n` on both scripts: OK. `ruff check`/`format --check`: OK.
+
+**Not tested here:** the fast path on a real website-only pull
+request, which needs one to exist (the first content PR will be it),
+and `--website-only` against a real Caddy, which needs the droplet.
+
+### Found, not fixed: a full deploy does not check Caddy
+
+`verify_health` checks only the `db` and `web` containers. A full
+deploy with a broken Caddyfile (an unset `WEBSITE_HOST`, say) brings
+`web` up healthy and reports success, while Caddy is down and both
+sites are offline. Now that the Caddyfile depends on two required
+variables, this deserves a fix: validate the Caddyfile with the
+deployed environment before restarting, or check Caddy's container
+afterwards. Either needs testing against a real stack, so it belongs
+with unit 1's deployment guide or unit 3, not here.
+
 ## Next
-1. CI on the PR: the first real run of the Caddy tests and the full
-   suite. Adjust the adapt walkers if their assumed JSON shape is off.
+1. Merge #206, then this PR.
 2. Owner content, tracked by `grep -rn data-placeholder website/`.
-3. Plan D6.5 (CI fast path for website-only PRs) and D6.4
-   (`deploy.sh --website-only`), each its own PR.
-4. Unit 1's remaining items (deployment guide, backup alerting) before
-   unit 3. The deployment guide should include the `new` DNS record
-   and the three hostname variables.
+   The first content PR is also the first live test of the CI fast
+   path.
+3. Unit 1's remaining items (deployment guide, backup alerting) before
+   unit 3. The guide should include the `new` DNS record, the three
+   hostname variables, and a Caddy check for full deploys (above).

@@ -154,6 +154,13 @@ for meaningful changes — not for every small fix or documentation tweak.
   and `WEBSITE_WWW_HOST` (optional). Caddy no longer takes its address
   from `DJANGO_ALLOWED_HOSTS`. One hostname per setting: a
   space-separated list in `.env` stops the nightly backup.
+- **Website-only changes take a shortcut**, in CI and in deployment.
+  A pull request that changes only website content runs the website's
+  checks instead of the whole suite. `./scripts/deploy.sh
+  --website-only <ref>` publishes it without rebuilding or restarting
+  the CRM, after confirming nothing else changed. It checks the live
+  page through Caddy and puts the previous version back if the page is
+  broken.
 
 ### Removed
 - **Team messaging — the Inbox and Messages pages — is retired.** The

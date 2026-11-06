@@ -416,11 +416,15 @@ insufficient.
            `scripts/backup.sh` sources `.env` under `set -e`, and the
            second hostname runs as a command (exit 127, reproduced).
            One hostname per variable instead, with a test.
+         - Done (2026-11-06, second PR): the website-only shortcuts.
+           CI runs just the website's checks on a website-only PR
+           (D6.5), under the same `test` check and with no path filter
+           on the trigger. `deploy.sh --website-only` (D6.4) refuses
+           anything else, checks the page through Caddy, and reverts on
+           failure. One rule serves both: `scripts/change-scope.sh`.
          - Outstanding: the owner's content (`grep -rn data-placeholder
-           website/`), the CI fast path for website-only PRs (D6.5),
-           `deploy.sh --website-only` (D6.4), `LocalBusiness`
-           structured data once real values exist, and the decisions
-           listed in `docs/WEBSITE.md`.
+           website/`), `LocalBusiness` structured data once real values
+           exist, and the decisions listed in `docs/WEBSITE.md`.
       5. **Website → CRM** — one public booking page, `/book/`, served
          by Django on the website's own origin, creating a `Contact`
          with `status=lead` and `lead_source=website`. No API, no DRF,

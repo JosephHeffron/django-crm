@@ -15,6 +15,9 @@
 #
 # Usage:
 #   ./scripts/deploy.sh <git-ref>   # deploy a specific tag/branch/commit
+#   ./scripts/deploy.sh --website-only <git-ref>
+#                                   # public-website content only: no image
+#                                   # rebuild, no restart (see deploy_website)
 #   ./scripts/deploy.sh rollback    # roll back to the previously-deployed revision
 #   ./scripts/deploy.sh status      # report current health without changing anything
 #
@@ -45,11 +48,16 @@ HEALTH_CHECK_INTERVAL=5
 cd "$REPO_DIR"
 
 usage() {
-	echo "Usage: $0 <git-ref>|rollback|status" >&2
+	echo "Usage: $0 <git-ref>|--website-only <git-ref>|rollback|status" >&2
 	exit 1
 }
 
-[ $# -eq 1 ] || usage
+case "$#:${1:-}" in
+2:--website-only) ;;
+1:--website-only) usage ;;
+1:*) ;;
+*) usage ;;
+esac
 
 require_clean_tree() {
 	# Never silently discard operator or in-progress state — this
@@ -204,6 +212,114 @@ deploy_ref() {
 	exit 1
 }
 
+# --- website-only deploys --------------------------------------------
+#
+# The public website is bind-mounted into Caddy straight from this
+# checkout (compose.prod.yml, docs/decisions/0017-the-website-lives-in-this-repository.md),
+# so new content is live the moment the checkout changes. A full deploy
+# would rebuild the web image and recreate every container to change a
+# word on a page; this path does neither (plan D6.4).
+#
+# Its safety is the scope check: the target must differ from what is
+# deployed only under website/, and not in website/partials/, which
+# Django reads. That is scripts/change-scope.sh, the same rule CI uses
+# to decide a pull request needs only the website's checks. Anything
+# else is refused, because checking out code without rebuilding would
+# leave the running image and the checkout disagreeing about what is
+# deployed. The Caddyfile is outside website/ for the same reason: it
+# is a single-file bind mount, which a checkout does not update inside
+# a running container.
+
+website_host() {
+	# The same .env the stack reads, sourced in a subshell so nothing in
+	# it reaches this script's environment. One hostname, per
+	# .env.example; the www name, if any, is served by the same block.
+	[ -f "$REPO_DIR/.env" ] || {
+		echo "no .env in $REPO_DIR" >&2
+		return 1
+	}
+	host="$(
+		. "$REPO_DIR/.env" >/dev/null 2>&1 || true
+		printf '%s' "${WEBSITE_HOST:-}"
+	)"
+	[ -n "$host" ] || {
+		echo "WEBSITE_HOST is not set in .env" >&2
+		return 1
+	}
+	printf '%s\n' "$host"
+}
+
+verify_website() {
+	# Asks Caddy for the home page the way a visitor would, over HTTPS
+	# with a real certificate check, but pinned to this host with
+	# --resolve so it tests this server rather than whatever DNS says.
+	# A 200 is not enough: the page must carry the shared header, which
+	# proves Caddy's `templates` include ran, and must not contain a raw
+	# include, which would mean it did not.
+	host="$(website_host)" || return 1
+	page="$(curl -fsS --max-time 15 --resolve "$host:443:127.0.0.1" "https://$host/" 2>&1)" || {
+		echo "website not serving: https://$host/ ($page)"
+		return 1
+	}
+	case "$page" in
+	*"{{include"*)
+		echo "website broken: https://$host/ still contains an unprocessed {{include"
+		return 1
+		;;
+	*'class="site-header"'*)
+		echo "website healthy: https://$host/"
+		return 0
+		;;
+	*)
+		echo "website broken: https://$host/ is missing the shared header"
+		return 1
+		;;
+	esac
+}
+
+deploy_website() {
+	ref="$1"
+	require_clean_tree
+	previous="$(git rev-parse HEAD)"
+
+	echo "--- website-only deploy of $ref (currently at $previous) ---"
+	git fetch origin
+	# Same resolution order as deploy_ref: origin/<ref> for a branch
+	# name, then the ref itself for a tag or SHA.
+	target="$(git rev-parse --verify --quiet "origin/$ref^{commit}" ||
+		git rev-parse --verify --quiet "$ref^{commit}")" || {
+		echo "ERROR: cannot resolve $ref" >&2
+		exit 1
+	}
+
+	scope="$(git diff --name-only --no-renames "$previous" "$target" | sh "$REPO_DIR/scripts/change-scope.sh")"
+	if [ "$scope" != "website" ]; then
+		echo "ERROR: $ref is not a website-only change from what is deployed ($previous)." >&2
+		echo "It touches something outside website/, or website/partials/, or nothing at all." >&2
+		echo "Use a full deploy instead: $0 $ref" >&2
+		exit 1
+	fi
+
+	git checkout --detach "$target"
+	echo "checked out $target"
+
+	if verify_website; then
+		echo "$previous" >"$STATE_FILE"
+		echo "=== deployed website content from $ref ($target) — previous ref ($previous) saved for rollback ==="
+		return 0
+	fi
+
+	echo "Website check FAILED for $ref — restoring $previous" >&2
+	git checkout --detach "$previous"
+	if verify_website; then
+		echo "Restored $previous; the website is serving it again. Investigate $ref before retrying." >&2
+	else
+		echo "ERROR: the website check also fails on $previous, so the content is not the problem." >&2
+		echo "Check Caddy: podman logs django-crm_caddy_1" >&2
+	fi
+	exit 1
+}
+
 rollback() {
 	[ -f "$STATE_FILE" ] || {
 		echo "ERROR: no recorded previous ref ($STATE_FILE not found) — nothing to roll back to." >&2
@@ -239,6 +355,7 @@ status() {
 }
 
 case "$1" in
+--website-only) deploy_website "$2" ;;
 rollback) rollback ;;
 status) status ;;
 *) deploy_ref "$1" ;;

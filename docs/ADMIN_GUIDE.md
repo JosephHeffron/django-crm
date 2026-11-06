@@ -307,6 +307,20 @@ before and exits non-zero. See `logs/claude/phase-10-deploy-script.md`
 for the real bugs found and fixed while building this (why it doesn't
 route through `systemctl` for the restart, specifically).
 
+**A change to the public website only** (pages, stylesheet, images —
+anything under `website/` except `website/partials/`) can skip the
+rebuild and restart:
+```
+./scripts/deploy.sh --website-only <git-ref>
+```
+It refuses, and changes nothing, if the revision touches anything else
+compared with what is deployed. The same rule (`scripts/change-scope.sh`)
+lets CI run only the website's checks on such a pull request. After
+checking out, it fetches the home page through Caddy on this host
+(`https://$WEBSITE_HOST/`, certificate checked) and expects the shared
+header in it. If that check fails, it puts the previous revision back
+and exits non-zero. `docs/WEBSITE.md` has the details.
+
 Check current status without changing anything:
 ```
 ./scripts/deploy.sh status
