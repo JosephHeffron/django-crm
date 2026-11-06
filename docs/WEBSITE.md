@@ -136,11 +136,30 @@ or a file type that is not a web asset lands in `website/`.
 
 ## Deploying a change
 
-The website is bind-mounted from the checkout, so it deploys with the
-CRM, through the same `scripts/deploy.sh` and the same rollback. There
-is no build step: Caddy reads the files straight from the checkout. A
-website-only fast path that skips the CRM's image rebuild is planned
-(plan D6.4).
+The website is bind-mounted from the checkout, so there is no build
+step: Caddy reads the files straight from the checkout. Two shortcuts
+exist for a change that touches only `website/` (but not
+`website/partials/`, which Django reads). Both use the same rule,
+`scripts/change-scope.sh`:
+
+- **CI** runs only the website's checks on such a pull request: the
+  private-data guard, the page and link checks, and the Caddy routing
+  checks. They report under the same required `test` check. Any other
+  change, or a push to `main`, runs the full suite.
+- **Deploying** it doesn't need the CRM rebuilt:
+  ```
+  ./scripts/deploy.sh --website-only <git-ref>
+  ```
+  This refuses anything that is not website-only compared with what is
+  deployed. It checks out the revision without touching a container,
+  then fetches the home page through Caddy on the server, with the
+  certificate checked. If the page is unreachable, lacks the shared
+  header, or still shows a raw `{{include`, it puts the previous
+  revision back. `./scripts/deploy.sh rollback` works afterwards as it
+  does for any deploy.
+
+Anything else deploys the normal way, `./scripts/deploy.sh <git-ref>`,
+with the same rollback.
 
 ## Before the apex cutover
 

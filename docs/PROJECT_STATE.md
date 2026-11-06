@@ -20,13 +20,16 @@ actually verified.
 > Caddyfile now serves two sites, the CRM on `CRM_HOST` and the website
 > on `WEBSITE_HOST`/`WEBSITE_WWW_HOST`, with no route from the website
 > hostnames to Django (ADRs 0016, 0017; `docs/WEBSITE.md`).
-> **Not verified here:** neither Django nor Caddy could be installed in
-> the session that wrote it, so the full suite and the `caddy adapt`
-> tests (the website-routing class and the existing private-media
-> guards, whose environment changed) run for the first time in CI. The
-> 23 website tests that need neither were run under plain `unittest`
-> with a two-line Django stub, and each guard was shown to fail on a
-> planted bad input (11 mutations). Full detail in
+> Neither Django nor Caddy could be installed in the session that wrote
+> it, so the full suite and the `caddy adapt` tests first ran in CI on
+> #206: **1,479 tests, OK, none skipped**, against Caddy v2.11.7. A
+> second PR, `feature/website-fast-paths`, stacked on #206, adds the
+> website-only shortcuts: CI runs just the website's checks on a
+> website-only PR, and `deploy.sh --website-only` publishes content
+> without a rebuild. Both use one rule, `scripts/change-scope.sh`.
+> **Found there, not fixed:** a full deploy's health check covers only
+> `db` and `web`, so a broken Caddyfile deploys "successfully" with
+> both sites down. Full detail in
 > `logs/claude/phase-22.5-unit-4-website.md`.
 > **Found on the way:** the plan's space-separated `WEBSITE_HOSTS`
 > would have stopped the nightly backup (`scripts/backup.sh` sources
