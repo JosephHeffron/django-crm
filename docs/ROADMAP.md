@@ -388,6 +388,11 @@ insufficient.
          - An Ubuntu x86-64 deployment guide — **not started**; the
            audit's F-VPS-1 to F-VPS-5 are its content.
          - Alerting for a backup that stops running — **not started**.
+         - **Added, not in the original list:** real visitor
+           addresses behind Caddy — **done**, ADR 0022. Rootless
+           Podman's port forwarder gave every visitor one address,
+           which made the login limit a lockout anyone could trigger.
+           Production Caddy now runs on the host network.
       2. **VPS provisioning** — the owner's own work, following that
          guide.
       3. **CRM live on `crm.`** — HTTPS, backups to B2, uptime

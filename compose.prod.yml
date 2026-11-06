@@ -1,8 +1,10 @@
 # Production stack, per docs/ARCHITECTURE.md's "Container architecture"
 # section — all three containers: Caddy (HTTPS termination, reverse
 # proxy, static/media serving; the only container reachable from
-# outside the host), Django (`web`, no published port — Caddy reaches
-# it over the internal Podman network), PostgreSQL.
+# outside the host, and on the host network so it sees real visitor
+# addresses), Django (`web`, published on 127.0.0.1:8000 only, for
+# Caddy — never reachable from outside the host), PostgreSQL (no
+# published port at all). ADR 0022 explains the networking.
 #
 # Usage: podman-compose -f compose.prod.yml up -d
 # Requires a real .env (copy .env.example, fill in real values) —
@@ -49,6 +51,14 @@ services:
     volumes:
       - static_files:/app/staticfiles
       - media_files:/app/media
+    # Caddy runs on the host network (below), so it reaches Django
+    # through a published port rather than the compose network. That
+    # port is bound to the loopback address and nothing else: a bare
+    # "8000:8000" would put gunicorn on every interface, past Caddy's
+    # TLS, headers and private-media rule. A test enforces this
+    # (docs/decisions/0022-caddy-on-the-host-network-for-real-client-addresses.md).
+    ports:
+      - "127.0.0.1:8000:8000"
     healthcheck:
       # /health/ (Phase 12, apps/core/views.py) actually checks
       # PostgreSQL connectivity, not just that gunicorn is accepting
@@ -70,9 +80,17 @@ services:
     depends_on:
       web:
         condition: service_healthy
-    ports:
-      - "80:80"
-      - "443:443"
+    # The host network, not the compose network, so Caddy sees every
+    # visitor's real address. Rootless Podman's port forwarder for a
+    # compose network rewrites the source of each connection, so Caddy
+    # saw one internal address for everybody, and the login rate limit
+    # (ADR 0020) became one bucket shared by the whole internet: ten
+    # wrong passwords from anyone locked out everyone. With the host
+    # network Caddy binds 80 and 443 itself (still rootless; the
+    # ip_unprivileged_port_start sysctl allows it), so `ports:` does not
+    # apply here, and it proxies to web on 127.0.0.1:8000. See
+    # docs/decisions/0022-caddy-on-the-host-network-for-real-client-addresses.md.
+    network_mode: host
     volumes:
       # :Z relabels the bind-mounted file for this container's exclusive
       # SELinux access — without it, Fedora's enforcing SELinux denies

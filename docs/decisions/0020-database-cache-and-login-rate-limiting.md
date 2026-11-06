@@ -1,5 +1,13 @@
 # 0020 — A database cache, and hand-rolled login rate limiting
 
+> **Amended 2026-11-06 by
+> [ADR 0022](0022-caddy-on-the-host-network-for-real-client-addresses.md).**
+> The per-IP count below relies on Caddy's peer being the visitor.
+> Under rootless Podman with Caddy on the compose network, it was not:
+> Podman's port forwarder rewrote every source address, so all
+> visitors shared one bucket. Production Caddy now runs on the host
+> network. The limiter's code is unchanged.
+
 *(Number reserved for this decision by `docs/VPS_DEPLOYMENT_PLAN.md`'s
 ADR table; the recommendation is its D4.)*
 

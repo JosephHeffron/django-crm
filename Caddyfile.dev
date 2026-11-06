@@ -16,6 +16,15 @@
 #
 # Browsers and curl resolve *.localhost to the loopback address without
 # a hosts-file entry.
+#
+# One deliberate difference from production: here Caddy stays on the
+# compose network and proxies to web:8000. Production runs Caddy on the
+# host network and proxies to 127.0.0.1:8000, so that it sees real
+# visitor addresses (docs/decisions/0022-caddy-on-the-host-network-for-real-client-addresses.md).
+# On a workstation every visitor is you, and the host-network layout
+# would collide with `manage.py runserver` on port 8000, so the dev
+# stack does not reproduce it. The droplet is where that layout is
+# proven (docs/ADMIN_GUIDE.md's verification step).
 
 # See Caddyfile (production) for why headers are imported per handle
 # block rather than set site-wide.

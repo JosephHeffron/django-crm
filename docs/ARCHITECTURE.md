@@ -125,8 +125,12 @@ rollback.
 
 ## Security boundaries
 
-- Only Caddy is exposed to the LAN/Internet. Django and PostgreSQL are only
-  reachable over the internal container network.
+- Only Caddy is exposed to the LAN/Internet. In production Caddy runs on
+  the host network, so it sees each visitor's real address. Django is
+  published on `127.0.0.1:8000` only, for Caddy, and PostgreSQL is not
+  published at all
+  (`docs/decisions/0022-caddy-on-the-host-network-for-real-client-addresses.md`).
+  Caddy's admin API is off.
 - Django never terminates HTTPS directly.
 - Secrets (database credentials, `SECRET_KEY`, etc.) are supplied via
   environment variables / an untracked `.env` file, never committed and never

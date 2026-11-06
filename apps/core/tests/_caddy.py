@@ -39,3 +39,22 @@ def adapt(path):
         env=caddy_env(),
     ).stdout
     return json.loads(raw)
+
+
+def strip_comments(config):
+    """A Caddyfile comment runs from an unquoted `#` to end of line.
+
+    Commented-out text is not configuration, and a test that cannot
+    tell the difference will pass against a disabled handler.
+    """
+    out = []
+    for line in config.splitlines():
+        quoted = False
+        for i, char in enumerate(line):
+            if char == '"':
+                quoted = not quoted
+            elif char == "#" and not quoted:
+                line = line[:i]
+                break
+        out.append(line)
+    return "\n".join(out)
