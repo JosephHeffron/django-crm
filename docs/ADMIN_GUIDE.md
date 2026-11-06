@@ -8,84 +8,287 @@ to *do*, not to introduce anything new. Where a task needs more detail
 than fits here, it links to the document that has it.
 
 This assumes production deployment on an x86-64 Ubuntu 24.04 VPS
-running Podman + Caddy + systemd user units, per
-`docs/ARCHITECTURE.md` and ADR 0015. **Nothing has been deployed yet**
-(see "What's not yet proven on real hardware," below): the stack has
-been exercised on the development workstation, and
-`docs/VPS_AUDIT.md` lists what a rootless Ubuntu host needs that this
-guide does not yet cover — the unprivileged-port sysctl, `linger`,
-subuid/subgid ranges, and the `podman-compose` path.
+(a DigitalOcean droplet) running rootless Podman + Caddy + systemd
+user units, per `docs/ARCHITECTURE.md` and ADR 0015. **Nothing has
+been deployed yet.** The steps below come from the audit of what a
+rootless Ubuntu host needs (`docs/VPS_AUDIT.md` F-VPS-1 to F-VPS-5)
+and from Ubuntu's own packages, but none of them has run on the real
+droplet. Expect one round of corrections the first time through, and
+fix this guide when that happens.
 
 ## First-time deployment
 
-1. **Create a dedicated, non-root deployment account** on the server
-   (not the interactive login user, not root) — production runs rootless
-   Podman under this account's own systemd user session, per
-   `docs/decisions/0005-rootless-systemd-deployment.md`.
-2. **Clone the repository** into that account's home directory:
+Two accounts do the work:
+
+- **root**, over SSH with your key, for system setup only (steps 1-2);
+- **`crm`**, a dedicated account **without sudo**, for everything
+  that touches the app (steps 3-11). The containers this account runs
+  face the internet, so it must not be able to become root (ADR 0005).
+
+Always reach `crm` with `ssh crm@…`, never with `su` or `sudo -u`.
+`systemctl --user` needs that user's own login session; from `su` it
+fails with *Failed to connect to bus*.
+
+### 1. Create the droplet (DigitalOcean control panel)
+
+- **Account:** turn on two-factor sign-in and a billing alert.
+- **Droplet:** Ubuntu 24.04 (LTS) x64, Basic → Regular, 2 vCPU /
+  4 GB / 80 GB ($24/month), a New York region, **SSH key**
+  authentication (not a password). Weekly droplet backups are an
+  optional second layer under the nightly B2 backups (plan §9).
+- **Reserved IP:** create one and assign it to the droplet, so the DNS
+  records never have to change.
+- **Cloud firewall:** inbound TCP **22, 80 and 443** only, attached to
+  the droplet. Nothing else: PostgreSQL publishes no port, and Django
+  listens on the loopback address only (ADR 0022).
+
+### 2. Prepare the system (as root)
+
+```
+ssh root@<reserved-ip>
+apt update && apt full-upgrade -y
+timedatectl set-timezone America/New_York
+apt install -y podman pipx git curl restic uidmap slirp4netns
+[ -f /var/run/reboot-required ] && reboot
+```
+
+**Swap**, so a memory spike during an image build does not kill
+PostgreSQL (audit F-VPS-8: three gunicorn workers plus PostgreSQL on
+4 GB is untested):
+```
+fallocate -l 2G /swapfile && chmod 600 /swapfile && mkswap /swapfile && swapon /swapfile
+echo '/swapfile none swap sw 0 0' >> /etc/fstab
+```
+
+**Security updates and SSH.** Both of these should already be true on
+a fresh droplet. Check them anyway:
+```
+systemctl is-enabled unattended-upgrades          # enabled
+sshd -T | grep -i '^passwordauthentication'       # passwordauthentication no
+```
+
+**Let rootless Caddy bind ports 80 and 443** (audit F-VPS-1). Without
+this line, Caddy cannot start:
+```
+echo 'net.ipv4.ip_unprivileged_port_start=80' > /etc/sysctl.d/90-unprivileged-ports.conf
+sysctl --system
+sysctl net.ipv4.ip_unprivileged_port_start        # = 80
+```
+
+**The `crm` account**, with the subordinate ID ranges rootless Podman
+needs (F-VPS-5), lingering so the stack and its timers keep running
+with nobody logged in (F-VPS-4), and your SSH key:
+```
+adduser --disabled-password --gecos "" crm
+grep '^crm:' /etc/subuid /etc/subgid
+# Each file must print a line such as crm:100000:65536. Only if either printed nothing:
+#   usermod --add-subuids 100000-165535 --add-subgids 100000-165535 crm
+loginctl enable-linger crm
+install -d -m 700 -o crm -g crm /home/crm/.ssh
+install -m 600 -o crm -g crm ~/.ssh/authorized_keys /home/crm/.ssh/authorized_keys
+```
+
+### 3. Install podman-compose and check Podman (as `crm`)
+
+**Do not use Ubuntu's `podman-compose` package.** Ubuntu 24.04 ships
+version 1.0.6, which ignores the `depends_on` health conditions that
+`compose.prod.yml` relies on (Caddy waits for a healthy Django,
+Django for a healthy PostgreSQL). podman-compose honours them from
+version 1.3.0. Install it with pipx instead. Use the same version as
+the workstation the stack was verified on (`podman-compose version`
+there), and never anything older than 1.3.0:
+```
+ssh crm@<reserved-ip>
+pipx install podman-compose==<version>
+pipx ensurepath
+exit
+```
+Then sign in again and check:
+```
+ssh crm@<reserved-ip>
+podman-compose version                             # 1.3.0 or later
+podman info --format '{{.Host.Security.Rootless}}' # true
+podman unshare cat /proc/self/uid_map              # a second line mapping a range of 65536
+loginctl show-user crm --property=Linger           # Linger=yes
+```
+`systemd/crm.service` finds a pipx install in `~/.local/bin` through
+its own `PATH` line (audit F-VPS-2).
+
+### 4. DNS (at Wix, for now)
+
+Add two **A records** pointing at the reserved IP: **`crm`** and
+**`new`**. Both are subdomains, so the website customers see today is
+not touched. `new` is the website's preview address. Caddy needs a
+real website hostname from its first start (ADR 0016). Do not change
+the apex or `www` records; that is unit 6. Check before going on:
+```
+getent hosts crm.heffronexteriorservices.com new.heffronexteriorservices.com
+```
+Both should print the reserved IP.
+
+### 5. Clone and configure (as `crm`)
+
+```
+git clone https://github.com/JosephHeffron/django-crm.git ~/django-crm
+cd ~/django-crm
+cp .env.example .env && chmod 600 .env
+```
+(`systemd/crm.service` assumes exactly `~/django-crm`.) Edit `.env`
+and set:
+
+| Setting | Value |
+|---|---|
+| `DJANGO_SECRET_KEY` | `python3 -c "import secrets; print(secrets.token_urlsafe(50))"` |
+| `DJANGO_ALLOWED_HOSTS` | `crm.heffronexteriorservices.com` |
+| `DJANGO_CSRF_TRUSTED_ORIGINS` | `https://crm.heffronexteriorservices.com` |
+| `CRM_HOST` | `crm.heffronexteriorservices.com` |
+| `WEBSITE_HOST` | `new.heffronexteriorservices.com` (the apex at the cutover) |
+| `WEBSITE_WWW_HOST` | leave unset until the cutover |
+| `POSTGRES_PASSWORD` | `openssl rand -hex 32` |
+
+Leave `DJANGO_SETTINGS_MODULE` **unset**. `.env.example` explains
+why: setting it once booted a production container with `DEBUG=True`.
+**Never put a space in a value.** `scripts/backup.sh` reads this file
+as shell, and a space turns the rest of the line into a command. Check
+it the same way the backup reads it:
+```
+sh -c 'set -e; set -a; . ./.env' && echo ok
+```
+The backup settings come in step 9.
+
+### 6. Start the stack (as `crm`)
+
+```
+mkdir -p ~/.config/systemd/user
+cp systemd/crm.service ~/.config/systemd/user/
+systemctl --user daemon-reload
+systemctl --user enable --now crm.service
+```
+The first start builds the web image and pulls PostgreSQL and Caddy.
+Expect several minutes on 2 vCPU (`TimeoutStartSec=600` allows for
+it). Caddy then requests certificates for both hostnames, which needs
+step 4's records to resolve.
+
+### 7. Verify (as `crm`)
+
+```
+cd ~/django-crm
+./scripts/deploy.sh status
+```
+It should print four healthy lines: db and web, the CRM through Caddy,
+and the website. Then:
+
+- **Caddy sees real visitor addresses (ADR 0022).** Do not skip this:
+  if it fails, ten wrong passwords from anyone lock everybody out of
+  signing in.
+  ```
+  ss -tlnp | grep -E ':(80|443) '
+  ```
+  The process on both ports must be **`caddy`**. If it is
+  `rootlessport`, Caddy is behind Podman's port forwarder rather than
+  on the host network. Stop, and do not let anyone sign in until it
+  is fixed.
+- **Private photos stay private:**
+  ```
+  curl -s -o /dev/null -w '%{http_code}\n' https://crm.heffronexteriorservices.com/media/private/x.jpg   # 404
+  ```
+- **From your phone, on mobile data,** open
+  `https://crm.heffronexteriorservices.com` and
+  `https://new.heffronexteriorservices.com`.
+
+The stack starting at all is also the answer to audit F-VPS-3 (the
+`:Z` mount option on a host without SELinux): if Caddy serves both
+sites, it could read its mounts.
+
+### 8. Accounts
+
+```
+podman exec -it django-crm_web_1 python manage.py createsuperuser
+```
+Sign in, then **create a second Owner** under Team → *Add someone*.
+Either Owner can set the other's password, which is the only way back
+in from inside the app for an owner who forgets theirs (ADR 0021).
+Then add the staff accounts.
+
+### 9. Backups, and the alarm for when they stop
+
+1. **Backblaze B2:** a private bucket, and an application key scoped
+   to that bucket only (not the account's master key).
+2. **Healthchecks.io** (free plan): a check named for the backup, with
+   a period of **1 day** and a grace time of **2 hours**, alerting by
+   email. It is a dead man's switch: it alerts when the daily ping
+   *stops*. That covers a backup that fails, a push that fails, and a
+   timer that never runs, which no error handler can report. The email
+   comes from their servers, so DigitalOcean's SMTP block does not
+   matter. Any service that alerts on a missing HTTP request works the
+   same way.
+3. **Add to `.env`:**
    ```
-   git clone https://github.com/JosephHeffron/django-crm.git ~/django-crm
-   cd ~/django-crm
+   RESTIC_REPOSITORY=b2:<bucket>:django-crm
+   RESTIC_PASSWORD=<openssl rand -hex 32>
+   B2_ACCOUNT_ID=<the application key's ID>
+   B2_ACCOUNT_KEY=<the application key>
+   BACKUP_PING_URL=<the check's ping URL>
    ```
-   (`systemd/crm.service`'s `WorkingDirectory=%h/django-crm` assumes
-   exactly this path — cloning anywhere else means adjusting that
-   line.)
-3. **Configure secrets**:
-   ```
-   cp .env.example .env
-   ```
-   Fill in `DJANGO_SECRET_KEY` (generate one:
-   `python3 -c "import secrets; print(secrets.token_urlsafe(50))"`),
-   `DJANGO_ALLOWED_HOSTS`/`DJANGO_CSRF_TRUSTED_ORIGINS` (your real
-   public domain), `POSTGRES_PASSWORD`, and Caddy's site addresses:
-   `CRM_HOST` (the CRM's hostname) and `WEBSITE_HOST` (the public
-   website's), plus `WEBSITE_WWW_HOST` once the apex domain has moved.
-   One hostname per variable, never a space-separated list, because
-   `scripts/backup.sh` reads `.env` as shell. Every name you set needs
-   a DNS record pointing at this host
-   (`docs/decisions/0016-two-sites-behind-one-caddy.md`,
-   `docs/WEBSITE.md`). Leave
-   `DJANGO_SETTINGS_MODULE` **unset** — see the comment in
-   `.env.example` for why setting it is actively harmful in
-   production (this was a real bug, found and fixed in
-   `docs/PRODUCTION_CONFIG_REVIEW.md`).
-4. **Install and start the systemd unit**, exactly per
-   `systemd/crm.service`'s own header comment:
-   ```
-   mkdir -p ~/.config/systemd/user
-   cp systemd/crm.service ~/.config/systemd/user/
-   systemctl --user daemon-reload
-   systemctl --user enable --now crm.service
-   loginctl enable-linger "$(whoami)"
-   ```
-   The first start builds the web image on the server and pulls
-   PostgreSQL/Caddy — expect this to take a while on 2 vCPU
-   (`TimeoutStartSec=600` in the unit accounts for this).
-5. **Verify**: `curl https://your-domain/health/` should return
-   `{"status": "ok", "database": "ok"}`. Caddy requests a real Let's
-   Encrypt certificate automatically the first time it starts, given a
-   real domain that resolves to this host.
-6. **Install the backup timer**, per `systemd/crm-backup.service`'s
-   own header comment:
+   **Keep a copy of `RESTIC_PASSWORD` off this server** (a password
+   manager). It cannot be recovered, and the only other copy is inside
+   the backups it encrypts (audit F-BAK-5).
+4. **Install the timer and run one backup now:**
    ```
    cp systemd/crm-backup.service systemd/crm-backup.timer ~/.config/systemd/user/
    systemctl --user daemon-reload
    systemctl --user enable --now crm-backup.timer
+   ./scripts/backup.sh
    ```
-7. **Install the follow-up timer**, per
-   `systemd/crm-followups.service`'s own header comment:
-   ```
-   cp systemd/crm-followups.service systemd/crm-followups.timer ~/.config/systemd/user/
-   systemctl --user daemon-reload
-   systemctl --user enable --now crm-followups.timer
-   ```
-   This raises repeat-service follow-ups once a day at 07:00. Skipping
-   it costs no data — nothing breaks, follow-ups simply never appear on
-   their own, and `/tasks/follow-ups/` stays empty.
-8. **Create the first admin user**:
-   ```
-   podman exec -it django-crm_web_1 python manage.py createsuperuser
-   ```
+   The output should end with `off-host push complete` and then
+   `monitoring notified`, and the check on healthchecks.io should turn
+   green. **No ping is sent unless the backup reached B2.** A local-only
+   backup does not count, so a missing or wrong `RESTIC_REPOSITORY`
+   shows up as an alert rather than as silence.
+
+### 10. Follow-up timer
+
+```
+cp systemd/crm-followups.service systemd/crm-followups.timer ~/.config/systemd/user/
+systemctl --user daemon-reload
+systemctl --user enable --now crm-followups.timer
+```
+This raises repeat-service follow-ups once a day at 07:00. Skipping
+it costs no data; follow-ups simply never appear on their own.
+
+### 11. The restore drill, before any real data
+
+Restore last night's backup into a scratch database on this droplet,
+following `docs/TESTING_INSTRUCTIONS.md` §7, and write down what
+happened. The restore path has never run end to end (audit F-BAK-1),
+and once real customer data is in, a restore that does not work is
+discovered at the worst possible moment. Expect the script to need a
+fix; that is what the drill is for.
+
+### What the first run settles
+
+None of this has run on the droplet. The parts most likely to need a
+correction:
+
+- **podman-compose ≥ 1.3 on Podman 4.9.3.** The workstation runs a
+  newer Podman. If `podman-compose up` misbehaves, the version pairing
+  is the first suspect.
+- **Container names.** `deploy.sh` and `backup.sh` expect
+  `django-crm_db_1` and `django-crm_web_1`. `podman ps` shows the
+  real names; if they differ, those two scripts need the new ones.
+- **The `ss` check in step 7**, which is the only proof that ADR 0022
+  works.
+
+Record what happened in the phase log, and fix this guide in the same
+PR.
+
+### Updating later
+
+Deploy updates with `./scripts/deploy.sh <ref>` (see *Deploying an
+update*, below). A deploy now counts as healthy only when db and web
+are healthy **and** Caddy is serving the CRM and the website, so a
+Caddyfile it rejects rolls back instead of taking both sites offline
+with a "success".
 
 ## Day-to-day operations
 
@@ -382,6 +585,11 @@ gap (`docs/BACKUP_DR_AUDIT.md`'s formerly-open finding #1,
    in its output: `--- pushing ... off-host via restic ---`). Every
    future backup, including the daily timer-triggered one, does this
    automatically from here on; no further setup needed.
+5. Set `BACKUP_PING_URL` to a dead-man's-switch check (healthchecks.io
+   or similar; *First-time deployment* step 9). `backup.sh` requests it
+   only after the off-host push succeeds. A day without that request,
+   for any reason including the timer not running, becomes an email
+   from the monitoring service (audit F-BAK-3, F-BAK-4).
 
 If a disaster destroys the local `backups/` directory itself (not just
 the running containers/volumes — the actual scenario off-host storage
@@ -423,7 +631,9 @@ merge anything relevant yourself.
   and verified (see "Backups," above), but nothing is pushed off-host
   until you've created a real Backblaze B2 account/bucket/key and set
   the `RESTIC_*`/`B2_*` variables in `.env` yourself. Until then, this
-  deployment has local-only backups, same as before Phase 15.
+  deployment has local-only backups, same as before Phase 15, and
+  `BACKUP_PING_URL` is deliberately never pinged, so the monitor will
+  say so.
 - **No server has been deployed to yet.** Every build and
   disaster-recovery drill in this project's history ran on a
   development workstation — functionally correct, not
@@ -436,9 +646,6 @@ merge anything relevant yourself.
   read that document for the full list of what's still open and why,
   rather than this guide trying to keep its own separate copy in
   sync.
-- **No Content-Security-Policy header** — deferred pending a real
-  browser to verify it doesn't break Django admin's own inline
-  scripts; see `docs/PRODUCTION_CONFIG_REVIEW.md`.
 
 ## Where to find more
 

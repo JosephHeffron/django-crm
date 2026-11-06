@@ -370,7 +370,8 @@ insufficient.
 
       Seven units, in this order — the first three cannot affect the
       website or the domain, which is the point of the sequence:
-      1. **P0 repo fixes** — *partly done.*
+      1. **P0 repo fixes** — *done* (2026-11-06), apart from the
+         owner's own check of the real `.env`.
          - ~~Outbound email and password reset~~ **reversed.** Built in
            #188 (ADR 0019), removed in #194: DigitalOcean blocks
            outbound SMTP on 25, 465 and 587 by default on Droplets, and
@@ -385,9 +386,20 @@ insufficient.
            fifteen minutes, per IP and per username, on
            `/accounts/login/` and `/admin/login/`, counted in a
            database cache the three gunicorn workers share.
-         - An Ubuntu x86-64 deployment guide — **not started**; the
-           audit's F-VPS-1 to F-VPS-5 are its content.
-         - Alerting for a backup that stops running — **not started**.
+         - An Ubuntu x86-64 deployment guide — **done**:
+           `docs/ADMIN_GUIDE.md`'s *First-time deployment*, covering
+           F-VPS-1 to F-VPS-5. Found on the way: Ubuntu 24.04's own
+           `podman-compose` is 1.0.6, which ignores the `depends_on`
+           health conditions (honoured from 1.3.0), so the guide
+           installs it with pipx and `crm.service` now finds it via
+           `PATH` instead of a hard-coded `/usr/bin` path (F-VPS-2).
+         - Alerting for a backup that stops running — **done**: a
+           dead-man's-switch ping (`BACKUP_PING_URL`), sent only after
+           the off-host push succeeds (F-BAK-3, F-BAK-4).
+         - **Added:** a full deploy now counts as healthy only when
+           Caddy is serving the CRM and the website. It used to check
+           only `db` and `web`, so a Caddyfile Caddy rejected would have
+           deployed "successfully" with both sites down.
          - **Added, not in the original list:** real visitor
            addresses behind Caddy — **done**, ADR 0022. Rootless
            Podman's port forwarder gave every visitor one address,

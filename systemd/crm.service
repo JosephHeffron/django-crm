@@ -32,8 +32,18 @@ RemainAfterExit=yes
 # 2), not at a fixed root-owned path, since this unit runs as an
 # unprivileged user by design (ADR 0005).
 WorkingDirectory=%h/django-crm
-ExecStart=/usr/bin/podman-compose -f compose.prod.yml up -d
-ExecStop=/usr/bin/podman-compose -f compose.prod.yml down
+# podman-compose is installed with pipx on Ubuntu 24.04, into
+# ~/.local/bin (docs/ADMIN_GUIDE.md): the distribution's own package is
+# 1.0.6, which ignores the `depends_on` health conditions
+# compose.prod.yml relies on; podman-compose honours them from 1.3.0.
+# A systemd user unit does not search ~/.local/bin, and the old
+# hard-coded /usr/bin/podman-compose failed with a bare 203/EXEC
+# whenever it was installed any other way (audit F-VPS-2). /usr/bin/env
+# resolves it against this PATH instead, which works for a pipx install
+# and a distribution package alike.
+Environment=PATH=%h/.local/bin:/usr/local/bin:/usr/bin:/bin
+ExecStart=/usr/bin/env podman-compose -f compose.prod.yml up -d
+ExecStop=/usr/bin/env podman-compose -f compose.prod.yml down
 # podman-compose builds the web image and pulls db/caddy on first
 # start, which is slow on a 2 vCPU host — generous enough to not
 # spuriously time out a legitimate first boot.
