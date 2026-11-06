@@ -1,0 +1,360 @@
+/*
+ * The website's only stylesheet. It serves the static pages, and in
+ * unit 5 the Django-rendered /book/ page too, linked by the same
+ * absolute path (/assets/css/site.css) on the same origin.
+ *
+ * The colours below are neutral stand-ins until the business's own
+ * logo and colours arrive. Change them here and nowhere else.
+ */
+
+:root {
+  --brand: #1f5f8b;
+  --brand-dark: #174766;
+  --text: #1c2430;
+  --muted: #5b6573;
+  --bg: #ffffff;
+  --surface: #f4f6f8;
+  --border: #dde2e8;
+  --placeholder-edge: #b45309;
+  --placeholder-bg: #fff7ed;
+  --radius: 10px;
+  --wrap: 68rem;
+  --font: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font);
+  font-size: 1.0625rem;
+  line-height: 1.6;
+  color: var(--text);
+  background: var(--bg);
+}
+
+img {
+  max-width: 100%;
+  height: auto;
+}
+
+h1,
+h2,
+h3 {
+  line-height: 1.2;
+  margin: 0 0 0.5em;
+}
+
+h1 {
+  font-size: clamp(1.9rem, 1.4rem + 2.4vw, 3rem);
+}
+
+h2 {
+  font-size: clamp(1.4rem, 1.2rem + 1vw, 1.9rem);
+}
+
+h3 {
+  font-size: 1.2rem;
+}
+
+p {
+  margin: 0 0 1em;
+}
+
+a {
+  color: var(--brand);
+}
+
+a:hover {
+  color: var(--brand-dark);
+}
+
+/* A focus ring in the text's own colour reads on light and dark
+   backgrounds alike. */
+:focus-visible {
+  outline: 3px solid currentColor;
+  outline-offset: 3px;
+}
+
+.wrap {
+  width: min(100% - 2.5rem, var(--wrap));
+  margin-inline: auto;
+}
+
+.skip-link {
+  position: absolute;
+  left: 1rem;
+  top: -10rem;
+  z-index: 10;
+  padding: 0.6rem 1rem;
+  background: var(--bg);
+  color: var(--text);
+  border-radius: var(--radius);
+}
+
+.skip-link:focus {
+  top: 1rem;
+}
+
+/* ---- buttons --------------------------------------------------- */
+
+.button {
+  display: inline-block;
+  padding: 0.7rem 1.3rem;
+  border-radius: 999px;
+  background: var(--brand);
+  color: #ffffff;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.button:hover {
+  background: var(--brand-dark);
+  color: #ffffff;
+}
+
+.button--quiet {
+  background: transparent;
+  color: var(--brand);
+  box-shadow: inset 0 0 0 2px var(--brand);
+}
+
+.button--quiet:hover {
+  background: var(--surface);
+  color: var(--brand-dark);
+}
+
+.button-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 1.5rem;
+}
+
+/* ---- header ---------------------------------------------------- */
+
+.site-header {
+  border-bottom: 1px solid var(--border);
+}
+
+.site-header__inner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem 1.5rem;
+  padding-block: 1rem;
+}
+
+.site-brand {
+  font-weight: 700;
+  font-size: 1.15rem;
+  color: var(--text);
+  text-decoration: none;
+  margin-right: auto;
+}
+
+.site-nav ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 1.1rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.site-nav a {
+  color: var(--text);
+  text-decoration: none;
+  padding-block: 0.25rem;
+}
+
+.site-nav a:hover,
+.site-nav a[aria-current="page"] {
+  color: var(--brand);
+  text-decoration: underline;
+  text-underline-offset: 0.3em;
+}
+
+/* On a phone the brand and the button share the first row and the
+   navigation wraps onto the second; no menu toggle and no script. */
+@media (max-width: 47.99rem) {
+  .site-header__inner {
+    column-gap: 1rem;
+  }
+
+  .site-brand {
+    font-size: 1rem;
+  }
+
+  .site-header__cta {
+    padding: 0.5rem 1rem;
+    font-size: 0.95rem;
+  }
+
+  .site-nav {
+    order: 3;
+    width: 100%;
+    font-size: 1rem;
+  }
+
+  .site-nav ul {
+    column-gap: 0.9rem;
+  }
+}
+
+/* ---- page sections --------------------------------------------- */
+
+main {
+  display: block;
+}
+
+.section {
+  padding-block: 3rem;
+}
+
+.section--tinted {
+  background: var(--surface);
+}
+
+.hero {
+  padding-block: 3.5rem 3rem;
+  background: var(--surface);
+}
+
+.lede {
+  font-size: 1.2rem;
+  color: var(--muted);
+  max-width: 40rem;
+}
+
+.page-intro {
+  padding-block: 2.5rem 1rem;
+}
+
+/* Limits line length without narrowing the container itself, so a
+   `wrap prose` block keeps the same left edge as every other section. */
+.prose > * {
+  max-width: 44rem;
+}
+
+.cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+  gap: 1rem;
+  margin: 1.5rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.card {
+  padding: 1.25rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg);
+}
+
+.card p:last-child {
+  margin-bottom: 0;
+}
+
+.service {
+  padding-block: 1.5rem;
+  border-top: 1px solid var(--border);
+}
+
+.service:first-of-type {
+  border-top: 0;
+}
+
+.contact-list {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 0.6rem 1.5rem;
+  margin: 1.5rem 0;
+}
+
+.contact-list dt {
+  font-weight: 600;
+}
+
+.contact-list dd {
+  margin: 0;
+}
+
+.cta-band {
+  padding-block: 2.5rem;
+  background: var(--brand);
+  color: #ffffff;
+}
+
+.cta-band a:not(.button) {
+  color: #ffffff;
+}
+
+.cta-band .button {
+  background: #ffffff;
+  color: var(--brand-dark);
+}
+
+/* ---- footer ---------------------------------------------------- */
+
+.site-footer {
+  padding-block: 2rem;
+  border-top: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 0.95rem;
+}
+
+.site-footer__inner {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 1rem 2rem;
+}
+
+.site-footer__name {
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 0.25rem;
+}
+
+.site-footer__links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 1rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* ---- placeholders ---------------------------------------------- */
+
+/* Content the owner still has to supply. Deliberately loud, so none
+   of it can survive unnoticed to launch: the apex cutover waits until
+   `grep -rn data-placeholder website/` finds nothing
+   (docs/WEBSITE.md). */
+[data-placeholder] {
+  outline: 2px dashed var(--placeholder-edge);
+  outline-offset: 2px;
+  background: var(--placeholder-bg);
+  color: var(--text);
+}
+
+[data-placeholder]::before {
+  content: "To supply: ";
+  font-weight: 700;
+  color: var(--placeholder-edge);
+}
+
+[data-placeholder="confirm"]::before {
+  content: "To confirm: ";
+}

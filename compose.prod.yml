@@ -6,9 +6,11 @@
 #
 # Usage: podman-compose -f compose.prod.yml up -d
 # Requires a real .env (copy .env.example, fill in real values) —
-# never commit .env. Requires DJANGO_ALLOWED_HOSTS to be a real public
-# domain that resolves here — Caddy uses it both as the site address
-# and to request a real Let's Encrypt certificate for it.
+# never commit .env. Requires CRM_HOST and WEBSITE_HOST (and
+# WEBSITE_WWW_HOST, if set) to be real public hostnames that resolve
+# here — Caddy uses them both as the site addresses and to request real
+# Let's Encrypt certificates for them
+# (docs/decisions/0016-two-sites-behind-one-caddy.md).
 
 services:
   db:
@@ -79,6 +81,13 @@ services:
       # compose.dev.yml's identical mount; applies equally here. Named
       # volumes below don't need this — Podman labels those itself.
       - ./Caddyfile:/etc/caddy/Caddyfile:ro,Z
+      # The public website, straight from the checkout
+      # (docs/decisions/0017-the-website-lives-in-this-repository.md).
+      # A bind mount, so new content from a deploy's checkout needs no
+      # image rebuild. :Z for the same
+      # SELinux reason as the Caddyfile above; how :Z behaves on Ubuntu
+      # is audit finding F-VPS-3 and applies to both mounts alike.
+      - ./website:/srv/website:ro,Z
       # Read-only: Caddy only ever reads these files (Django writes
       # them via collectstatic / user uploads), never writes to them.
       - static_files:/srv/static:ro

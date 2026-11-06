@@ -37,7 +37,14 @@ subuid/subgid ranges, and the `podman-compose` path.
    Fill in `DJANGO_SECRET_KEY` (generate one:
    `python3 -c "import secrets; print(secrets.token_urlsafe(50))"`),
    `DJANGO_ALLOWED_HOSTS`/`DJANGO_CSRF_TRUSTED_ORIGINS` (your real
-   public domain), and `POSTGRES_PASSWORD`. Leave
+   public domain), `POSTGRES_PASSWORD`, and Caddy's site addresses:
+   `CRM_HOST` (the CRM's hostname) and `WEBSITE_HOST` (the public
+   website's), plus `WEBSITE_WWW_HOST` once the apex domain has moved.
+   One hostname per variable, never a space-separated list, because
+   `scripts/backup.sh` reads `.env` as shell. Every name you set needs
+   a DNS record pointing at this host
+   (`docs/decisions/0016-two-sites-behind-one-caddy.md`,
+   `docs/WEBSITE.md`). Leave
    `DJANGO_SETTINGS_MODULE` **unset** — see the comment in
    `.env.example` for why setting it is actively harmful in
    production (this was a real bug, found and fixed in
