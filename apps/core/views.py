@@ -767,7 +767,7 @@ class SettingsHubView(RoleRequiredMixin, TemplateView):
                 "What's changed in the app itself.",
                 "rocket",
                 "core:whats_new",
-                True,
+                is_owner,
             ),
         ]
         context["cards"] = [
@@ -931,11 +931,17 @@ class ActivityUndoView(OwnerRequiredMixin, View):
         return redirect("core:activity_log")
 
 
-class WhatsNewView(RoleRequiredMixin, TemplateView):
+class WhatsNewView(OwnerRequiredMixin, TemplateView):
     """Releases, newest first, read from CHANGELOG.md so there's one
-    place to write them."""
+    place to write them.
 
-    allowed_roles = ALL_ROLES
+    Owner-only at the owner's request (2026-11-03). It was every role,
+    which meant the release notes — the honest ones, including what
+    broke and what was reversed — were staff reading. ADR 0008's shape:
+    the mixin decides, and `navigation.py` has to agree or
+    `test_navigation.py` fails.
+    """
+
     template_name = "core/whats_new.html"
 
     def get_context_data(self, **kwargs):

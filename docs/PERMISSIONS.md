@@ -272,7 +272,7 @@ changing your password).
 | A teammate's picture (`/people/<username>/photo/`) | yes | yes | yes |
 | Reports (`/reports/`) | every report | all but the money ones | 403 |
 | Settings hub (`/settings/`) | yes | yes | yes |
-| What's new (`/whats-new/`) | yes | yes | yes |
+| What's new (`/whats-new/`) | yes | 403 | 403 |
 | Customize (`/settings/customize/`) | yes | 403 | 403 |
 | Activity log and undo (`/settings/activity/`) | yes | 403 | 403 |
 | Set someone's role or sign-in (`/team/<username>/`) | yes | 403 | 403 |
