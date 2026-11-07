@@ -242,7 +242,7 @@ GEAR_MENU = (
     NavLink("Account settings", "people:profile_edit", "settings", ALL_ROLES),
     NavLink("Company management", "people:team", "users", OWNER_ONLY),
     NavLink("Customize", "core:customize", "sparkles", OWNER_ONLY),
-    NavLink("What's new", "core:whats_new", "rocket", ALL_ROLES),
+    NavLink("What's new", "core:whats_new", "rocket", OWNER_ONLY),
     NavLink("Change password", "users:password_change", "key", ALL_ROLES),
 )
 
