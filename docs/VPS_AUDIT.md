@@ -16,6 +16,14 @@
 > - **F-SEC-1** (no rate limiting anywhere): a login rate limit on both
 >   login pages, on a database cache the workers share (#200,
 >   [ADR 0020](decisions/0020-database-cache-and-login-rate-limiting.md)).
+> - **F-VPS-1 to F-VPS-6** (the Ubuntu host): `docs/ADMIN_GUIDE.md`'s
+>   *First-time deployment* is now written for Ubuntu 24.04 and covers
+>   each one (#209). They are proven only when a droplet is built from
+>   it; F-VPS-3, the `:Z` relabel, is one the guide says the first run
+>   settles.
+> - **F-BAK-3, F-BAK-4** (a failed or local-only backup is silent): a
+>   dead-man's-switch ping, `BACKUP_PING_URL`, sent only after the
+>   off-host push succeeds (#209).
 >
 > The other findings still stand as written.
 

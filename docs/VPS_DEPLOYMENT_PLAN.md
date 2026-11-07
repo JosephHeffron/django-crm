@@ -105,7 +105,7 @@ graph TB
     subgraph droplet["DigitalOcean droplet — Ubuntu 24.04, 2 vCPU / 4 GB"]
         subgraph pod["rootless Podman, systemd user units (ADR 0005)"]
             C["caddy<br/>apex + www → website/ (static)<br/>apex /book/ → Django<br/>crm.* → Django"]
-            C -->|"reverse_proxy web:8000"| W["web<br/>gunicorn, 3 workers"]
+            C -->|"reverse_proxy 127.0.0.1:8000<br/>(host network, ADR 0022)"| W["web<br/>gunicorn, 3 workers"]
             W --> D[("db<br/>postgres:18")]
             C -.->|"read-only"| S[["website/ (ro bind)<br/>static_files media_files"]]
         end
@@ -120,6 +120,12 @@ Unchanged from today: three containers, rootless Podman, systemd user
 units, `~/django-crm`, restic to B2. New: a second Caddy site, a
 `website/` directory, and a monitor. No mail: the app sends none
 (ADR 0021).
+
+> **Changed when built (ADR 0022, 2026-11-06):** production Caddy runs
+> on the host network, and Django is published on `127.0.0.1:8000`
+> only. On a compose network, rootless Podman's port forwarder showed
+> every visitor to Caddy as one address, which would have made the
+> per-IP login limit one bucket for everybody.
 
 ---
 
@@ -470,6 +476,8 @@ written in its own phase:
   > a command — the backup exits 127 (reproduced). The sketch above
   > also differs from what shipped: there is no `/static/*` or `/book/*`
   > route yet (unit 5 adds `/book/*` only), and `/partials/*` is refused.
+  > Every `reverse_proxy` dials `127.0.0.1:8000`, not `web:8000`
+  > (ADR 0022).
 - Headers go in a snippet because they must stay **per-block**: a
   site-wide block duplicated the headers Django already sets on the
   proxied path (`Caddyfile:20-29`, **Verified**).
@@ -558,8 +566,10 @@ Nothing here touches a server; it all lands as ordinary PRs.
 | In-app team member creation **[code] — done** | Done in #193: Team → *Add someone* creates the account with its role and a first password, and every change is in the change log (#198). Planned as: Owner-only, gated like the CSV import page (`OwnerRequiredMixin` + permission, `apps/crm/views.py` `ContactImportView` is the pattern). Create a user, set their role group, deactivate and reactivate. Matches the owner's rule: only Owner and admin accounts manage accounts |
 | ~~Password reset by email~~ → **owner-set passwords [code] — done** | #188 added Django's `PasswordReset*` views; #194 removed them, because they depend on email. #193 replaced them: Team → *Add someone* creates an account with a role and a first password, and each person's page has *Set a new password*, which also ends that person's sessions. ADR 0021. **Keep two Owner accounts** — either can reset the other, which is the only in-app recovery if an owner forgets their own |
 | Login rate limit **[code] — done** | Merged with ADR 0020: a `DatabaseCache` table created by migration (so `migrate` is the whole deploy path), ten failed attempts per fifteen minutes counted per IP and per username, on both login pages, refusing with 429. Phase 5 reuses the same cache for `/book/`. Originally: moved here from phase 5 so it lands **before** phase 3 puts `crm.` on the internet. Without it, `/accounts/login/` and `/admin/login/` take unlimited password guesses (audit F-PUB-2, F-SEC-1) and there is no MFA until Phase 23. Add the `DatabaseCache` from D4 (ADR 0020), with `createcachetable` in the deploy path, and limit failed attempts per IP and per username on both login pages. Phase 5 then reuses the same cache for `/book/`. Tests: the limit trips after N failures; it holds across processes (assert against the database cache, since a locmem one would pass while being wrong across workers); a correct login after a few failures still works |
-| Ubuntu deployment guide **[code]** | Rewrite `docs/ADMIN_GUIDE.md`'s deployment section for Ubuntu 24.04 x86-64: `net.ipv4.ip_unprivileged_port_start` in `/etc/sysctl.d/`, `loginctl enable-linger`, subuid/subgid verification (`podman unshare cat /proc/self/uid_map`), apt package names, restic install |
-| Backup failure alerting **[code]** | Fix audit F-BAK-3. **Recommendation:** a dead-man's-switch ping — `scripts/backup.sh` calls a monitoring URL on success, and the service alerts when the ping does not arrive. Catches "the timer stopped running", which an `OnFailure=` handler cannot |
+| Ubuntu deployment guide **[code] — done** | Done in #209: `docs/ADMIN_GUIDE.md`'s *First-time deployment*, which also installs podman-compose with pipx, because Ubuntu's 1.0.6 ignores `depends_on` health conditions. Planned as: rewrite `docs/ADMIN_GUIDE.md`'s deployment section for Ubuntu 24.04 x86-64: `net.ipv4.ip_unprivileged_port_start` in `/etc/sysctl.d/`, `loginctl enable-linger`, subuid/subgid verification (`podman unshare cat /proc/self/uid_map`), apt package names, restic install |
+| Backup failure alerting **[code] — done** | Done in #209: `BACKUP_PING_URL`, pinged only after the off-host push succeeds. Planned as: fix audit F-BAK-3. **Recommendation:** a dead-man's-switch ping — `scripts/backup.sh` calls a monitoring URL on success, and the service alerts when the ping does not arrive. Catches "the timer stopped running", which an `OnFailure=` handler cannot |
+| Real client addresses **[code] — done** | Not in the original list. #208, ADR 0022: production Caddy on the host network, so the login limit counts each visitor separately |
+| Caddy-aware deploys **[code] — done** | Not in the original list. #209: a full deploy counts as healthy only when Caddy is serving the CRM and the website, and rolls back otherwise. It used to check only `db` and `web` |
 | Check the real `.env` **[owner]** | The one live HIGH finding from `docs/PRODUCTION_READINESS.md`: confirm the real `.env` carries no `DJANGO_SETTINGS_MODULE` line. That exact line once booted a production container with `DEBUG=True` (`.env.example:6-15`) |
 
 **Verify:** full suite green; `makemigrations --check` clean; the
@@ -1055,12 +1065,13 @@ Per `CLAUDE.md`, each is written when its phase starts, not now.
 | ADR | Decision | Phase |
 |---|---|---|
 | 0015 | x86-64 VPS replaces the Raspberry Pi 5 as the deployment target. **Written**, #195 | 1 |
-| 0016 | Two sites behind one Caddy | 4 |
-| 0017 | **The public website lives in this repository** — `website/`, the shared partials read by both Caddy and Django, read-only mounts in both compose files, deploy and rollback through `scripts/deploy.sh`, the CI path filter that keeps required checks reporting, and the guard keeping private data out of a public repo (D6) | 4 |
+| 0016 | Two sites behind one Caddy. **Written**, #206 | 4 |
+| 0017 | **The public website lives in this repository** — `website/`, the shared partials read by both Caddy and Django, read-only mounts in both compose files, deploy and rollback through `scripts/deploy.sh`, the CI path filter that keeps required checks reporting, and the guard keeping private data out of a public repo (D6). **Written**, #206 | 4 |
 | 0018 | Website leads arrive through one same-origin Django route, `/book/`, not an API | 5 |
 | 0019 | Outbound email via the existing Gmail account, owner notifications only. **Written, then superseded** by 0021 (#188, #194) | 1 |
 | 0020 | Database-backed cache for rate limiting, in place of Redis. Moved from phase 5 so the login rate limit lands before go-live. **Written**, #200 | 1 |
 | 0021 | Passwords are set by the owner in the app, not reset by email. Not in the original list; replaces 0019. **Written**, #193 | 1 |
+| 0022 | Production Caddy on the host network, so Django sees real client addresses. Not in the original list. **Written**, #208 | 1 |
 
 ADRs 0004 (Podman + Caddy), 0005 (rootless systemd), 0006 (off-host
 restic backups), 0007 (CSP) and 0011 (OpenStreetMap) all stand
