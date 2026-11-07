@@ -43,7 +43,14 @@ STATE_FILE="$REPO_DIR/.deploy-last-good-ref"
 # time we restart, only container startup — not a build — is being
 # timed here.
 HEALTH_CHECK_RETRIES=60
-HEALTH_CHECK_INTERVAL=5
+# Overridable so the tests in apps/core/tests/test_website_fast_paths.py
+# can run a failing deploy without waiting minutes; never needed in
+# production.
+HEALTH_CHECK_INTERVAL="${HEALTH_CHECK_INTERVAL:-5}"
+# How long Caddy gets, after the containers are healthy, to answer for
+# both sites. Two minutes: on a hostname's first start Caddy has to
+# obtain its certificate before it can answer over HTTPS at all.
+CADDY_CHECK_RETRIES="${CADDY_CHECK_RETRIES:-24}"
 
 cd "$REPO_DIR"
 
@@ -108,6 +115,38 @@ build_images() {
 	podman-compose -f "$COMPOSE_FILE" pull db caddy
 }
 
+verify_crm() {
+	# The CRM's health check through Caddy, over HTTPS with the
+	# certificate checked, pinned to this host. db and web can both be
+	# healthy while Caddy is down: a Caddyfile it rejects (an unset
+	# CRM_HOST or WEBSITE_HOST, a syntax error) stops Caddy and takes
+	# both sites offline, and verify_health cannot see that, because it
+	# only asks Podman about db and web.
+	host="$(env_value CRM_HOST)" || return 1
+	if curl -fsS --max-time 15 --resolve "$host:443:127.0.0.1" -o /dev/null "https://$host/health/" 2>/dev/null; then
+		echo "CRM healthy through Caddy: https://$host/health/"
+		return 0
+	fi
+	echo "CRM not reachable through Caddy: https://$host/health/"
+	return 1
+}
+
+verify_caddy() {
+	verify_crm && verify_website
+}
+
+wait_for_caddy() {
+	i=0
+	until verify_caddy >/dev/null 2>&1; do
+		i=$((i + 1))
+		if [ "$i" -gt "$CADDY_CHECK_RETRIES" ]; then
+			return 1
+		fi
+		sleep "$HEALTH_CHECK_INTERVAL"
+	done
+	return 0
+}
+
 restart_and_verify() {
 	# Migrations run automatically here, not as a separate step:
 	# scripts/entrypoint.sh already runs `migrate`/`collectstatic`
@@ -169,11 +208,18 @@ restart_and_verify() {
 		echo "podman-compose up -d did not finish within 300s — proceeding to the health check, which will correctly detect and report failure"
 
 	echo "--- waiting for containers to report healthy ---"
-	if wait_for_health; then
-		verify_health
+	if ! wait_for_health; then
+		verify_health || true
+		return 1
+	fi
+	verify_health
+	echo "--- waiting for Caddy to serve both sites ---"
+	if wait_for_caddy; then
+		verify_caddy
 		return 0
 	fi
-	verify_health || true
+	verify_caddy || true
+	echo "Caddy is not serving: podman logs django-crm_caddy_1"
 	return 1
 }
 
@@ -230,23 +276,28 @@ deploy_ref() {
 # is a single-file bind mount, which a checkout does not update inside
 # a running container.
 
-website_host() {
-	# The same .env the stack reads, sourced in a subshell so nothing in
-	# it reaches this script's environment. One hostname, per
-	# .env.example; the www name, if any, is served by the same block.
+env_value() {
+	# One setting from the same .env the stack reads, sourced in a
+	# subshell so nothing in it reaches this script's environment.
+	# Fails, naming the setting, if it is missing or empty.
 	[ -f "$REPO_DIR/.env" ] || {
 		echo "no .env in $REPO_DIR" >&2
 		return 1
 	}
-	host="$(
+	# An explicit list rather than indirect expansion, so no name can
+	# ever be evaluated as code.
+	value="$(
 		. "$REPO_DIR/.env" >/dev/null 2>&1 || true
-		printf '%s' "${WEBSITE_HOST:-}"
+		case "$1" in
+		CRM_HOST) printf '%s' "${CRM_HOST:-}" ;;
+		WEBSITE_HOST) printf '%s' "${WEBSITE_HOST:-}" ;;
+		esac
 	)"
-	[ -n "$host" ] || {
-		echo "WEBSITE_HOST is not set in .env" >&2
+	[ -n "$value" ] || {
+		echo "$1 is not set in .env" >&2
 		return 1
 	}
-	printf '%s\n' "$host"
+	printf '%s\n' "$value"
 }
 
 verify_website() {
@@ -256,7 +307,9 @@ verify_website() {
 	# A 200 is not enough: the page must carry the shared header, which
 	# proves Caddy's `templates` include ran, and must not contain a raw
 	# include, which would mean it did not.
-	host="$(website_host)" || return 1
+	# One hostname, per .env.example; the www name, if any, is served
+	# by the same site block.
+	host="$(env_value WEBSITE_HOST)" || return 1
 	page="$(curl -fsS --max-time 15 --resolve "$host:443:127.0.0.1" "https://$host/" 2>&1)" || {
 		echo "website not serving: https://$host/ ($page)"
 		return 1
@@ -351,7 +404,11 @@ status() {
 	else
 		echo "$SERVICE (boot-time unit): not active"
 	fi
-	verify_health
+	healthy=0
+	verify_health || healthy=1
+	verify_crm || healthy=1
+	verify_website || healthy=1
+	return "$healthy"
 }
 
 case "$1" in

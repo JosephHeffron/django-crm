@@ -161,6 +161,16 @@ for meaningful changes — not for every small fix or documentation tweak.
   the CRM, after confirming nothing else changed. It checks the live
   page through Caddy and puts the previous version back if the page is
   broken.
+- **An alarm for backups that stop.** Set `BACKUP_PING_URL` to a
+  healthchecks.io (or similar) check, and every successful nightly
+  backup pings it once the copy has reached Backblaze B2. A day with no
+  ping, for any reason (a failed backup, a failed upload, B2 not
+  configured, the timer not running), becomes an email alert.
+- **A deployment guide for the real server**: Ubuntu 24.04 on
+  DigitalOcean, step by step, in `docs/ADMIN_GUIDE.md`. It covers the
+  settings a rootless Ubuntu host needs and the old guide did not
+  (ports 80 and 443, user ID ranges, lingering, a deploy account
+  without sudo), and a check that Caddy sees real visitor addresses.
 
 ### Removed
 - **Team messaging — the Inbox and Messages pages — is retired.** The
@@ -194,6 +204,17 @@ for meaningful changes — not for every small fix or documentation tweak.
   (`docs/decisions/0015-x86-64-vps-replaces-the-raspberry-pi.md`).
 
 ### Changed
+- **A deploy is only successful if both sites are actually up.**
+  `./scripts/deploy.sh` used to check the database and Django
+  containers only. It now also loads the CRM and the website through
+  Caddy, and rolls back if either fails, so a Caddy configuration
+  error can no longer take everything offline behind a "deployed
+  successfully". `./scripts/deploy.sh status` reports all three.
+- **`crm.service` finds `podman-compose` wherever it is installed.**
+  Ubuntu 24.04's own package is too old: it ignores the "wait until
+  healthy" rules the stack depends on. The guide installs a current
+  version with pipx, and the unit now searches `~/.local/bin` instead
+  of assuming `/usr/bin`.
 - **Money follows the work, not a document.** A payment is recorded
   against a **job** — this business is paid before the work is
   finished, so there is usually no invoice — and revenue is the value

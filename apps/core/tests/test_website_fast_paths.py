@@ -14,22 +14,24 @@ were called, so the tests can assert that a website-only deploy never
 touches a container.
 """
 
-import os
 import re
-import shutil
 import subprocess
-import tempfile
 from pathlib import Path
 from unittest import skipIf
 
 from django.conf import settings
 from django.test import SimpleTestCase
 
+from apps.core.tests._deploy import (
+    GIT,
+    GOOD_PAGE,
+    SCOPE,
+    DeployHarness,
+    skips_certificate_checks,
+)
+
 ROOT = Path(settings.BASE_DIR)
-SCOPE = ROOT / "scripts" / "change-scope.sh"
-DEPLOY = ROOT / "scripts" / "deploy.sh"
 CI = ROOT / ".github" / "workflows" / "ci.yml"
-GIT = shutil.which("git")
 
 
 def scope(paths):
@@ -127,113 +129,8 @@ class WorkflowTests(SimpleTestCase):
             self.assertNotIn("if:", step.split("run:")[0], name)
 
 
-CURL_STUB = """#!/bin/sh
-# Records its arguments, then serves the checkout's index.html the way
-# Caddy would: the file as committed. STUB_CURL_FAIL makes it fail like
-# an unreachable server.
-echo "$@" >>"$STUB_LOG/curl"
-[ -z "${STUB_CURL_FAIL:-}" ] || { echo "curl: (7) Failed to connect" >&2; exit 7; }
-cat "$STUB_SITE/website/index.html"
-"""
-
-RECORDING_STUB = """#!/bin/sh
-echo "$(basename "$0") $@" >>"$STUB_LOG/containers"
-"""
-
-GOOD_PAGE = '<header class="site-header">Heffron</header><main>home</main>\n'
-
-
 @skipIf(not GIT, "needs git")
-class WebsiteOnlyDeployTests(SimpleTestCase):
-    def setUp(self):
-        self.tmp = Path(tempfile.mkdtemp())
-        self.addCleanup(shutil.rmtree, self.tmp)
-        self.origin = self.tmp / "origin.git"
-        self.server = self.tmp / "server"
-        self.dev = self.tmp / "dev"
-        self.logs = self.tmp / "logs"
-        self.bin = self.tmp / "bin"
-        self.logs.mkdir()
-        self.bin.mkdir()
-        for name, body in (
-            ("curl", CURL_STUB),
-            ("podman", RECORDING_STUB),
-            ("podman-compose", RECORDING_STUB),
-        ):
-            (self.bin / name).write_text(body)
-            (self.bin / name).chmod(0o755)
-
-        self.env = {
-            **os.environ,
-            "PATH": f"{self.bin}{os.pathsep}{os.environ['PATH']}",
-            "STUB_LOG": str(self.logs),
-            "STUB_SITE": str(self.server),
-            "GIT_AUTHOR_NAME": "test",
-            "GIT_AUTHOR_EMAIL": "test@example.test",
-            "GIT_COMMITTER_NAME": "test",
-            "GIT_COMMITTER_EMAIL": "test@example.test",
-        }
-        self.git(self.tmp, "init", "--bare", "--quiet", str(self.origin))
-        self.git(self.origin, "symbolic-ref", "HEAD", "refs/heads/main")
-        self.git(self.tmp, "clone", "--quiet", str(self.origin), str(self.dev))
-        self.git(self.dev, "checkout", "--quiet", "-B", "main")
-        self.write(
-            self.dev,
-            {
-                "scripts/deploy.sh": DEPLOY.read_text(),
-                "scripts/change-scope.sh": SCOPE.read_text(),
-                "website/index.html": GOOD_PAGE,
-                "website/about.html": "<p>about</p>\n",
-                "website/partials/header.html": '<header class="site-header"></header>\n',
-                "apps/app.py": "VALUE = 1\n",
-                ".gitignore": ".env\n.deploy-last-good-ref\n",
-            },
-        )
-        self.deployed = self.push("initial")
-        self.git(self.tmp, "clone", "--quiet", str(self.origin), str(self.server))
-        (self.server / ".env").write_text("CRM_HOST=crm.example.test\nWEBSITE_HOST=example.test\n")
-
-    # --- helpers ----------------------------------------------------
-
-    def git(self, cwd, *args):
-        return subprocess.run(
-            ["git", *args], cwd=cwd, env=self.env, capture_output=True, text=True, check=True
-        ).stdout.strip()
-
-    def write(self, repo, files):
-        for name, body in files.items():
-            path = repo / name
-            path.parent.mkdir(parents=True, exist_ok=True)
-            path.write_text(body)
-
-    def push(self, message, files=None):
-        """Commit `files` in the developer clone, push, return the SHA."""
-        self.write(self.dev, files or {})
-        self.git(self.dev, "add", "-A")
-        self.git(self.dev, "commit", "--quiet", "-m", message)
-        self.git(self.dev, "push", "--quiet", "origin", "main")
-        return self.git(self.dev, "rev-parse", "HEAD")
-
-    def deploy(self, *args, **env):
-        return subprocess.run(
-            ["sh", str(self.server / "scripts" / "deploy.sh"), *args],
-            cwd=self.server,
-            env={**self.env, **env},
-            capture_output=True,
-            text=True,
-        )
-
-    def head(self):
-        return self.git(self.server, "rev-parse", "HEAD")
-
-    def log(self, name):
-        path = self.logs / name
-        return path.read_text() if path.exists() else ""
-
-    def state(self):
-        path = self.server / ".deploy-last-good-ref"
-        return path.read_text().strip() if path.exists() else None
-
+class WebsiteOnlyDeployTests(DeployHarness, SimpleTestCase):
     # --- the path that should work ----------------------------------
 
     def test_a_website_change_goes_live_without_touching_a_container(self):
@@ -252,8 +149,7 @@ class WebsiteOnlyDeployTests(SimpleTestCase):
         call = self.log("curl")
         self.assertIn("--resolve example.test:443:127.0.0.1", call)
         self.assertIn("https://example.test/", call)
-        self.assertNotIn(" -k", call, "the certificate must be checked")
-        self.assertNotIn("--insecure", call)
+        self.assertFalse(skips_certificate_checks(call), "the certificate must be checked")
 
     def test_a_sha_deploys_as_well_as_a_branch(self):
         target = self.push("copy", {"website/about.html": "<p>y</p>\n"})

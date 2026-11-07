@@ -12,6 +12,33 @@ actually verified.
 > files that no longer exist. Those entries are kept as the record of
 > what was built at the time.
 
+> **Update 2026-11-06, later — Phase 22.5 unit 1 finished in code,
+> and a P0 found on the way.** Two PRs: `security/real-client-ip`
+> (ADR 0022) and `feature/unit1-deployment`, stacked on it.
+> - **P0, fixed:** under rootless Podman, Caddy on the compose network
+>   saw every visitor as one address (Podman's `rootlessport` rewrites
+>   the source). The login limit (ADR 0020) would have been one bucket
+>   for the whole internet: ten wrong passwords from anyone, and nobody
+>   could sign in. Production Caddy now runs on the host network,
+>   Django is on `127.0.0.1:8000` only, and Caddy's admin API is off.
+>   The dev stack is unchanged, on purpose.
+> - **Done:** the Ubuntu 24.04 deployment guide (`docs/ADMIN_GUIDE.md`,
+>   F-VPS-1 to F-VPS-5); backup alerting through a dead-man's-switch
+>   ping, sent only after the B2 push (F-BAK-3, F-BAK-4); full deploys
+>   and `deploy.sh status` now check that Caddy is serving both sites.
+> - **Found:** Ubuntu 24.04's `podman-compose` is 1.0.6, which
+>   ignores `depends_on` health conditions (honoured from 1.3.0). The
+>   guide installs it with pipx, and `crm.service` now finds it through
+>   `PATH` (F-VPS-2).
+> - **Not verified here:** Django, Caddy and Podman were unavailable in
+>   the writing session. Every script change was tested end to end
+>   against stubs, with mutations, and CI runs the rest. **The
+>   droplet is the real test**, especially step 7's `ss` check.
+> - **Still the owner's:** confirm the real `.env` has no
+>   `DJANGO_SETTINGS_MODULE` line, and create the DigitalOcean,
+>   Backblaze and healthchecks.io accounts. Full detail in
+>   `logs/claude/phase-22.5-unit-1-deployment.md`.
+
 > **Update 2026-11-06 — Phase 22.5 unit 4 (website scaffold), on
 > branch `feature/website-scaffold`, not yet merged.** Built from
 > `main` at `55650a3` (#203). `website/` holds six pages, the shared
