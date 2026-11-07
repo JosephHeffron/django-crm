@@ -462,6 +462,13 @@ written in its own phase:
 - `DJANGO_ALLOWED_HOSTS` keeps its Django meaning and will hold all
   three hostnames; `CRM_HOST` and `WEBSITE_HOSTS` are new and
   Caddy-only. That directly fixes audit F-CAD-1.
+  > **Changed when built (ADR 0016, 2026-11-06):** not one
+  > space-separated `WEBSITE_HOSTS`, but `WEBSITE_HOST` and an optional
+  > `WEBSITE_WWW_HOST`, one hostname each. `scripts/backup.sh` sources
+  > `.env` as shell under `set -e`, and `WEBSITE_HOSTS=a b` runs `b` as
+  > a command — the backup exits 127 (reproduced). The sketch above
+  > also differs from what shipped: there is no `/static/*` or `/book/*`
+  > route yet (unit 5 adds `/book/*` only), and `/partials/*` is refused.
 - Headers go in a snippet because they must stay **per-block**: a
   site-wide block duplicated the headers Django already sets on the
   proxied path (`Caddyfile:20-29`, **Verified**).
@@ -595,6 +602,11 @@ DNS record, one subdomain.
 1. **[owner]** Add `crm` → the droplet's IP. **Open:** whether Wix's
    DNS editor allows adding a subdomain A record — the one thing to
    check that decides the later sequence (§7).
+   **Also add `new` → the same IP** (added 2026-11-06, ADR 0016): Caddy
+   needs a real website hostname from its first start, and
+   `WEBSITE_HOST=new.heffronexteriorservices.com` is the preview the
+   plan's Phase 4 already wanted. Still a subdomain; the apex is not
+   touched.
 2. **[code/owner]** Clone, `.env` (real secrets, never committed),
    `systemctl --user enable --now crm.service`.
 3. **[code]** First real HTTPS: Caddy requests a Let's Encrypt

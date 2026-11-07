@@ -6,25 +6,56 @@
 # Caddyfile (production) deliberately does NOT do, since a real
 # deployment needs a publicly-trusted certificate, not a self-signed
 # one.
+#
+# The same two sites as production (docs/decisions/0016-two-sites-behind-one-caddy.md),
+# with fixed local names instead of the {$CRM_HOST}/{$WEBSITE_HOST}
+# variables:
+#
+#   https://localhost:8443/       the CRM
+#   https://www.localhost:8443/   the website
+#
+# Browsers and curl resolve *.localhost to the loopback address without
+# a hosts-file entry.
+#
+# One deliberate difference from production: here Caddy stays on the
+# compose network and proxies to web:8000. Production runs Caddy on the
+# host network and proxies to 127.0.0.1:8000, so that it sees real
+# visitor addresses (docs/decisions/0022-caddy-on-the-host-network-for-real-client-addresses.md).
+# On a workstation every visitor is you, and the host-network layout
+# would collide with `manage.py runserver` on port 8000, so the dev
+# stack does not reproduce it. The droplet is where that layout is
+# proven (docs/ADMIN_GUIDE.md's verification step).
+
+# See Caddyfile (production) for why headers are imported per handle
+# block rather than set site-wide.
+(secure_headers) {
+	header {
+		X-Content-Type-Options nosniff
+		X-Frame-Options DENY
+		Referrer-Policy same-origin
+	}
+}
+
+(website_headers) {
+	import secure_headers
+	header {
+		Content-Security-Policy "default-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; object-src 'none'"
+		Strict-Transport-Security "max-age=31536000"
+		Permissions-Policy "camera=(), microphone=(), geolocation=()"
+	}
+}
+
 localhost {
 	tls internal
 
 	encode gzip
 
-	# See Caddyfile (production) for why these headers are scoped to
-	# just the two file_server blocks rather than site-wide.
 	handle_path /static/* {
 		root * /srv/static
 		file_server
-		header {
-			X-Content-Type-Options nosniff
-			X-Frame-Options DENY
-			Referrer-Policy same-origin
-		}
+		import secure_headers
 	}
 
-	# Same as the production Caddyfile: private media goes through
-	# Django, which checks who's asking (apps/jobs/media.py).
 	# Private media is NOT served from disk. Job photos and profile
 	# pictures live under media/private/ and go through Django, which
 	# checks who's asking and whether they may see the job the photo
@@ -50,14 +81,51 @@ localhost {
 	handle_path /media/* {
 		root * /srv/media
 		file_server
-		header {
-			X-Content-Type-Options nosniff
-			X-Frame-Options DENY
-			Referrer-Policy same-origin
-		}
+		import secure_headers
 	}
 
 	handle {
 		reverse_proxy web:8000
+	}
+}
+
+# The website, exactly as in the production Caddyfile — see the
+# comments there.
+www.localhost {
+	tls internal
+
+	encode gzip
+
+	handle /partials/* {
+		error 404
+	}
+
+	handle /assets/* {
+		root * /srv/website
+		file_server
+		import website_headers
+	}
+
+	handle {
+		root * /srv/website
+		try_files {path} {path}.html
+		templates {
+			mime text/html
+		}
+		file_server
+		import website_headers
+	}
+
+	handle_errors {
+		@missing expression `{err.status_code} == 404`
+		handle @missing {
+			root * /srv/website
+			rewrite * /404.html
+			templates {
+				mime text/html
+			}
+			file_server
+			import website_headers
+		}
 	}
 }

@@ -12,6 +12,61 @@ actually verified.
 > files that no longer exist. Those entries are kept as the record of
 > what was built at the time.
 
+> **Update 2026-11-06, later — Phase 22.5 unit 1 finished in code,
+> and a P0 found on the way.** Two PRs: `security/real-client-ip`
+> (ADR 0022) and `feature/unit1-deployment`, stacked on it.
+> - **P0, fixed:** under rootless Podman, Caddy on the compose network
+>   saw every visitor as one address (Podman's `rootlessport` rewrites
+>   the source). The login limit (ADR 0020) would have been one bucket
+>   for the whole internet: ten wrong passwords from anyone, and nobody
+>   could sign in. Production Caddy now runs on the host network,
+>   Django is on `127.0.0.1:8000` only, and Caddy's admin API is off.
+>   The dev stack is unchanged, on purpose.
+> - **Done:** the Ubuntu 24.04 deployment guide (`docs/ADMIN_GUIDE.md`,
+>   F-VPS-1 to F-VPS-5); backup alerting through a dead-man's-switch
+>   ping, sent only after the B2 push (F-BAK-3, F-BAK-4); full deploys
+>   and `deploy.sh status` now check that Caddy is serving both sites.
+> - **Found:** Ubuntu 24.04's `podman-compose` is 1.0.6, which
+>   ignores `depends_on` health conditions (honoured from 1.3.0). The
+>   guide installs it with pipx, and `crm.service` now finds it through
+>   `PATH` (F-VPS-2).
+> - **Not verified here:** Django, Caddy and Podman were unavailable in
+>   the writing session. Every script change was tested end to end
+>   against stubs, with mutations, and CI runs the rest. **The
+>   droplet is the real test**, especially step 7's `ss` check.
+> - **Still the owner's:** confirm the real `.env` has no
+>   `DJANGO_SETTINGS_MODULE` line, and create the DigitalOcean,
+>   Backblaze and healthchecks.io accounts. Full detail in
+>   `logs/claude/phase-22.5-unit-1-deployment.md`.
+
+> **Update 2026-11-06 — Phase 22.5 unit 4 (website scaffold), on
+> branch `feature/website-scaffold`, not yet merged.** Built from
+> `main` at `55650a3` (#203). `website/` holds six pages, the shared
+> header/footer partials and one stylesheet, with every piece of
+> owner content still missing marked `data-placeholder`. The production
+> Caddyfile now serves two sites, the CRM on `CRM_HOST` and the website
+> on `WEBSITE_HOST`/`WEBSITE_WWW_HOST`, with no route from the website
+> hostnames to Django (ADRs 0016, 0017; `docs/WEBSITE.md`).
+> Neither Django nor Caddy could be installed in the session that wrote
+> it, so the full suite and the `caddy adapt` tests first ran in CI on
+> #206: **1,479 tests, OK, none skipped**, against Caddy v2.11.7. A
+> second PR, `feature/website-fast-paths`, stacked on #206, adds the
+> website-only shortcuts: CI runs just the website's checks on a
+> website-only PR, and `deploy.sh --website-only` publishes content
+> without a rebuild. Both use one rule, `scripts/change-scope.sh`.
+> **Found there, not fixed:** a full deploy's health check covers only
+> `db` and `web`, so a broken Caddyfile deploys "successfully" with
+> both sites down. Full detail in
+> `logs/claude/phase-22.5-unit-4-website.md`.
+> **Found on the way:** the plan's space-separated `WEBSITE_HOSTS`
+> would have stopped the nightly backup (`scripts/backup.sh` sources
+> `.env` under `set -e`; exit 127, reproduced). One hostname per
+> variable, and a test that sources `.env.example` the same way.
+> **Correction to the block below:** the login rate limit it lists as
+> not started has since landed (`apps/users/throttle.py`, ADR 0020),
+> as `docs/ROADMAP.md` records. The deployment guide and backup-failure
+> alerting are still not started, and nothing is deployed.
+
 > **Last updated 2026-11-02.** Nothing uncommitted, no open pull
 > requests, **1,383 tests passing** on `main` at that date.
 > (Deliberately no commit hash and no claim that a checkout is current:

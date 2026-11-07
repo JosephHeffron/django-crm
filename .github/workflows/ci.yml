@@ -36,6 +36,31 @@ jobs:
 
     steps:
       - uses: actions/checkout@v7
+        with:
+          # On a pull request, HEAD is GitHub's test merge commit and
+          # HEAD^1 is the tip of the base branch, so two commits of
+          # history are enough to list exactly what the PR changes.
+          fetch-depth: 2
+
+      # Website-only pull requests run the website's own checks instead
+      # of the whole suite (docs/decisions/0017-the-website-lives-in-this-repository.md,
+      # plan D6.5). Deliberately decided here, inside the job, and never
+      # with `paths`/`paths-ignore` on the trigger: a required check
+      # that does not run is reported as missing, not passed, and the
+      # PR could never merge. scripts/change-scope.sh is the one rule,
+      # shared with `deploy.sh --website-only`; it answers `full` for
+      # anything outside website/, for website/partials/ (Django reads
+      # those), and for an empty list. Pushes to main always run in full.
+      - name: Decide what this change needs
+        id: scope
+        run: |
+          if [ "$GITHUB_EVENT_NAME" = "pull_request" ]; then
+            scope=$(git diff --name-only --no-renames HEAD^1 HEAD | sh scripts/change-scope.sh)
+          else
+            scope=full
+          fi
+          echo "scope=$scope" >> "$GITHUB_OUTPUT"
+          echo "This change needs the $scope checks."
 
       - uses: actions/setup-python@v7
         with:
@@ -70,13 +95,23 @@ jobs:
         run: python manage.py check
 
       - name: Migration check
+        if: steps.scope.outputs.scope != 'website'
         run: python manage.py makemigrations --check --dry-run
 
       - name: Apply migrations
+        if: steps.scope.outputs.scope != 'website'
         run: python manage.py migrate
 
       - name: Test
+        if: steps.scope.outputs.scope != 'website'
         run: python manage.py test
+
+      # The private-data guard, the page and link checks, and the
+      # `caddy adapt` routing checks for the website hostnames — all in
+      # one module, none of which needs the database.
+      - name: Test (website only)
+        if: steps.scope.outputs.scope == 'website'
+        run: python manage.py test apps.core.tests.test_website
 
       - name: Lint
         run: |

@@ -13,6 +13,7 @@ from django.test import TestCase, override_settings
 from django.urls import reverse
 from PIL import Image
 
+from apps.core.tests._caddy import caddy_env, strip_comments
 from apps.crm.tests._helpers import grant_role
 from apps.jobs.media import CONTENT_TYPES, content_type_for
 from apps.jobs.models import ALLOWED_PHOTO_SUFFIXES, Photo
@@ -282,25 +283,6 @@ class AvatarTests(MediaTestCase):
         self.assertTrue(get_profile(self.casey).photo.name.startswith("private/avatars/"))
 
 
-def strip_comments(config):
-    """A Caddyfile comment runs from an unquoted `#` to end of line.
-
-    Commented-out text is not configuration, and a test that cannot
-    tell the difference will pass against a disabled handler.
-    """
-    out = []
-    for line in config.splitlines():
-        quoted = False
-        for i, char in enumerate(line):
-            if char == '"':
-                quoted = not quoted
-            elif char == "#" and not quoted:
-                line = line[:i]
-                break
-        out.append(line)
-    return "\n".join(out)
-
-
 def adapted_routes(name):
     """The path matchers of `name`, in the order Caddy will try them.
 
@@ -314,9 +296,9 @@ def adapted_routes(name):
         capture_output=True,
         text=True,
         check=True,
-        # The production file takes the hostname from the same variable
-        # Django uses; any value adapts the same.
-        env={**os.environ, "DJANGO_ALLOWED_HOSTS": "example.test"},
+        # The production file takes its site addresses from CRM_HOST and
+        # the website variables (ADR 0016); any values adapt the same.
+        env=caddy_env(),
     ).stdout
     servers = json.loads(raw)["apps"]["http"]["servers"]
     routes = []
@@ -464,7 +446,7 @@ class ProxyConfigTests(TestCase):
                 ["caddy", "validate", "--config", name],
                 capture_output=True,
                 text=True,
-                env={**os.environ, "DJANGO_ALLOWED_HOSTS": "example.test"},
+                env=caddy_env(),
             )
             self.assertEqual(result.returncode, 0, f"{name}: {result.stderr[-400:]}")
 
