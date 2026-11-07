@@ -129,7 +129,7 @@ what proves it on the droplet.
 - **Tests:**
   - The deploy test setup moved to `apps/core/tests/_deploy.py` and is
     shared by the website-only tests and the new
-    `apps/core/tests/test_deploy_script.py` (14 tests): full deploys,
+    `apps/core/tests/test_deploy_script.py` (12 tests): full deploys,
     status, the certificate-check reader, and `crm.service`.
   - `apps/core/tests/test_backup_monitoring.py` (8 tests) runs the real
     `backup.sh` with `podman`, `restic` and `curl` stubbed, logging
@@ -185,6 +185,25 @@ Result: OK (local ruff 0.16.9; CI's 0.17.3 is authoritative).
 podman-compose. CI covers the first two. Only the droplet covers the
 rest.
 
+## After review and CI
+- **Sourcery on #208, eight threads, all answered and resolved.**
+  Changed: each login count is now read and written under a PostgreSQL
+  advisory lock per key (`throttle._serialize`), because three workers
+  could read the same count and both write N + 1. The port check fails
+  closed on any spelling of `ports`, and the Caddy test now asks which
+  handler *answers* a request, not only which handlers exist (`first_answer`
+  in `apps/core/tests/_caddy.py`). Kept, with the reason in ADR 0022:
+  a process on the droplet itself can reach Django without Caddy.
+  Commit `a73c26d`.
+- **CI then failed, with two errors in the new concurrency tests,
+  not in the code.** It was a `TransactionTestCase`, whose end-of-test flush
+  truncates every table, and PostgreSQL refused: the retired
+  `crm_deal` table (ADR 0012) still references `auth_user`. Now an
+  ordinary `TestCase` whose threads commit on connections of their own,
+  clearing the cache the same way. Commit `43e6c61`.
+- CI: #208 **1,522 tests, OK**; #209, after updating from `main`,
+  **1,542, OK**. Both run in about fifteen minutes, as before.
+
 ## Decisions
 - ADR 0022: host-network Caddy, chosen by the owner over fixing it
   later on the droplet or weakening the limit to per-username only.
@@ -200,8 +219,8 @@ rest.
 
 ## Git
 Branches: `security/real-client-ip`, then `feature/unit1-deployment`
-on top of it. Commits are made after the owner approves their messages;
-no hash here, because a commit cannot name itself.
+on top of it. Commits: `1cfefdc`, `a73c26d` and `43e6c61` (#208, merged
+as `74abbfa`); `3fb98e6` (#209, merged as `3c03030`).
 
 ## Lessons learned
 - **Read the platform, not only the repo.** The repo was internally
@@ -214,9 +233,12 @@ no hash here, because a commit cannot name itself.
   purpose.
 - **Combined short flags defeat naive argument checks.** This bit
   twice in one session (`-fsS`, then `-kfsS`). Read flags as clusters.
+- **No `TransactionTestCase` in this repository.** The retired tables
+  block its flush. Threads in an ordinary `TestCase` get their own
+  connections, which commit.
 
 ## Next
-1. CI on both PRs, then merge the IP fix first.
+1. ~~CI on both PRs, then merge the IP fix first.~~ Done, 2026-11-06.
 2. Owner: DigitalOcean, Backblaze and healthchecks.io accounts; Wix
    DNS for `crm` and `new`; the real `.env` check.
 3. Unit 2, provisioning, by following the guide. Correct the guide in

@@ -12,6 +12,23 @@ actually verified.
 > files that no longer exist. Those entries are kept as the record of
 > what was built at the time.
 
+> **Update 2026-11-06, merged — units 1 and 4 are on `main`.** #206
+> and #207 (the website scaffold and its shortcuts), #208 (ADR 0022)
+> and #209 (the guide, backup alerting, Caddy-aware deploys) are
+> merged; `main` is at `3c03030`. CI on #209's final head: **1,542
+> tests, OK**. The two notes below were written before the merge.
+> #204 and #205 were still open. Nothing is deployed; unit 2, the
+> droplet, is the owner's.
+> - **Review of #208 changed the login limit:** each count is now read
+>   and written under a PostgreSQL advisory lock per key, so failures
+>   arriving at once on different gunicorn workers are all counted.
+> - **Found on the way:** `TransactionTestCase` cannot be used here.
+>   Its end-of-test flush truncates every table, and PostgreSQL
+>   refuses, because the retired `crm_deal` table (kept, ADR 0012)
+>   still references `auth_user`. The concurrency test is an ordinary
+>   `TestCase` whose threads commit on connections of their own
+>   (`apps/users/tests/test_login_rate_limit.py`).
+
 > **Update 2026-11-06, later — Phase 22.5 unit 1 finished in code,
 > and a P0 found on the way.** Two PRs: `security/real-client-ip`
 > (ADR 0022) and `feature/unit1-deployment`, stacked on it.
@@ -67,6 +84,21 @@ actually verified.
 > as `docs/ROADMAP.md` records. The deployment guide and backup-failure
 > alerting are still not started, and nothing is deployed.
 
+> **Update, 2026-11-04 (documentation only).** Since the close-out
+> below, seven more PRs landed: #196 and #197 (that close-out and a
+> correction to it), **#200, the login rate limit (ADR 0020)**, so it is
+> now done rather than "not started", #198 and #199 (account
+> administration and pay changes recorded in the change log), #201 (the
+> customer search visibly searches) and #202 (a chosen customer's
+> address fills in). #203 (whole-number quantities on documents) was
+> open on this date. **Phase 22.5 unit 1 now has two items left:** the
+> Ubuntu x86-64 deployment guide and backup-failure alerting. Nothing
+> is deployed. This update also brought `docs/VPS_DEPLOYMENT_PLAN.md`,
+> `docs/VPS_PLAN_SUMMARY.md` and `docs/ROADMAP.md` in line with ADR
+> 0021 (no email anywhere) and with ADRs 0015, 0020 and 0021 being
+> written. No code changed and the suite was not re-run for it, so the
+> test count below is the 2026-11-02 one.
+
 > **Last updated 2026-11-02.** Nothing uncommitted, no open pull
 > requests, **1,383 tests passing** on `main` at that date.
 > (Deliberately no commit hash and no claim that a checkout is current:
@@ -112,8 +144,8 @@ actually verified.
 > size with memory, not CPU, the constraint.
 >
 > **Still not started in unit 1:** the login rate limit (needed before
-> unit 3 exposes the CRM, and there is no MFA until Phase 23), the
-> Ubuntu x86-64 deployment guide (the audit's F-VPS-1 to F-VPS-5), and
+> unit 3 exposes the CRM, and there is no MFA until Phase 23; *done
+> since, #200*), the Ubuntu x86-64 deployment guide (the audit's F-VPS-1 to F-VPS-5), and
 > backup-failure alerting. **Nothing is deployed yet** — the droplet
 > does not exist.
 >
@@ -1502,7 +1534,18 @@ roadmap completed:
 
 ## Currently working on
 
-**Nothing in flight.** What follows is what most recently landed.
+**Phase 22.5 (VPS deployment and public website).** Unit 1 is done
+and merged: owner-set passwords and in-app accounts (#193, ADR 0021),
+email reset removed (#194), the Pi target dropped (#195, ADR 0015), the
+login rate limit (#200, ADR 0020), account and pay changes logged
+(#198, #199), real client addresses (#208, ADR 0022), and the Ubuntu
+guide, backup alerting and Caddy-aware deploys (#209). Unit 4's
+scaffold is merged too (#206, #207); its content is the owner's. The
+plan is `docs/VPS_DEPLOYMENT_PLAN.md`; the unit logs are
+`logs/claude/phase-22.5-unit-1-accounts.md`,
+`phase-22.5-unit-1-deployment.md` and `phase-22.5-unit-4-website.md`.
+
+The Phase 22 summary below is kept as the record of the phase before.
 
 **Phase 22 — data portability and bulk operations — is complete** (PRs
 #179, #180, #181, #182, #184 and this close-out). Four of its items
@@ -1641,8 +1684,17 @@ for its own unit", below.
 
 ## Next
 
+**Phase 22.5 unit 2** — the owner provisions the droplet by following
+`docs/ADMIN_GUIDE.md`'s *First-time deployment*, then unit 3, the CRM
+live on `crm.` with **the restore drill before any real data**. Wherever
+the droplet disagrees with the guide, the guide is corrected in the same
+PR, starting with step 7's `ss` check. Code that can go ahead
+meanwhile: unit 5, `/book/`, with ADR 0018 written first.
+`docs/ROADMAP.md` puts Phase 22.5 ahead of Phase 23; the two-factor
+notes below apply when Phase 23 is reached.
+
 **Phase 23 — authentication hardening** (two-factor authentication for
-login, e.g. `django-otp`) is the next roadmap item. Run the
+login, e.g. `django-otp`) follows Phase 22.5. Run the
 verification pass over its entry first. That is now **six phases
 running** where the entry described intent rather than delivery: Phase
 20's was wrong about the business model as well as the state of the

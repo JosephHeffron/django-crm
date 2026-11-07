@@ -462,7 +462,7 @@ insufficient.
       **0019** (email via the existing Gmail account — *written then
       superseded*, #188 and #194),
       **0020** (database-backed cache for rate limiting instead of
-      Redis — *written*, unit 1),
+      Redis — *written*, #200),
       **0021** (passwords set by the owner, not reset by email —
       *written*, #193; it replaces 0019 and was not in the original
       list).
@@ -477,6 +477,12 @@ insufficient.
       Twilio on top of the messaging model (designed for it in Phase
       17), outbound email logged as an Activity, ICS calendar export.
       (Absorbs the earlier "communication integration" item.)
+      **Changed since this was written:** the messaging tables survive
+      but the feature was retired code-only (ADR 0014), and the app
+      sends no email at all, because the host blocks outbound SMTP
+      (ADR 0021). Any email here needs a provider on an unblocked port
+      and its own ADR; SMTP through Gmail is not an option on this
+      host.
 - ~~**Phase 25 — Real Raspberry Pi hardware validation.**~~
       **Dropped (ADR 0015, 2026-11-02).** No Pi was ever bought and the
       deployment target is now an x86-64 Ubuntu VPS, so there is no ARM
