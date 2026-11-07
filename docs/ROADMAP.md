@@ -370,7 +370,8 @@ insufficient.
 
       Seven units, in this order — the first three cannot affect the
       website or the domain, which is the point of the sequence:
-      1. **P0 repo fixes** — *partly done.*
+      1. **P0 repo fixes** — *done* (2026-11-06), apart from the
+         owner's own check of the real `.env`.
          - ~~Outbound email and password reset~~ **reversed.** Built in
            #188 (ADR 0019), removed in #194: DigitalOcean blocks
            outbound SMTP on 25, 465 and 587 by default on Droplets, and
@@ -385,9 +386,25 @@ insufficient.
            fifteen minutes, per IP and per username, on
            `/accounts/login/` and `/admin/login/`, counted in a
            database cache the three gunicorn workers share.
-         - An Ubuntu x86-64 deployment guide — **not started**; the
-           audit's F-VPS-1 to F-VPS-5 are its content.
-         - Alerting for a backup that stops running — **not started**.
+         - An Ubuntu x86-64 deployment guide — **done**:
+           `docs/ADMIN_GUIDE.md`'s *First-time deployment*, covering
+           F-VPS-1 to F-VPS-5. Found on the way: Ubuntu 24.04's own
+           `podman-compose` is 1.0.6, which ignores the `depends_on`
+           health conditions (honoured from 1.3.0), so the guide
+           installs it with pipx and `crm.service` now finds it via
+           `PATH` instead of a hard-coded `/usr/bin` path (F-VPS-2).
+         - Alerting for a backup that stops running — **done**: a
+           dead-man's-switch ping (`BACKUP_PING_URL`), sent only after
+           the off-host push succeeds (F-BAK-3, F-BAK-4).
+         - **Added:** a full deploy now counts as healthy only when
+           Caddy is serving the CRM and the website. It used to check
+           only `db` and `web`, so a Caddyfile Caddy rejected would have
+           deployed "successfully" with both sites down.
+         - **Added, not in the original list:** real visitor
+           addresses behind Caddy — **done**, ADR 0022. Rootless
+           Podman's port forwarder gave every visitor one address,
+           which made the login limit a lockout anyone could trigger.
+           Production Caddy now runs on the host network.
       2. **VPS provisioning** — the owner's own work, following that
          guide.
       3. **CRM live on `crm.`** — HTTPS, backups to B2, uptime
@@ -400,6 +417,31 @@ insufficient.
          rather than duplicating them, CI keeps the required checks
          reporting on website-only PRs, and a guard keeps private data
          out of a folder that is published the moment it is committed.
+         — *scaffold done, content outstanding.* Started ahead of
+         units 1-3 deliberately: none of it reaches the domain until
+         unit 6, and a website hostname is needed from unit 3's first
+         Caddy start anyway.
+         - Done (2026-11-06): `website/` with six pages, shared
+           partials, one stylesheet; the two-site Caddyfile
+           (`CRM_HOST`, `WEBSITE_HOST`, `WEBSITE_WWW_HOST`) and the
+           website mount in both compose files; the private-data guard
+           and page checks in `apps/core/tests/test_website.py`;
+           `caddy adapt` tests that the website hostnames reach no part
+           of Django; `docs/WEBSITE.md`. ADRs 0016 and 0017.
+         - **Found while building:** the plan's single space-separated
+           `WEBSITE_HOSTS` would have stopped every nightly backup —
+           `scripts/backup.sh` sources `.env` under `set -e`, and the
+           second hostname runs as a command (exit 127, reproduced).
+           One hostname per variable instead, with a test.
+         - Done (2026-11-06, second PR): the website-only shortcuts.
+           CI runs just the website's checks on a website-only PR
+           (D6.5), under the same `test` check and with no path filter
+           on the trigger. `deploy.sh --website-only` (D6.4) refuses
+           anything else, checks the page through Caddy, and reverts on
+           failure. One rule serves both: `scripts/change-scope.sh`.
+         - Outstanding: the owner's content (`grep -rn data-placeholder
+           website/`), `LocalBusiness` structured data once real values
+           exist, and the decisions listed in `docs/WEBSITE.md`.
       5. **Website → CRM** — one public booking page, `/book/`, served
          by Django on the website's own origin, creating a `Contact`
          with `status=lead` and `lead_source=website`. No API, no DRF,
@@ -410,11 +452,12 @@ insufficient.
          registrar and the DNS host, so cancelling it early takes the
          domain down.
 
-      ADRs, as their units start — four written so far:
+      ADRs, as their units start — six written so far:
       **0015** (x86-64 VPS replaces the Pi — *written*, #195),
-      0016 (two sites behind one Caddy),
-      0017 (the website lives in this repository, with the mounts,
-      deploy, CI filter and private-data guard that implies),
+      **0016** (two sites behind one Caddy — *written*, unit 4),
+      **0017** (the website lives in this repository, with the mounts,
+      deploy, CI filter and private-data guard that implies —
+      *written*, unit 4),
       0018 (same-origin lead intake at `/book/`),
       **0019** (email via the existing Gmail account — *written then
       superseded*, #188 and #194),

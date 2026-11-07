@@ -1,40 +1,80 @@
 # Production Caddyfile. Only Caddy is ever reachable from outside the
-# host (docs/ARCHITECTURE.md's "Security boundaries") — Django and
-# PostgreSQL stay on the internal compose network. Real automatic
+# host (docs/ARCHITECTURE.md's "Security boundaries"). Caddy runs on the
+# host network so it sees real visitor addresses; Django listens on
+# 127.0.0.1:8000 only, and PostgreSQL is not published (ADR 0022). Real automatic
 # HTTPS (Let's Encrypt) requires a real public domain resolving here;
 # see Caddyfile.dev for local/staging testing without one.
 #
-# {$DJANGO_ALLOWED_HOSTS} reuses the same env var Django itself already
-# uses for the identical piece of information (the deployment's public
-# hostname), rather than introducing a second variable for it. This only
-# works for a single hostname: Django's ALLOWED_HOSTS accepts a
-# comma-separated list, but a Caddyfile site address block expects
-# space-separated addresses — a comma-separated value here would be
-# parsed as one (invalid) address, not several. Fine for this project's
-# actual deployment plan (one Pi, one domain, per .env.example); if that
-# ever changes, this needs its own space-separated variable instead.
-{$DJANGO_ALLOWED_HOSTS} {
+# Two sites, one Caddy (docs/decisions/0016-two-sites-behind-one-caddy.md):
+#
+#   {$CRM_HOST}          the CRM, e.g. crm.heffronexteriorservices.com
+#   {$WEBSITE_HOST}      the website, e.g. heffronexteriorservices.com
+#   {$WEBSITE_WWW_HOST}  optional second website name, e.g.
+#                        www.heffronexteriorservices.com
+#
+# Caddy-only variables, set in .env. CRM_HOST and WEBSITE_HOST are
+# required and have no default, so a missing value stops Caddy rather
+# than serving something unexpected. WEBSITE_WWW_HOST may be left
+# unset: Caddy substitutes {$…} before it parses this file, so an empty
+# value is simply no address at all.
+#
+# One hostname per variable, never a space-separated list:
+# scripts/backup.sh sources .env as shell, and an unquoted
+# `NAME=a b` line runs `b` as a command, which aborts the backup under
+# `set -e` (exit 127, reproduced while writing this). DJANGO_ALLOWED_HOSTS
+# keeps its Django meaning only; it was this file's site address until
+# the website arrived.
+
+# Global options. Caddy runs on the host network (compose.prod.yml,
+# docs/decisions/0022-caddy-on-the-host-network-for-real-client-addresses.md),
+# so its admin API, on by default at localhost:2019, would listen on the
+# server's own loopback, where any local account could reconfigure the
+# proxy. Nothing uses it: a deploy recreates the container rather than
+# reloading the config. This block has to come first in the file.
+{
+	admin off
+}
+
+# The three headers Django's SecurityMiddleware would have set
+# (config/settings/production.py's SECURE_CONTENT_TYPE_NOSNIFF,
+# X_FRAME_OPTIONS, and Django's own default SECURE_REFERRER_POLICY), for
+# responses Caddy produces itself. Imported per handle block, never
+# site-wide: a site-wide header block duplicated the headers Django
+# already sets on the reverse-proxied path — confirmed by live testing,
+# a site-wide block produced each header twice in the proxied response.
+(secure_headers) {
+	header {
+		X-Content-Type-Options nosniff
+		X-Frame-Options DENY
+		Referrer-Policy same-origin
+	}
+}
+
+# The website's pages never pass through Django, so nothing else sets a
+# CSP or HSTS for them. No inline script or style exists on the site,
+# so 'self' is the whole policy. HSTS deliberately omits
+# includeSubDomains: the apex must not commit every future subdomain to
+# HTTPS on the website's behalf (crm. sends its own, from Django).
+(website_headers) {
+	import secure_headers
+	header {
+		Content-Security-Policy "default-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; object-src 'none'"
+		Strict-Transport-Security "max-age=31536000"
+		Permissions-Policy "camera=(), microphone=(), geolocation=()"
+	}
+}
+
+{$CRM_HOST} {
 	encode gzip
 
 	# Static/media served directly by Caddy — bypasses Django/gunicorn
 	# entirely for these paths (docs/ARCHITECTURE.md: "serves static
-	# files efficiently"). Because these responses never pass through
-	# Django's SecurityMiddleware, the same headers Django would have
-	# set (config/settings/production.py's SECURE_CONTENT_TYPE_NOSNIFF,
-	# X_FRAME_OPTIONS, and Django's own default SECURE_REFERRER_POLICY)
-	# are set here explicitly, scoped to just these two blocks — not
-	# site-wide, since a site-wide header block would duplicate the
-	# headers Django's own SecurityMiddleware already sets on the
-	# reverse-proxied path below. Confirmed by live testing: a site-wide
-	# block produced each header twice in the proxied response.
+	# files efficiently"). These responses never pass through Django's
+	# SecurityMiddleware, so they import the headers it would have set.
 	handle_path /static/* {
 		root * /srv/static
 		file_server
-		header {
-			X-Content-Type-Options nosniff
-			X-Frame-Options DENY
-			Referrer-Policy same-origin
-		}
+		import secure_headers
 	}
 
 	# Private media is NOT served from disk. Job photos and profile
@@ -62,11 +102,7 @@
 	handle_path /media/* {
 		root * /srv/media
 		file_server
-		header {
-			X-Content-Type-Options nosniff
-			X-Frame-Options DENY
-			Referrer-Policy same-origin
-		}
+		import secure_headers
 	}
 
 	# Caddy's reverse_proxy sets X-Forwarded-Proto/-For/-Host for the
@@ -79,7 +115,69 @@
 	# the proxied request as already HTTPS (see
 	# logs/claude/phase-08-caddy-https.md), not assumed from Caddy's own
 	# documentation alone.
+	#
+	# 127.0.0.1:8000, not web:8000: Caddy is on the host network and
+	# reaches Django through its loopback-only published port (ADR 0022).
+	# Caddy is now the process that accepted the visitor's connection,
+	# so the address it appends to X-Forwarded-For is the visitor's
+	# real one, which apps/users/throttle.py counts.
 	handle {
-		reverse_proxy web:8000
+		reverse_proxy 127.0.0.1:8000
+	}
+}
+
+# The public website: static files from website/ in this repository,
+# bind-mounted read-only at /srv/website
+# (docs/decisions/0017-the-website-lives-in-this-repository.md).
+#
+# There is no reverse_proxy in this block, so the public hostnames reach
+# no part of the CRM. Phase 22.5 unit 5 adds exactly one route,
+# `handle /book/* { reverse_proxy 127.0.0.1:8000 }`, and
+# apps/core/tests/test_website.py holds the allow-list it must extend.
+#
+# Website images live under /assets/, never /media/: the private-media
+# guard checks every /media/* file server in every site block.
+{$WEBSITE_HOST} {$WEBSITE_WWW_HOST} {
+	encode gzip
+
+	# Header and footer fragments, included into every page by the
+	# `templates` directive below (which reads them from disk, not over
+	# HTTP). They are not pages, so they are not served as pages.
+	handle /partials/* {
+		error 404
+	}
+
+	handle /assets/* {
+		root * /srv/website
+		file_server
+		import website_headers
+	}
+
+	# Pages. `templates` runs only on HTML, so a "{{" inside a .js or
+	# .css asset is never evaluated, and the only template action a page
+	# may contain is an include of a partial — the test suite enforces
+	# that, because `templates` can also read Caddy's environment.
+	# try_files gives clean URLs: /services serves services.html.
+	handle {
+		root * /srv/website
+		try_files {path} {path}.html
+		templates {
+			mime text/html
+		}
+		file_server
+		import website_headers
+	}
+
+	handle_errors {
+		@missing expression `{err.status_code} == 404`
+		handle @missing {
+			root * /srv/website
+			rewrite * /404.html
+			templates {
+				mime text/html
+			}
+			file_server
+			import website_headers
+		}
 	}
 }

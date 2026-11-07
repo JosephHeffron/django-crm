@@ -138,6 +138,39 @@ for meaningful changes — not for every small fix or documentation tweak.
   **Keep two Owner accounts.** Either can reset the other, so a
   forgotten owner password stays a two-click fix instead of needing
   server access — see `docs/ADMIN_GUIDE.md`.
+- **The public website's scaffold**, in `website/`: home, services,
+  our work, about, contact and a 404 page, one shared header and
+  footer, and one stylesheet, served by the same Caddy as the CRM on
+  its own hostname with no route into the CRM. Everything the owner
+  still has to supply shows as a dashed "To supply" box, so nothing
+  unfinished can go live unnoticed. A test refuses anything in that
+  folder that is not a web asset, any photo still carrying its GPS
+  position, and any file over 1 MiB, because this repository is
+  public. See `docs/WEBSITE.md`
+  (`docs/decisions/0016-two-sites-behind-one-caddy.md`,
+  `docs/decisions/0017-the-website-lives-in-this-repository.md`).
+
+  **New `.env` settings:** `CRM_HOST` and `WEBSITE_HOST` (required),
+  and `WEBSITE_WWW_HOST` (optional). Caddy no longer takes its address
+  from `DJANGO_ALLOWED_HOSTS`. One hostname per setting: a
+  space-separated list in `.env` stops the nightly backup.
+- **Website-only changes take a shortcut**, in CI and in deployment.
+  A pull request that changes only website content runs the website's
+  checks instead of the whole suite. `./scripts/deploy.sh
+  --website-only <ref>` publishes it without rebuilding or restarting
+  the CRM, after confirming nothing else changed. It checks the live
+  page through Caddy and puts the previous version back if the page is
+  broken.
+- **An alarm for backups that stop.** Set `BACKUP_PING_URL` to a
+  healthchecks.io (or similar) check, and every successful nightly
+  backup pings it once the copy has reached Backblaze B2. A day with no
+  ping, for any reason (a failed backup, a failed upload, B2 not
+  configured, the timer not running), becomes an email alert.
+- **A deployment guide for the real server**: Ubuntu 24.04 on
+  DigitalOcean, step by step, in `docs/ADMIN_GUIDE.md`. It covers the
+  settings a rootless Ubuntu host needs and the old guide did not
+  (ports 80 and 443, user ID ranges, lingering, a deploy account
+  without sudo), and a check that Caddy sees real visitor addresses.
 
 ### Removed
 - **Team messaging — the Inbox and Messages pages — is retired.** The
@@ -171,6 +204,17 @@ for meaningful changes — not for every small fix or documentation tweak.
   (`docs/decisions/0015-x86-64-vps-replaces-the-raspberry-pi.md`).
 
 ### Changed
+- **A deploy is only successful if both sites are actually up.**
+  `./scripts/deploy.sh` used to check the database and Django
+  containers only. It now also loads the CRM and the website through
+  Caddy, and rolls back if either fails, so a Caddy configuration
+  error can no longer take everything offline behind a "deployed
+  successfully". `./scripts/deploy.sh status` reports all three.
+- **`crm.service` finds `podman-compose` wherever it is installed.**
+  Ubuntu 24.04's own package is too old: it ignores the "wait until
+  healthy" rules the stack depends on. The guide installs a current
+  version with pipx, and the unit now searches `~/.local/bin` instead
+  of assuming `/usr/bin`.
 - **Money follows the work, not a document.** A payment is recorded
   against a **job** — this business is paid before the work is
   finished, so there is usually no invoice — and revenue is the value
@@ -199,6 +243,14 @@ for meaningful changes — not for every small fix or documentation tweak.
   actually change, and records tag changes by name.
 
 ### Security
+- **The login limit can no longer be turned against everyone.**
+  Under rootless Podman, Caddy saw every visitor as one internal
+  address, so ten wrong passwords from anybody would have locked the
+  whole team out of signing in for fifteen minutes. In production,
+  Caddy now runs on the host network and sees real visitor addresses.
+  Django listens on the server's loopback address only, and Caddy's
+  admin API is off. The development stack is unchanged
+  (`docs/decisions/0022-caddy-on-the-host-network-for-real-client-addresses.md`).
 - Pillow upgraded to 13.0.0, which fixes 24 CVEs reported against
   12.3.0. It is what re-encodes every uploaded job photo, and that
   re-encode is what strips the picture's GPS location, so it parses

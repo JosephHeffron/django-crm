@@ -90,5 +90,6 @@ that cannot be fixed after the fact, so phase 3 proves it first.
 The CRM you already have, on your own server, with staff accounts you
 can create yourself and whose passwords you set from the Team page;
 a website you own; quote requests landing in the CRM as leads instead
-of an email you have to retype; nightly encrypted backups off the server, with an
-alert if one stops running; and no monthly fee to RevDek or Wix.
+of an email you have to retype; nightly encrypted backups off the
+server, with an alert if one stops running; and no monthly fee to
+RevDek or Wix.

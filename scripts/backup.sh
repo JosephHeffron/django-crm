@@ -195,6 +195,31 @@ done
 trap - EXIT
 echo "=== backup complete: $DEST ==="
 
+# Dead-man's-switch ping (audit F-BAK-3 and F-BAK-4; docs/ADMIN_GUIDE.md).
+# BACKUP_PING_URL, set in .env, belongs to a monitoring service that
+# expects one request a day and alerts when it does not arrive —
+# healthchecks.io, or any service that works that way. It is sent only
+# at the very end, after the off-host push has succeeded. So it
+# catches every failure above (set -e exits before reaching it), and
+# also what no failure handler can: the timer no longer running at
+# all. A local-only backup never pings, because a backup that has not
+# left this host is the misconfiguration F-BAK-4 describes, not a
+# success.
+#
+# The URL is a credential (anyone holding it can mark the backup as
+# done), so it is never echoed.
+ping_monitor() {
+	[ -n "${BACKUP_PING_URL:-}" ] || return 0
+	if curl -fsS --max-time 10 --retry 5 --retry-delay 5 -o /dev/null "$BACKUP_PING_URL"; then
+		echo "--- monitoring notified ---"
+	else
+		# The backup itself succeeded. The missed ping will make the
+		# monitor alert, which is worth a look but is not a reason to
+		# report the backup as failed.
+		echo "WARNING: could not reach the monitoring service (BACKUP_PING_URL); it will report this backup as missed." >&2
+	fi
+}
+
 # Off-host push, if configured — deliberately AFTER the local backup's
 # own trap is cleared: a network hiccup or off-host failure here must
 # never delete the local backup that already succeeded. This step can
@@ -229,6 +254,10 @@ if [ -n "$RESTIC_REPOSITORY" ]; then
 	# can't cross between them.
 	restic forget --tag "$RESTIC_TAG" --keep-last "$BACKUP_RETENTION_COUNT" --prune
 	echo "=== off-host push complete ==="
+	ping_monitor
 else
 	echo "--- RESTIC_REPOSITORY not set in .env — skipping off-host push (local-only backup) ---"
+	if [ -n "${BACKUP_PING_URL:-}" ]; then
+		echo "WARNING: BACKUP_PING_URL is set but RESTIC_REPOSITORY is not — not notifying the monitor, because a backup that never left this host does not count. It will report this backup as missed." >&2
+	fi
 fi
