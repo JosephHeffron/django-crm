@@ -54,6 +54,12 @@ rate limiting** (§4, F-PUB-2 and F-SEC-1).
 
 ## 2. Architecture as actually configured
 
+> **Changed since this audit (ADR 0022, 2026-11-06):** production Caddy
+> now runs on the host network and proxies to `127.0.0.1:8000`, and
+> `web` publishes that port on the loopback address only. Without
+> that, rootless Podman's port forwarder hid every visitor's address.
+> The diagram below is the stack as it was audited.
+
 ### Production (`compose.prod.yml`)
 
 ```

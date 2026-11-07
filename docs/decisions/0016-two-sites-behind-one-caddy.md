@@ -52,7 +52,8 @@ variables.**
 
 - `{$CRM_HOST}` addresses the CRM block, which is unchanged in
   behaviour: `/static/*`, `/media/private/*` refused, `/media/*`, then
-  everything else to `web:8000`.
+  everything else to Django (`web:8000` when this was written;
+  `127.0.0.1:8000` since ADR 0022).
 - `{$WEBSITE_HOST} {$WEBSITE_WWW_HOST}` addresses the website block,
   with **one hostname per variable**. The plan had proposed a single
   space-separated `WEBSITE_HOSTS`. That breaks backups:

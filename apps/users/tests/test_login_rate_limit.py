@@ -10,14 +10,16 @@ neither of which is the counting: the cache has to be shared across
 gunicorn's workers, and the client IP has to be the client's.
 """
 
+import threading
 import time
 from datetime import timedelta
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core.cache import cache
-from django.db import connection
+from django.db import connection, connections
 from django.test import TestCase
+from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
 from django.utils import timezone
 
@@ -376,3 +378,100 @@ class WhatWasActuallyWrongTests(TestCase):
         request.META["REMOTE_ADDR"] = "127.0.0.1"
         request.META.pop("HTTP_X_FORWARDED_FOR", None)
         self.assertEqual(throttle.client_ip(request), "127.0.0.1")
+
+
+def _on_its_own_connection(work):
+    """Run `work` in a thread with a database connection of its own.
+
+    Inside a TestCase the test's own connection sits in one transaction
+    that is rolled back at the end, so nothing it writes is visible to
+    another connection, and nothing it deletes is really gone. A thread
+    gets a separate connection whose writes commit, which is what two
+    gunicorn workers are.
+    """
+    errors = []
+
+    def run():
+        try:
+            work()
+        except Exception as error:  # re-raised below, not swallowed
+            errors.append(error)
+        finally:
+            connections.close_all()
+
+    thread = threading.Thread(target=run)
+    thread.start()
+    thread.join(timeout=30)
+    if errors:
+        raise errors[0]
+
+
+class CounterLockTests(TestCase):
+    """Each counter update takes a lock on its key before reading it.
+
+    Counting is a read and then a write, and three gunicorn workers can
+    run it at once: without serialization two failures both read N and
+    both write N + 1 (review of #208). `throttle._serialize` takes a
+    PostgreSQL advisory lock per key for the length of each update.
+    """
+
+    def setUp(self):
+        cache.clear()
+
+    def test_every_count_is_updated_under_a_lock(self):
+        # Deterministic, where the threads below can only fail when the
+        # timing happens to collide: one lock per key, taken before
+        # that key is read.
+        with CaptureQueriesContext(connection) as queries:
+            throttle.note_failure(_a_request(), "sam")
+        statements = [query["sql"] for query in queries.captured_queries]
+        locks = [i for i, sql in enumerate(statements) if "pg_advisory_xact_lock" in sql]
+        reads = [
+            i
+            for i, sql in enumerate(statements)
+            if sql.lstrip().upper().startswith("SELECT") and "crm_cache" in sql
+        ]
+        self.assertEqual(len(locks), 2, "one lock for the address key, one for the username key")
+        self.assertTrue(reads, "the counter was never read")
+        self.assertLess(locks[0], reads[0], "the first key was read before it was locked")
+
+
+class ConcurrentFailureTests(TestCase):
+    """Wrong passwords that land at the same moment are all counted.
+
+    The failures run in threads, each on its own connection, the way
+    gunicorn workers would. An ordinary TestCase rather than a
+    TransactionTestCase, whose flush this database refuses: the retired
+    `crm_deal` table still references `auth_user` (ADR 0012). So the
+    rows the threads commit are cleared the same way they were written,
+    on a connection of their own, and this test's own connection writes
+    nothing, so it holds no row lock a thread could wait on.
+    """
+
+    THREADS = 8
+
+    def setUp(self):
+        _on_its_own_connection(cache.clear)
+        self.addCleanup(_on_its_own_connection, cache.clear)
+
+    def test_simultaneous_failures_are_each_counted(self):
+        start = threading.Barrier(self.THREADS)
+        errors = []
+
+        def fail_once():
+            try:
+                start.wait(timeout=10)
+                throttle.note_failure(_a_request(), "sam")
+            except Exception as error:  # surfaced below, not swallowed
+                errors.append(error)
+            finally:
+                connections.close_all()
+
+        workers = [threading.Thread(target=fail_once) for _ in range(self.THREADS)]
+        for worker in workers:
+            worker.start()
+        for worker in workers:
+            worker.join(timeout=30)
+
+        self.assertEqual(errors, [])
+        self.assertEqual(throttle._count(throttle.username_key("sam")), self.THREADS)
