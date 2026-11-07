@@ -21,6 +21,7 @@ import unicodedata
 
 from django.conf import settings
 from django.core.cache import cache
+from django.db import connection, transaction
 
 # Ten failures in fifteen minutes, per IP and per username. Generous
 # for seven people who occasionally mistype, and useless to anybody
@@ -114,16 +115,43 @@ def note_failure(request, username, now=None):
     """
     now = now or time.time()
     for key in _keys(request, username):
-        stored = cache.get(key)
-        if stored is None:
-            cache.set(key, (1, now + WINDOW_SECONDS), WINDOW_SECONDS)
-            continue
-        count, deadline = stored
-        remaining = int(deadline - now)
-        if remaining <= 0:
-            cache.set(key, (1, now + WINDOW_SECONDS), WINDOW_SECONDS)
-        else:
-            cache.set(key, (count + 1, deadline), remaining)
+        with transaction.atomic():
+            _serialize(key)
+            stored = cache.get(key)
+            if stored is None:
+                cache.set(key, (1, now + WINDOW_SECONDS), WINDOW_SECONDS)
+                continue
+            count, deadline = stored
+            remaining = int(deadline - now)
+            if remaining <= 0:
+                cache.set(key, (1, now + WINDOW_SECONDS), WINDOW_SECONDS)
+            else:
+                cache.set(key, (count + 1, deadline), remaining)
+
+
+def _serialize(key):
+    """Make concurrent failures on one key take turns.
+
+    Counting is a read and then a write. Without this, two wrong
+    passwords landing together in two gunicorn workers both read the
+    same count and both write count + 1, and a burst of guesses is
+    undercounted (review of #208). A PostgreSQL advisory lock on the
+    key, held until the surrounding transaction commits, makes the next
+    failure wait and then read the count the last one wrote. The cache
+    lives in the same database (ADR 0020), so its read and write sit
+    inside the same transaction.
+
+    One key per transaction and never two at once, so two requests can
+    never each hold the lock the other is waiting for.
+
+    What this does not close: up to one request per worker can pass
+    `refuse()` before an earlier failure is counted, because the
+    password check runs in between. With three workers that is a
+    handful of attempts past the limit at most, never an unbounded
+    stream.
+    """
+    with connection.cursor() as cursor:
+        cursor.execute("SELECT pg_advisory_xact_lock(hashtext(%s))", [key])
 
 
 def forget(request, username):

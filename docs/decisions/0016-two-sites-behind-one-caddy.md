@@ -1,5 +1,11 @@
 # 0016 — Two sites behind one Caddy
 
+> **Amended 2026-11-06 by
+> [ADR 0022](0022-caddy-on-the-host-network-for-real-client-addresses.md):**
+> production Caddy now runs on the host network and proxies to
+> `127.0.0.1:8000` instead of `web:8000`, so that it sees real visitor
+> addresses. The site blocks and everything below are unchanged.
+
 *(Number reserved for this decision by `docs/VPS_DEPLOYMENT_PLAN.md`'s
 ADR table; the recommendation is its D7.)*
 
@@ -46,7 +52,8 @@ variables.**
 
 - `{$CRM_HOST}` addresses the CRM block, which is unchanged in
   behaviour: `/static/*`, `/media/private/*` refused, `/media/*`, then
-  everything else to `web:8000`.
+  everything else to Django (`web:8000` when this was written;
+  `127.0.0.1:8000` since ADR 0022).
 - `{$WEBSITE_HOST} {$WEBSITE_WWW_HOST}` addresses the website block,
   with **one hostname per variable**. The plan had proposed a single
   space-separated `WEBSITE_HOSTS`. That breaks backups:

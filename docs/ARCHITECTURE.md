@@ -100,9 +100,12 @@ Three containers, run under Podman:
    environment variables. No secrets baked into the image.
 2. **PostgreSQL** — official PostgreSQL image, data on a named persistent
    volume so container recreation never loses data.
-3. **Caddy** — terminates HTTPS, reverse-proxies to the Django container over
-   the internal Podman network, serves static files efficiently, and is the
-   only container that should ever be reachable from outside the host.
+3. **Caddy** — terminates HTTPS, reverse-proxies to the Django container,
+   serves static files efficiently, and is the only container that should
+   ever be reachable from outside the host. In production it runs on the
+   host network, so it sees real visitor addresses, and reaches Django on
+   `127.0.0.1:8000`, a loopback-only published port (ADR 0022). In
+   development it stays on the compose network and reaches `web:8000`.
    It serves two sites: the CRM on `{$CRM_HOST}`, and the public website
    on `{$WEBSITE_HOST}` (plus `{$WEBSITE_WWW_HOST}`), whose static files
    come from `website/` in this repository and which reaches no part of
@@ -125,8 +128,12 @@ rollback.
 
 ## Security boundaries
 
-- Only Caddy is exposed to the LAN/Internet. Django and PostgreSQL are only
-  reachable over the internal container network.
+- Only Caddy is exposed to the LAN/Internet. In production Caddy runs on
+  the host network, so it sees each visitor's real address. Django is
+  published on `127.0.0.1:8000` only, for Caddy, and PostgreSQL is not
+  published at all
+  (`docs/decisions/0022-caddy-on-the-host-network-for-real-client-addresses.md`).
+  Caddy's admin API is off.
 - Django never terminates HTTPS directly.
 - Secrets (database credentials, `SECRET_KEY`, etc.) are supplied via
   environment variables / an untracked `.env` file, never committed and never

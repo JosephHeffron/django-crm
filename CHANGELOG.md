@@ -222,6 +222,14 @@ for meaningful changes — not for every small fix or documentation tweak.
   actually change, and records tag changes by name.
 
 ### Security
+- **The login limit can no longer be turned against everyone.**
+  Under rootless Podman, Caddy saw every visitor as one internal
+  address, so ten wrong passwords from anybody would have locked the
+  whole team out of signing in for fifteen minutes. In production,
+  Caddy now runs on the host network and sees real visitor addresses.
+  Django listens on the server's loopback address only, and Caddy's
+  admin API is off. The development stack is unchanged
+  (`docs/decisions/0022-caddy-on-the-host-network-for-real-client-addresses.md`).
 - Pillow upgraded to 13.0.0, which fixes 24 CVEs reported against
   12.3.0. It is what re-encodes every uploaded job photo, and that
   re-encode is what strips the picture's GPS location, so it parses

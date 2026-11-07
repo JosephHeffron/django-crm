@@ -1,6 +1,7 @@
 # Production Caddyfile. Only Caddy is ever reachable from outside the
-# host (docs/ARCHITECTURE.md's "Security boundaries") — Django and
-# PostgreSQL stay on the internal compose network. Real automatic
+# host (docs/ARCHITECTURE.md's "Security boundaries"). Caddy runs on the
+# host network so it sees real visitor addresses; Django listens on
+# 127.0.0.1:8000 only, and PostgreSQL is not published (ADR 0022). Real automatic
 # HTTPS (Let's Encrypt) requires a real public domain resolving here;
 # see Caddyfile.dev for local/staging testing without one.
 #
@@ -23,6 +24,16 @@
 # `set -e` (exit 127, reproduced while writing this). DJANGO_ALLOWED_HOSTS
 # keeps its Django meaning only; it was this file's site address until
 # the website arrived.
+
+# Global options. Caddy runs on the host network (compose.prod.yml,
+# docs/decisions/0022-caddy-on-the-host-network-for-real-client-addresses.md),
+# so its admin API, on by default at localhost:2019, would listen on the
+# server's own loopback, where any local account could reconfigure the
+# proxy. Nothing uses it: a deploy recreates the container rather than
+# reloading the config. This block has to come first in the file.
+{
+	admin off
+}
 
 # The three headers Django's SecurityMiddleware would have set
 # (config/settings/production.py's SECURE_CONTENT_TYPE_NOSNIFF,
@@ -104,8 +115,14 @@
 	# the proxied request as already HTTPS (see
 	# logs/claude/phase-08-caddy-https.md), not assumed from Caddy's own
 	# documentation alone.
+	#
+	# 127.0.0.1:8000, not web:8000: Caddy is on the host network and
+	# reaches Django through its loopback-only published port (ADR 0022).
+	# Caddy is now the process that accepted the visitor's connection,
+	# so the address it appends to X-Forwarded-For is the visitor's
+	# real one, which apps/users/throttle.py counts.
 	handle {
-		reverse_proxy web:8000
+		reverse_proxy 127.0.0.1:8000
 	}
 }
 
@@ -115,7 +132,7 @@
 #
 # There is no reverse_proxy in this block, so the public hostnames reach
 # no part of the CRM. Phase 22.5 unit 5 adds exactly one route,
-# `handle /book/* { reverse_proxy web:8000 }`, and
+# `handle /book/* { reverse_proxy 127.0.0.1:8000 }`, and
 # apps/core/tests/test_website.py holds the allow-list it must extend.
 #
 # Website images live under /assets/, never /media/: the private-media

@@ -13,7 +13,7 @@ from django.test import TestCase, override_settings
 from django.urls import reverse
 from PIL import Image
 
-from apps.core.tests._caddy import caddy_env
+from apps.core.tests._caddy import caddy_env, strip_comments
 from apps.crm.tests._helpers import grant_role
 from apps.jobs.media import CONTENT_TYPES, content_type_for
 from apps.jobs.models import ALLOWED_PHOTO_SUFFIXES, Photo
@@ -281,25 +281,6 @@ class AvatarTests(MediaTestCase):
 
     def test_the_file_is_stored_privately(self):
         self.assertTrue(get_profile(self.casey).photo.name.startswith("private/avatars/"))
-
-
-def strip_comments(config):
-    """A Caddyfile comment runs from an unquoted `#` to end of line.
-
-    Commented-out text is not configuration, and a test that cannot
-    tell the difference will pass against a disabled handler.
-    """
-    out = []
-    for line in config.splitlines():
-        quoted = False
-        for i, char in enumerate(line):
-            if char == '"':
-                quoted = not quoted
-            elif char == "#" and not quoted:
-                line = line[:i]
-                break
-        out.append(line)
-    return "\n".join(out)
 
 
 def adapted_routes(name):
